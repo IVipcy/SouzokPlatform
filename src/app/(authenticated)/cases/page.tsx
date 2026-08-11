@@ -125,8 +125,9 @@ export default async function CasesPage() {
   const isOpen = (s: string) => s !== '完了' && s !== 'キャンセル'
   const todayStr = today.toISOString().slice(0, 10)
 
-  // 案件の色はアラートの最大深刻度で決める（要注意/要確認バナーと同じ判定）
-  const alertCtx = await fetchCaseAlertContexts(supabase, cases.map(c => c.id), todayStr)
+  // 案件の色はアラートの最大深刻度で決める（要注意/要確認バナーと同じ判定）。
+  // タスク・案件報告は上で全件取ってあるので渡す（同じテーブルを2回引かない）。
+  const alertCtx = await fetchCaseAlertContexts(supabase, cases.map(c => c.id), todayStr, { tasks, reports })
   const caseAlertHits = new Map(cases.map(c => [c.id, evaluateCaseAlerts(c, alertCtx.get(c.id) ?? {}, todayStr)]))
   const progressByCase = new Map<string, {
     nextCaseTaskId: string | null; nextCaseTaskTitle: string | null

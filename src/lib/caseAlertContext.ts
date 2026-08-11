@@ -20,21 +20,32 @@ const OPEN_TASK = (st: string) => st !== '完了' && st !== 'キャンセル'
  * 案件IDの一覧から、アラート判定に必要な材料を1回ずつのクエリで集めて返す。
  * 取れなかったテーブルの項目は undefined のままにする（＝そのアラートは判定しない）。
  */
+export type AlertPreloaded = {
+  /** 呼び出し元が既に取ってあるタスク（案件一覧など）。渡せばここでは取り直さない。 */
+  tasks?: Array<{ case_id: string; task_kind: string | null; status: string; due_date: string | null }>
+  /** 同上：案件報告 */
+  reports?: Array<{ case_id: string; status: string; confirmed_date: string | null }>
+}
+
 export async function fetchCaseAlertContexts(
   supabase: SupabaseClient,
   caseIds: string[],
   todayStr: string,
+  preloaded: AlertPreloaded = {},
 ): Promise<Map<string, CaseAlertContext>> {
   const out = new Map<string, CaseAlertContext>()
   if (caseIds.length === 0) return out
 
+  const empty = <T,>() => Promise.resolve({ data: [] as T[] })
   const [membersRes, invoicesRes, tasksRes, docsRes, reportsRes] = await Promise.all([
     supabase.from('case_members').select('case_id,role').in('case_id', caseIds),
     supabase.from('invoices').select('case_id,invoice_type,status,created_at,due_date').in('case_id', caseIds),
-    supabase.from('tasks').select('case_id,task_kind,status,due_date').in('case_id', caseIds),
+    preloaded.tasks ? empty<unknown>() : supabase.from('tasks').select('case_id,task_kind,status,due_date').in('case_id', caseIds),
     supabase.from('contract_documents').select('case_id,status,arrival_date').in('case_id', caseIds),
-    supabase.from('progress_reports').select('case_id,status,confirmed_date').in('case_id', caseIds),
+    preloaded.reports ? empty<unknown>() : supabase.from('progress_reports').select('case_id,status,confirmed_date').in('case_id', caseIds),
   ])
+  const taskRows = preloaded.tasks ?? (tasksRes.data ?? [])
+  const reportRows = preloaded.reports ?? (reportsRes.data ?? [])
 
   const managerExists = new Set<string>()
   for (const m of (membersRes.data ?? []) as Array<{ case_id: string; role: string }>) {
@@ -55,7 +66,7 @@ export async function fetchCaseAlertContexts(
   // 事務管理タスクの有無と、タスク期限超過の最大深刻度
   const hasCaseTasks = new Set<string>()
   const taskSev = new Map<string, AlertSeverity>()
-  for (const t of (tasksRes.data ?? []) as Array<{ case_id: string; task_kind: string | null; status: string; due_date: string | null }>) {
+  for (const t of taskRows as Array<{ case_id: string; task_kind: string | null; status: string; due_date: string | null }>) {
     if (t.task_kind === 'case') hasCaseTasks.add(t.case_id)
     if (!OPEN_TASK(t.status)) continue
     const s = sevOf(overdueSeverity(t.due_date, todayStr))
@@ -73,7 +84,7 @@ export async function fetchCaseAlertContexts(
   weekAgo.setDate(weekAgo.getDate() - 7)
   const weekAgoStr = weekAgo.toLocaleDateString('sv-SE')
   const recentWeekly = new Set<string>()
-  for (const r of (reportsRes.data ?? []) as Array<{ case_id: string; status: string; confirmed_date: string | null }>) {
+  for (const r of reportRows as Array<{ case_id: string; status: string; confirmed_date: string | null }>) {
     if (r.status === '確認済' && (r.confirmed_date ?? '') >= weekAgoStr) recentWeekly.add(r.case_id)
   }
 
