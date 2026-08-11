@@ -34,7 +34,7 @@ function SummaryCard({ detail }: { detail: Detail }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <Bucket
           icon={<AlertTriangle className="w-3.5 h-3.5" strokeWidth={2.25} />}
-          tone="late" title="遅れ" count={late.length} empty="期限を過ぎているタスクはありません">
+          tone="late" title="遅れ" note="タスクの期限を過ぎているもの" count={late.length} empty="期限を過ぎているタスクはありません">
           {late.slice(0, 6).map(t => (
             <li key={t.id} className="flex items-baseline gap-1.5">
               <span className="flex-1 truncate">{t.title}</span>
@@ -46,7 +46,8 @@ function SummaryCard({ detail }: { detail: Detail }) {
 
         <Bucket
           icon={<Clock className="w-3.5 h-3.5" strokeWidth={2.25} />}
-          tone="wait" title="待ち" count={waiting.length} empty="相手待ちのものはありません">
+          tone="wait" title="返送・回答待ち" note="請求した書類の返送、確認の回答、調査禁止期間の明けを待っているもの"
+          count={waiting.length} empty="返送や回答を待っているものはありません">
           {waiting.slice(0, 6).map((w, i) => (
             <li key={i} className="flex items-baseline gap-1.5">
               <span className="flex-none text-[11px] text-gray-400">{w.section}</span>
@@ -59,7 +60,7 @@ function SummaryCard({ detail }: { detail: Detail }) {
 
         <Bucket
           icon={<Play className="w-3.5 h-3.5" strokeWidth={2.25} />}
-          tone="prog" title="対応中" count={doing.length} empty="対応中のタスクはありません">
+          tone="prog" title="対応中" note="こちらが手を動かしている最中のもの" count={doing.length} empty="対応中のタスクはありません">
           {doing.slice(0, 6).map((d, i) => (
             <li key={i} className="flex items-baseline gap-1.5">
               <span className="flex-none text-[11px] text-gray-400">{d.section}</span>
@@ -70,7 +71,8 @@ function SummaryCard({ detail }: { detail: Detail }) {
         </Bucket>
       </div>
       <p className="mt-2.5 text-[11px] text-gray-400">
-        未着手のタスクは {todoCount} 件です。「遅れ」はタスクの期限を過ぎたもの、「待ち」は請求済・確認依頼中・調査禁止期間中など、こちらの手が離れているものです。
+        未着手のタスクは {todoCount} 件です。「返送・回答待ち」は、戸籍や残高証明・登記情報を請求して先方からの返送を待っているもの、
+        管理担当の確認を依頼して回答を待っているもの、調査禁止期間で動けないもので、いずれもこちらの手が離れている状態です。
       </p>
     </div>
   )
@@ -80,21 +82,24 @@ const BUCKET_HEAD: Record<'late' | 'wait' | 'prog', string> = {
   late: 'text-red-700', wait: 'text-sky-700', prog: 'text-amber-800',
 }
 
-function Bucket({ icon, tone, title, count, empty, children }: {
+function Bucket({ icon, tone, title, note, count, empty, children }: {
   icon: React.ReactNode
   tone: 'late' | 'wait' | 'prog'
   title: string
+  /** 見出しの下に出す一行説明。何を数えているのかを見出しだけで分からせないため。 */
+  note: string
   count: number
   empty: string
   children: React.ReactNode
 }) {
   return (
     <div className="bg-gray-50/70 rounded-lg px-3 py-2.5 min-w-0">
-      <div className={`flex items-center gap-1.5 mb-1.5 ${BUCKET_HEAD[tone]}`}>
+      <div className={`flex items-center gap-1.5 ${BUCKET_HEAD[tone]}`}>
         {icon}
         <span className="text-[12.5px] font-bold">{title}</span>
         <span className="text-[15px] font-bold tabular-nums">{count}</span>
       </div>
+      <p className="text-[10.5px] text-gray-400 mb-1.5 leading-snug">{note}</p>
       {count === 0
         ? <p className="text-[11.5px] text-gray-400">{empty}</p>
         : <ul className="space-y-0.5 text-[12px] text-gray-700">{children}</ul>}
