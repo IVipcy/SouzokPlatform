@@ -132,13 +132,16 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   // 案件詳細を開くたびに出す。面談結果登録の直後には出さない（登録した本人にしか届かず、
   // 翌日以降に開いた人が気づけないため）。初期値で開くので useEffect は使わない。
   //
-  // ただし割振り担当には出さない。通知から開いた本人に「割振りを依頼してください」と出ると、
-  // アサインしに来たのに閉じる操作から始めることになるため。
+  // ただし次のときは出さない。
+  //   ・割振り担当本人（依頼を出す側ではなく受ける側）
+  //   ・担当者タブを直接開いたとき。割振り依頼の通知は /cases/{id}?tab=assignees へ飛ぶので、
+  //     ここへ来た人はアサインしに来ている。依頼のポップを出すと閉じる操作から始まってしまう。
   const [assignReqOpen, setAssignReqOpen] = useState(() =>
     ASSIGN_PROMPT_STATUSES.has(caseDataProp.status)
     && !caseMembers.some(cm => cm.role === 'manager')
     && !caseDataProp.manager_assign_skipped
     && !allMembers.find(m => m.id === currentMemberId)?.is_dispatcher
+    && tabFromUrl !== 'assignees'
     && !gatesDisabled())
   // 案件ステータス→「完了」ゲート：請求パターン別の入金完了条件を満たしていない時に表示するモーダル
   const [completionBlocked, setCompletionBlocked] = useState<{ missing: MissingInvoice[]; pendingRefunds: PendingRefund[]; missingReferrals: MissingReferral[]; billingPattern: string; hasInvoices: boolean } | null>(null)
