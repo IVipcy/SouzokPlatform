@@ -7,7 +7,6 @@ import HankoStamp from '@/components/ui/HankoStamp'
 import { createClient } from '@/lib/supabase/client'
 import { uploadFilesToCaseFolder } from '@/lib/caseFolder'
 import { showToast } from '@/components/ui/Toast'
-import { todayJstYmd } from '@/lib/dashboardMetrics'
 import { deliverableLinkLabel } from '@/lib/deliverables'
 import { ACQUISITION_ITEMS } from '@/lib/constants'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
@@ -62,51 +61,24 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
   const canManageReceipt = (r: DocumentReceiptRow) => globalCanManage || opSet.has(r.case_id)
   const [startingReceipt, setStartingReceipt] = useState<DocumentReceiptRow | null>(null)
   const [cancelingReceipt, setCancelingReceipt] = useState<DocumentReceiptRow | null>(null)
-  const [tab, setTab] = useState<'today' | 'past'>('today')
-
-  const today = todayJstYmd(new Date())
-  // 当日分 = 受信日が本日以降（基本は当日に届いたもの）
-  const todayReceipts = receipts.filter(r => (r.received_date ?? '') >= today)
-  // 過去日分 = 受信日が本日より前。新しい順。
-  const pastReceipts = receipts
-    .filter(r => (r.received_date ?? '') < today)
-    .sort((a, b) => (b.received_date ?? '').localeCompare(a.received_date ?? '') || (b.sequence_no - a.sequence_no))
-  // 到着日ごとにグループ化（見出しで「何月何日分」にすぐたどり着けるように）。pastReceipts は既に日付降順。
-  const pastGroups: { date: string; rows: typeof pastReceipts }[] = []
-  for (const r of pastReceipts) {
-    const d = r.received_date ?? ''
-    const last = pastGroups[pastGroups.length - 1]
-    if (last && last.date === d) last.rows.push(r)
-    else pastGroups.push({ date: d, rows: [r] })
-  }
-
-  if (receipts.length === 0 && !singleDay) {
-    return (
-      <div className="bg-white border border-gray-200 rounded-lg p-10 text-center">
-        <p className="text-[13px] text-gray-500">まだ受信記録はありません。</p>
-        <p className="text-[12px] text-gray-400 mt-1">右上の「+ 新規作成」から登録できます。</p>
-      </div>
-    )
-  }
-
-  // 到着日で1日に絞っているときは、その日の分をそのまま並べる（当日/過去の区別は要らない）
-  const oneDayList = [...receipts].sort((a, b) =>
+  // 当日分/過去日分のタブは廃止（上の「到着日」で絞るので二重だった）。
+  // 新しい日から順に並べ、日をまたぐときだけ日付の見出しを挟む。
+  const list = [...receipts].sort((a, b) =>
     (b.received_date ?? '').localeCompare(a.received_date ?? '') || (b.sequence_no - a.sequence_no))
-  const list = singleDay ? oneDayList : tab === 'today' ? todayReceipts : pastReceipts
+  const groups: { date: string; rows: typeof list }[] = []
+  for (const r of list) {
+    const d = r.received_date ?? ''
+    const last = groups[groups.length - 1]
+    if (last && last.date === d) last.rows.push(r)
+    else groups.push({ date: d, rows: [r] })
+  }
+  const showDateHeader = groups.length > 1   // 1日ぶんだけなら見出しは邪魔
 
   return (
     <div>
-      {/* タブ: 当日分 / 過去日分。到着日で1日に絞っているときは出さない（絞り込みと二重になる） */}
-      {!singleDay && (
-        <div className="flex items-center gap-1 border-b border-gray-200 mb-3">
-          <TabButton active={tab === 'today'} onClick={() => setTab('today')} label="当日分" count={todayReceipts.length} />
-          <TabButton active={tab === 'past'} onClick={() => setTab('past')} label="過去日分" count={pastReceipts.length} />
-        </div>
-      )}
-
       {list.length === 0 ? (
         <div className="bg-white border border-gray-200 rounded-lg p-10 text-center text-[13px] text-gray-400">
-          {singleDay ? 'この日の到着物はありません。' : tab === 'today' ? '本日到着の到着物はありません。' : '過去日分の未処理の到着物はありません。'}
+          {singleDay ? 'この日の到着物はありません。' : 'まだ受信記録はありません。右上の「+ 新規作成」から登録できます。'}
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
@@ -140,33 +112,17 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
               </tr>
             </thead>
             <tbody>
-              {tab === 'past' && !singleDay
-                ? pastGroups.map(g => (
-                    <Fragment key={g.date}>
-                      <tr className="bg-brand-50/50 border-y border-brand-100">
-                        <td colSpan={11} className="px-2.5 py-1.5 text-[12px] font-semibold text-brand-700">
-                          {formatReceiptDateHeader(g.date)}
-                          <span className="ml-2 font-normal text-gray-500">{g.rows.length}件</span>
-                        </td>
-                      </tr>
-                      {g.rows.map((r, i) => (
-                        <ReceiptRow
-                          key={r.id}
-                          receipt={r}
-                          rowBg={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}
-                          currentMemberId={currentMemberId}
-                          currentMember={currentMember}
-                          teams={teams}
-                          onChanged={onChanged}
-                          onStartRequest={setStartingReceipt}
-                          onCancelRequest={setCancelingReceipt}
-                          canManage={canManageReceipt(r)}
-                          onReRegister={onReRegister}
-                        />
-                      ))}
-                    </Fragment>
-                  ))
-                : list.map((r, i) => (
+              {groups.map(g => (
+                <Fragment key={g.date}>
+                  {showDateHeader && (
+                    <tr className="bg-brand-50/50 border-y border-brand-100">
+                      <td colSpan={11} className="px-2.5 py-1.5 text-[12px] font-semibold text-brand-700">
+                        {formatReceiptDateHeader(g.date)}
+                        <span className="ml-2 font-normal text-gray-500">{g.rows.length}件</span>
+                      </td>
+                    </tr>
+                  )}
+                  {g.rows.map((r, i) => (
                     <ReceiptRow
                       key={r.id}
                       receipt={r}
@@ -181,6 +137,8 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                       onReRegister={onReRegister}
                     />
                   ))}
+                </Fragment>
+              ))}
             </tbody>
           </table>
         </div>
@@ -316,21 +274,6 @@ function ReceiptFolderActions({ receipt, currentMemberId, onChanged }: {
   )
 }
 
-function TabButton({ active, onClick, label, count, badge }: { active: boolean; onClick: () => void; label: string; count: number; badge?: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-semibold border-b-2 -mb-px transition-colors ${
-        active ? 'border-brand-600 text-brand-700' : 'border-transparent text-gray-500 hover:text-gray-800'
-      }`}
-    >
-      {label}
-      <span className={`text-[12px] font-mono ${active ? 'opacity-80' : 'opacity-50'}`}>{count}</span>
-      {badge && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">{badge}</span>}
-    </button>
-  )
-}
 
 // 到着物の種類(linked_kind) → 関係する業務。候補タスクをこの業務に絞る。
 const KIND_GYOMU: Record<string, string[]> = {

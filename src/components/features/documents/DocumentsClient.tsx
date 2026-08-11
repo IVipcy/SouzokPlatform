@@ -50,9 +50,9 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
   }, [documents])
 
   const [search, setSearch] = useState('')
-  // 到着日で絞る。過去の日をさかのぼって見るための絞り込み。空＝すべての日。
+  // 到着日で絞る。既定は本日（開いてすぐ「今日届いた分」が出る）。空＝すべての日。
   // 案件での絞り込みは廃止（受信簿は「その日に何が届いたか」を見る台帳で、案件で見るなら案件詳細から入る）。
-  const [dateFilter, setDateFilter] = useState<string>('')
+  const [dateFilter, setDateFilter] = useState<string>(() => todayYmd())
   const [location, setLocation] = useState<string | null>(null)  // 選んだ拠点。null=拠点選択トップ
   const [receiptModalOpen, setReceiptModalOpen] = useState(false)
   const [editReceipt, setEditReceipt] = useState<EditReceiptInfo | null>(null)
