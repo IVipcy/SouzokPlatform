@@ -3,7 +3,7 @@
 import {
   Section, FieldGrid, Field, InlineEdit, InlineSelect, InlineDate,
 } from '@/components/ui/InlineFields'
-import { LOCATIONS } from '@/lib/constants'
+import { LOCATIONS, DIFFICULTY_LEVELS } from '@/lib/constants'
 import type { CaseRow } from '@/types'
 import TabHeader from './TabHeader'
 
@@ -29,9 +29,11 @@ export default function OwnerSalesTab({ caseData, patchCase }: Props) {
       {/* 案件情報（被相続人情報・手続詳細はオーダーシートで入力） */}
       <Section title="案件情報">
         <FieldGrid>
-          <InlineEdit label="案件管理番号" value={caseData.case_number} onSave={v => save('case_number', v)} required />
+          {/* 案件管理番号は自動採番（YYMM＋経路コード＋当日連番）。請求書・封筒にも出る識別子なので、
+              画面からは直せないようにする。経路コードは受注ルートを入れた時点で自動で入る。 */}
+          <Field label="案件管理番号（自動採番）" value={caseData.case_number} mono />
           <InlineEdit label="LP案件管理番号" value={caseData.lp_case_number} onSave={v => save('lp_case_number', v)} />
-          <InlineSelect label="難易度" value={caseData.difficulty} options={['易', '普', '難']} onSave={v => save('difficulty', v)} />
+          <InlineSelect label="難易度" value={caseData.difficulty} options={[...DIFFICULTY_LEVELS]} onSave={v => save('difficulty', v)} />
           <InlineSelect label="原本保管場所" value={caseData.location} options={[...LOCATIONS]} onSave={v => save('location', v)} required />
           <InlineDate label="受注日（受託日）" value={caseData.order_received_date} onSave={v => save('order_received_date', v || null)} />
           <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => save('expected_completion_date', v || null)} />
