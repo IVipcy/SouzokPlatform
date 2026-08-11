@@ -261,7 +261,7 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
       <div key={c.id} className={`rounded-lg border transition-colors ${on ? 'border-brand-300 bg-brand-50/60' : reason ? 'border-amber-200 bg-amber-50/30' : 'border-gray-200'}`}>
         <label className="flex items-center gap-2 px-2.5 py-2 cursor-pointer flex-wrap">
           <input type="checkbox" checked={on} onChange={() => toggle(c.id)} className="w-4 h-4 accent-brand-600" />
-          <TantoKubunBadge kind={c.task_kind} size="xs" />
+          <TantoKubunBadge task={c} size="xs" />
           <KoteiBadge phase={c.phase} width={92} />
           <GyomuBadge phase={c.phase} width={52} />
           <span className="text-[13px] text-gray-800 truncate">{c.title}</span>

@@ -46,6 +46,7 @@ import ProgressBoard from './ProgressBoard'
 import CaseComposeProvider from './CaseComposeProvider'
 import { buildProgressBoard } from '@/lib/caseProgressBoard'
 import { buildProgressDetail } from '@/lib/caseProgressDetail'
+import { systemTaskGroup } from '@/lib/systemTaskGroup'
 import BulkTaskGenerateModal from './BulkTaskGenerateModal'
 
 import AddTaskModal from './AddTaskModal'
@@ -423,6 +424,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   //   ／法定相続一覧図／他事業者紹介／請求／タスク。案件進捗(basicInfo)は撤去。
   // ※システム管理者(system_manager)や受注担当・事務管理担当は従来どおり全タブ。
   const isManagerViewer = viewerRole === 'manager' || viewerRole === 'sub_manager'
+  const isSalesViewer = viewerRole === 'sales'
   // 管理担当が行う実務タブ（受注区分→業務で許可されたものだけ表示。allowedPracticeTabs 未定義＝全表示）。
   const MANAGER_PRACTICE: TabKey[] = ['trust', 'will', 'probate', 'guardianship', 'mediation', 'succession', 'legalInfo']
   const managerPractice = MANAGER_PRACTICE.filter(t => !allowedPracticeTabs || allowedPracticeTabs.includes(t))
@@ -445,14 +447,23 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       ? v
       : { visible: v.visible.filter(t => !MANAGER_ONLY_PRACTICE.includes(t) || t === activeTab), collapsed: v.collapsed }
 
-  // タスクタブの数字＝いま着手できるものだけ。未着手を全部数えると
-  // 「やっていないタスクが山ほどある」ように見えて焦るため。
+  // タスクタブの数字＝その人が「いま手をつけられる数」。
+  // 未着手を全部数えると、やっていないタスクが山ほどあるように見えて焦るため。
+  //   事務管理担当 … 事務管理タスクの着手OK
+  //   受注担当     … その他タスク（随時）の未完了。その他には着手OKのフラグが無いため
+  //   管理担当     … 業務タスクの着手OK ＋ その他タスクの未完了
+  // ※「その他」は受注担当ぶん・管理担当ぶんを分けずに数える（タブが両方まとめて出しているため）。
   const tabTaskCount = (() => {
     const rr = toReadinessReceipts(documentReceipts ?? [])
     const open = tasks.filter(t => normalizeTaskStatus(t.status) !== '完了')
-    return isManagerViewer
-      ? open.filter(t => t.task_kind === 'system').length
-      : open.filter(t => getStartSignal(t, rr).ready).length
+    const system = open.filter(t => t.task_kind === 'system')
+    const otherOpen = system.filter(t => systemTaskGroup(t) === 'other').length
+    if (isSalesViewer) return otherOpen
+    if (isManagerViewer) {
+      const gyomuReady = system.filter(t => systemTaskGroup(t) === 'gyomu' && getStartSignal(t, rr).ready).length
+      return gyomuReady + otherOpen
+    }
+    return open.filter(t => t.task_kind === 'case' && getStartSignal(t, rr).ready).length
   })()
 
   // 隠している管理担当タブの数（トグルの表示判定・件数表示に使う）

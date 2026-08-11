@@ -19,6 +19,7 @@ import { taskSeverity, SEVERITY_RANK, SEVERITY_TAB, SEVERITY_TAB_NOTE, SEVERITY_
 import { bizDaysUntil } from '@/lib/overdue'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { GyomuBadge } from '@/components/ui/KoteiBadge'
+import { TantoKubunBadge } from '@/components/ui/TantoKubunBadge'
 import { getStartSignal, isWaitingReceipt, receiptWaitNote, type ReadinessReceipt } from '@/lib/taskReadiness'
 import { isTaskFreezeBlocked } from '@/lib/financeFreeze'
 import { useCurrentMember } from '@/lib/useCurrentMember'
@@ -55,6 +56,13 @@ type Props = {
   embedded?: boolean
   /** バナーから飛んできたときの絞り込み指定。key が変わるたびに反映する。 */
   jump?: TaskJump | null
+  /**
+   * 案件詳細のタスクタブに埋め込むとき。
+   * 一覧（事務管理タスク一覧）は「着手できるものだけ」を出すが、案件詳細では
+   * この案件で作ったタスクを全部見たいので、着手できない未着手も出す（ステータスに「未着手」を足す）。
+   * 案件・受注担当・管理担当の列は案件内で一定なので出さない。
+   */
+  caseScope?: boolean
 }
 
 /** ダッシュボードのバナー →「すべて」タブを指定条件で絞った状態にする指示 */
@@ -174,7 +182,7 @@ function Chip({ label, note, tone, on, onClick }: {
   )
 }
 
-export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [], roleScope = 'assistant', financeBlockedCaseIds = [], freezeAssetsByCase = {}, embedded = false, jump = null }: Props) {
+export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [], roleScope = 'assistant', financeBlockedCaseIds = [], freezeAssetsByCase = {}, embedded = false, jump = null, caseScope = false }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentMemberId = useCurrentMember(serverMemberId)
@@ -240,14 +248,19 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   const assistantTasks = useMemo(
     () => tasks.filter(t => {
       if (!isTaskInRoleScope(t, roleScope)) return false
+      if (caseScope) return true   // 案件詳細＝この案件で作ったタスクを全部出す
       return normalizeStatus(t.status) !== '着手前' || getStartSignal(t, receipts).ready
     }),
-    [tasks, roleScope, receipts],
+    [tasks, roleScope, receipts, caseScope],
   )
+  /** 着手前のうち、いま着手できるか。案件詳細では「未着手」と「着手OK」を分けるのに使う。 */
+  const isReady = useCallback((t: TaskRow) => getStartSignal(t, receipts).ready, [receipts])
 
   const filtered = useMemo(() => {
     let result = assistantTasks
-    if (statusFilter !== 'all') result = result.filter(t => normalizeStatus(t.status) === statusFilter)
+    if (statusFilter === 'notReady') result = result.filter(t => normalizeStatus(t.status) === '着手前' && !isReady(t))
+    else if (statusFilter === '着手前') result = result.filter(t => normalizeStatus(t.status) === '着手前' && (!caseScope || isReady(t)))
+    else if (statusFilter !== 'all') result = result.filter(t => normalizeStatus(t.status) === statusFilter)
     if (filterMine && currentMemberId) {
       result = result.filter(t =>
         t.started_by === currentMemberId ||
@@ -307,7 +320,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       const bd = b.due_date ?? '9999-12-31'
       return ad.localeCompare(bd)
     })
-  }, [assistantTasks, statusFilter, filterMine, taskTab, search, caseMap, currentMemberId, today, sevFilter, priFilter, sortKey, sortDir])
+  }, [assistantTasks, statusFilter, filterMine, taskTab, search, caseMap, currentMemberId, today, sevFilter, priFilter, sortKey, sortDir, caseScope, isReady])
 
   // 業務タブごとの件数と重さ。タブの並びは定義どおり固定で、0件でも出す
   // （「そのタブは今やることが無い」ことが分かるほうが探しやすい）。
@@ -331,12 +344,17 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     return m
   }, [assistantTasks, today])
 
-  const kpis = useMemo(() => ({
-    total: assistantTasks.length,
-    todo: assistantTasks.filter(t => normalizeStatus(t.status) === '着手前').length,
-    doing: assistantTasks.filter(t => normalizeStatus(t.status) === '対応中').length,
-    done: assistantTasks.filter(t => normalizeStatus(t.status) === '完了').length,
-  }), [assistantTasks])
+  const kpis = useMemo(() => {
+    const pre = assistantTasks.filter(t => normalizeStatus(t.status) === '着手前')
+    return {
+      total: assistantTasks.length,
+      // 案件詳細では着手前を「未着手（まだ着手できない）」と「着手OK」に割る
+      notReady: caseScope ? pre.filter(t => !isReady(t)).length : 0,
+      todo: caseScope ? pre.filter(t => isReady(t)).length : pre.length,
+      doing: assistantTasks.filter(t => normalizeStatus(t.status) === '対応中').length,
+      done: assistantTasks.filter(t => normalizeStatus(t.status) === '完了').length,
+    }
+  }, [assistantTasks, caseScope, isReady])
 
   const myTaskCount = currentMemberId
     ? assistantTasks.filter(t =>
@@ -543,6 +561,9 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           <span className="text-[11.5px] font-semibold text-gray-400">ステータス</span>
           <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
             <FilterTab label="すべて"   count={kpis.total}    active={statusFilter === 'all'}    onClick={() => setStatusFilter('all')} />
+            {caseScope && (
+              <FilterTab label="未着手" count={kpis.notReady} active={statusFilter === 'notReady'} onClick={() => setStatusFilter('notReady')} />
+            )}
             <FilterTab label="着手OK"   count={kpis.todo}     active={statusFilter === '着手前'} onClick={() => setStatusFilter('着手前')} />
             <FilterTab label="対応中"   count={kpis.doing}    active={statusFilter === '対応中'} onClick={() => setStatusFilter('対応中')} />
             <FilterTab label="完了"     count={kpis.done}     active={statusFilter === '完了'}   onClick={() => setStatusFilter('完了')} />
@@ -656,6 +677,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         sortKey={sortKey}
         sortDir={sortDir}
         onSort={handleSort}
+        caseScope={caseScope}
       />
       </>
 
@@ -713,6 +735,7 @@ function ListView({
   sortKey,
   sortDir,
   onSort,
+  caseScope,
 }: {
   tasks: TaskRow[]
   caseMap: Record<string, CaseInfo>
@@ -731,9 +754,10 @@ function ListView({
   sortKey: SortKey
   sortDir: 'asc' | 'desc'
   onSort: (key: SortKey) => void
+  caseScope: boolean
 }) {
   const { widths, reset, startResize } = useResizableColumns('taskListColWidths', {
-    select: 40, gyomu: 124, title: 220, priority: 96, status: 96, readyReason: 280, caseCol: 190, sales: 100, manager: 100, due: 100, remain: 96,
+    select: 40, gyomu: 124, tanto: 118, title: 220, priority: 96, status: 96, readyReason: 280, caseCol: 190, sales: 100, manager: 100, due: 100, remain: 96,
     execResult: 200,
     action: 110, ops: 40,
   })
@@ -741,13 +765,17 @@ function ListView({
   const HEADERS: Array<{ key: keyof typeof widths; label: string; sort?: SortKey }> = [
     { key: 'select',     label: '' },
     { key: 'gyomu',      label: '業務区分' },
+    { key: 'tanto',      label: '担当区分' },
     { key: 'title',      label: 'タスク名' },
     { key: 'priority',   label: '優先度', sort: 'priority' },
     { key: 'status',     label: 'ステータス' },
     { key: 'readyReason', label: '着手OK理由' },
-    { key: 'caseCol',    label: '案件' },
-    { key: 'sales',      label: '受注担当' },
-    { key: 'manager',    label: '管理担当' },
+    // 案件詳細では案件・受注担当・管理担当は全行で同じなので出さない
+    ...(caseScope ? [] : [
+      { key: 'caseCol' as const, label: '案件' },
+      { key: 'sales' as const,   label: '受注担当' },
+      { key: 'manager' as const, label: '管理担当' },
+    ]),
     { key: 'due',        label: '期限' },
     { key: 'remain',     label: '残り', sort: 'remain' },
     { key: 'execResult', label: '実施結果' },
@@ -833,6 +861,7 @@ function ListView({
                 selected={selectedIds.has(task.id)}
                 onToggleSelect={() => onToggleSelect(task.id)}
                 roleScope={roleScope}
+                caseScope={caseScope}
               />
             ))}
           </tbody>
@@ -844,7 +873,7 @@ function ListView({
 }
 
 // ─── 1行 ───
-function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdvance, loading, onDelete, onSetPriority, selected, onToggleSelect, roleScope }: {
+function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdvance, loading, onDelete, onSetPriority, selected, onToggleSelect, roleScope, caseScope }: {
   task: TaskRow
   caseMap: Record<string, CaseInfo>
   allMembers: MemberRow[]
@@ -857,6 +886,7 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
   selected: boolean
   onToggleSelect: () => void
   roleScope: 'assistant' | 'manager'
+  caseScope: boolean
 }) {
   const status = normalizeStatus(task.status)
   const caseInfo = caseMap[task.case_id]
@@ -884,6 +914,9 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
 
       {/* 業務区分 */}
       <td className="px-3.5 py-2.5"><GyomuBadge phase={task.phase} /></td>
+
+      {/* 担当区分（誰が持つタスクか）。事務管理=ピンク／管理担当=みどり／受注担当=青／相続登記T=紫。 */}
+      <td className="px-3.5 py-2.5"><TantoKubunBadge task={task} /></td>
 
       {/* タスク名 */}
       <td className="px-3.5 py-2.5 relative">
@@ -959,7 +992,8 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
           : <span className="text-[12px] text-gray-300">—</span>}
       </td>
 
-      {/* 案件 */}
+      {/* 案件・受注担当・管理担当（案件詳細では全行同じなので出さない） */}
+      {!caseScope && (<>
       <td className="px-3.5 py-2.5 min-w-0">
         {caseInfo ? (
           <a href={`/cases/${task.case_id}`} className="block group/link">
@@ -1000,6 +1034,7 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
           <span className="text-[12px] text-gray-300">—</span>
         )}
       </td>
+      </>)}
 
       {/* 期限 */}
       <td className="px-3.5 py-2.5">

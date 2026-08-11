@@ -493,7 +493,7 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
                         <label key={c.key} className={`flex items-center gap-3 px-4 py-2 text-sm ${gen ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'}`}>
                           <input type="checkbox" checked={selected.has(c.key)} disabled={gen} onChange={() => toggle(c.key)} className="accent-brand-600 w-3.5 h-3.5" />
                           <span className="flex-1 text-gray-700">{c.title}</span>
-                          <TantoKubunBadge kind={kindOfCandidate(c)} size="xs" />
+                          <TantoKubunBadge task={{ task_kind: kindOfCandidate(c), assign_role: 'manager' }} size="xs" />
                           {gen && (
                             <span className="text-[12px] text-green-600 font-medium bg-green-50 px-1.5 py-0.5 rounded">生成済</span>
                           )}

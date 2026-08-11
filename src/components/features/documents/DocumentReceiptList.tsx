@@ -672,7 +672,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
                     onClick={() => toggle(it.id, t.id)}
                     className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-[12px] cursor-pointer transition-colors ${on ? 'bg-brand-600 border-brand-600 text-white font-semibold' : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-brand-300 hover:bg-white hover:text-brand-700'}`}
                   >
-                    {on ? <Play className="w-3 h-3" strokeWidth={2.5} /> : <TantoKubunBadge kind={t.task_kind} size="xs" iconOnly />}{t.title}
+                    {on ? <Play className="w-3 h-3" strokeWidth={2.5} /> : <TantoKubunBadge task={t} size="xs" iconOnly />}{t.title}
                   </button>
                 )
               }

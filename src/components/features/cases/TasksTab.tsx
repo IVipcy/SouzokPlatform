@@ -1,26 +1,17 @@
 'use client'
 
-import { useState, useMemo, useEffect, useTransition } from 'react'
-import { systemTaskGroup, SYSTEM_GROUP_LABEL, SYSTEM_GROUP_NOTE, type SystemTaskGroup } from '@/lib/systemTaskGroup'
+import { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ClipboardList, Plus, Briefcase, Layers, PackageCheck } from 'lucide-react'
+import { ClipboardList, Plus } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { SubTabs } from '@/components/ui/SubTabs'
 import { Section } from '@/components/ui/InlineFields'
-import MultiSelectFilter from '@/components/ui/MultiSelectFilter'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
-import TaskKanbanView from '@/components/features/tasks/TaskKanbanView'
-import CaseTaskTableView from './CaseTaskTableView'
+import TaskListClient from '@/components/features/tasks/TaskListClient'
 import CompleteTaskModal from '@/components/features/tasks/CompleteTaskModal'
-import { LayoutGrid, List } from 'lucide-react'
 import { useCurrentMember } from '@/lib/useCurrentMember'
-import { createClient } from '@/lib/supabase/client'
-import { showToast } from '@/components/ui/Toast'
 import TabHeader from './TabHeader'
-import { toReadinessReceipts, getStartSignal } from '@/lib/taskReadiness'
-import { GYOMU_ALL } from '@/lib/serviceMaster'
-import { koteiOf, koteiRank } from '@/lib/kotei'
-import { isTaskFreezeBlocked } from '@/lib/financeFreeze'
+import { toReadinessReceipts } from '@/lib/taskReadiness'
 import type { TimelineReceipt } from './CaseTimeline'
 import type { TaskRow, MemberRow } from '@/types'
 
@@ -47,7 +38,7 @@ const normalizeStatus = (status: string) => {
   return status
 }
 
-export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBulkGenerate, onAddTask, documentReceipts, caseStatus, financeAssets = [], hideCaseTasks = false }: Props) {
+export default function TasksTab({ tasks, allMembers, currentMemberId: serverMemberId, onBulkGenerate, onAddTask, documentReceipts, caseStatus, financeAssets = [], hideCaseTasks = false }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const currentMemberId = useCurrentMember(serverMemberId)
@@ -56,55 +47,8 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
   const isManagementPhase = caseStatus === '対応中' || caseStatus === '完了'
   // 区分タブ（受注担当/管理担当＝system / 事務管理＝case）とステータス絞り込み（複数選択・全OFF=全表示）
   const [kind, setKind] = useState<'system' | 'case'>(hideCaseTasks ? 'system' : isManagementPhase ? 'case' : 'system')
-  // 受注担当/管理担当タスクの内訳（業務＝案件を進めるもの／その他＝随時発生）。
-  // 既定は「業務」。案件がどこまで進んだかを見る用が主なので。
-  const [sysGroup, setSysGroup] = useState<SystemTaskGroup>('gyomu')
-  // ステータス絞り込み（/tasks と同じ：単一選択 'all'/着手前/対応中/完了）＋着手OKトグル
-  const [statusFilter, setStatusFilter] = useState<'all' | '着手前' | '対応中' | '完了'>('all')
-  const [readyOnly, setReadyOnly] = useState(false)
-  // 工程／業務区分フィルタ（OR・全空=絞り込みなし）。受注区分は1案件で固定のため出さない。
-  const [koteiFilter, setKoteiFilter] = useState<Set<string>>(new Set())
-  const [gyomuFilter, setGyomuFilter] = useState<Set<string>>(new Set())
-  const [caseView, setCaseView] = useState<'kanban' | 'table'>('table')
-  const [busyId, setBusyId] = useState<string | null>(null)
   const [completeTask, setCompleteTask] = useState<TaskRow | null>(null)
-  const today = new Date().toISOString().split('T')[0]
 
-  // カンバンの「着手→完了」アクション。事務管理タスクのカード操作用。
-  const handleAdvance = async (task: TaskRow) => {
-    if (busyId) return
-    const current = normalizeStatus(task.status)
-    if (current === '完了') return
-    // 事務管理タスクの完了は完了ゲートを通す
-    if (current === '対応中' && task.task_kind !== 'system') {
-      setCompleteTask(task)
-      return
-    }
-    // 解約タスクは対象機関の口座凍結が未確認だと着手不可（機関単位のハード制限）
-    if (current === '着手前' && isTaskFreezeBlocked(task, financeAssets)) {
-      showToast('口座の凍結確認が未完了です。財産調査タブで管理担当が凍結確認すると着手できます', 'error')
-      return
-    }
-    setBusyId(task.id)
-    try {
-      const supabase = createClient()
-      const next = current === '着手前' ? '対応中' : '完了'
-      const patch: { status: string; started_by?: string; started_at?: string } = { status: next }
-      if (next === '対応中' && currentMemberId && !task.started_by) {
-        patch.started_by = currentMemberId
-        patch.started_at = new Date().toISOString()
-      }
-      const { error } = await supabase.from('tasks').update(patch).eq('id', task.id)
-      if (error) throw error
-      showToast(`「${task.title}」を${next === '対応中' ? '着手' : '完了'}しました`, 'success')
-      startTransition(() => router.refresh())
-    } catch (e) {
-      console.error(e)
-      showToast('エラーが発生しました', 'error')
-    } finally {
-      setBusyId(null)
-    }
-  }
 
   // 進捗率。管理担当ビュー(hideCaseTasks)は受注担当/管理担当タスク(system)のみで集計する。それ以外は全タスク。
   const progressTasks = hideCaseTasks ? tasks.filter(t => t.task_kind === 'system') : tasks
@@ -116,102 +60,16 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
   // 空状態・区分タブ等の構造判定は全タスクで（管理担当でsystemが0でも一覧構造は維持）
   const hasAnyTask = tasks.length > 0
 
-  const systemCount = tasks.filter(t => t.task_kind === 'system').length
+  const caseId = tasks[0]?.case_id ?? null
+  const systemTasks = tasks.filter(t => t.task_kind === 'system')
+  const systemCount = systemTasks.length
   const caseCount = tasks.filter(t => t.task_kind === 'case').length
   // 対応中以降は事務管理タスクを先頭、それ以前は受注/管理担当タスクを先頭にする
   const caseTab = { key: 'case', label: `事務管理タスク ${caseCount}` }
   const systemTab = { key: 'system', label: `受注担当/管理担当タスク ${systemCount}` }
   const KIND_TABS = hideCaseTasks ? [systemTab] : isManagementPhase ? [caseTab, systemTab] : [systemTab, caseTab]
 
-  const gyomuOf = (t: TaskRow) => (t.phase ?? '').replace(/^Phase\d+[:：]\s*/, '')
-  // 業務区分の選択肢（事務管理タスクに存在するものを正準順序で）
-  const gyomuOptions = useMemo(() => {
-    const present = new Set<string>()
-    for (const t of tasks) { if (t.task_kind !== 'case') continue; const g = gyomuOf(t); if (g) present.add(g) }
-    const ordered = GYOMU_ALL.filter(g => present.has(g))
-    const extra = [...present].filter(g => !GYOMU_ALL.includes(g))
-    let all = [...ordered, ...extra]
-    // 工程を選んでいるときは、その工程に紐づく業務だけに絞る
-    if (koteiFilter.size > 0) all = all.filter(g => koteiFilter.has(koteiOf(g)))
-    return all
-  }, [tasks, koteiFilter])
-  // 工程の選択肢（事務管理タスクに存在する工程を工程順で）
-  const koteiOptions = useMemo(() => {
-    const present = new Set<string>()
-    for (const t of tasks) { if (t.task_kind === 'case') present.add(koteiOf(t.phase)) }
-    return [...present].sort((a, b) => koteiRank(a) - koteiRank(b))
-  }, [tasks])
-
-  // 工程の選択が変わったら、その工程に属さない業務区分の選択は外す
-  useEffect(() => {
-    if (koteiFilter.size === 0) return
-    setGyomuFilter(prev => {
-      const next = new Set([...prev].filter(g => koteiFilter.has(koteiOf(g))))
-      return next.size === prev.size ? prev : next
-    })
-  }, [koteiFilter])
-
   const receipts = useMemo(() => toReadinessReceipts(documentReceipts), [documentReceipts])
-
-  const filtered = useMemo(() => tasks.filter(t => {
-    if (t.task_kind !== kind) return false
-    if (kind === 'system' && systemTaskGroup(t) !== sysGroup) return false
-    if (statusFilter !== 'all' && normalizeStatus(t.status) !== statusFilter) return false
-    if (readyOnly && !getStartSignal(t, receipts).ready) return false
-    if (kind === 'case' && koteiFilter.size > 0 && !koteiFilter.has(koteiOf(t.phase))) return false
-    if (kind === 'case' && gyomuFilter.size > 0 && !gyomuFilter.has(gyomuOf(t))) return false
-    return true
-  }).sort((a, b) => {
-    if (kind !== 'case') return 0
-    // 急ぎ・超急ぎだけを上に持ち上げる。通常どうしは工程順のまま並べる。
-    // 全部を優先度順にすると「請求→読込」のような工程の流れが崩れて追えなくなるため。
-    const pr = (t: TaskRow) => (t.priority === '超急ぎ' ? 0 : t.priority === '急ぎ' ? 1 : 2)
-    const done = (t: TaskRow) => (normalizeStatus(t.status) === '完了' ? 1 : 0)
-    // 完了したものは持ち上げない（急ぎでも終わっていれば下でよい）
-    const pd = (done(a) === 1 ? 2 : pr(a)) - (done(b) === 1 ? 2 : pr(b))
-    if (pd !== 0) return pd
-    // 以降は従来どおり 工程順 → 業務 → sort_order
-    const kr = koteiRank(koteiOf(a.phase)) - koteiRank(koteiOf(b.phase))
-    if (kr !== 0) return kr
-    const gr = GYOMU_ALL.indexOf(gyomuOf(a)) - GYOMU_ALL.indexOf(gyomuOf(b))
-    if (gr !== 0) return gr
-    return (a.sort_order ?? 0) - (b.sort_order ?? 0)
-  }), [tasks, kind, sysGroup, statusFilter, readyOnly, receipts, koteiFilter, gyomuFilter])
-
-  // ステータス別件数・着手OK件数（現在の区分タブのタスクに対して）
-  const kindTasks = useMemo(
-    () => tasks.filter(t => t.task_kind === kind && (kind !== 'system' || systemTaskGroup(t) === sysGroup)),
-    [tasks, kind, sysGroup])
-  // サブタブの件数
-  const sysGroupCounts = useMemo(() => {
-    const m = { gyomu: 0, other: 0 }
-    for (const t of tasks) { if (t.task_kind === 'system') m[systemTaskGroup(t)] += 1 }
-    return m
-  }, [tasks])
-  const counts = useMemo(() => ({
-    all: kindTasks.length,
-    着手前: kindTasks.filter(t => normalizeStatus(t.status) === '着手前').length,
-    対応中: kindTasks.filter(t => normalizeStatus(t.status) === '対応中').length,
-    完了: kindTasks.filter(t => normalizeStatus(t.status) === '完了').length,
-  }), [kindTasks])
-  const readyCount = useMemo(() => kindTasks.filter(t => getStartSignal(t, receipts).ready).length, [kindTasks, receipts])
-
-  // タスク → 紐づく到着物名（受信簿の item_tasks リンク経由）
-  const docNamesByTask = useMemo(() => {
-    const m = new Map<string, string[]>()
-    for (const r of documentReceipts ?? []) {
-      for (const it of (r.items ?? [])) {
-        for (const lt of (it.item_tasks ?? [])) {
-          const id = lt.task?.id
-          if (!id) continue
-          const arr = m.get(id) ?? []
-          if (!arr.includes(it.item_name)) arr.push(it.item_name)
-          m.set(id, arr)
-        }
-      }
-    }
-    return m
-  }, [documentReceipts])
 
   return (
     <div className="space-y-3.5">
@@ -263,104 +121,36 @@ export default function TasksTab({ tasks, currentMemberId: serverMemberId, onBul
         </div>
       ) : (
         <div className="space-y-3">
-          {/* 区分タブ＋ステータス＋業務区分絞り込み */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <SubTabs tabs={KIND_TABS} active={kind} onChange={k => setKind(k as 'system' | 'case')} />
-            {/* 受注担当/管理担当タスクの内訳。業務＝案件を進めるもの／その他＝随時発生。 */}
-            {kind === 'system' && (
-              <div className="flex gap-1 bg-white border border-gray-200 rounded-full p-0.5 shadow-sm">
-                {(['gyomu', 'other'] as SystemTaskGroup[]).map(g => {
-                  const on = sysGroup === g
-                  return (
-                    <button key={g} type="button" onClick={() => setSysGroup(g)}
-                      title={SYSTEM_GROUP_NOTE[g]}
-                      className={`px-3 py-1 rounded-full text-[12px] font-medium transition-colors whitespace-nowrap ${
-                        on ? 'bg-brand-100 text-brand-800' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
-                      {SYSTEM_GROUP_LABEL[g]}
-                      {sysGroupCounts[g] > 0 && <span className="ml-1 text-[11px] font-mono opacity-70">{sysGroupCounts[g]}</span>}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-            {/* ステータス（/tasks と同じ：単一選択＋件数＋すべて） */}
-            <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
-              {([['着手前', '未着手'], ['対応中', '対応中'], ['完了', '完了'], ['all', 'すべて']] as const).map(([key, label]) => {
-                const active = statusFilter === key
-                const cnt = counts[key as keyof typeof counts]
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => { setStatusFilter(key); if (key !== '着手前') setReadyOnly(false) }}
-                    className={`px-3 py-1 rounded-md text-[12px] font-medium transition-colors whitespace-nowrap ${active ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
-                  >
-                    {label}{cnt > 0 && <span className={`ml-1 text-[11px] font-mono ${active ? 'opacity-80' : 'opacity-60'}`}>{cnt}</span>}
-                  </button>
-                )
-              })}
-            </div>
-            {/* 着手OK（事務管理タスク・未着手選択時のみ意味がある） */}
-            {kind === 'case' && statusFilter === '着手前' && (
-              <button
-                type="button"
-                onClick={() => setReadyOnly(v => !v)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium border transition-colors whitespace-nowrap ${readyOnly ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-                title="今すぐ着手できるタスクだけ表示"
-              >
-                <PackageCheck className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2} />着手OK
-                {readyCount > 0 && <span className="text-[11px] font-mono opacity-70">{readyCount}</span>}
-              </button>
-            )}
-            {/* 工程・業務区分（事務管理タスクのときのみ。受注区分は案件で固定なので出さない） */}
-            {kind === 'case' && koteiOptions.length > 0 && (
-              <MultiSelectFilter label="工程" icon={Layers} options={koteiOptions} selected={koteiFilter} onChange={setKoteiFilter} width={200} />
-            )}
-            {kind === 'case' && gyomuOptions.length > 0 && (
-              <MultiSelectFilter label="業務区分" icon={Briefcase} options={gyomuOptions} selected={gyomuFilter} onChange={setGyomuFilter} width={220} />
-            )}
-            {/* カンバン⇄テーブル切替（事務管理タスクのみ） */}
-            {kind === 'case' && (
-              <div className="ml-auto inline-flex rounded-lg border border-gray-200 overflow-hidden">
-                <button type="button" onClick={() => setCaseView('kanban')} className={`inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-semibold ${caseView === 'kanban' ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}><LayoutGrid className="w-3.5 h-3.5" />カンバン</button>
-                <button type="button" onClick={() => setCaseView('table')} className={`inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-semibold border-l border-gray-200 ${caseView === 'table' ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}><List className="w-3.5 h-3.5" />テーブル</button>
-              </div>
-            )}
-          </div>
+          {/* 区分タブ。中身は事務管理タスク一覧／マイページと同じ部品にそろえてある。 */}
+          <SubTabs tabs={KIND_TABS} active={kind} onChange={k => setKind(k as 'system' | 'case')} />
 
           {kind === 'case' ? (
+            // 事務管理タスク一覧と同じ表。案件詳細では着手できない未着手も出す（caseScope）。
             <Section title="タスク（事務管理）">
-              {caseView === 'kanban' ? (
-                <TaskKanbanView
-                  tasks={filtered}
-                  today={today}
-                  onAdvance={handleAdvance}
-                  loadingTaskId={busyId}
-                  receipts={receipts}
-                  docNamesByTask={docNamesByTask}
-                  hideCase
-                />
-              ) : (
-                <CaseTaskTableView
-                  tasks={filtered}
-                  docNamesByTask={docNamesByTask}
-                  today={today}
-                  onAdvance={handleAdvance}
-                  loadingTaskId={busyId}
-                  receipts={receipts}
-                  onRefresh={() => startTransition(() => router.refresh())}
-                />
-              )}
+              <TaskListClient
+                embedded
+                caseScope
+                tasks={tasks}
+                caseMap={{}}
+                allMembers={allMembers}
+                currentMemberId={currentMemberId}
+                receipts={receipts}
+                freezeAssetsByCase={caseId ? { [caseId]: financeAssets } : {}}
+                roleScope="assistant"
+              />
             </Section>
           ) : (
+            // マイページのタスクタブと同じ表（業務／その他のサブタブ付き）。
             <SystemTaskList
-              tasks={filtered}
-              title="タスク一覧"
+              tasks={systemTasks}
+              title="タスク"
               showCase={false}
               includeCompleted
               selectable
-              hideCategory
+              hideCategory={false}
               gyomuBadge
+              showMeta
+              groupTabs
               currentMemberId={currentMemberId ?? undefined}
             />
           )}
