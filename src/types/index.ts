@@ -1090,7 +1090,7 @@ export type DocumentReceiptRow = {
   case_id: string
   received_date: string     // YYYY-MM-DD
   sequence_no: number       // 当日の連番
-  postal_type: string | null  // 郵送種別（〒の種類）: 速達/簡易書留/赤レタパ/青レタパ（migration 165）
+  postal_type: string | null  // 郵送種別（〒の種類）: 普通郵便/速達/簡易書留/赤レタパ/青レタパ（migration 165）
   location: string | null            // 拠点（共同ビル/クレアトール/藤沢）。migration 220
   is_parcel?: boolean                 // 受注/管理宛の郵送物一式（未開封の仮登録）。migration 220
   arrival_notified_at?: string | null // 到着連絡を飛ばした日時。migration 220

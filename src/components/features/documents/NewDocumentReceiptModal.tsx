@@ -29,7 +29,7 @@ type ItemDraft = {
 }
 
 // 郵送種別（〒の種類）。封筒＝1受信単位。
-export const POSTAL_TYPES = ['速達', '簡易書留', '赤レタパ', '青レタパ'] as const
+export const POSTAL_TYPES = ['普通郵便', '速達', '簡易書留', '赤レタパ', '青レタパ'] as const
 
 type Props = {
   isOpen: boolean
