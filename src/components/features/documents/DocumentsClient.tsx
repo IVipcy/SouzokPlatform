@@ -23,6 +23,16 @@ type Props = {
   operableCaseIds?: string[]
 }
 
+// レンダー中に new Date() を直接書くと React コンパイラに止められるので関数に包む
+const todayYmd = () => new Date().toLocaleDateString('sv-SE')
+/** 'YYYY-MM-DD' を n 日ずらす */
+const shiftDay = (ymd: string, n: number) => {
+  const d = new Date(ymd + 'T00:00:00')
+  if (isNaN(d.getTime())) return ymd
+  d.setDate(d.getDate() + n)
+  return d.toLocaleDateString('sv-SE')
+}
+
 export default function DocumentsClient({ documents, receipts, cases, currentMemberId, currentMember, teams, operableCaseIds }: Props) {
   const router = useRouter()
   const isManager = useCanOperateReceipts()  // 受信登録・受信確定は管理担当＋事務スタッフ(assistant)
@@ -40,7 +50,9 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
   }, [documents])
 
   const [search, setSearch] = useState('')
-  const [caseFilter, setCaseFilter] = useState<string>(searchParams.get('case') ?? '')
+  // 到着日で絞る。過去の日をさかのぼって見るための絞り込み。空＝すべての日。
+  // 案件での絞り込みは廃止（受信簿は「その日に何が届いたか」を見る台帳で、案件で見るなら案件詳細から入る）。
+  const [dateFilter, setDateFilter] = useState<string>('')
   const [location, setLocation] = useState<string | null>(null)  // 選んだ拠点。null=拠点選択トップ
   const [receiptModalOpen, setReceiptModalOpen] = useState(false)
   const [editReceipt, setEditReceipt] = useState<EditReceiptInfo | null>(null)
@@ -69,7 +81,7 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
     return receipts.filter(r => {
       if (location === '__none__') { if (r.location) return false }
       else if (location) { if (r.location !== location) return false }
-      if (caseFilter && r.case_id !== caseFilter) return false
+      if (dateFilter && (r.received_date ?? '') !== dateFilter) return false
       if (q) {
         const items = r.items ?? []
         const hay = [r.cases?.case_number ?? '', r.cases?.deal_name ?? '', ...items.flatMap(it => [it.item_name, it.received_from ?? ''])].join(' ').toLowerCase()
@@ -77,7 +89,7 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
       }
       return true
     })
-  }, [receipts, caseFilter, search, location])
+  }, [receipts, dateFilter, search, location])
 
   // 拠点選択トップ（拠点未選択・?receipt=無し）
   if (location === null && !editReceipt) {
@@ -142,13 +154,21 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
         </div>
       )}
 
-      {/* 案件絞り込み */}
-      <div className="mb-3 flex items-center gap-3 flex-wrap">
-        <select value={caseFilter} onChange={e => setCaseFilter(e.target.value)}
-          className="px-2.5 py-1 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 outline-none bg-white max-w-[280px]">
-          <option value="">全案件 ({cases.length}件)</option>
-          {cases.map(c => <option key={c.id} value={c.id}>{c.case_number} {c.deal_name}</option>)}
-        </select>
+      {/* 到着日で絞る。‹ › で前後の日へ動かせる。空欄＝すべての日。 */}
+      <div className="mb-3 flex items-center gap-2 flex-wrap">
+        <span className="text-[12px] font-semibold text-gray-500">到着日</span>
+        <button type="button" onClick={() => setDateFilter(d => shiftDay(d || todayYmd(), -1))}
+          title="前の日" className="px-2 py-1 text-[13px] text-gray-500 border border-gray-300 rounded-md hover:bg-gray-50">‹</button>
+        <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)}
+          className="px-2.5 py-1 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 outline-none bg-white" />
+        <button type="button" onClick={() => setDateFilter(d => shiftDay(d || todayYmd(), 1))}
+          title="次の日" className="px-2 py-1 text-[13px] text-gray-500 border border-gray-300 rounded-md hover:bg-gray-50">›</button>
+        <button type="button" onClick={() => setDateFilter(todayYmd())}
+          className="px-2.5 py-1 text-[12px] font-semibold text-brand-700 border border-brand-300 rounded-md hover:bg-brand-50">本日</button>
+        {dateFilter && (
+          <button type="button" onClick={() => setDateFilter('')}
+            className="px-2.5 py-1 text-[12px] font-semibold text-gray-500 border border-gray-300 rounded-md hover:bg-gray-50">すべての日</button>
+        )}
         <span className="text-[12px] text-gray-400 ml-auto">表示中: {filteredReceipts.length} 件</span>
       </div>
 
