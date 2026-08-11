@@ -134,7 +134,7 @@ export default function OtherAssetsTable({ caseId, kind, rows: initial, heirs = 
           </tbody>
           {rows.length > 0 && (
             <tfoot>
-              <tr className={`border-t font-semibold ${negative ? 'border-red-200 bg-red-50/50 text-red-800' : 'border-brand-200 bg-brand-50/40 text-brand-800'}`}>
+              <tr className="border-t border-gray-200 bg-gray-50 font-semibold text-gray-700">
                 <td className="px-2 py-1.5">小計</td>
                 <td className="px-2 py-1.5 text-right tabular-nums">{negative ? `− ${yen(total)}` : yen(total)}</td>
                 <td colSpan={(withPayer ? 1 : 0) + (detailed ? 3 : 0) + 1} />

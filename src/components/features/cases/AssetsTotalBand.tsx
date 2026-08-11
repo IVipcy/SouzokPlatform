@@ -46,7 +46,7 @@ export default function AssetsTotalBand({ properties, financialAssets, otherAsse
         <div className="mt-1.5 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[12px]">
           {items.map(x => (
             <span key={x.label} className="text-gray-600">
-              {x.label} <span className={`font-semibold tabular-nums ${x.negative ? 'text-red-700' : ''}`}>{x.negative ? `− ${yen(x.amount)}` : yen(x.amount)}</span>
+              {x.label} <span className="font-semibold tabular-nums">{x.negative ? `− ${yen(x.amount)}` : yen(x.amount)}</span>
             </span>
           ))}
         </div>

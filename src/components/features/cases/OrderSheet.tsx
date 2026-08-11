@@ -167,6 +167,14 @@ export default function OrderSheet({
 
   // workContentKey: 上部フリー欄(WorkContentField)の保存先キー。省略時は gate ?? title
   //   財産調査（不動産）→ assets_re、財産調査（金融資産）→ assets_deposit（面談シートのキーと揃える）
+  // 相続債務・その他費用は既定で出さない（発生する案件が少ないため）。
+  // 中身があるか、「＋ ◯◯を追加」を押したときだけセクションとして現れる。
+  const ALWAYS_OTHER_KIND = 'その他財産'
+  const [revealedOtherKinds, setRevealedOtherKinds] = useState<string[]>([])
+  const otherKindVisible = (kind: string) =>
+    kind === ALWAYS_OTHER_KIND || otherAssets.some(r => r.kind === kind) || revealedOtherKinds.includes(kind)
+  const hiddenOtherKinds = OTHER_ASSET_KINDS.map(k => k.kind).filter(k => !otherKindVisible(k))
+
   const allOsSections: { title: string; gate?: TabKey; anchorId?: string; workContentKey?: string; node: ReactNode }[] = [
     // 面談シート(MeetingSheetTab)と work_content のキーを揃えるため gate/workContentKey を明示（面談メモがオーダーシート/実務タブに引き継がれる）
     { title: '依頼者情報', gate: 'clientInfo', node: <ClientInfoTab caseData={caseData} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={onRefresh} orderSheetMode caseClients={caseClients} /> },
@@ -178,11 +186,27 @@ export default function OrderSheet({
     { title: '財産調査（合計）', gate: 'assets', workContentKey: 'assets', node: <AssetsTotalBand properties={properties} financialAssets={financialAssets} otherAssets={otherAssets} /> },
     { title: '財産（不動産）', gate: 'assets', workContentKey: 'assets_re', node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['realestate']} showOtherKinds={[]} hideSummary /> },
     { title: '財産（金融資産）', gate: 'assets', workContentKey: 'assets_deposit', node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} otherAssets={otherAssets} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['deposit', 'securities', 'trust', 'insurance']} showOtherKinds={[]} hideSummary /> },
-    ...OTHER_ASSET_KINDS.map(k => ({
+    // その他財産は常に出す。相続債務・その他費用はあまり発生しないので、
+    // 中身があるときか「＋ 追加」を押したときだけセクションを出す。
+    ...OTHER_ASSET_KINDS.filter(k => otherKindVisible(k.kind)).map(k => ({
       title: k.kind,
       gate: 'assets' as TabKey,
       workContentKey: `assets_other_${k.kind}`,
-      node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} otherAssets={otherAssets} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={[]} showOtherKinds={[k.kind]} hideSummary />,
+      node: (
+        <>
+          <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} otherAssets={otherAssets} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={[]} showOtherKinds={[k.kind]} hideSummary />
+          {k.kind === 'その他財産' && hiddenOtherKinds.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-3">
+              {hiddenOtherKinds.map(h => (
+                <button key={h} type="button" onClick={() => setRevealedOtherKinds(prev => [...prev, h])}
+                  className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 border border-dashed border-brand-300 rounded-lg px-3 py-1.5">
+                  ＋ {h}を追加
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      ),
     })),
     { title: '他事業者紹介', gate: 'referral', anchorId: 'os-referral', node: <ReferralTab caseData={caseData} referrals={referrals} onRefresh={onRefresh} orderSheetMode /> },
     { title: '遺産分割', gate: 'division', node: <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} agreementDispatches={agreementDispatches} onRefresh={onRefresh} patchCase={patchCase} mode="division" orderSheetMode /> },

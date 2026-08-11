@@ -287,7 +287,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
             )}
             <SectionHeading title={k.kind} hint={k.hint} className="mb-2.5 pb-1.5 border-b border-gray-200" />
             {isNegativeKind(k.kind) && (
-              <p className="text-[11.5px] text-red-700 bg-red-50 border border-red-100 rounded px-2.5 py-1.5">
+              <p className="text-[11.5px] text-gray-600 bg-gray-50 border border-gray-200 rounded px-2.5 py-1.5">
                 金額はプラスで入力してください（合計は自動でマイナス計上されます）。
               </p>
             )}
