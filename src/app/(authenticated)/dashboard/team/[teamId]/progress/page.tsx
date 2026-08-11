@@ -307,11 +307,16 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
 
   return (
     <div>
+      {/* 要対応バナーはマイページと同じくタイトルの行に置く（開いた瞬間に目に入る位置）。
+          中身はチーム全員ぶんの入金期日・タスク期日の超過。メンバーを選んでいればその人ぶんになる。 */}
       <PageHeader
         eyebrow="Team · Progress"
         title={`${team.name}・進捗管理`}
         icon={AlertTriangle}
         description="案件のフラグ（紫/赤/黄/青）でリスクを早期発見"
+        right={currentView === 'progress'
+          ? <OverdueAttention bills={teamOverdueBills} tasks={teamOverdueTasks} currentMemberId={currentMemberId ?? ''} hrefBase={`/dashboard/team/${teamId}/overdue`} />
+          : undefined}
       />
       {/* サマリ・メンバー切替は進捗タブのみ（請求タブでは出さない） */}
       {currentView === 'progress' && (
@@ -351,11 +356,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
         }}
       />
       {currentView === 'progress' ? (
-        <>
-          {/* 要対応バナー（入金期日・タスク期日の超過）＝旧チームタスク欄を統合。詳細はチームスコープの overdue へ */}
-          <OverdueAttention bills={teamOverdueBills} tasks={teamOverdueTasks} currentMemberId={currentMemberId ?? ''} hrefBase={`/dashboard/team/${teamId}/overdue`} />
-          <ProgressCaseTable rowsWithFlag={rowsWithFlag} rowsUnset={rowsUnset} showRoleBadge={false} />
-        </>
+        <ProgressCaseTable rowsWithFlag={rowsWithFlag} rowsUnset={rowsUnset} showRoleBadge={false} />
       ) : (
         <BillingCaseTable rows={billingCaseRows} />
       )}
