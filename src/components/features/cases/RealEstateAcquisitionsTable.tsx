@@ -9,6 +9,21 @@ import { ACQUISITION_ITEMS, RE_REQUEST_KINDS, REQUEST_KIND_HELP, isMistakenReque
 
 // 請求区分の説明（列見出しの「?」）。定義は constants.ts の1か所。
 const KIND_HINT = RE_REQUEST_KINDS.map(k => `${k}：${REQUEST_KIND_HELP[k]}`).join('\n')
+
+// 取得区分。誰が取るか／もう持っているか。空の既存行は「自社取得」として扱う。
+const ACQUIRERS = ['自社取得', '依頼者取得', '受領済'] as const
+const ACQUIRER_HINT = [
+  '自社取得：こちらで役所・法務局へ請求します（請求日・費用を入れます）',
+  '依頼者取得：依頼者が取ってきます（請求日・費用は入れません）',
+  '受領済：もう手元にあります。契約手続きタブに「その場で受領」で自動追加されます',
+].join('\n')
+const acquirerOf = (r: { acquirer: string | null; received_at_meeting?: boolean }) =>
+  r.received_at_meeting ? '受領済' : ((r.acquirer ?? '').trim() || '自社取得')
+
+// 年度を持つ資料。登記情報・公図・地積測量図・路線価には年度がない。
+const YEAR_ITEMS = ['名寄帳', '評価証明']
+// 和暦の年度候補（今年度／前年度）
+const yearOptions = () => { const y = new Date().getFullYear(); return [`令和${y - 2018}年度`, `令和${y - 2019}年度`] }
 import type { RealEstateAcquisitionRow, RealEstatePropertyRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 import { receiptFilesFor } from '@/lib/relatedTasks'
@@ -66,6 +81,29 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
   const costMode = scope === 'property' ? 'confirmedOnly' : 'full'  // 物件取得=印紙(確定のみ)、市区町村請求=小為替(予算/返金/確定)
   const fullCost = costMode === 'full'
   const confirmedOf = (r: RealEstateAcquisitionRow) => fullCost ? (r.cost_budget != null ? r.cost_budget - (r.cost_refund ?? 0) : r.cost_confirmed) : r.cost_confirmed
+
+  // 取得区分の保存。「受領済」にしたら、これまでの「面談時に受領✓」と同じく
+  // 契約手続きタブに「その場で受領」で書類を足す（解除したら消す）。
+  const setAcquirer = async (r: RealEstateAcquisitionRow, next: string) => {
+    const cur = acquirerOf(r)
+    if (cur === next) return
+    if (next === '受領済') {
+      const label = itemsOf(r).join('・') || '取得資料'
+      const where = (r.target_municipality ?? '').trim() || (r.request_to ?? '').trim() || ''
+      const yr = (r.doc_year ?? r.myna_year) ? `・${r.doc_year ?? r.myna_year}` : ''
+      const { data, error } = await supabase.from('contract_documents')
+        .insert({ case_id: caseId, name: `${label}（${where}${yr}）`, category: '不動産', status: 'その場で受領', arrival_date: new Date().toLocaleDateString('sv-SE'), sort_order: 0 })
+        .select('id').single()
+      if (error || !data) { showToast(`契約手続きへの追加に失敗: ${error?.message ?? ''}`, 'error'); return }
+      await saveMany(r.id, { acquirer: '自社取得', received_at_meeting: true, contract_document_id: (data as { id: string }).id })
+      return
+    }
+    // 受領済 → それ以外に戻すときは、足した書類を消す
+    if (cur === '受領済' && r.contract_document_id) {
+      await supabase.from('contract_documents').delete().eq('id', r.contract_document_id)
+    }
+    await saveMany(r.id, { acquirer: next, received_at_meeting: false, contract_document_id: null })
+  }
 
   // 請求先の既定値：①市区町村役場＝「{市区町村}役所」（都道府県プレフィックスは省く）、②法務局＝物件の管轄法務局（registration_office）。
   const stripPref = (m: string) => m.replace(/^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)/, '')
@@ -203,7 +241,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
   const selCls = 'w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500'
 
   // 状態列は撤去（作業状態は tasks.status に一本化・行状態は請求日/到着日/W-Checkから自明）
-  const colCount = progressMode ? (fullCost ? 13 : 11) : 4  // 請求区分/対象/請求先/取得資料(+日付/費用/W-Check/受領)/削除
+  const colCount = progressMode ? (fullCost ? 15 : 13) : 4  // 請求区分/取得区分/対象/請求先/取得資料/年度(+日付/費用/W-Check/受領)/削除
 
   return (
     <div>
@@ -216,9 +254,15 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
               {progressMode && <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-24">
                 <span className="inline-flex items-center gap-1">請求区分<HintTip text={KIND_HINT} /></span>
               </th>}
+              {progressMode && <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-28">
+                <span className="inline-flex items-center gap-1">取得区分<HintTip text={ACQUIRER_HINT} /></span>
+              </th>}
               <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-40">対象</th>
               <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-36"><span className="inline-flex items-center gap-1">請求先<HintTip text={scope === 'municipality' ? '請求する市区町村役所。物件の所在地から自動で入ります（編集可）。' : scope === 'property' ? '請求する法務局。必要なら管轄の法務局名に修正してください。' : 'どこに請求するか（役所・法務局など）。'} /></span></th>
               <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-56">取得する資料<span className="block text-[10px] font-normal text-gray-400">1宛先＝1請求（複数選択）</span></th>
+              {progressMode && <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-28">
+                <span className="inline-flex items-center gap-1">年度<HintTip text="名寄帳・評価証明の年度（和暦）。行ごとに持つので、令和7年度と令和8年度を並べて管理できます。登記情報・公図などには年度がありません。" /></span>
+              </th>}
               {progressMode && <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-24">請求日</th>}
               {progressMode && <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-24">到着日</th>}
               {progressMode && fullCost && <th className="px-2 py-2 whitespace-nowrap text-right font-semibold w-24"><span className="inline-flex items-center gap-1">費用予算<HintTip text="請求時に用意した小為替等の金額（例: 定額小為替の合計）。" /></span></th>}
@@ -245,6 +289,10 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
               // 選択可能な資料キー：scope に応じて絞る（市区町村＝名寄帳/評価証明、物件＝登記情報/公図/地積/所有者事項/路線価）
               const availableItems = ACQUISITION_ITEMS.filter(x => x.target === (isProp ? '物件' : '市区町村')).map(x => x.key)
               const dash = <span className="text-gray-300 text-[11px]">—</span>
+              // 受領済＝もう手元にある／依頼者取得＝依頼者が取る。どちらも請求日・費用は入れない。
+              const acq = acquirerOf(r)
+              const noRequest = acq !== '自社取得'
+              const noCost = <span className="text-[11px] text-gray-400">{acq === '受領済' ? '受領済' : '依頼者負担'}</span>
               return (
                 <tr key={r.id} className={`border-b border-gray-100 [&>td]:align-top ${isMistakenRequest(r.request_kind) ? 'bg-red-50/40' : i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                   {/* 請求区分（誤請求＝費用はお客様に請求せず自社の経費） */}
@@ -252,6 +300,14 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                     <td className="px-2 py-1.5">
                       <select value={r.request_kind ?? '通常請求'} onChange={e => save(r.id, 'request_kind', e.target.value)} className={selCls}>
                         {RE_REQUEST_KINDS.map(k => <option key={k} value={k}>{k}</option>)}
+                      </select>
+                    </td>
+                  )}
+                  {/* 取得区分（誰が取るか・もう持っているか） */}
+                  {progressMode && (
+                    <td className="px-2 py-1.5">
+                      <select value={acquirerOf(r)} onChange={e => setAcquirer(r, e.target.value)} className={selCls}>
+                        {ACQUIRERS.map(a => <option key={a} value={a}>{a}</option>)}
                       </select>
                     </td>
                   )}
@@ -287,18 +343,31 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                     {r.is_additional && !r.additional_approved_at && <div className="mt-1"><span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">追加・承認待ち</span></div>}
                     {isRef && <div className="text-[10px] text-gray-400 mt-0.5">参照（路線価図）のみ</div>}
                   </td>
+                  {/* 年度（名寄帳・評価証明のみ。行ごとに持つ） */}
+                  {progressMode && (
+                    <td className="px-2 py-1.5">
+                      {items.some(x => YEAR_ITEMS.includes(x)) ? (
+                        <select value={r.doc_year ?? r.myna_year ?? ''} onChange={e => saveMany(r.id, { doc_year: e.target.value || null, myna_year: e.target.value || null })} className={selCls}>
+                          <option value="">—</option>
+                          {yearOptions().map(o => <option key={o} value={o}>{o}</option>)}
+                          {(r.doc_year ?? r.myna_year) && !yearOptions().includes((r.doc_year ?? r.myna_year) as string) &&
+                            <option value={(r.doc_year ?? r.myna_year) as string}>{r.doc_year ?? r.myna_year}</option>}
+                        </select>
+                      ) : dash}
+                    </td>
+                  )}
                   {/* 請求日（入力者を請求作業者として記録） */}
-                  {progressMode && <td className="px-2 py-1.5">{isRef ? dash : <input type="date" defaultValue={r.request_date ?? ''} onBlur={e => { const v = e.target.value; if (v !== (r.request_date ?? '')) saveMany(r.id, { request_date: v || null, ...(v && !r.request_done_by ? { request_done_by: meId } : {}) }) }} className={dateCls} />}</td>}
+                  {progressMode && <td className="px-2 py-1.5">{isRef || noRequest ? (noRequest ? noCost : dash) : <input type="date" defaultValue={r.request_date ?? ''} onBlur={e => { const v = e.target.value; if (v !== (r.request_date ?? '')) saveMany(r.id, { request_date: v || null, ...(v && !r.request_done_by ? { request_done_by: meId } : {}) }) }} className={dateCls} />}</td>}
                   {/* 到着日（入力者を受信作業者として記録） */}
                   {progressMode && <td className="px-2 py-1.5">{isRef ? dash : <input type="date" defaultValue={r.arrival_date ?? ''} onBlur={e => { const v = e.target.value; if (v !== (r.arrival_date ?? '')) saveMany(r.id, { arrival_date: v || null, ...(v && !r.receipt_done_by ? { receipt_done_by: meId } : {}) }) }} className={dateCls} />}</td>}
                   {/* 費用予算（fullCostのみ） */}
-                  {progressMode && fullCost && <td className="px-2 py-1.5 text-right">{isRef ? dash : <MoneyCell value={r.cost_budget} onCommit={v => saveMany(r.id, { cost_budget: v === '' ? null : Number(v) })} />}</td>}
+                  {progressMode && fullCost && <td className="px-2 py-1.5 text-right">{isRef || noRequest ? dash : <MoneyCell value={r.cost_budget} onCommit={v => saveMany(r.id, { cost_budget: v === '' ? null : Number(v) })} />}</td>}
                   {/* 返金（fullCostのみ） */}
-                  {progressMode && fullCost && <td className="px-2 py-1.5 text-right">{isRef ? dash : <MoneyCell value={r.cost_refund} onCommit={v => saveMany(r.id, { cost_refund: v === '' ? null : Number(v) })} />}</td>}
+                  {progressMode && fullCost && <td className="px-2 py-1.5 text-right">{isRef || noRequest ? dash : <MoneyCell value={r.cost_refund} onCommit={v => saveMany(r.id, { cost_refund: v === '' ? null : Number(v) })} />}</td>}
                   {/* 確定費用（fullCost=予算−返金の自動計算／confirmedOnly=直接入力） */}
                   {progressMode && (
                     <td className="px-2 py-1.5 text-right">
-                      {isRef ? dash : fullCost
+                      {isRef || noRequest ? dash : fullCost
                         ? <span className={`font-semibold tabular-nums ${isMistakenRequest(r.request_kind) ? 'text-purple-700' : 'text-emerald-700'}`}>{yen(confirmedOf(r))}</span>
                         : <MoneyCell value={r.cost_confirmed} onCommit={v => saveMany(r.id, { cost_confirmed: v === '' ? null : Number(v) })} />}
                       {isMistakenRequest(r.request_kind) && <span className="block text-[10px] text-purple-600 mt-0.5">経費</span>}
@@ -334,7 +403,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
           {progressMode && visibleRows.length > 0 && (
             <tfoot>
               <tr className="bg-gray-50 font-semibold text-gray-700">
-                <td className="px-2 py-2 text-right" colSpan={fullCost ? 8 : 6}>確定費用 合計（誤請求ぶんは経費として別集計）</td>
+                <td className="px-2 py-2 text-right" colSpan={fullCost ? 10 : 8}>確定費用 合計（誤請求分は経費として別集計）</td>
                 <td className="px-2 py-2 text-right text-emerald-700 tabular-nums">{yen(confirmedTotal)}</td>
                 <td colSpan={4} />
               </tr>
