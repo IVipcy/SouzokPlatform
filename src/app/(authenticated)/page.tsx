@@ -121,8 +121,8 @@ export default async function DashboardTopPage() {
       },
       ...salesTeams.map(t => ({
         href: `/dashboard/team/${t.id}`,
-        title: `${t.name}（受注）`,
-        description: `${t.name}の受注担当ダッシュボード。メンバー別の本日 / 当月 / 年度累計 / 月別。`,
+        title: `${t.name}（受注担当）`,
+        description: `${t.name}のダッシュボード。受注担当タブ＝メンバー別の本日 / 当月 / 年度累計 / 月別。管理担当タブにも切り替えられます。`,
         Icon: Users,
         tone: 'green' as const,
       })),
@@ -141,8 +141,8 @@ export default async function DashboardTopPage() {
       },
       ...mgrTeams.map(t => ({
         href: `/dashboard/team/${t.id}/progress`,
-        title: `${t.name}（進捗）`,
-        description: `${t.name}の月間進捗管理ボード。担当案件・青/黄/赤/紫 フラグ・完了割合・サイクル・請求件数。`,
+        title: `${t.name}（管理担当）`,
+        description: `${t.name}のダッシュボード。管理担当タブ＝担当案件・案件の色・完了割合・サイクル・請求件数。受注担当タブにも切り替えられます。`,
         Icon: Compass,
         tone: 'purple' as const,
       })),

@@ -67,8 +67,6 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   if (!isSystemManager(currentUser) && currentUser?.teamId !== teamId) {
     redirect('/')
   }
-  // 受注担当ビューとの切替は、両方を見られる人（システム管理者）にだけ出す
-  const canSeeBothViews = isSystemManager(currentUser)
   const currentMemberId = currentUser?.memberId ?? null
   const today = new Date()
   const ymToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
@@ -135,12 +133,12 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   const renderEmpty = () => (
     <div>
       <PageHeader
-        eyebrow="Team · Progress"
-        title={`${team.name}・進捗管理`}
+        eyebrow="Team"
+        title={team.name}
         icon={AlertTriangle}
-        description="案件のフラグ（クレーム/要注意/要確認/なし）でリスクを早期発見"
+        description="管理担当 — 案件のフラグ（クレーム/要注意/要確認/なし）でリスクを早期発見"
       />
-      {canSeeBothViews && <TeamViewSwitch teamId={teamId} current="progress" />}
+      <TeamViewSwitch teamId={teamId} current="progress" />
       <ProgressKpis
         scopeLabel={focusMember ? focusMember.name : team.name}
         metrics={{ totalAssigned: 0, blueCount: 0, yellowCount: 0, redCount: 0, purpleCount: 0, monthCompletionTarget: 0, monthCompleted: 0, cycleMonths: null, invoiceCount: 0 }}
@@ -331,15 +329,15 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
       {/* 要対応バナーはマイページと同じくタイトルの行に置く（開いた瞬間に目に入る位置）。
           中身はチーム全員ぶんの入金期日・タスク期日の超過。メンバーを選んでいればその人ぶんになる。 */}
       <PageHeader
-        eyebrow="Team · Progress"
-        title={`${team.name}・進捗管理`}
+        eyebrow="Team"
+        title={team.name}
         icon={AlertTriangle}
-        description="案件のフラグ（クレーム/要注意/要確認/なし）でリスクを早期発見"
+        description="管理担当 — 案件のフラグ（クレーム/要注意/要確認/なし）でリスクを早期発見"
         center={currentView === 'progress'
           ? <OverdueAttention bills={teamOverdueBills} tasks={teamOverdueTasks} caseAlerts={teamCaseAlerts} currentMemberId={currentMemberId ?? ''} hrefBase={`/dashboard/team/${teamId}/overdue`} />
           : undefined}
       />
-      {canSeeBothViews && <TeamViewSwitch teamId={teamId} current="progress" />}
+      <TeamViewSwitch teamId={teamId} current="progress" />
       {/* サマリ・メンバー切替は進捗タブのみ（請求タブでは出さない） */}
       {currentView === 'progress' && (
         <>

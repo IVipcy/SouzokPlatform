@@ -53,8 +53,6 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
   if (!isSystemManager(guardUser) && guardUser?.teamId !== teamId) {
     redirect('/')
   }
-  // 管理担当ビューとの切替は、両方を見られる人（システム管理者）にだけ出す
-  const canSeeBothViews = isSystemManager(guardUser)
   const { member: selectedMemberId, period, view } = await searchParams
   const currentPeriod = parsePeriod(period)
   const currentView: 'stats' | 'meetings' = view === 'meetings' ? 'meetings' : 'stats'
@@ -335,10 +333,10 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
   return (
     <div>
       <PageHeader
-        eyebrow="Team · Sales"
-        title={`${team.name}・受注担当 ${periodLabel}`}
+        eyebrow="Team"
+        title={team.name}
         icon={Users}
-        description={`${dateLabel}・受注担当の${periodLabel}の動きとチーム成績`}
+        description={`受注担当 — ${dateLabel}・${periodLabel}の動きとチーム成績`}
         center={
           <OverdueAttention
             bills={teamOverdueBills}
@@ -348,7 +346,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
           />
         }
       />
-      {canSeeBothViews && <TeamViewSwitch teamId={teamId} current="sales" />}
+      <TeamViewSwitch teamId={teamId} current="sales" />
 
       <div className="flex items-center gap-3 mb-3 flex-wrap">
         <PeriodSwitcher />
