@@ -15,6 +15,8 @@ type Props = {
   caseData: CaseRow
   tasks: TaskRow[]
   defaultTaskId?: string
+  /** 立替実費だけの請求書にする（報酬・前受金は 0 固定で入力欄を出さない） */
+  expenseOnly?: boolean
   onSaved?: () => void
 }
 
@@ -23,7 +25,7 @@ type Row = { id: string; name: string; amount: number | ''; taxable: boolean; qu
 const NEW_ID = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 const yen = (n: number) => `${n.toLocaleString('en-US')}円`
 
-export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, defaultTaskId, onSaved }: Props) {
+export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, defaultTaskId, expenseOnly = false, onSaved }: Props) {
   const recommendedOffice = useMemo(() => recommendKakuteiOffice(caseData.contract_type), [caseData.contract_type])
   const [office, setOffice] = useState<StampLaw>(recommendedOffice)
   const [officeId, setOfficeId] = useState<string>(recommendedOffice === 'shiho' ? 'kyodo' : 'kureator')
@@ -54,9 +56,10 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, default
   useEffect(() => {
     if (!isOpen) return
     const shigyo = office === 'shiho' ? '司法' : '行政'
-    setKenmei(`${caseData.deceased_name ? caseData.deceased_name + '様 ' : ''}相続手続き 確定請求`)
-    setFee((office === 'shiho' ? caseData.fee_judicial : caseData.fee_administrative) ?? '')
-    setAdvance((office === 'shiho' ? caseData.advance_payment_judicial : caseData.advance_payment_administrative) ?? '')
+    setKenmei(`${caseData.deceased_name ? caseData.deceased_name + '様 ' : ''}相続手続き ${expenseOnly ? '立替実費' : '確定請求'}`)
+    // 立替実費のみは報酬・前受金を載せない（0固定）
+    setFee(expenseOnly ? 0 : ((office === 'shiho' ? caseData.fee_judicial : caseData.fee_administrative) ?? ''))
+    setAdvance(expenseOnly ? 0 : ((office === 'shiho' ? caseData.advance_payment_judicial : caseData.advance_payment_administrative) ?? ''))
     ;(async () => {
       const { data } = await createClient()
         .from('billing_expense_items')
@@ -67,13 +70,15 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, default
       const exp = (data ?? []) as Array<{ label: string | null; amount: number | null; taxable: boolean | null; quantity: number | null; unit_price: number | null }>
       setRows(exp.map(e => ({ id: NEW_ID(), name: e.label ?? '', amount: e.amount ?? 0, taxable: e.taxable === true, quantity: e.quantity, unitPrice: e.unit_price })))
     })()
-  }, [isOpen, office, caseData.id, caseData.deceased_name, caseData.fee_judicial, caseData.fee_administrative, caseData.advance_payment_judicial, caseData.advance_payment_administrative])
+  }, [isOpen, office, expenseOnly, caseData.id, caseData.deceased_name, caseData.fee_judicial, caseData.fee_administrative, caseData.advance_payment_judicial, caseData.advance_payment_administrative])
 
   const expenses: ExpenseItem[] = rows.map(r => ({ name: r.name.trim(), amount: Number(r.amount) || 0, taxable: r.taxable, quantity: r.quantity, unitPrice: r.unitPrice }))
   const calc = computeKakutei(Number(fee) || 0, Number(advance) || 0, expenses)
 
   const handleGenerate = async () => {
-    if (fee === '' || Number(fee) < 0) { showToast('報酬額を入力してください', 'error'); return }
+    if (expenseOnly) {
+      if (expenses.filter(e => e.name || e.amount > 0).length === 0) { showToast('立替実費がありません。請求タブの「立替実費」で入力してください', 'error'); return }
+    } else if (fee === '' || Number(fee) < 0) { showToast('報酬額を入力してください', 'error'); return }
     if (!kenmei.trim()) { showToast('件名を入力してください', 'error'); return }
     setGenerating(true)
     try {
@@ -98,7 +103,7 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, default
         return
       }
       const blob = await res.blob()
-      const filename = `確定請求書_立替実費_${office === 'gyosei' ? '行政' : '司法'}_${caseData.case_number ?? ''}.xlsx`
+      const filename = `${expenseOnly ? '立替実費請求書' : '確定請求書_立替実費'}_${office === 'gyosei' ? '行政' : '司法'}_${caseData.case_number ?? ''}.xlsx`
       const url = URL.createObjectURL(blob)
       setDownloadInfo({ url, filename })
       showToast('生成しました。「ダウンロード」ボタンで保存してください', 'success')
@@ -115,7 +120,7 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, default
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="請求書（確定）＋立替実費明細 を作成"
+      title={expenseOnly ? '立替実費のみの請求書を作成' : '請求書（確定）＋立替実費明細 を作成'}
       maxWidth="max-w-3xl"
       footer={
         downloadInfo ? (
@@ -135,7 +140,7 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, default
         {downloadInfo && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-3">
             <div className="flex-1 text-[13px] text-green-800">
-              確定請求書＋立替実費明細を生成しました。下のボタンで保存してください。
+              {expenseOnly ? '立替実費の請求書を生成しました。' : '確定請求書＋立替実費明細を生成しました。'}下のボタンで保存してください。
             </div>
             <a href={downloadInfo.url} download={downloadInfo.filename} className="flex-none inline-flex items-center px-3 py-1.5 text-[13px] font-semibold text-white bg-green-600 hover:bg-green-700 rounded-md no-underline">⬇ ダウンロード</a>
           </div>
@@ -169,7 +174,8 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, default
           <input type="text" value={kenmei} onChange={e => setKenmei(e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400" />
         </section>
 
-        {/* 報酬・前受金（請求タブの内訳から自動。必要なら上書き可） */}
+        {/* 報酬・前受金（請求タブの内訳から自動。必要なら上書き可）。立替実費のみのときは出さない。 */}
+        {!expenseOnly && (
         <section className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">報酬額（税込）<span className="ml-1 text-[11px] font-normal text-brand-500">請求タブから自動</span></label>
@@ -180,6 +186,12 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, default
             <input type="number" min={0} value={advance} onChange={e => setAdvance(e.target.value === '' ? '' : Number(e.target.value))} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400" />
           </div>
         </section>
+        )}
+        {expenseOnly && (
+          <p className="text-[12px] text-gray-500 bg-gray-50 border border-gray-200 rounded px-3 py-2">
+            報酬は載せず、下の立替実費だけを請求します。報酬ぶんは別途「確定請求書」で請求してください。
+          </p>
+        )}
 
         {/* 立替実費明細（請求タブの立替から自動・読み取り専用） */}
         <section>

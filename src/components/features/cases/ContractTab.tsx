@@ -47,7 +47,8 @@ export default function ContractTab({ caseData, tasks, onRefresh: _onRefresh, pa
   const canBill = ['受注', '戻り受注', '対応中', '完了'].includes(caseData.status)
   // 請求パターン（案件単位）。②③は前受金に確定分を含む「一括」＝確定請求なし。③は立替実費もなし。
   const pattern = billingPatternOf(caseData.billing_pattern)
-  const [kakuteiOpen, setKakuteiOpen] = useState(false)
+  // 'full'=報酬＋立替の確定請求書 / 'expense'=立替実費だけの請求書 / null=閉じている
+  const [kakuteiOpen, setKakuteiOpen] = useState<'full' | 'expense' | null>(null)
   const [advanceInvoiceOpen, setAdvanceInvoiceOpen] = useState(false)
   const [importShihoOpen, setImportShihoOpen] = useState(false)
   // 返金（請求タブで記録されたマイナス入金）を案件単位で集計し、読み取り表示する。
@@ -164,7 +165,11 @@ export default function ContractTab({ caseData, tasks, onRefresh: _onRefresh, pa
               {!canBill && <span className="text-[11px] text-gray-400">受注（戻り受注含む）以降で発行できます</span>}
               <button type="button" disabled={!canBill} onClick={() => canBill && setAdvanceInvoiceOpen(true)} title={canBill ? undefined : '受注／戻り受注以降で発行できます'} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold text-brand-700 bg-white border border-brand-300 rounded-md hover:bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white"><FileText className="w-3.5 h-3.5" /> 前受金請求書を作成</button>
               {pattern.finalInvoiceLabel && (
-                <button type="button" disabled={!canBill} onClick={() => canBill && setKakuteiOpen(true)} title={canBill ? undefined : '受注／戻り受注以降で発行できます'} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold text-white bg-brand-600 rounded-md hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-600"><FileText className="w-3.5 h-3.5" /> {pattern.finalInvoiceLabel}</button>
+                <button type="button" disabled={!canBill} onClick={() => canBill && setKakuteiOpen(pattern.value === 'lump_expense' ? 'expense' : 'full')} title={canBill ? undefined : '受注／戻り受注以降で発行できます'} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold text-white bg-brand-600 rounded-md hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-600"><FileText className="w-3.5 h-3.5" /> {pattern.finalInvoiceLabel}</button>
+              )}
+              {/* 立替実費だけを先に請求したいケース（報酬は後日 or 別建て）。②は上のボタンが立替実費そのものなので出さない。 */}
+              {pattern.hasExpense && pattern.value !== 'lump_expense' && (
+                <button type="button" disabled={!canBill} onClick={() => canBill && setKakuteiOpen('expense')} title={canBill ? '立替実費だけの請求書を作ります（報酬は載せません）' : '受注／戻り受注以降で発行できます'} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold text-brand-700 bg-white border border-brand-300 rounded-md hover:bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white"><Receipt className="w-3.5 h-3.5" /> 立替実費のみ請求書</button>
               )}
               {pattern.lumpNote && <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11.5px] font-medium text-gray-500 bg-gray-100 border border-gray-200 rounded-md" title="前受金に確定請求ぶんを含む一括パターンです">{pattern.lumpNote}</span>}
               {/* 司法は相続の力で発行 → 金額を取り込んで確定請求レコードを作成済で登録（入金待ちは請求・入金タブで） */}
@@ -173,7 +178,7 @@ export default function ContractTab({ caseData, tasks, onRefresh: _onRefresh, pa
           }
         />
       )}
-      {kakuteiOpen && <KakuteiInvoiceModal isOpen onClose={() => setKakuteiOpen(false)} caseData={caseData} tasks={tasks} onSaved={_onRefresh} />}
+      {kakuteiOpen && <KakuteiInvoiceModal isOpen onClose={() => setKakuteiOpen(null)} caseData={caseData} tasks={tasks} expenseOnly={kakuteiOpen === 'expense'} onSaved={_onRefresh} />}
       {advanceInvoiceOpen && <InvoiceDocumentModal isOpen onClose={() => setAdvanceInvoiceOpen(false)} caseData={caseData} tasks={tasks} docType="請求書" onSaved={_onRefresh} />}
       {importShihoOpen && <ImportShihoInvoiceModal isOpen onClose={() => setImportShihoOpen(false)} caseData={caseData} onSaved={_onRefresh} />}
 
