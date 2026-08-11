@@ -12,7 +12,7 @@ import { showToast } from '@/components/ui/Toast'
 import Modal from '@/components/ui/Modal'
 import { MoneyInput } from './FinancialAssetsTable'
 import SelectOrTextField from './SelectOrTextField'
-import { EXPENSE_NONTAX_ITEMS, EXPENSE_TAX_ITEMS, expenseItemTaxable } from '@/lib/constants'
+import { EXPENSE_NONTAX_ITEMS, EXPENSE_TAX_ITEMS, expenseItemTaxable, SHIGYO_COLORS } from '@/lib/constants'
 import { isMinimalMode } from '@/lib/featureMode'
 import { registrationTax } from '@/lib/registrationTax'
 import type { BillingExpenseItemRow, RealEstatePropertyRow } from '@/types'
@@ -22,10 +22,10 @@ const yen = (n: number) => '¥' + Math.round(n).toLocaleString()
 // 不動産の取得資料は請求先で税区分が変わる。民事法務協会（登記情報）も役所も非課税。
 const acqTaxItem = (requestTo: string | null | undefined) =>
   (requestTo ?? '').includes('民事法務協会') ? '民事法務協会' : '市役所等で取得した戸籍や住民票'
-// 司法=青 / 行政=緑（請求料金内訳と統一。アイコン・ドットは付けず文字色で区別）
+// 行政=青 / 司法=赤（請求・入金タブの法人カードと統一。アイコン・ドットは付けず文字色で区別）
 const SHIGYO = [
-  { key: '行政', color: '#0F6E56', bg: '#E1F5EE', text: '#085041' },
-  { key: '司法', color: '#185FA5', bg: '#E6F1FB', text: '#0C447C' },
+  { key: '行政', ...SHIGYO_COLORS['行政'] },
+  { key: '司法', ...SHIGYO_COLORS['司法'] },
 ] as const
 
 // 取り込み候補（確定 → ポップアップで司法/行政・課税/非課税を確認してから登録）

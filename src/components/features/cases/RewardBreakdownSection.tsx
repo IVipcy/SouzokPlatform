@@ -16,16 +16,16 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { MoneyInput } from './FinancialAssetsTable'
 import SelectOrTextField from './SelectOrTextField'
-import { REWARD_ITEM_OPTIONS } from '@/lib/constants'
+import { REWARD_ITEM_OPTIONS, SHIGYO_COLORS } from '@/lib/constants'
 import type { RewardItemRow } from '@/types'
 
 const yen = (n: number) => '¥' + Math.round(n).toLocaleString()
 const ITEM_OPTIONS = [...REWARD_ITEM_OPTIONS]
 
-// 行政＝緑 / 司法＝青。行政を先に。
+// 行政＝青 / 司法＝赤（請求・入金タブの法人カードと同じ）。行政を先に。
 const SHIGYO = [
-  { key: '行政' as const, label: '行政（行政書士）', color: '#0F6E56' },
-  { key: '司法' as const, label: '司法（司法書士）', color: '#185FA5' },
+  { key: '行政' as const, label: '行政（行政書士）', color: SHIGYO_COLORS['行政'].color },
+  { key: '司法' as const, label: '司法（司法書士）', color: SHIGYO_COLORS['司法'].color },
 ]
 
 export default function RewardBreakdownSection({ caseId, onTotals }: {

@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { showToast } from '@/components/ui/Toast'
 import { advanceTotal } from '@/lib/advancePayment'
-import { BILLING_PATTERNS, billingPatternOf } from '@/lib/constants'
+import { BILLING_PATTERNS, billingPatternOf, SHIGYO_COLORS } from '@/lib/constants'
 import {
   Section,
   InlineTextarea,
@@ -237,11 +237,11 @@ export default function ContractTab({ caseData, tasks, onRefresh: _onRefresh, pa
         <Section title="前受金（契約時に受け取る額）">
           <div className="flex items-center gap-5 flex-wrap text-[12.5px]">
             <span className="inline-flex items-center gap-2">
-              <span className="text-gray-500">行政</span>
+              <span className="font-semibold" style={{ color: SHIGYO_COLORS['行政'].color }}>行政</span>
               <span className="w-28"><MoneyInput value={caseData.advance_payment_administrative} onCommit={v => save('advance_payment_administrative', v === '' ? null : Number(v))} /></span>
             </span>
             <span className="inline-flex items-center gap-2">
-              <span className="text-gray-500">司法</span>
+              <span className="font-semibold" style={{ color: SHIGYO_COLORS['司法'].color }}>司法</span>
               <span className="w-28"><MoneyInput value={caseData.advance_payment_judicial} onCommit={v => save('advance_payment_judicial', v === '' ? null : Number(v))} /></span>
             </span>
             <span className="inline-flex items-center gap-1.5">
@@ -286,7 +286,7 @@ export default function ContractTab({ caseData, tasks, onRefresh: _onRefresh, pa
                 縦に並べると、どれが足し算でどれが引き算かが行の名前を読まないと分からなかった。 */}
             <div className="flex items-stretch flex-wrap bg-gray-50 rounded-lg py-3.5 px-1">
               <SumCell label="報酬小計" value={yen(feeSubtotal)}
-                sub={<>行政 <b className="font-normal tabular-nums">{yen(caseData.fee_administrative)}</b><br />司法 <b className="font-normal tabular-nums">{yen(caseData.fee_judicial)}</b></>} />
+                sub={<><span style={{ color: SHIGYO_COLORS['行政'].color }}>行政</span> <b className="font-normal tabular-nums">{yen(caseData.fee_administrative)}</b><br /><span style={{ color: SHIGYO_COLORS['司法'].color }}>司法</span> <b className="font-normal tabular-nums">{yen(caseData.fee_judicial)}</b></>} />
               <SumOp>＋</SumOp>
               <SumCell label="立替実費" value={yen(billingExpTotal)} sub="司法・行政の合計" />
               <SumOp>−</SumOp>

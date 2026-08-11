@@ -724,6 +724,14 @@ export const PAYMENT_STATUSES = [
   '未請求', '作成済', '入金待ち', '入金済',
 ] as const
 
+// === 士業（司法／行政）の色。行政＝青／司法＝赤 ===
+// 請求・入金タブの法人サマリーカードがこの色なので、案件詳細の請求タブ（報酬内訳・立替実費）も同じにする。
+// 「行政は青／司法は赤」を画面をまたいで固定し、どちらの数字かを色だけで追えるようにする。
+export const SHIGYO_COLORS: Record<'行政' | '司法', { color: string; bg: string; text: string }> = {
+  '行政': { color: '#1D4ED8', bg: '#EFF6FF', text: '#1E40AF' },  // blue-700 / blue-50 / blue-800
+  '司法': { color: '#B91C1C', bg: '#FEF2F2', text: '#991B1B' },  // red-700 / red-50 / red-800
+}
+
 // === 請求パターン（案件単位。cases.billing_pattern・migration 166） ===
 //   ②③の「一括」＝前受金に確定請求ぶんを含めて一度に受領（＝確定請求という独立ステップがない）
 export type BillingPattern = 'staged' | 'lump_expense' | 'lump_only'
