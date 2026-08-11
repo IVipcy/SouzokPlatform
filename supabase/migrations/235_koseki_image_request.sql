@@ -17,10 +17,14 @@ CREATE INDEX IF NOT EXISTS idx_koseki_images_request ON koseki_images(koseki_req
 
 -- 既存データの振り分け：その人の戸籍請求が1件しかなければ、その請求のぶんとみなす。
 -- 複数ある人は判断できないので「請求 未指定」に残し、画面から仕分けてもらう。
+-- ※ uuid には min() が使えないため array_agg で1件目を取る（n=1 の行しか使わないので順序は問わない）
 UPDATE koseki_images img
-SET koseki_request_id = only_req.id
+SET koseki_request_id = only_req.req_id
 FROM (
-  SELECT case_id, trim(coalesce(target_person, '')) AS person, min(id) AS id, count(*) AS n
+  SELECT case_id,
+         trim(coalesce(target_person, '')) AS person,
+         (array_agg(id))[1] AS req_id,
+         count(*) AS n
   FROM koseki_requests
   GROUP BY case_id, trim(coalesce(target_person, ''))
 ) only_req
