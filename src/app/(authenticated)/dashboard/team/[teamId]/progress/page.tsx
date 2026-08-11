@@ -7,6 +7,7 @@ import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
 import ProgressCaseTable, { type ProgressCaseRow } from '@/components/features/dashboard/ProgressCaseTable'
 import TeamMemberNav, { type TeamNavMember } from '@/components/features/dashboard/TeamMemberNav'
 import ProgressViewTabs, { type ProgressView } from '@/components/features/dashboard/ProgressViewTabs'
+import TeamViewSwitch from '@/components/features/dashboard/TeamViewSwitch'
 import BillingCaseTable from '@/components/features/billing/BillingCaseTable'
 import OverdueAttention, { type OverdueBill, type OverdueTaskItem } from '@/components/features/dashboard/OverdueAttention'
 import { overdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
@@ -66,6 +67,8 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   if (!isSystemManager(currentUser) && currentUser?.teamId !== teamId) {
     redirect('/')
   }
+  // 受注担当ビューとの切替は、両方を見られる人（システム管理者）にだけ出す
+  const canSeeBothViews = isSystemManager(currentUser)
   const currentMemberId = currentUser?.memberId ?? null
   const today = new Date()
   const ymToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
@@ -135,8 +138,9 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
         eyebrow="Team · Progress"
         title={`${team.name}・進捗管理`}
         icon={AlertTriangle}
-        description="案件のフラグ（紫/赤/黄/青）でリスクを早期発見"
+        description="案件のフラグ（クレーム/要注意/要確認/なし）でリスクを早期発見"
       />
+      {canSeeBothViews && <TeamViewSwitch teamId={teamId} current="progress" />}
       <ProgressKpis
         scopeLabel={focusMember ? focusMember.name : team.name}
         metrics={{ totalAssigned: 0, blueCount: 0, yellowCount: 0, redCount: 0, purpleCount: 0, monthCompletionTarget: 0, monthCompleted: 0, cycleMonths: null, invoiceCount: 0 }}
@@ -330,11 +334,12 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
         eyebrow="Team · Progress"
         title={`${team.name}・進捗管理`}
         icon={AlertTriangle}
-        description="案件のフラグ（紫/赤/黄/青）でリスクを早期発見"
+        description="案件のフラグ（クレーム/要注意/要確認/なし）でリスクを早期発見"
         center={currentView === 'progress'
           ? <OverdueAttention bills={teamOverdueBills} tasks={teamOverdueTasks} caseAlerts={teamCaseAlerts} currentMemberId={currentMemberId ?? ''} hrefBase={`/dashboard/team/${teamId}/overdue`} />
           : undefined}
       />
+      {canSeeBothViews && <TeamViewSwitch teamId={teamId} current="progress" />}
       {/* サマリ・メンバー切替は進捗タブのみ（請求タブでは出さない） */}
       {currentView === 'progress' && (
         <>

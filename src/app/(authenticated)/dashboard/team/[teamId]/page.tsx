@@ -12,6 +12,7 @@ import TeamMemberTabs, { type TeamMemberEntry } from '@/components/features/dash
 import PeriodSwitcher from '@/components/features/dashboard/PeriodSwitcher'
 import { parsePeriod } from '@/lib/dashboardPeriod'
 import DashboardViewTabs from '@/components/features/dashboard/DashboardViewTabs'
+import TeamViewSwitch from '@/components/features/dashboard/TeamViewSwitch'
 import MonthlyMeetingsTable from '@/components/features/dashboard/MonthlyMeetingsTable'
 import OverdueAttention, { type OverdueBill, type OverdueTaskItem } from '@/components/features/dashboard/OverdueAttention'
 import { overdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
@@ -52,6 +53,8 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
   if (!isSystemManager(guardUser) && guardUser?.teamId !== teamId) {
     redirect('/')
   }
+  // 管理担当ビューとの切替は、両方を見られる人（システム管理者）にだけ出す
+  const canSeeBothViews = isSystemManager(guardUser)
   const { member: selectedMemberId, period, view } = await searchParams
   const currentPeriod = parsePeriod(period)
   const currentView: 'stats' | 'meetings' = view === 'meetings' ? 'meetings' : 'stats'
@@ -345,6 +348,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
           />
         }
       />
+      {canSeeBothViews && <TeamViewSwitch teamId={teamId} current="sales" />}
 
       <div className="flex items-center gap-3 mb-3 flex-wrap">
         <PeriodSwitcher />
