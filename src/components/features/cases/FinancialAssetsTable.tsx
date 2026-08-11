@@ -6,11 +6,11 @@ import { createClient } from '@/lib/supabase/client'
 import { evidenceDocsFor } from '@/lib/constants'
 import { showToast } from '@/components/ui/Toast'
 import { useCurrentMember } from '@/lib/useCurrentMember'
+import { useAuth } from '@/components/providers/AuthProvider'
 import { ACQUIRERS, acquirerLabel } from '@/lib/acquirer'
 import { SURVEY_BAN_DESIGNATIONS, SURVEY_BAN_METHODS, isSurveyBanActive } from '@/lib/financialBan'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
-import CheckRequestControl from './CheckRequestControl'
 import type { FinancialAssetRow, CaseRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 import { relatedTasksFor, receiptFilesFor } from '@/lib/relatedTasks'
@@ -89,6 +89,8 @@ type Props = {
 export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, progressMode = false, receipts = [], contractDocs = [], institutionFilter, accountId, cardLayout = false, showConfirmed = false }: Props) {
   const supabase = createClient()
   const memberId = useCurrentMember(null)
+  const authUser = useAuth()
+  const memberName = authUser?.memberName ?? authUser?.email ?? null   // 確認のハンコに出す名前
   const [rows, setRows] = useState<FinancialAssetRow[]>(() => assets.filter(a => a.asset_type === kind))
   // assets prop（親のonRefresh後の最新データ）が変わったら rows を同期。
   // これが無いと、オーダーシートで追加した口座が実務タブに反映されない等の不整合が起きる。
@@ -108,17 +110,20 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   const showFreezeFlag = !progressMode
   const [safeDepositPrompt, setSafeDepositPrompt] = useState<{ bank: string } | null>(null)
 
-  // 残高確定・凍結確認は「確認簿で確認」に一本化。ここでは依頼を出す／取り消すだけ。
+  // 残高確定・凍結確認は「確認簿へ依頼 → 確認簿で確認」をやめ、この表でそのままチェックする。
+  // 凍結確認は解約タスクの着手ゲートになっているので、付けられる場所は残す必要がある。
   const patchReq = async (row: FinancialAssetRow, patch: Partial<FinancialAssetRow>) => {
     setRows(prev => prev.map(r => r.id === row.id ? { ...r, ...patch } as FinancialAssetRow : r))
     const { error } = await supabase.from('financial_assets').update(patch).eq('id', row.id)
     if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
     onRefresh?.()
   }
-  const reqBalance = (row: FinancialAssetRow) => patchReq(row, { balance_confirm_requested_at: new Date().toISOString(), balance_confirm_requested_by: memberId })
-  const cancelBalance = (row: FinancialAssetRow) => patchReq(row, { balance_confirm_requested_at: null, balance_confirm_requested_by: null })
-  const reqFreeze = (row: FinancialAssetRow) => patchReq(row, { freeze_confirm_requested_at: new Date().toISOString(), freeze_confirm_requested_by: memberId })
-  const cancelFreeze = (row: FinancialAssetRow) => patchReq(row, { freeze_confirm_requested_at: null, freeze_confirm_requested_by: null })
+  const setFreezeConfirmed = (row: FinancialAssetRow, on: boolean) => patchReq(row, on
+    ? { freeze_confirmed: true, freeze_confirmed_at: new Date().toISOString(), freeze_confirmed_by: memberId, freeze_confirmed_name: memberName }
+    : { freeze_confirmed: false, freeze_confirmed_at: null, freeze_confirmed_by: null, freeze_confirmed_name: null })
+  const setBalanceConfirmed = (row: FinancialAssetRow, on: boolean) => patchReq(row, on
+    ? { balance_confirmed: true, balance_confirmed_at: new Date().toISOString(), balance_confirmed_by: memberId, balance_confirmed_name: memberName }
+    : { balance_confirmed: false, balance_confirmed_at: null, balance_confirmed_by: null, balance_confirmed_name: null })
   // 貸金庫「あり」に切替 → 銀行単位のタスク作成ポップアップ。投信はチェックのみ（タスク無し）。
   const toggleSafeDeposit = async (row: FinancialAssetRow, checked: boolean) => {
     await patchReq(row, { has_safe_deposit: checked })
@@ -257,17 +262,17 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
       ))}
       <CardRow label="残高/評価額">{banned ? <span className="text-[12px] text-gray-400">禁止期間中は入力不可</span> : <MoneyInput value={r.balance_amount} onCommit={v => commit(r.id, 'balance_amount', v)} />}</CardRow>
       {progressMode && (
-        <CardRow label="凍結してよいか確認（確認簿）">
-          {banned ? <span className="text-[12px] text-gray-400">禁止期間中は依頼できません</span>
-            : <CheckRequestControl label="凍結してよいか確認" requestedAt={r.freeze_confirm_requested_at} checkedAt={r.freeze_confirmed_at} checkedName={r.freeze_confirmed_name} onRequest={() => reqFreeze(r)} onCancel={() => cancelFreeze(r)} />}
+        <CardRow label="凍結確認">
+          {banned ? <span className="text-[12px] text-gray-400">禁止期間中はチェックできません</span>
+            : <ConfirmCheck on={r.freeze_confirmed} at={r.freeze_confirmed_at} name={r.freeze_confirmed_name} onChange={v => setFreezeConfirmed(r, v)} />}
         </CardRow>
       )}
       {showConfirmed && (
-        <CardRow label="残高確定（確認簿で確認）">
-          {banned ? <span className="text-[12px] text-gray-400">禁止期間中は依頼できません</span>
+        <CardRow label="残高確定">
+          {banned ? <span className="text-[12px] text-gray-400">禁止期間中はチェックできません</span>
             : r.balance_amount != null
-              ? <CheckRequestControl label="残高確定を依頼" requestedAt={r.balance_confirm_requested_at} checkedAt={r.balance_confirmed_at} checkedName={r.balance_confirmed_name} onRequest={() => reqBalance(r)} onCancel={() => cancelBalance(r)} />
-              : <span className="text-[12px] text-gray-400">残高を入れると依頼できます</span>}
+              ? <ConfirmCheck on={r.balance_confirmed} at={r.balance_confirmed_at} name={r.balance_confirmed_name} onChange={v => setBalanceConfirmed(r, v)} />
+              : <span className="text-[12px] text-gray-400">残高を入れるとチェックできます</span>}
         </CardRow>
       )}
       {progressMode && <CardRow label="請求日"><input type="date" defaultValue={r.request_date ?? ''} onBlur={e => { if (e.target.value !== (r.request_date ?? '')) commit(r.id, 'request_date', e.target.value) }} className="w-full px-2 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" /></CardRow>}
@@ -311,8 +316,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
               <th className="px-2 py-2 text-right font-semibold w-32">残高/評価額</th>
               <th className="px-2 py-2 text-center font-semibold w-20">根拠資料<span className="block text-[10px] font-normal text-gray-400">有無</span></th>
               <th className="px-2 py-2 text-left font-semibold w-56">根拠資料</th>
-              {progressMode && <th className="px-2 py-2 text-center font-semibold w-28">凍結してよいか確認<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>}
-              {showConfirmed && <th className="px-2 py-2 text-center font-semibold w-28">残高確定<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>}
+              {progressMode && <th className="px-2 py-2 text-center font-semibold w-24">凍結確認</th>}
+              {showConfirmed && <th className="px-2 py-2 text-center font-semibold w-24">残高確定</th>}
               <th className="px-2 py-2 text-left font-semibold w-52">調査期間</th>
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">請求日</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">到着日</th>}
@@ -367,18 +372,18 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                   <td className="px-2 py-1.5">
                     <EvidenceDocsCell row={r} onCommit={commit} />
                   </td>
-                  {/* 凍結確認依頼（右側にW-Check系依頼ボタンを集約） */}
+                  {/* 凍結確認（解約タスクの着手ゲート）。確認簿を経由せずここで付ける。 */}
                   {progressMode && (
                     <td className={`px-2 py-1.5 text-center ${lock}`}>
                       {banned ? <span className="text-[11px] text-gray-300">—</span>
-                        : <CheckRequestControl label="凍結してよいか確認" requestedAt={r.freeze_confirm_requested_at} checkedAt={r.freeze_confirmed_at} checkedName={r.freeze_confirmed_name} onRequest={() => reqFreeze(r)} onCancel={() => cancelFreeze(r)} />}
+                        : <ConfirmCheck on={r.freeze_confirmed} at={r.freeze_confirmed_at} name={r.freeze_confirmed_name} onChange={v => setFreezeConfirmed(r, v)} />}
                     </td>
                   )}
                   {showConfirmed && (
                     <td className={`px-2 py-1.5 text-center ${lock}`}>
                       {banned ? <span className="text-[11px] text-gray-300">—</span>
                         : r.balance_amount != null
-                          ? <CheckRequestControl label="残高確定を依頼" requestedAt={r.balance_confirm_requested_at} checkedAt={r.balance_confirmed_at} checkedName={r.balance_confirmed_name} onRequest={() => reqBalance(r)} onCancel={() => cancelBalance(r)} />
+                          ? <ConfirmCheck on={r.balance_confirmed} at={r.balance_confirmed_at} name={r.balance_confirmed_name} onChange={v => setBalanceConfirmed(r, v)} />
                           : <span className="text-[11px] text-gray-300">残高待ち</span>}
                     </td>
                   )}
@@ -553,5 +558,20 @@ function SmallSelect({ value, options, onChange, placeholder, className }: { val
       <option value="">{placeholder ?? '—'}</option>
       {options.map(o => <option key={o} value={o}>{o}</option>)}
     </select>
+  )
+}
+
+// 確認済みのチェック。押した人と日時をその場で記録する（確認簿を経由しない）。
+function ConfirmCheck({ on, at, name, onChange }: {
+  on: boolean | null | undefined
+  at: string | null
+  name: string | null
+  onChange: (v: boolean) => void
+}) {
+  return (
+    <label className="inline-flex flex-col items-center gap-0.5 cursor-pointer" title={on && name ? `${name} ${at?.slice(0, 10) ?? ''}` : '確認したらチェック'}>
+      <input type="checkbox" checked={!!on} onChange={e => onChange(e.target.checked)} className="w-4 h-4 accent-emerald-600 cursor-pointer" />
+      {on && name && <span className="text-[10px] text-gray-500 leading-tight max-w-[80px] truncate">{name}</span>}
+    </label>
   )
 }

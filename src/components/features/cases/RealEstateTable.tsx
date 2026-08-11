@@ -19,9 +19,7 @@ import { showToast } from '@/components/ui/Toast'
 import { PROPERTY_TYPES, LAND_CATEGORIES, BUILDING_KINDS } from '@/lib/constants'
 import { isLandProperty, isBuildingProperty } from '@/lib/registrationTax'
 import { ACQUIRERS, acquirerLabel } from '@/lib/acquirer'
-import { useCurrentMember } from '@/lib/useCurrentMember'
 import { MoneyInput } from './FinancialAssetsTable'
-import CheckRequestControl from './CheckRequestControl'
 import type { RealEstatePropertyRow } from '@/types'
 
 type Props = {
@@ -39,9 +37,9 @@ type Props = {
 }
 
 /** 不動産を表形式でインライン編集・行追加（財産調査／オーダーシート） */
-export default function RealEstateTable({ caseId, properties, onRefresh, orderSheetMode = false, municipalityFilter, showConfirmed = false, addressSuggestions = [] }: Props) {
+// showConfirmed（評価額確定の依頼列）は廃止。呼び出し側の互換のため Props には残す。
+export default function RealEstateTable({ caseId, properties, onRefresh, orderSheetMode = false, municipalityFilter, addressSuggestions = [] }: Props) {
   const supabase = createClient()
-  const memberId = useCurrentMember(null)
   const [rows, setRows] = useState<RealEstatePropertyRow[]>(properties)
   const [busy, setBusy] = useState(false)
   const addrOptions = [...new Set([...addressSuggestions, ...rows.map(r => r.address ?? '')].map(s => s.trim()).filter(Boolean))]
@@ -62,15 +60,6 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
   // 種別が未設定の行は土地側に置く。種別を選べばもう一方の表へ移る。
   const landRows = visibleRows.filter(r => isLandProperty(r.property_type) || !r.property_type)
   const buildingRows = visibleRows.filter(r => isBuildingProperty(r.property_type))
-
-  // 評価額確定は「確認簿で確認」に一本化。ここでは依頼（confirm_requested_at）を出す／取り消すだけ。
-  const patchConfirmReq = async (row: RealEstatePropertyRow, patch: Partial<RealEstatePropertyRow>) => {
-    setRows(prev => prev.map(r => r.id === row.id ? { ...r, ...patch } as RealEstatePropertyRow : r))
-    const { error } = await supabase.from('real_estate_properties').update(patch).eq('id', row.id)
-    if (error) showToast(`保存に失敗しました: ${error.message}`, 'error'); else onRefresh?.()
-  }
-  const reqConfirm = (row: RealEstatePropertyRow) => patchConfirmReq(row, { confirm_requested_at: new Date().toISOString(), confirm_requested_by: memberId })
-  const cancelConfirm = (row: RealEstatePropertyRow) => patchConfirmReq(row, { confirm_requested_at: null, confirm_requested_by: null })
 
   const setLocal = (id: string, field: keyof RealEstatePropertyRow, value: string) =>
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as RealEstatePropertyRow : r)))
@@ -156,9 +145,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
   const rowProps = (r: RealEstatePropertyRow) => ({
     r, setLocal, commit, saveNumber,
     onDelete: () => delRow(r),
-    showMuni, showConfirmed, addrOptions,
-    onRequestConfirm: () => reqConfirm(r),
-    onCancelConfirm: () => cancelConfirm(r),
+    showMuni, addrOptions,
   })
 
   // ── オーダーシート：登記の項目はまだ分からないので1つの簡易表のまま ──
@@ -209,13 +196,13 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
       <div className="hidden sm:block space-y-4">
         <PropertyTable
           title="土地" kind="land" rows={landRows}
-          showMuni={showMuni} showConfirmed={showConfirmed}
+          showMuni={showMuni}
           renderRow={r => <LandRow key={r.id} {...rowProps(r)} />}
           onAdd={() => addRow('土地')} busy={busy}
         />
         <PropertyTable
           title="建物" kind="building" rows={buildingRows}
-          showMuni={showMuni} showConfirmed={showConfirmed}
+          showMuni={showMuni}
           renderRow={r => <BuildingRow key={r.id} {...rowProps(r)} />}
           onAdd={() => addRow('建物')} busy={busy}
         />
@@ -244,19 +231,18 @@ function AddButton({ label, busy, onClick }: { label: string; busy: boolean; onC
 }
 
 // 土地／建物の表の枠。見出し・列見出し・空状態・追加ボタンをまとめる。
-function PropertyTable({ title, kind, rows, showMuni, showConfirmed, renderRow, onAdd, busy }: {
+function PropertyTable({ title, kind, rows, showMuni, renderRow, onAdd, busy }: {
   title: string
   kind: 'land' | 'building'
   rows: RealEstatePropertyRow[]
   showMuni: boolean
-  showConfirmed: boolean
   renderRow: (r: RealEstatePropertyRow) => ReactNode
   onAdd: () => void
   busy: boolean
 }) {
   const land = kind === 'land'
   // 市区町村 +種別 +取得区分 +所在地 +番号 +区分 +面積 +持分 +評価額 +備考 [+確定] +削除
-  const colCount = (showMuni ? 1 : 0) + 10 + (showConfirmed ? 1 : 0)
+  const colCount = (showMuni ? 1 : 0) + 10
   return (
     <div>
       <div className="flex items-center gap-2 mb-1.5">
@@ -277,7 +263,6 @@ function PropertyTable({ title, kind, rows, showMuni, showConfirmed, renderRow, 
               <th className={TH + ' w-32'}>持分<span className="block text-[10px] font-normal text-gray-400">空欄＝全部</span></th>
               <th className={TH + ' text-right w-32'}>{land ? '固定資産評価額' : '評価額'}</th>
               <th className={TH}>備考</th>
-              {showConfirmed && <th className={TH + ' text-center w-28'}>評価額確定<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>}
               <th className="px-2.5 py-2 w-8" />
             </tr>
           </thead>
@@ -300,10 +285,7 @@ type RowProps = {
   saveNumber: (id: string, field: keyof RealEstatePropertyRow, raw: string) => Promise<void>
   onDelete: () => void
   showMuni: boolean
-  showConfirmed: boolean
   addrOptions: string[]
-  onRequestConfirm: () => void
-  onCancelConfirm: () => void
 }
 
 function LandRow(p: RowProps) {
@@ -348,7 +330,7 @@ function HeadCells({ r, setLocal, commit, showMuni, addrOptions }: RowProps) {
 }
 
 /** 土地・建物で共通の右側（持分・評価額・備考・確定・削除） */
-function TailCells({ r, setLocal, commit, saveNumber, showConfirmed, onDelete, onRequestConfirm, onCancelConfirm }: RowProps) {
+function TailCells({ r, setLocal, commit, saveNumber, onDelete }: RowProps) {
   return (
     <>
       <td className="px-2.5 py-1.5">
@@ -362,13 +344,6 @@ function TailCells({ r, setLocal, commit, saveNumber, showConfirmed, onDelete, o
       </td>
       <td className="px-2.5 py-1.5"><MoneyInput value={r.appraisal_value} onCommit={v => commit(r.id, 'appraisal_value', v)} /></td>
       <CellInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="住人・売却意向・ランク・査定状況 等" />
-      {showConfirmed && (
-        <td className="px-2.5 py-1.5 text-center">
-          {r.appraisal_value != null
-            ? <CheckRequestControl label="確定を依頼" requestedAt={r.confirm_requested_at} checkedAt={r.confirmed_at} checkedName={r.confirmed_name} onRequest={onRequestConfirm} onCancel={onCancelConfirm} />
-            : <span className="text-[11px] text-gray-300">評価額待ち</span>}
-        </td>
-      )}
       <DeleteCell onDelete={onDelete} />
     </>
   )
@@ -458,7 +433,7 @@ function FieldBlock({ label, children }: { label: string; children: ReactNode })
 }
 
 // スマホ用：不動産1件＝1カード（表の代わり。項目名の下に大きい入力欄を縦積み）
-function RealCard({ r, setLocal, commit, saveNumber, onDelete, orderSheetMode, showMuni, showConfirmed, onRequestConfirm, onCancelConfirm }: RowProps & { orderSheetMode: boolean }) {
+function RealCard({ r, setLocal, commit, saveNumber, onDelete, orderSheetMode, showMuni }: RowProps & { orderSheetMode: boolean }) {
   const inputCls = 'w-full h-12 px-3 text-[15px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white transition'
   const selCls = 'w-full h-12 px-3 text-[15px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500'
   const land = isLandProperty(r.property_type) || !r.property_type
@@ -535,13 +510,6 @@ function RealCard({ r, setLocal, commit, saveNumber, onDelete, orderSheetMode, s
         <FieldBlock label="備考">
           <input type="text" value={r.notes ?? ''} onChange={e => setLocal(r.id, 'notes', e.target.value)} onBlur={e => commit(r.id, 'notes', e.target.value)} placeholder="住人・売却意向・ランク・査定状況 等" className={inputCls} />
         </FieldBlock>
-        {showConfirmed && (
-          <FieldBlock label="評価額確定（確認簿で確認）">
-            {r.appraisal_value != null
-              ? <CheckRequestControl label="確定を依頼" requestedAt={r.confirm_requested_at} checkedAt={r.confirmed_at} checkedName={r.confirmed_name} onRequest={onRequestConfirm} onCancel={onCancelConfirm} />
-              : <span className="text-[12px] text-gray-400">評価額を入れると依頼できます</span>}
-          </FieldBlock>
-        )}
       </div>
     </div>
   )
