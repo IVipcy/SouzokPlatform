@@ -190,20 +190,26 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     router.refresh()
   }
 
-  // 戸籍請求の自動シード：戸籍業務が有効な案件で、被相続人＋相続人のうち koseki_requests 行が無い人の行を作る。
-  // 戸籍タスクは koseki_requests の行から生成されるため、行が無い人はタスクも出ない（相続人分が生成されない事象の対策）。
-  // 取得区分は既定「自社取得」、請求先は本籍地から自動推定。人の追加後にオーダーシートの戸籍請求一覧へ反映される。
+  // 戸籍請求の自動シード：戸籍業務が有効な案件で、依頼者の行だけを作る。
+  //
+  // 相続人は最初から分かっていることが少なく、依頼者の戸籍を読んで芋づる式に判明していく。
+  // 全員ぶんを先に並べると、まだ取る必要のない行や、そもそも存在しない人の行が並んでしまう。
+  // 2人目以降は戸籍請求タブの「戸籍を追加」からその場で足す（相続人一覧にも同時に登録される）。
+  //
+  // 取得区分は既定「自社取得」、請求先は本籍地から自動推定。
   const kosekiSeededRef = useRef(false)
   useEffect(() => {
     if (kosekiSeededRef.current) return
     const roles = (caseState.intake_roles ?? []) as Array<{ gyomu?: string | null; owner?: string | null }>
     if (!roles.some(r => r.gyomu === '戸籍' && (r.owner ?? '') !== '不要')) return
+    // 依頼者（heirs.is_client）。未設定なら被相続人から始める（依頼者が決まる前でも1行は要る）。
     const people: { name: string; office: string | null }[] = []
-    const dn = (caseState.deceased_name ?? '').trim()
-    if (dn) people.push({ name: dn, office: kosekiOfficeFromAddress(caseState.deceased_registered_address ?? null) })
-    for (const h of heirs) {
-      const nm = (h.name ?? '').trim()
-      if (nm && !people.some(p => p.name === nm)) people.push({ name: nm, office: kosekiOfficeFromAddress(h.registered_address ?? null) })
+    const client = heirs.find(h => h.is_client && (h.name ?? '').trim())
+    if (client) {
+      people.push({ name: (client.name ?? '').trim(), office: kosekiOfficeFromAddress(client.registered_address ?? null) })
+    } else {
+      const dn = (caseState.deceased_name ?? '').trim()
+      if (dn) people.push({ name: dn, office: kosekiOfficeFromAddress(caseState.deceased_registered_address ?? null) })
     }
     if (people.length === 0) return
     const existing = new Set(kosekiRequests.map(r => (r.target_person ?? '').trim()).filter(Boolean))
