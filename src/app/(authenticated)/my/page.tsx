@@ -1275,8 +1275,13 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
             showCase={true}
             includeCompleted={false}
             currentMemberId={memberId}
-            showMeta={true}
             groupTabs={true}
+            statusChips={true}
+            selectable
+            bulkStatus
+            showReadyReason
+            showExecResult
+            showRemain
           />
         </div>
       )}

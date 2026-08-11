@@ -9,6 +9,7 @@ import { showToast } from '@/components/ui/Toast'
 import Badge from '@/components/ui/Badge'
 import { getAssignRoleDef, CASE_STATUSES } from '@/lib/constants'
 import { getPhaseLabel } from '@/lib/phases'
+import { getStartSignal } from '@/lib/taskReadiness'
 import type { TaskRow } from '@/types'
 
 // 業務ラベル: 事務管理タスクは phase に業務（戸籍/金融資産…）を保持。旧データの phase1〜6 は接頭辞を外す。
@@ -62,9 +63,40 @@ type Props = {
   showRemain?: boolean
   /** 「業務／その他」のサブタブを出す。案件を進めるタスクと随時タスクが混ざるリストで使う。 */
   groupTabs?: boolean
+  /** ステータスの絞り込みチップを出す（業務＝着手OK/対応中、その他＝未着手/対応中） */
+  statusChips?: boolean
+  /** 一括操作バーにステータス変更を出す（selectable と併用） */
+  bulkStatus?: boolean
+  /** 着手OK理由の列を出す */
+  showReadyReason?: boolean
+  /** 実施結果（完了時に書いたもの）の列を出す */
+  showExecResult?: boolean
 }
 
 import { systemTaskGroup, SYSTEM_GROUP_LABEL, SYSTEM_GROUP_NOTE, type SystemTaskGroup } from '@/lib/systemTaskGroup'
+
+// ステータスの絞り込みキー。着手前は「着手OKが付いているか」で2つに割る（事務管理タスク一覧と同じ考え方）。
+type StatusKey = 'notReady' | 'ready' | 'doing' | 'done'
+const statusKeyOf = (t: TaskRow): StatusKey => {
+  const st = normalizeStatus(t.status)
+  if (st === '完了') return 'done'
+  if (st === '対応中') return 'doing'
+  return getStartSignal(t).ready ? 'ready' : 'notReady'
+}
+const STATUS_KEY_LABEL: Record<StatusKey, string> = {
+  notReady: '未着手', ready: '着手OK', doing: '対応中', done: '完了',
+}
+// タブごとに出すチップと、その既定（全部ON）。
+//   業務  … 着手OKになるまでは管理担当のやることではないので、未着手は既定で出さない
+//   その他 … 随時タスクに着手OKの概念は無いので 未着手／対応中
+const STATUS_KEYS: Record<SystemTaskGroup, StatusKey[]> = {
+  gyomu: ['ready', 'doing', 'notReady'],
+  other: ['notReady', 'doing'],
+}
+const DEFAULT_STATUS_KEYS: Record<SystemTaskGroup, StatusKey[]> = {
+  gyomu: ['ready', 'doing'],
+  other: ['notReady', 'doing'],
+}
 
 const STATUS_BADGE: Record<string, string> = {
   '着手前': 'bg-gray-100 text-gray-600 border-gray-200',
@@ -104,6 +136,10 @@ export default function SystemTaskList({
   showMeta = false,
   showRemain = false,
   groupTabs = false,
+  statusChips = false,
+  bulkStatus = false,
+  showReadyReason = false,
+  showExecResult = false,
 }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -111,6 +147,16 @@ export default function SystemTaskList({
   const [selected, setSelected] = useState<Set<string>>(new Set())
   // 業務（案件を進めるもの）／その他（随時）。既定は業務。
   const [sysGroup, setSysGroup] = useState<SystemTaskGroup>('gyomu')
+  // ステータスの絞り込み（複数選択）。
+  //   業務  … 着手OKになったものと対応中だけ見る（未着手＝まだ着手OKが付いていないもの）
+  //   その他 … 随時タスクには着手OKの概念が無いので 未着手／対応中
+  const [statusSel, setStatusSel] = useState<Set<StatusKey>>(() => new Set(DEFAULT_STATUS_KEYS.gyomu))
+  const switchGroup = (g: SystemTaskGroup) => { setSysGroup(g); setStatusSel(new Set(DEFAULT_STATUS_KEYS[g])) }
+  const toggleStatus = (k: StatusKey) => setStatusSel(prev => {
+    const next = new Set(prev)
+    if (next.has(k)) next.delete(k); else next.add(k)
+    return next
+  })
   const today = new Date().toISOString().split('T')[0]
 
   const groupCounts = useMemo(() => {
@@ -124,6 +170,7 @@ export default function SystemTaskList({
       ? tasks
       : tasks.filter(t => normalizeStatus(t.status) !== '完了')
     if (groupTabs) filtered = filtered.filter(t => systemTaskGroup(t) === sysGroup)
+    if (statusChips) filtered = filtered.filter(t => statusSel.has(statusKeyOf(t)))
     // ソート: 期限超過 → 期限近い順 → なし末尾
     return [...filtered].sort((a, b) => {
       const aOver = !!(a.due_date && a.due_date < today)
@@ -133,7 +180,18 @@ export default function SystemTaskList({
       const bd = b.due_date ?? '9999-12-31'
       return ad.localeCompare(bd)
     })
-  }, [tasks, includeCompleted, today, groupTabs, sysGroup])
+  }, [tasks, includeCompleted, today, groupTabs, sysGroup, statusChips, statusSel])
+
+  // チップに出す件数（いま見ているタブの中でのステータス別の数）
+  const statusCounts = useMemo(() => {
+    const m: Record<StatusKey, number> = { notReady: 0, ready: 0, doing: 0, done: 0 }
+    for (const t of tasks) {
+      if (!includeCompleted && normalizeStatus(t.status) === '完了') continue
+      if (groupTabs && systemTaskGroup(t) !== sysGroup) continue
+      m[statusKeyOf(t)] += 1
+    }
+    return m
+  }, [tasks, includeCompleted, groupTabs, sysGroup])
 
   const shown = limit ? visible.slice(0, limit) : visible
 
@@ -177,6 +235,27 @@ export default function SystemTaskList({
     else visibleIds.forEach(id => next.add(id))
     return next
   })
+  // 一括ステータス変更（選択したタスクをまとめて 着手前／対応中／完了 に）
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const updateSelectedStatus = async (next: string) => {
+    if (selected.size === 0 || bulkBusy) return
+    setBulkBusy(true)
+    try {
+      const supabase = createClient()
+      const ids = [...selected]
+      const { error } = await supabase.from('tasks').update({ status: next }).in('id', ids)
+      if (error) throw error
+      showToast(`${ids.length}件を「${next}」にしました`, 'success')
+      setSelected(new Set())
+      startTransition(() => router.refresh())
+    } catch (e) {
+      console.error(e)
+      showToast('一括変更に失敗しました', 'error')
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
   const deleteSelected = async () => {
     if (selected.size === 0) return
     if (!confirm(`${selected.size}件のタスクを削除しますか？`)) return
@@ -203,7 +282,7 @@ export default function SystemTaskList({
             {(['gyomu', 'other'] as SystemTaskGroup[]).map(g => {
               const on = sysGroup === g
               return (
-                <button key={g} type="button" onClick={() => setSysGroup(g)}
+                <button key={g} type="button" onClick={() => switchGroup(g)}
                   title={SYSTEM_GROUP_NOTE[g]}
                   className={`px-2.5 py-0.5 rounded-full text-[12px] font-medium transition-colors whitespace-nowrap ${
                     on ? 'bg-brand-100 text-brand-800' : 'text-gray-500 hover:text-gray-700'}`}>
@@ -215,9 +294,20 @@ export default function SystemTaskList({
           </div>
         )}
         {selectable && selected.size > 0 && (
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2 flex-wrap">
             <span className="text-[12px] font-semibold text-gray-600">{selected.size}件選択中</span>
-            <button type="button" onClick={deleteSelected} className="inline-flex items-center gap-1 px-3 py-1 text-[12px] font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md shadow-sm transition-colors">
+            {bulkStatus && (
+              <>
+                <span className="text-[11.5px] text-gray-400">ステータス:</span>
+                {(['着手前', '対応中', '完了'] as const).map(st => (
+                  <button key={st} type="button" onClick={() => updateSelectedStatus(st)} disabled={bulkBusy}
+                    className="px-2.5 py-1 text-[12px] font-semibold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50">
+                    {st}
+                  </button>
+                ))}
+              </>
+            )}
+            <button type="button" onClick={deleteSelected} disabled={bulkBusy} className="inline-flex items-center gap-1 px-3 py-1 text-[12px] font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md shadow-sm transition-colors disabled:opacity-50">
               <Trash2 className="w-3.5 h-3.5" strokeWidth={2} /> 選択を削除
             </button>
             <button type="button" onClick={() => setSelected(new Set())} className="text-[12px] text-gray-400 hover:text-gray-600 px-1">解除</button>
@@ -229,6 +319,27 @@ export default function SystemTaskList({
           </Link>
         )}
       </div>
+
+      {statusChips && (
+        <div className="px-4 py-2 border-b border-gray-100 flex items-center gap-1.5 flex-wrap">
+          <span className="text-[11.5px] font-semibold text-gray-400 mr-0.5">ステータス</span>
+          {STATUS_KEYS[groupTabs ? sysGroup : 'other'].map(k => {
+            const n = statusCounts[k]
+            // 業務タブの「未着手」は、着手OK待ちが溜まっていないか気づけるように、
+            // 件数があるときだけ出す（既定はOFF）。
+            if (k === 'notReady' && groupTabs && sysGroup === 'gyomu' && n === 0) return null
+            const on = statusSel.has(k)
+            return (
+              <button key={k} type="button" onClick={() => toggleStatus(k)}
+                className={`px-2.5 py-0.5 rounded-full text-[12px] font-semibold border transition-colors ${
+                  on ? 'bg-brand-50 text-brand-700 border-brand-200' : 'bg-white text-gray-400 border-gray-200 hover:text-gray-600'}`}>
+                {STATUS_KEY_LABEL[k]}
+                <span className="ml-1 text-[11px] font-mono opacity-70">{n}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {shown.length === 0 ? (
         <div className="px-4 py-8 text-center text-[12px] text-gray-400">{emptyText}</div>
@@ -247,6 +358,7 @@ export default function SystemTaskList({
                 {!hideCategory && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">業務区分</th>}
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">タスク名</th>
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">優先度</th>
+                {showReadyReason && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">着手OK理由</th>}
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">タスク期限</th>
                 {showRemain && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">残り日数</th>}
                 {showMeta && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">作成者</th>}
@@ -258,6 +370,7 @@ export default function SystemTaskList({
                 {teamMode && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">残り日数</th>}
                 {teamMode && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注内容</th>}
                 {!teamMode && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">作業内容</th>}
+                {showExecResult && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">実施結果</th>}
                 {caseAssignees && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注担当</th>}
                 {caseAssignees && <th className="px-3 py-2 text-left font-bold whitespace-nowrap">管理担当</th>}
                 <th className="px-3 py-2 text-center font-bold whitespace-nowrap">ステータス</th>
@@ -345,6 +458,24 @@ export default function SystemTaskList({
                         ? <span className="inline-flex items-center text-[10.5px] font-bold px-1.5 py-0.5 rounded border bg-red-50 text-red-700 border-red-200">急ぎ</span>
                         : <span className="text-[11.5px] text-gray-500">通常</span>}
                     </td>
+                    {/* 着手OK理由（着手前で着手OKが付いているもの／受領次第OKは待ちの内容） */}
+                    {showReadyReason && (() => {
+                      const ext = (task.ext_data ?? {}) as Record<string, unknown>
+                      const waiting = ext.ready_on_receipt === true
+                      const text = waiting
+                        ? (typeof ext.ready_wait_note === 'string' ? ext.ready_wait_note : '')
+                        : (getStartSignal(task).reason ?? '')
+                      return (
+                        <td className="px-3 py-2.5 align-top">
+                          {text ? (
+                            <span className={`inline-block text-[11px] px-1.5 py-0.5 rounded border leading-snug max-w-[200px] ${
+                              waiting ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`} title={text}>
+                              {waiting ? `受領待ち：${text}` : text}
+                            </span>
+                          ) : <span className="text-gray-300">—</span>}
+                        </td>
+                      )
+                    })()}
                     {/* タスク期限 */}
                     <td className="px-3 py-2.5 align-top whitespace-nowrap font-mono text-[12px]">
                       {task.due_date ? (
@@ -426,6 +557,21 @@ export default function SystemTaskList({
                         ) : <span className="text-gray-300">—</span>}
                       </td>
                     )}
+                    {/* 実施結果（完了時に書いたもの） */}
+                    {showExecResult && (() => {
+                      const ext = (task.ext_data ?? {}) as Record<string, unknown>
+                      const text = typeof ext.execution_result === 'string' ? ext.execution_result : ''
+                      return (
+                        <td className="px-3 py-2.5 align-top">
+                          {text ? (
+                            <p className="text-[12px] text-gray-500 leading-snug max-w-[240px] overflow-hidden"
+                              style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }} title={text}>
+                              {text}
+                            </p>
+                          ) : <span className="text-gray-300">—</span>}
+                        </td>
+                      )
+                    })()}
                     {/* 受注担当・管理担当（案件の担当者） */}
                     {caseAssignees && (
                       <td className="px-3 py-2.5 align-top text-[12px] text-gray-700 whitespace-nowrap">
