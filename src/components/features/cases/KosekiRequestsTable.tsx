@@ -316,8 +316,8 @@ function KosekiCard({ r, progressMode, setLocal, commit, saveField, onPickTarget
   onDelete: () => void
   targetOptions: string[]
 }) {
-  const inputCls = 'w-full h-12 px-3 text-[15px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white transition'
-  const selectCls = 'w-full h-12 px-3 text-[15px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500'
+  const inputCls = 'w-full h-10 px-3 text-[13px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white transition'
+  const selectCls = 'w-full h-10 px-3 text-[13px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500'
   // オーダーシート(progressMode=false)は1項目=1行。案件詳細のスマホは従来どおり2列。
   const gridCls = progressMode ? 'grid grid-cols-2 gap-2.5' : 'grid grid-cols-1 gap-2.5'
   const targetOpts = r.target_person && !targetOptions.includes(r.target_person) ? [...targetOptions, r.target_person] : targetOptions
@@ -342,7 +342,7 @@ function KosekiCard({ r, progressMode, setLocal, commit, saveField, onPickTarget
           </KFieldBlock>
         </div>
         <KFieldBlock label="請求先"><input type="text" value={r.request_to ?? ''} onChange={e => setLocal(r.id, 'request_to', e.target.value)} onBlur={e => commit(r.id, 'request_to', e.target.value)} placeholder="市区町村役所 等" className={inputCls} /></KFieldBlock>
-        <KFieldBlock label="範囲"><SelectOrTextField value={r.range_text} options={KOSEKI_RANGES} onSave={v => saveField(r.id, 'range_text', v)} placeholder="出生から死亡まで 等" className="h-12 px-3 text-[15px] border border-gray-200 rounded-lg" /></KFieldBlock>
+        <KFieldBlock label="範囲"><SelectOrTextField value={r.range_text} options={KOSEKI_RANGES} onSave={v => saveField(r.id, 'range_text', v)} placeholder="出生から死亡まで 等" className="h-10 px-3 text-[13px] border border-gray-200 rounded-lg" /></KFieldBlock>
         <div className={gridCls}>
           <KFieldBlock label="種別">
             <select value={r.doc_types ?? ''} onChange={e => saveField(r.id, 'doc_types', e.target.value)} className={selectCls}>

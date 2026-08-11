@@ -209,7 +209,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
           onCompositionEnd={() => { composingRef.current = false }}
           onBlur={() => { if (!composingRef.current) { const t = draft.trim(); if (t !== (value ?? '')) withToast(() => onSave(t)) } }}
           placeholder="入力"
-          className={`w-full h-12 px-3 text-[15px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400 ${mono ? 'font-mono' : ''} ${ai ? 'text-blue-600' : ''}`}
+          className={`w-full h-10 px-3 text-[13px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400 ${mono ? 'font-mono' : ''} ${ai ? 'text-blue-600' : ''}`}
         />
         {hint && <p className="mt-0.5 text-[11px] text-gray-400">{hint}</p>}
       </div>
@@ -284,7 +284,7 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
     return (
       <div className={`py-1.5 ${fullWidth ? 'sm:col-span-2' : ''}`}>
         <div className="text-[13px] font-medium text-slate-600 mb-1">{label}</div>
-        <select value={value ?? ''} onChange={e => handleChange(e.target.value)} disabled={saving} className={`${selCls} h-12 px-3 text-[15px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400`}>
+        <select value={value ?? ''} onChange={e => handleChange(e.target.value)} disabled={saving} className={`${selCls} h-10 px-3 text-[13px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400`}>
           <option value="">（未設定）</option>
           {options.map(opt => <option key={opt} value={opt}>{optionLabel ? optionLabel(opt) : opt}</option>)}
         </select>
@@ -463,7 +463,7 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
     return (
       <div className={`py-1.5 ${fullWidth ? 'sm:col-span-2' : ''}`}>
         <div className="text-[13px] font-medium text-slate-600 mb-1">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</div>
-        <input type="date" max={max} value={draft} onChange={e => { setDraft(e.target.value); if (e.target.value !== (value ?? '')) withToast(() => onSave(e.target.value)) }} className={`w-full h-12 px-3 text-[15px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400 ${ai ? 'text-blue-600' : ''}`} />
+        <input type="date" max={max} value={draft} onChange={e => { setDraft(e.target.value); if (e.target.value !== (value ?? '')) withToast(() => onSave(e.target.value)) }} className={`w-full h-10 px-3 text-[13px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400 ${ai ? 'text-blue-600' : ''}`} />
         {wareki && value && toWareki(value) && <div className="mt-0.5 text-[11px] text-gray-500">和暦：{toWareki(value)}</div>}
         {hint && <p className="mt-0.5 text-[11px] text-gray-400">{hint}</p>}
       </div>
@@ -596,8 +596,8 @@ export function InlineCurrency({ label, value, onSave, fullWidth }: {
       <div className={`py-1.5 ${fullWidth ? 'sm:col-span-2' : ''}`}>
         <div className="text-[13px] font-medium text-slate-600 mb-1">{label}</div>
         <div className="flex items-center gap-1.5">
-          <span className="text-[15px] text-gray-500">¥</span>
-          <input type="text" inputMode="numeric" value={draft} onChange={e => setDraft(e.target.value.replace(/[^0-9]/g, ''))} onBlur={() => { const parsed = draft.trim() === '' ? null : Number(draft.replace(/,/g, '')); if (parsed !== value) withToast(() => onSave(parsed)) }} className="w-full h-12 px-3 text-[15px] font-mono bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400" />
+          <span className="text-[13px] text-gray-500">¥</span>
+          <input type="text" inputMode="numeric" value={draft} onChange={e => setDraft(e.target.value.replace(/[^0-9]/g, ''))} onBlur={() => { const parsed = draft.trim() === '' ? null : Number(draft.replace(/,/g, '')); if (parsed !== value) withToast(() => onSave(parsed)) }} className="w-full h-10 px-3 text-[13px] font-mono bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400" />
         </div>
       </div>
     )
@@ -745,7 +745,7 @@ export function InlineTextarea({ label, value, onSave, fullWidth, placeholder, h
           onCompositionEnd={() => { composingRef.current = false }}
           onBlur={() => { if (!composingRef.current) { const t = draft.trim(); if (t !== (value ?? '')) withToast(() => onSave(t)) } }}
           placeholder={placeholder}
-          className="w-full px-3 py-2.5 text-[15px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400 resize-y min-h-[96px] leading-relaxed"
+          className="w-full px-3 py-2.5 text-[13px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400 resize-y min-h-[96px] leading-relaxed"
         />
       </div>
     )

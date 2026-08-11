@@ -434,8 +434,8 @@ function FieldBlock({ label, children }: { label: string; children: ReactNode })
 
 // スマホ用：不動産1件＝1カード（表の代わり。項目名の下に大きい入力欄を縦積み）
 function RealCard({ r, setLocal, commit, saveNumber, onDelete, orderSheetMode, showMuni }: RowProps & { orderSheetMode: boolean }) {
-  const inputCls = 'w-full h-12 px-3 text-[15px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white transition'
-  const selCls = 'w-full h-12 px-3 text-[15px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500'
+  const inputCls = 'w-full h-10 px-3 text-[13px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white transition'
+  const selCls = 'w-full h-10 px-3 text-[13px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500'
   const land = isLandProperty(r.property_type) || !r.property_type
   return (
     <div className="border border-gray-200 rounded-xl p-3 bg-white">
