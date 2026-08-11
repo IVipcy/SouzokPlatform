@@ -211,8 +211,9 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     if (!isPendingRouteCaseNumber(caseState.case_number) || !caseState.order_route) return
     fixNumberRef.current = true
     ;(async () => {
-      const next = await applyRouteToCaseNumber(createClient(), caseState.id, caseState.order_route)
-      if (next) handleSaved()
+      const r = await applyRouteToCaseNumber(createClient(), caseState.id, caseState.order_route)
+      if (r.number) { showToast(`案件番号を ${r.number} に更新しました`, 'success'); handleSaved() }
+      else if (r.error) showToast(`案件番号の更新に失敗: ${r.error}`, 'error')
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caseState.id, caseState.case_number, caseState.order_route])

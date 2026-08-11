@@ -524,7 +524,10 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         const { error } = await supabase.from('cases').update(casePayload).eq('id', caseId)
         if (error) throw new Error(`案件の更新に失敗: ${error.message}`)
         // 下書きで採番した番号は経路が未確定で XX。ここで経路が入ったら実コードに直す。
-        await applyRouteToCaseNumber(supabase, caseId, formData.orderRoute)
+        {
+          const r = await applyRouteToCaseNumber(supabase, caseId, formData.orderRoute)
+          if (r.error) showToast(`案件番号の更新に失敗: ${r.error}`, 'error')
+        }
         // 受注担当が未設定なら、相談結果を登録した本人を受注担当に紐付ける。
         // （LP連携案件は case_members が未作成のため、マイページの担当一覧に出てこない問題の対策）
         if (currentMemberId) {

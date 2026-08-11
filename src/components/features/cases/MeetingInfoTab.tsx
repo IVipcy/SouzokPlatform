@@ -106,7 +106,8 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
               onSave={async v => {
                 await patchCase({ order_route: v, order_route_detail: null })
                 // 番号が XX（経路未確定）のままなら、ここで実コードに直す
-                await applyRouteToCaseNumber(createClient(), caseData.id, v, caseData.case_number)
+                const r = await applyRouteToCaseNumber(createClient(), caseData.id, v, caseData.case_number)
+                if (r.error) showToast(`案件番号の更新に失敗: ${r.error}`, 'error')
                 onRefresh?.()
               }}
             />

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { showToast } from '@/components/ui/Toast'
 import { applyRouteToCaseNumber } from '@/lib/caseNumber'
 import Badge from '@/components/ui/Badge'
 import {
@@ -167,7 +168,8 @@ export default function OverviewTab({ caseData, caseMembers, tasks, allMembers, 
             <InlineSelect label="受注ルート" value={caseData.order_route} options={ORDER_ROUTES.filter(r => r !== 'LP経由')} onSave={async v => {
               await saveCaseField('order_route', v)
               // 番号が XX（経路未確定）のままなら、ここで実コードに直す
-              await applyRouteToCaseNumber(createClient(), caseData.id, v as string, caseData.case_number)
+              const r = await applyRouteToCaseNumber(createClient(), caseData.id, v as string, caseData.case_number)
+              if (r.error) showToast(`案件番号の更新に失敗: ${r.error}`, 'error')
               onRefresh?.()
             }} />
             <InlineEdit label="受注ルート（LP名）" value={caseData.order_route_lp_name} onSave={v => saveCaseField('order_route_lp_name', v)} />

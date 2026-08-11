@@ -31,26 +31,40 @@ export function caseNumberWithRoute(caseNumber: string | null | undefined, order
 
 /**
  * 受注ルートを保存したあとに呼ぶ。番号が XX のままなら実コードに直す。
- * 失敗しても呼び出し元の処理は止めない（番号は後からでも直せる）。
+ *
+ * case_number は UNIQUE なので、差し替え先が既に使われていたら連番を1つずつ上げて空きを探す
+ * （同じ日に別ルートで同じ連番が使われているとぶつかる）。
+ * 直す必要が無いときは { number: null, error: null } を返す。
  */
 export async function applyRouteToCaseNumber(
   supabase: SupabaseClient,
   caseId: string,
   orderRoute: string | null | undefined,
   knownCaseNumber?: string | null,
-): Promise<string | null> {
-  if (!routeCodeOf(orderRoute)) return null
+): Promise<{ number: string | null; error: string | null }> {
+  const code = routeCodeOf(orderRoute)
+  if (!code || code === PENDING_ROUTE_CODE) return { number: null, error: null }
+
   let current = knownCaseNumber ?? null
   if (current == null) {
     const { data } = await supabase.from('cases').select('case_number').eq('id', caseId).single()
     current = (data as { case_number: string | null } | null)?.case_number ?? null
   }
-  const next = caseNumberWithRoute(current, orderRoute)
-  if (!next) return null
-  const { error } = await supabase.from('cases').update({ case_number: next }).eq('id', caseId)
-  if (error) {
-    console.error('案件番号の経路コード更新に失敗', error)
-    return null
+  if (!isPendingRouteCaseNumber(current)) return { number: null, error: null }
+
+  const head = current!.slice(0, 4)
+  let seq = parseInt(current!.slice(6), 10)
+  if (!Number.isFinite(seq)) return { number: null, error: '案件番号の連番を読み取れませんでした' }
+
+  let lastError = '不明なエラー'
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const next = `${head}${code}${String(seq).padStart(4, '0')}`
+    const { error } = await supabase.from('cases').update({ case_number: next }).eq('id', caseId)
+    if (!error) return { number: next, error: null }
+    lastError = error.message
+    if (error.code === '23505') { seq += 1; continue }   // 同じ番号が既にある → 次の連番へ
+    break
   }
-  return next
+  console.error('案件番号の経路コード更新に失敗', lastError)
+  return { number: null, error: lastError }
 }
