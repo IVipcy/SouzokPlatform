@@ -152,17 +152,21 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   // 連絡待ちの解除（お客様OK）：解除日を当日で記録。
   const releaseWait = (row: FinancialAssetRow) => patchReq(row, { prohibition_released_at: todayYmd })
 
-  const setLocal = (id: string, field: keyof FinancialAssetRow, value: string) =>
+  const setLocal = (id: string, field: keyof FinancialAssetRow, value: unknown) =>
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as FinancialAssetRow : r)))
 
   // 文字列以外（根拠資料の有無=boolean、根拠資料の種別=string[]）も保存できるようにする。
   // 空文字だけ null に落とす従来の挙動は維持（他の列がそれ前提のため）。
+  //
+  // 画面の値もここで更新する。以前は DB だけ書いて手元の行を直しておらず、
+  // チェックボックスが押しても変わらない（＝押せない）ように見えていた。
   const commit = async (id: string, field: keyof FinancialAssetRow, value: string | boolean | string[]) => {
     const v = value === '' ? null : value
+    setLocal(id, field, v)
     const { error } = await supabase.from('financial_assets').update({ [field]: v }).eq('id', id)
     if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
   }
-  const save = (id: string, field: keyof FinancialAssetRow, value: string) => { setLocal(id, field, value); commit(id, field, value) }
+  const save = (id: string, field: keyof FinancialAssetRow, value: string) => { commit(id, field, value) }
 
   const addRow = async () => {
     setBusy(true)
