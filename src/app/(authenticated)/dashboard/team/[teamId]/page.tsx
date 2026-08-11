@@ -308,8 +308,26 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
       task: { ...t, created_by_member: t.created_by ? ({ name: memberNameById.get(t.created_by) ?? null } as TaskRow['created_by_member']) : null },
       severity: sev, over: calDaysOverdue(t.due_date as string, ymd),
     }))
-  // 入金期日は管理担当のチーム進捗で見るため、ここでは出さない（受注担当は自分ぶんをマイページで見る）
-  const teamOverdueBills: OverdueBill[] = []
+  // 入金期日の超過。チーム（受注担当）の案件の請求書を見る。
+  const caseNameById = new Map(cases.map(c => [c.id, c.deal_name ?? '']))
+  const firmLabelOf = (fm: string | null) => fm === 'shiho' ? '司法' : fm === 'gyosei' ? '行政' : ''
+  let teamInvoices: Array<{ id: string; case_id: string; amount: number | null; status: string; invoice_type: string | null; firm_type: string | null; due_date: string | null }> = []
+  if (teamCaseIds.size > 0) {
+    const { data: invRaw } = await supabase
+      .from('invoices')
+      .select('id,case_id,amount,status,invoice_type,firm_type,due_date')
+      .in('case_id', [...teamCaseIds])
+    teamInvoices = (invRaw ?? []) as typeof teamInvoices
+  }
+  const teamOverdueBills: OverdueBill[] = teamInvoices
+    .map(inv => ({ inv, sev: inv.status === '入金待ち' ? overdueSeverity(inv.due_date, ymd) : null }))
+    .filter((x): x is { inv: (typeof teamInvoices)[number]; sev: OverdueSeverity } => x.sev !== null)
+    .map(({ inv, sev }) => ({
+      id: inv.id, caseId: inv.case_id, caseName: caseNameById.get(inv.case_id) ?? '',
+      typeLabel: inv.invoice_type ?? '', firmLabel: firmLabelOf(inv.firm_type),
+      amount: inv.amount ?? 0, dueDate: inv.due_date as string,
+      over: calDaysOverdue(inv.due_date as string, ymd), severity: sev,
+    }))
 
   return (
     <div>
