@@ -314,7 +314,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
         title={`${team.name}・進捗管理`}
         icon={AlertTriangle}
         description="案件のフラグ（紫/赤/黄/青）でリスクを早期発見"
-        right={currentView === 'progress'
+        center={currentView === 'progress'
           ? <OverdueAttention bills={teamOverdueBills} tasks={teamOverdueTasks} currentMemberId={currentMemberId ?? ''} hrefBase={`/dashboard/team/${teamId}/overdue`} />
           : undefined}
       />

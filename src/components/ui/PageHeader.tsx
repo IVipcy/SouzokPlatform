@@ -11,6 +11,8 @@ type Props = {
   description?: React.ReactNode
   /** タイトル（名前）のすぐ右に置く要素（アラートベル etc） */
   afterTitle?: React.ReactNode
+  /** タイトルと右要素の間、残りスペースの中央に置く要素（要注意/要確認バナー etc）。マイページと同じ見え方にする用 */
+  center?: React.ReactNode
   /** 右側に置く要素（ボタン・検索 etc） */
   right?: React.ReactNode
   className?: string
@@ -33,6 +35,7 @@ export default function PageHeader({
   icon: Icon,
   description,
   afterTitle,
+  center,
   right,
   className = '',
 }: Props) {
@@ -51,6 +54,7 @@ export default function PageHeader({
           <p className="text-sm text-gray-500 mt-1">{description}</p>
         )}
       </div>
+      {center && <div className="flex-1 flex justify-center min-w-[280px]">{center}</div>}
       {right && <div className="flex items-center gap-2 flex-wrap">{right}</div>}
     </div>
   )

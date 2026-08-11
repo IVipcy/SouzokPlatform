@@ -13,7 +13,8 @@ import PeriodSwitcher from '@/components/features/dashboard/PeriodSwitcher'
 import { parsePeriod } from '@/lib/dashboardPeriod'
 import DashboardViewTabs from '@/components/features/dashboard/DashboardViewTabs'
 import MonthlyMeetingsTable from '@/components/features/dashboard/MonthlyMeetingsTable'
-import TeamTaskButton from '@/components/features/tasks/TeamTaskButton'
+import OverdueAttention, { type OverdueBill, type OverdueTaskItem } from '@/components/features/dashboard/OverdueAttention'
+import { overdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
 import type { TaskRow } from '@/types'
 import {
   computeSalesDailyMetrics,
@@ -292,28 +293,23 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
 
   const scopeLabel = focusedMember ? focusedMember.name : `${team.name}`
 
-  // ── チームタスク（要対応）をヘッダーのボタンから開くために事前計算 ──
+  // ── 要注意／要確認バナー（管理担当のチーム進捗と同じ部品・同じ位置） ──
+  // 中身はチーム全員ぶんの「タスク期日の超過」。以前はここに「チームタスク」ボタンを置いていたが、
+  // 期日が近いものを一覧で出すだけで、何が危ないのかが読めなかった。
   const memberNameById = new Map(allActiveMembers.map(m => [m.id, m.name]))
-  const teamSalesByCase = new Map<string, string>()
-  const teamManagerByCase = new Map<string, string>()
-  for (const cm of caseMembers) {
-    if (cm.role === 'sales' && !teamSalesByCase.has(cm.case_id)) teamSalesByCase.set(cm.case_id, memberNameById.get(cm.member_id) ?? '')
-    if (cm.role === 'manager' && !teamManagerByCase.has(cm.case_id)) teamManagerByCase.set(cm.case_id, memberNameById.get(cm.member_id) ?? '')
-  }
   const teamTaskById = new Map<string, TaskRow>()
   for (const t of (systemTasksRaw ?? []) as TaskRow[]) { if (teamCaseIds.has(t.case_id)) teamTaskById.set(t.id, t) }
   for (const t of (teamTaggedTasksRaw ?? []) as TaskRow[]) teamTaskById.set(t.id, t)
-  const taskHorizon = new Date(today)
-  taskHorizon.setDate(taskHorizon.getDate() + 2)
-  const taskHorizonStr = todayJstYmd(taskHorizon)
-  const urgentTeamTasks = [...teamTaskById.values()].filter(t => !!t.due_date && t.due_date <= taskHorizonStr)
-  const teamTaskAssignees: Record<string, { salesName: string | null; managerName: string | null }> = {}
-  for (const t of urgentTeamTasks) {
-    teamTaskAssignees[t.case_id] = {
-      salesName: teamSalesByCase.get(t.case_id) ?? null,
-      managerName: teamManagerByCase.get(t.case_id) ?? null,
-    }
-  }
+  const normTaskStatus = (st: string) => st === '未着手' ? '着手前' : (['Wチェック待ち', '保留'].includes(st) ? '対応中' : st === 'キャンセル' ? '完了' : st)
+  const teamOverdueTasks: OverdueTaskItem[] = [...teamTaskById.values()]
+    .map(t => ({ t, sev: ['着手前', '対応中'].includes(normTaskStatus(t.status)) ? overdueSeverity(t.due_date, ymd) : null }))
+    .filter((x): x is { t: TaskRow; sev: OverdueSeverity } => x.sev !== null)
+    .map(({ t, sev }) => ({
+      task: { ...t, created_by_member: t.created_by ? ({ name: memberNameById.get(t.created_by) ?? null } as TaskRow['created_by_member']) : null },
+      severity: sev, over: calDaysOverdue(t.due_date as string, ymd),
+    }))
+  // 入金期日は管理担当のチーム進捗で見るため、ここでは出さない（受注担当は自分ぶんをマイページで見る）
+  const teamOverdueBills: OverdueBill[] = []
 
   return (
     <div>
@@ -322,11 +318,12 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
         title={`${team.name}・受注担当 ${periodLabel}`}
         icon={Users}
         description={`${dateLabel}・受注担当の${periodLabel}の動きとチーム成績`}
-        afterTitle={
-          <TeamTaskButton
-            tasks={urgentTeamTasks}
-            currentMemberId={currentMemberId ?? undefined}
-            caseAssignees={teamTaskAssignees}
+        center={
+          <OverdueAttention
+            bills={teamOverdueBills}
+            tasks={teamOverdueTasks}
+            currentMemberId={currentMemberId ?? ''}
+            hrefBase={`/dashboard/team/${teamId}/overdue`}
           />
         }
       />
@@ -347,7 +344,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
           basePath={`/dashboard/team/${teamId}`}
         />
 
-        {/* ビュー切替タブ（受注数値 / 面談一覧） */}
+        {/* ビュー切替タブ（受注数値 / 相談案件一覧） */}
         {(() => {
           const monthlyMeetings = scopeCases
             .filter(c =>
@@ -371,7 +368,7 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
                 current={currentView}
                 tabs={[
                   { value: 'stats',    label: '受注数値' },
-                  { value: 'meetings', label: '面談一覧', count: monthlyMeetings.length },
+                  { value: 'meetings', label: '相談案件一覧', count: monthlyMeetings.length },
                 ]}
               />
               {currentView === 'stats' ? (
@@ -379,13 +376,12 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
               ) : (
                 <MonthlyMeetingsTable
                   cases={monthlyMeetings}
-                  title={`📅 ${ym} の面談一覧（${focusedMember ? focusedMember.name : team.name}チーム）`}
+                  title={`📅 ${ym} の相談案件一覧（${focusedMember ? focusedMember.name : team.name}チーム）`}
                 />
               )}
             </>
           )
         })()}
-        {/* チームタスクは見出し右の「チームタスク」ボタンから開く（ページ下部の常時表示は廃止） */}
       </div>
     </div>
   )
