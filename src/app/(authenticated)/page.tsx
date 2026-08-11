@@ -53,7 +53,7 @@ export default async function DashboardTopPage() {
     .from('teams')
     .select('id,name,sort_order,is_touki_team_special')
     .eq('is_active', true)
-    .order('sort_order')
+    .order('sort_order').order('created_at')
 
   // 相続登記チーム(is_touki_team_special) は 受注/管理 のチーム一覧から除外し、
   // 専用ダッシュボード /dashboard/touki-team に集約する。

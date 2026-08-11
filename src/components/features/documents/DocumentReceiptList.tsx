@@ -380,7 +380,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
     ;(async () => {
       const [tk, cs, cd, fa, ac, re] = await Promise.all([
         // 全件取得（完了含む）。完了は候補に出さないが、「＋作成」候補の重複判定に使う。
-        supabase.from('tasks').select('id,title,status,source_rid,phase,task_kind').eq('case_id', receipt.case_id).order('sort_order'),
+        supabase.from('tasks').select('id,title,status,source_rid,phase,task_kind').eq('case_id', receipt.case_id).order('sort_order').order('created_at'),
         supabase.from('cases').select('service_category, service_category_2, intake_roles').eq('id', receipt.case_id).single(),
         supabase.from('contract_documents').select('id, category').eq('case_id', receipt.case_id),
         supabase.from('financial_assets').select('id, institution_name').eq('case_id', receipt.case_id),

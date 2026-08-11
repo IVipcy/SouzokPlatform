@@ -67,11 +67,11 @@ export default async function TaskDetailPage({ params }: Props) {
       .from('task_templates')
       .select('*')
       .eq('is_active', true)
-      .order('sort_order'),
+      .order('sort_order').order('created_at'),
     // AI書類作成モーダル用の案件付随データ
-    supabase.from('heirs').select('*').eq('case_id', caseId).order('sort_order'),
+    supabase.from('heirs').select('*').eq('case_id', caseId).order('sort_order').order('created_at'),
     supabase.from('real_estate_properties').select('*').eq('case_id', caseId),
-    supabase.from('contract_documents').select('*').eq('case_id', caseId).order('sort_order', { ascending: true }),
+    supabase.from('contract_documents').select('*').eq('case_id', caseId).order('sort_order', { ascending: true }).order('created_at'),
     supabase.from('financial_assets').select('institution_name, freeze_confirmed').eq('case_id', caseId),
   ])
 

@@ -39,26 +39,26 @@ export default async function IntakeCasePage({ params }: Props) {
 
   const [caseR, heirsR, kosekiR, propsR, acqR, finR, divR, agrR, expR, tasksR, commsR, refR, clientsR, contractR, sagyoR, receiptsR, memosR, otherR] = await Promise.all([
     supabase.from('cases').select('*, clients(*)').eq('id', id).single(),
-    supabase.from('heirs').select('*').eq('case_id', id).order('sort_order'),
-    supabase.from('koseki_requests').select('*').eq('case_id', id).order('sort_order'),
+    supabase.from('heirs').select('*').eq('case_id', id).order('sort_order').order('created_at'),
+    supabase.from('koseki_requests').select('*').eq('case_id', id).order('sort_order').order('created_at'),
     supabase.from('real_estate_properties').select('*').eq('case_id', id),
-    supabase.from('real_estate_acquisitions').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
+    supabase.from('real_estate_acquisitions').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
     supabase.from('financial_assets').select('*').eq('case_id', id),
     supabase.from('division_details').select('*').eq('case_id', id),
-    supabase.from('agreement_dispatches').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
+    supabase.from('agreement_dispatches').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
     supabase.from('expenses').select('*').eq('case_id', id).order('expense_date'),
-    supabase.from('tasks').select('*, task_assignees(*, members(*)), started_by_member:members!tasks_started_by_fkey(*)').eq('case_id', id).order('sort_order'),
+    supabase.from('tasks').select('*, task_assignees(*, members(*)), started_by_member:members!tasks_started_by_fkey(*)').eq('case_id', id).order('sort_order').order('created_at'),
     supabase.from('client_communications').select('*').eq('case_id', id).order('communicated_at', { ascending: false }),
     supabase.from('case_referrals').select('*').eq('case_id', id).order('created_at', { ascending: true }),
-    supabase.from('case_clients').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
-    supabase.from('contract_documents').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
-    supabase.from('sagyo_documents').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
+    supabase.from('case_clients').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
+    supabase.from('contract_documents').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
+    supabase.from('sagyo_documents').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
     supabase.from('document_receipts')
       .select('id, received_date, dual_checked_at, started_by_member_id, started_task_id, started_by_member:members!document_receipts_started_by_member_id_fkey(name), items:document_receipt_items(id, item_name, sort_order, uploaded_at, link_not_required, settlement_reflect, settlement_amount, linked_id, linked_kind, linked_field, case_document_id, case_document:case_documents!case_document_id(received_file_path, received_file_bucket, received_file_name), item_tasks:document_receipt_item_tasks(task:tasks(id, title)))')
       .eq('case_id', id).order('received_date', { ascending: true }),
-    supabase.from('meeting_memos').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
+    supabase.from('meeting_memos').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
     // その他財産／相続債務／その他費用。migration 224 未適用環境では error → 空配列で degrade。
-    supabase.from('case_other_assets').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
+    supabase.from('case_other_assets').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
   ])
 
   if (caseR.error || !caseR.data) notFound()

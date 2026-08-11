@@ -49,10 +49,10 @@ export async function GET(req: NextRequest) {
   const supabase = await createClient()
   const [caseRes, propRes, finRes, otherRes, heirRes] = await Promise.all([
     supabase.from('cases').select('case_number, deal_name, deceased_name').eq('id', caseId).single(),
-    supabase.from('real_estate_properties').select('*').eq('case_id', caseId).order('sort_order', { ascending: true }),
-    supabase.from('financial_assets').select('*').eq('case_id', caseId).order('sort_order', { ascending: true }),
-    supabase.from('case_other_assets').select('*').eq('case_id', caseId).order('sort_order', { ascending: true }),
-    supabase.from('heirs').select('name, is_legal_heir, legal_share_num, legal_share_den').eq('case_id', caseId).order('sort_order', { ascending: true }),
+    supabase.from('real_estate_properties').select('*').eq('case_id', caseId).order('sort_order', { ascending: true }).order('created_at'),
+    supabase.from('financial_assets').select('*').eq('case_id', caseId).order('sort_order', { ascending: true }).order('created_at'),
+    supabase.from('case_other_assets').select('*').eq('case_id', caseId).order('sort_order', { ascending: true }).order('created_at'),
+    supabase.from('heirs').select('name, is_legal_heir, legal_share_num, legal_share_den').eq('case_id', caseId).order('sort_order', { ascending: true }).order('created_at'),
   ])
   const c = caseRes.data as { case_number: string; deal_name: string; deceased_name: string | null } | null
   if (!c) return NextResponse.json({ error: '案件が見つかりません' }, { status: 404 })

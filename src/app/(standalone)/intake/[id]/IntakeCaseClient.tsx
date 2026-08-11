@@ -330,7 +330,7 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
             const status = fresh?.status ?? caseState.status
             // deal_name が無題/空なら、メイン依頼者名で補完（相談案件一覧で「無題」を残さない）
             if (!fresh?.deal_name || fresh.deal_name === '無題') {
-              const { data: ccs } = await supabase.from('case_clients').select('name, priority, sort_order').eq('case_id', caseId).order('sort_order')
+              const { data: ccs } = await supabase.from('case_clients').select('name, priority, sort_order').eq('case_id', caseId).order('sort_order').order('created_at')
               const main = ccs?.find(c => c.priority === 'main') ?? ccs?.[0]
               const clientName = main?.name?.trim() || ''
               if (clientName && clientName !== '無題') await supabase.from('cases').update({ deal_name: clientName }).eq('id', caseId)

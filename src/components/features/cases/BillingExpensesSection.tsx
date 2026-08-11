@@ -43,7 +43,7 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
   useEffect(() => {
     let alive = true
     ;(async () => {
-      const { data } = await supabase.from('billing_expense_items').select('*').eq('case_id', caseId).order('sort_order')
+      const { data } = await supabase.from('billing_expense_items').select('*').eq('case_id', caseId).order('sort_order').order('created_at')
       if (alive) { setRows((data ?? []) as BillingExpenseItemRow[]); setLoading(false) }
     })()
     return () => { alive = false }
@@ -137,7 +137,7 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
       source_kind: it.source_kind, source_id: it.source_id,
     })))
     if (error) { showToast(`取り込みに失敗: ${error.message}`, 'error'); setImporting(false); return }
-    const { data } = await supabase.from('billing_expense_items').select('*').eq('case_id', caseId).order('sort_order')
+    const { data } = await supabase.from('billing_expense_items').select('*').eq('case_id', caseId).order('sort_order').order('created_at')
     setRows((data ?? []) as BillingExpenseItemRow[])
     setImporting(false); setPending(null)
     showToast(`実務タブから${pending.length}件の立替実費を取り込みました`, 'success')

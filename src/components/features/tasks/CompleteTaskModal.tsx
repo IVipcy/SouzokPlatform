@@ -93,7 +93,7 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
     const supabase = createClient()
     ;(async () => {
       const [{ data: tsData }, { data: kkData }, { data: faData }] = await Promise.all([
-        supabase.from('tasks').select('id,title,phase,sort_order,status,task_kind,ext_data,case_id,source_rid').eq('case_id', task.case_id).order('sort_order'),
+        supabase.from('tasks').select('id,title,phase,sort_order,status,task_kind,ext_data,case_id,source_rid').eq('case_id', task.case_id).order('sort_order').order('created_at'),
         supabase.from('koseki_requests').select('*').eq('case_id', task.case_id),
         supabase.from('financial_assets').select('*').eq('case_id', task.case_id),
       ])

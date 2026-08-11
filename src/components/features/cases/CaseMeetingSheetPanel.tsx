@@ -45,7 +45,7 @@ export default function CaseMeetingSheetPanel({
     let alive = true
     ;(async () => {
       const supabase = createClient()
-      const { data } = await supabase.from('meeting_memos').select('*').eq('case_id', caseData.id).order('sort_order')
+      const { data } = await supabase.from('meeting_memos').select('*').eq('case_id', caseData.id).order('sort_order').order('created_at')
       if (alive) setMemos((data ?? []) as MeetingMemoRow[])
     })()
     return () => { alive = false }

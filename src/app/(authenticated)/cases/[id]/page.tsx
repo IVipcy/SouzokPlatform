@@ -31,7 +31,7 @@ export default async function CaseDetailPage({ params }: Props) {
       .from('tasks')
       .select('*, task_assignees(*, members(*)), started_by_member:members!tasks_started_by_fkey(*)')
       .eq('case_id', id)
-      .order('sort_order'),
+      .order('sort_order').order('created_at'),
     supabase
       .from('members')
       .select('*')
@@ -41,18 +41,18 @@ export default async function CaseDetailPage({ params }: Props) {
       .from('task_templates')
       .select('*')
       .eq('is_active', true)
-      .order('sort_order'),
+      .order('sort_order').order('created_at'),
     supabase
       .from('heirs')
       .select('*')
       .eq('case_id', id)
-      .order('sort_order'),
+      .order('sort_order').order('created_at'),
     // 戸籍請求（請求単位）。migration 074 未適用環境では error → 空配列で degrade。
     supabase
       .from('koseki_requests')
       .select('*')
       .eq('case_id', id)
-      .order('sort_order'),
+      .order('sort_order').order('created_at'),
     supabase
       .from('real_estate_properties')
       .select('*')
@@ -96,27 +96,27 @@ export default async function CaseDetailPage({ params }: Props) {
     // 他事業者紹介（業者別）。migration 062 未適用環境では error → 空配列で degrade。
     supabase.from('case_referrals').select('*').eq('case_id', id).order('created_at', { ascending: true }),
     // 依頼者（同行者含む）。migration 064 未適用環境では error → 空配列で degrade。
-    supabase.from('case_clients').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
+    supabase.from('case_clients').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
     // 契約手続きの受領書類。migration 086 未適用環境では error → 空配列で degrade。
-    supabase.from('contract_documents').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
+    supabase.from('contract_documents').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
     // 作業に紐づく必要書類。migration 091 未適用環境では error → 空配列で degrade。
-    supabase.from('sagyo_documents').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
+    supabase.from('sagyo_documents').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
     // 作成書類（書類作成タブで生成した書類）。作成タスク名も表示するため tasks を join。
     supabase.from('documents').select('*, tasks(id, title)').eq('case_id', id).order('created_at', { ascending: false }),
     // 不動産の取得資料管理。migration 102 未適用環境では error → 空配列で degrade。
-    supabase.from('real_estate_acquisitions').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
+    supabase.from('real_estate_acquisitions').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
     // 遺産分割協議書の送付・受領。migration 106 未適用環境では error → 空配列で degrade。
-    supabase.from('agreement_dispatches').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
+    supabase.from('agreement_dispatches').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
     // 案件フォルダのファイル。migration 137 未適用環境では error → 空配列で degrade。
     supabase.from('case_files').select('*').eq('case_id', id).order('created_at', { ascending: false }),
     // 財産目録。migration 143 未適用環境では error → 空配列で degrade。
-    supabase.from('asset_inventory').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
+    supabase.from('asset_inventory').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
     // 報酬内訳（引き継ぎゲートの「基本料金入力済」判定用）。
     supabase.from('reward_items').select('amount').eq('case_id', id),
     // 白紙メモの原本（面談シートの白紙モードで保存した1枚画像）。migration 221 未適用環境では error → 空配列で degrade。
     supabase.from('meeting_memos').select('id, image_path, image_bucket, section, created_at, meta').eq('case_id', id).eq('section', 'whiteboard').order('created_at', { ascending: false }),
     // その他財産／相続債務／その他費用。migration 224 未適用環境では error → 空配列で degrade。
-    supabase.from('case_other_assets').select('*').eq('case_id', id).order('sort_order', { ascending: true }),
+    supabase.from('case_other_assets').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
   ])
 
   if (caseResult.error || !caseResult.data) {

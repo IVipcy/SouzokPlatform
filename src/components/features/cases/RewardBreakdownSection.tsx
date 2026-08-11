@@ -42,7 +42,7 @@ export default function RewardBreakdownSection({ caseId, onTotals }: {
     let alive = true
     ;(async () => {
       const [{ data: items }, { data: c }] = await Promise.all([
-        supabase.from('reward_items').select('*').eq('case_id', caseId).order('sort_order'),
+        supabase.from('reward_items').select('*').eq('case_id', caseId).order('sort_order').order('created_at'),
         supabase.from('cases').select('reward_discount_judicial, reward_discount_administrative, reward_note_judicial, reward_note_administrative').eq('id', caseId).single(),
       ])
       if (!alive) return

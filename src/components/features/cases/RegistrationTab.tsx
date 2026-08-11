@@ -42,7 +42,7 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const { data } = await supabase.from('heirs').select('*').eq('case_id', caseData.id).order('sort_order')
+      const { data } = await supabase.from('heirs').select('*').eq('case_id', caseData.id).order('sort_order').order('created_at')
       if (!cancelled) setHeirs((data ?? []) as HeirRow[])
     })()
     return () => { cancelled = true }

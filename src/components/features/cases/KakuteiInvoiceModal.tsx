@@ -66,7 +66,7 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, default
         .select('label, amount, taxable, quantity, unit_price, sort_order')
         .eq('case_id', caseData.id)
         .eq('shigyo', shigyo)
-        .order('sort_order', { ascending: true })
+        .order('sort_order', { ascending: true }).order('created_at')
       const exp = (data ?? []) as Array<{ label: string | null; amount: number | null; taxable: boolean | null; quantity: number | null; unit_price: number | null }>
       setRows(exp.map(e => ({ id: NEW_ID(), name: e.label ?? '', amount: e.amount ?? 0, taxable: e.taxable === true, quantity: e.quantity, unitPrice: e.unit_price })))
     })()

@@ -34,7 +34,7 @@ export default function SecuritiesHoldingsTable({ caseId, assets, onRefresh }: {
     ;(async () => {
       if (!assetIds) { if (alive) setRows([]); return }
       const { data } = await supabase.from('securities_holdings')
-        .select('*').in('financial_asset_id', assetIds.split(',')).order('sort_order')
+        .select('*').in('financial_asset_id', assetIds.split(',')).order('sort_order').order('created_at')
       if (alive) setRows((data ?? []) as SecuritiesHoldingRow[])
     })()
     return () => { alive = false }

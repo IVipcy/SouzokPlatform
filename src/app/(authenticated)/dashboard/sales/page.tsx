@@ -84,7 +84,7 @@ export default async function SalesDashboardPage({ searchParams }: { searchParam
       .select('id,name,avatar_color,avatar_url,primary_role,job_type,joined_at,team_id')
       .eq('is_active', true)
       .eq('primary_role', 'sales'),
-    supabase.from('teams').select('id,name,sort_order').eq('is_active', true).order('sort_order'),
+    supabase.from('teams').select('id,name,sort_order').eq('is_active', true).order('sort_order').order('created_at'),
     supabase
       .from('activity_log')
       .select('entity_id,old_value,new_value,created_at')

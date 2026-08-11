@@ -11,8 +11,8 @@ import type { ManualChapterRow, ManualStepRow } from '@/lib/manualStep'
 export default async function ManualStepsPage() {
   const supabase = await createClient()
   const [{ data: chaptersRaw }, { data: stepsRaw }] = await Promise.all([
-    supabase.from('manual_chapters').select('id,name,sort_order').order('sort_order'),
-    supabase.from('manual_steps').select('*').order('sort_order'),
+    supabase.from('manual_chapters').select('id,name,sort_order').order('sort_order').order('created_at'),
+    supabase.from('manual_steps').select('*').order('sort_order').order('created_at'),
   ])
   const chapters = (chaptersRaw ?? []) as unknown as ManualChapterRow[]
   const steps = (stepsRaw ?? []) as unknown as ManualStepRow[]

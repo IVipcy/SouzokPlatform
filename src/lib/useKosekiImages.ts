@@ -30,7 +30,7 @@ export function useKosekiImages(caseId: string, targetPerson?: string) {
 
   const reload = useCallback(async () => {
     const supabase = createClient()
-    let q = supabase.from('koseki_images').select('*').eq('case_id', caseId).order('sort_order')
+    let q = supabase.from('koseki_images').select('*').eq('case_id', caseId).order('sort_order').order('created_at')
     if (targetPerson !== undefined) q = q.eq('target_person', targetPerson)
     const { data } = await q
     const list = (data ?? []) as unknown as KosekiImageRow[]

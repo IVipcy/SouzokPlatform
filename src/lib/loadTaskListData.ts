@@ -38,7 +38,7 @@ export async function loadTaskListData(): Promise<{
     supabase
       .from('tasks')
       .select('*, task_assignees(*, members(*)), started_by_member:members!tasks_started_by_fkey(*)')
-      .order('sort_order'),
+      .order('sort_order').order('created_at'),
     supabase
       .from('cases')
       .select('id, case_number, deal_name, status, service_category, service_category_2, expected_completion_date, case_members(role, members(*))')

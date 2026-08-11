@@ -58,6 +58,8 @@ export const CATEGORY_AUTO_GYOMU: Record<string, string> = {
 // 実施業務セレクタ（受注区分に依存せず常に全表示・初期は未選択）。
 // label=表示名、gyomus=intake_roles に入れる内部業務名（遺産承継＝精算書作成＋指図書作成のマージ）。
 // 不動産→不動産調査／金融資産→金融資産調査 は表示名だけ変更（内部キーは維持）。
+// 「納品」は実施業務としては選ばせない。どの案件でも最後に必ず通る工程で、
+// 選ぶ/選ばないの余地がないため（納品タブと納品の業務・タスクはこれまでどおり生成される）。
 export type GyomuSelectorItem = { label: string; gyomus: string[] }
 export const GYOMU_SELECTOR_ROWS: GyomuSelectorItem[][] = [
   [
@@ -72,7 +74,6 @@ export const GYOMU_SELECTOR_ROWS: GyomuSelectorItem[][] = [
   ],
   [
     { label: '解約', gyomus: ['解約'] },
-    { label: '納品', gyomus: ['納品'] },
     { label: '手紙', gyomus: ['手紙'] },
     { label: '遺産承継', gyomus: ['精算書作成', '指図書作成'] },
     { label: '契約書', gyomus: ['契約書作成'] },

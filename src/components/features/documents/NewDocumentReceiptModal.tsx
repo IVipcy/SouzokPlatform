@@ -98,12 +98,12 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
     const [fa, re, ac, ko, cd, cs, ad, hr, salesRow] = await Promise.all([
       supabase.from('financial_assets').select('*').eq('case_id', id),
       supabase.from('real_estate_properties').select('*').eq('case_id', id),
-      supabase.from('real_estate_acquisitions').select('*').eq('case_id', id).order('sort_order'),
-      supabase.from('koseki_requests').select('*').eq('case_id', id).order('sort_order'),
-      supabase.from('contract_documents').select('*').eq('case_id', id).order('sort_order'),
+      supabase.from('real_estate_acquisitions').select('*').eq('case_id', id).order('sort_order').order('created_at'),
+      supabase.from('koseki_requests').select('*').eq('case_id', id).order('sort_order').order('created_at'),
+      supabase.from('contract_documents').select('*').eq('case_id', id).order('sort_order').order('created_at'),
       supabase.from('cases').select('intake_roles, family_tree_obtain_date, family_tree_apply_date, family_tree_office, family_tree_count').eq('id', id).single(),
       supabase.from('agreement_dispatches').select('*').eq('case_id', id),
-      supabase.from('heirs').select('*').eq('case_id', id).order('sort_order'),
+      supabase.from('heirs').select('*').eq('case_id', id).order('sort_order').order('created_at'),
       // 原本格納先の初期値：この案件の受注担当のチーム（チームに管理担当も受注担当も所属）
       supabase.from('case_members').select('members(team_id)').eq('case_id', id).eq('role', 'sales').limit(1).maybeSingle(),
     ])

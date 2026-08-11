@@ -51,9 +51,9 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
     let alive = true
     ;(async () => {
       const [inc, exp, ins, rec] = await Promise.all([
-        supabase.from('settlement_income_items').select('*').eq('case_id', caseData.id).order('sort_order'),
-        supabase.from('settlement_expense_items').select('*').eq('case_id', caseData.id).order('sort_order'),
-        supabase.from('instruction_items').select('*').eq('case_id', caseData.id).order('sort_order'),
+        supabase.from('settlement_income_items').select('*').eq('case_id', caseData.id).order('sort_order').order('created_at'),
+        supabase.from('settlement_expense_items').select('*').eq('case_id', caseData.id).order('sort_order').order('created_at'),
+        supabase.from('instruction_items').select('*').eq('case_id', caseData.id).order('sort_order').order('created_at'),
         supabase.from('document_receipts').select('received_date, items:document_receipt_items(id, item_name, settlement_reflect, settlement_amount)').eq('case_id', caseData.id),
       ])
       if (!alive) return

@@ -50,7 +50,7 @@ export default async function DocumentsPage() {
     supabase
       .from('document_receipt_items')
       .select('*, document_receipt_item_tasks(task:tasks(id, title, status))')
-      .order('sort_order'),
+      .order('sort_order').order('created_at'),
     currentMemberId
       ? supabase.from('members').select('*').eq('id', currentMemberId).maybeSingle()
       : Promise.resolve({ data: null }),

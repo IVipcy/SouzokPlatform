@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
         .from('case_clients')
         .select('name, birth_date, priority, sort_order')
         .eq('case_id', caseId)
-        .order('sort_order', { ascending: true })
+        .order('sort_order', { ascending: true }).order('created_at')
       const rows = (ccs ?? []) as MainClient[]
       if (rows.length > 0) {
         mainClient = rows.find(c => c.priority === 'main') ?? rows[0]

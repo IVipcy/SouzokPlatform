@@ -8,7 +8,7 @@ export default async function ManualStepEditPage({ params }: { params: Promise<{
   const supabase = await createClient()
   const [{ data }, { data: chaptersRaw }] = await Promise.all([
     supabase.from('manual_steps').select('*').eq('id', id).single(),
-    supabase.from('manual_chapters').select('name').order('sort_order'),
+    supabase.from('manual_chapters').select('name').order('sort_order').order('created_at'),
   ])
   if (!data) notFound()
   const chapters = ((chaptersRaw ?? []) as Array<{ name: string }>).map(c => c.name)
