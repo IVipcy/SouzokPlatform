@@ -44,10 +44,12 @@ export type ManualStepRow = {
 
 export const MANUAL_BUCKET = 'manual-images'
 
-/** 章（面談から納品までの流れ順） */
-export const MANUAL_CHAPTERS = [
+/** 章。migration 237 で manual_chapters テーブルに持たせた（画面から足せる）。ここは初期値の控え。 */
+export const DEFAULT_MANUAL_CHAPTERS = [
   '面談', '受注', '相続人調査', '財産調査', '遺産分割', '相続登記', '解約手続', '請求・入金', '納品', 'その他',
 ] as const
+
+export type ManualChapterRow = { id: string; name: string; sort_order: number }
 
 /** 誰向けの手順か */
 export const MANUAL_ROLES = ['受注担当', '管理担当', '事務管理担当', '経理', '相続登記チーム'] as const
@@ -68,6 +70,17 @@ export function numberOf(shots: Shot[], markId: string): number {
 
 /** 枠の数。操作方法の行数はこれに合わせる */
 export const markCount = (shots: Shot[]) => flatMarks(shots).length
+
+/**
+ * その画像に対応する操作方法の範囲。
+ * 画像と説明を同じ高さで横に並べるために使う（2枚目の画像の説明が1枚目の隣に来ると、
+ * どの画像の話なのか読めなくなるため）。
+ */
+export function itemRangeOf(shots: Shot[], shotIndex: number): { start: number; count: number } {
+  let start = 0
+  for (let i = 0; i < shotIndex; i++) start += shots[i].marks.length
+  return { start, count: shots[shotIndex]?.marks.length ?? 0 }
+}
 
 /**
  * 枠の数に合わせて操作方法の行を足し引きする。

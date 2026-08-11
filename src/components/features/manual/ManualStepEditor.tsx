@@ -6,23 +6,26 @@
 // そのまま画面の中でやる。番号は自動で振られ、枠を消せば右の行も一緒に消える。
 // PowerPoint で一番手が止まるのが番号の振り直しなので、そこは人にやらせない。
 //
+// 画像1枚ごとに1行にして、その画像の枠に対応する操作方法だけを右に並べる。
+// 左右をそれぞれ縦に積むと、2枚目の画像の説明が1枚目の隣に来て、どの画像の話か読めなくなる。
+//
 // 座標は画像の幅・高さに対する割合（0〜1）で持つ。拡大しても印刷してもズレず、
 // あとで画像だけ差し替えても枠の位置が残る。
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Upload, Trash2, Save, ArrowLeft, Eye, ClipboardPaste, GripVertical } from 'lucide-react'
+import { Upload, Trash2, Save, ArrowLeft, Eye, ClipboardPaste } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import PageHeader from '@/components/ui/PageHeader'
 import Button from '@/components/ui/Button'
 import {
-  MANUAL_BUCKET, MANUAL_CHAPTERS, MANUAL_ROLES, newId, numberOf, markCount, syncItems,
+  MANUAL_BUCKET, MANUAL_ROLES, newId, numberOf, markCount, syncItems, itemRangeOf,
   type ManualStepRow, type Shot, type MarkBox, type StepItem,
 } from '@/lib/manualStep'
 
-export default function ManualStepEditor({ step }: { step: ManualStepRow }) {
+export default function ManualStepEditor({ step, chapters }: { step: ManualStepRow; chapters: string[] }) {
   const supabase = createClient()
   const router = useRouter()
 
@@ -97,12 +100,15 @@ export default function ManualStepEditor({ step }: { step: ManualStepRow }) {
     const target = shots.find(s => s.id === shotId)
     if (!target) return
     if (!confirm('この画面キャプチャを削除しますか。上に置いた赤枠と、その番号の操作方法も消えます。')) return
-    // 消える枠のぶん、操作方法の行も前から順に落とす
+    // 消える枠のぶん、操作方法の行も後ろから順に落とす
     let next = items
+    let cur = shots
     for (const m of [...target.marks].reverse()) {
-      next = syncItems(shots, next, numberOf(shots, m.id) - 1)
+      const idx = numberOf(cur, m.id) - 1
+      cur = cur.map(s => ({ ...s, marks: s.marks.filter(x => x.id !== m.id) }))
+      next = syncItems(cur, next, idx)
     }
-    const rest = shots.filter(s => s.id !== shotId)
+    const rest = cur.filter(s => s.id !== shotId)
     setShots(rest)
     setItems(syncItems(rest, next))
     await supabase.storage.from(MANUAL_BUCKET).remove([target.path])
@@ -144,18 +150,16 @@ export default function ManualStepEditor({ step }: { step: ManualStepRow }) {
     router.refresh()
   }
 
-  const n = markCount(shots)
-
   return (
     <div>
       <PageHeader
         eyebrow="Manual"
         title="操作ステップの編集"
         icon={Save}
-        description="画面キャプチャに赤枠を引くと番号が自動で振られ、右に操作方法の行が増えます。"
+        description="画面の上をドラッグすると赤枠が引かれ、その画面の右に操作方法の行が増えます。"
         right={
           <div className="flex items-center gap-2">
-            <Link href="/manual/steps" className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
+            <Link href={`/manual/steps?chapter=${encodeURIComponent(chapter)}`} className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
               <ArrowLeft className="w-3.5 h-3.5" />一覧へ
             </Link>
             <Link href={`/manual/steps/${step.id}/view`} className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
@@ -172,7 +176,7 @@ export default function ManualStepEditor({ step }: { step: ManualStepRow }) {
         <div className="flex items-center gap-2.5 flex-wrap">
           <select value={chapter} onChange={e => { setChapter(e.target.value); touch() }}
             className="px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md bg-white outline-none focus:border-brand-400">
-            {MANUAL_CHAPTERS.map(c => <option key={c} value={c}>{c}</option>)}
+            {[...new Set([chapter, ...chapters])].filter(Boolean).map(c => <option key={c} value={c}>{c}</option>)}
           </select>
           <input value={title} onChange={e => { setTitle(e.target.value); touch() }}
             placeholder="例: STEP①：面談内容の登録"
@@ -195,27 +199,81 @@ export default function ManualStepEditor({ step }: { step: ManualStepRow }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-4">
-        {/* 左：画面イメージ */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 pb-1.5 border-b-2 border-gray-800">
-            <span className="text-[13px] font-bold text-gray-900">画面イメージ</span>
-            <span className="text-[11px] text-gray-400">画像の上をドラッグすると赤枠を引けます</span>
-          </div>
+      {/* 列見出し */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-4 mb-2">
+        <div className="flex items-center gap-2 pb-1.5 border-b-2 border-gray-800">
+          <span className="text-[13px] font-bold text-gray-900">画面イメージ</span>
+          <span className="text-[11px] text-gray-400">画像の上をドラッグすると赤枠を引けます</span>
+        </div>
+        <div className="flex items-center gap-2 pb-1.5 border-b-2 border-gray-800">
+          <span className="text-[13px] font-bold text-gray-900">操作方法</span>
+          <span className="ml-auto text-[11px] text-gray-400">{markCount(shots)}件</span>
+        </div>
+      </div>
 
-          {shots.map((s, i) => (
-            <ShotEditor
-              key={s.id}
-              shot={s} url={urls[s.id]} index={i} shots={shots}
-              selected={selected} onSelect={setSelected}
-              onAddMark={box => addMark(s.id, box)}
-              onRemoveMark={removeMark}
-              onRemoveShot={() => removeShot(s.id)}
-            />
-          ))}
+      {/* 画像1枚ごとに1行。右にはその画像の枠に対応する操作方法だけを出す。 */}
+      <div className="space-y-5">
+        {shots.map((s, si) => {
+          const { start, count } = itemRangeOf(shots, si)
+          const mine = items.slice(start, start + count)
+          return (
+            <div key={s.id} className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-4 items-start">
+              <ShotEditor
+                shot={s} url={urls[s.id]} index={si} shots={shots}
+                selected={selected} onSelect={setSelected}
+                onAddMark={box => addMark(s.id, box)}
+                onRemoveMark={removeMark}
+                onRemoveShot={() => removeShot(s.id)}
+              />
+              <div className="space-y-3">
+                {mine.length === 0 ? (
+                  <p className="text-[12px] text-gray-400 py-6 text-center border border-dashed border-gray-200 rounded-lg">
+                    左の画面をドラッグして赤枠を引くと、ここに操作方法が増えます
+                  </p>
+                ) : mine.map((it, k) => {
+                  const gi = start + k
+                  return (
+                    <div key={it.id} className={`flex gap-2.5 ${selected && numberOf(shots, selected) === gi + 1 ? 'ring-2 ring-red-300 rounded-lg p-1 -m-1' : ''}`}>
+                      <span className="flex-none w-6 h-6 rounded-full bg-red-600 text-white text-[13px] font-bold flex items-center justify-center mt-0.5">{gi + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <textarea
+                          value={it.body}
+                          onChange={e => setItem(gi, { body: e.target.value })}
+                          rows={3}
+                          placeholder="例: ログインしたら、TOPのメニューの面談登録を押して、面談登録画面を開きます。"
+                          className="w-full px-3 py-2 text-[12.5px] leading-relaxed bg-gray-100 border border-transparent rounded outline-none focus:border-brand-400 focus:bg-white resize-y"
+                        />
+                        {it.rule == null ? (
+                          <button type="button" onClick={() => setItem(gi, { rule: '' })}
+                            className="mt-1 text-[11px] text-amber-700 hover:text-amber-800">＋ 業務ルールを付ける</button>
+                        ) : (
+                          <div className="mt-1 border-l-[3px] border-amber-400 bg-amber-50/70 rounded-r">
+                            <div className="flex items-center gap-2 px-2.5 pt-1.5">
+                              <span className="text-[10.5px] font-bold text-amber-800 tracking-wide">業務ルール</span>
+                              <button type="button" onClick={() => setItem(gi, { rule: null })}
+                                className="ml-auto text-[10.5px] text-gray-400 hover:text-red-500">外す</button>
+                            </div>
+                            <textarea
+                              value={it.rule ?? ''}
+                              onChange={e => setItem(gi, { rule: e.target.value })}
+                              rows={2}
+                              placeholder="この手順で守ってほしい決まりごと"
+                              className="w-full px-2.5 pb-2 pt-1 text-[12px] leading-relaxed bg-transparent outline-none resize-y text-amber-900 placeholder:text-amber-400/70"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
 
-          <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
-            onChange={e => { addFiles(Array.from(e.target.files ?? [])); if (fileRef.current) fileRef.current.value = '' }} />
+        <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
+          onChange={e => { addFiles(Array.from(e.target.files ?? [])); if (fileRef.current) fileRef.current.value = '' }} />
+        <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-4">
           <button type="button" onClick={() => fileRef.current?.click()}
             className="w-full py-6 rounded-lg border border-dashed border-gray-300 text-[12.5px] text-gray-500 hover:text-brand-700 hover:border-brand-300">
             <span className="inline-flex items-center gap-1.5"><Upload className="w-4 h-4" />画面キャプチャを追加</span>
@@ -224,52 +282,6 @@ export default function ManualStepEditor({ step }: { step: ManualStepRow }) {
               Win+Shift+S で撮って、そのまま Ctrl+V でも貼れます
             </span>
           </button>
-        </div>
-
-        {/* 右：操作方法 */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 pb-1.5 border-b-2 border-gray-800">
-            <span className="text-[13px] font-bold text-gray-900">操作方法</span>
-            <span className="ml-auto text-[11px] text-gray-400">{n}件</span>
-          </div>
-
-          {n === 0 ? (
-            <p className="text-[12px] text-gray-400 py-6 text-center border border-dashed border-gray-200 rounded-lg">
-              左の画像をドラッグして赤枠を引くと、ここに操作方法の行が増えます
-            </p>
-          ) : items.map((it, i) => (
-            <div key={it.id} className={`flex gap-2.5 ${selected && numberOf(shots, selected) === i + 1 ? 'ring-2 ring-red-300 rounded-lg p-1 -m-1' : ''}`}>
-              <span className="flex-none w-6 h-6 rounded-full bg-red-600 text-white text-[13px] font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
-              <div className="flex-1 min-w-0">
-                <textarea
-                  value={it.body}
-                  onChange={e => setItem(i, { body: e.target.value })}
-                  rows={3}
-                  placeholder="例: ログインしたら、TOPのメニューの面談登録を押して、面談登録画面を開きます。"
-                  className="w-full px-3 py-2 text-[12.5px] leading-relaxed bg-gray-100 border border-transparent rounded outline-none focus:border-brand-400 focus:bg-white resize-y"
-                />
-                {it.rule == null ? (
-                  <button type="button" onClick={() => setItem(i, { rule: '' })}
-                    className="mt-1 text-[11px] text-amber-700 hover:text-amber-800">＋ 業務ルールを付ける</button>
-                ) : (
-                  <div className="mt-1 border-l-[3px] border-amber-400 bg-amber-50/70 rounded-r">
-                    <div className="flex items-center gap-2 px-2.5 pt-1.5">
-                      <span className="text-[10.5px] font-bold text-amber-800 tracking-wide">業務ルール</span>
-                      <button type="button" onClick={() => setItem(i, { rule: null })}
-                        className="ml-auto text-[10.5px] text-gray-400 hover:text-red-500">外す</button>
-                    </div>
-                    <textarea
-                      value={it.rule ?? ''}
-                      onChange={e => setItem(i, { rule: e.target.value })}
-                      rows={2}
-                      placeholder="この手順で守ってほしい決まりごと"
-                      className="w-full px-2.5 pb-2 pt-1 text-[12px] leading-relaxed bg-transparent outline-none resize-y text-amber-900 placeholder:text-amber-400/70"
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
         </div>
       </div>
     </div>
@@ -329,7 +341,6 @@ function ShotEditor({ shot, url, index, shots, selected, onSelect, onAddMark, on
   return (
     <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
       <div className="flex items-center gap-2 px-2.5 py-1.5 bg-gray-50 border-b border-gray-100">
-        <GripVertical className="w-3.5 h-3.5 text-gray-300" />
         <span className="text-[11.5px] font-semibold text-gray-600">画面 {index + 1}</span>
         <span className="text-[11px] text-gray-400">赤枠 {shot.marks.length}個</span>
         <button type="button" onClick={onRemoveShot} className="ml-auto p-1 text-gray-300 hover:text-red-500" title="この画面を削除">
