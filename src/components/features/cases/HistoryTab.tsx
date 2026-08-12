@@ -9,6 +9,7 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { CASE_REPORT_STATUS_LABEL } from '@/lib/caseReports'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { koteiOf, koteiRank, koteiLabel, KOTEI_ORDER, KOTEI_GYOMU, KOTEI_COLOR } from '@/lib/kotei'
@@ -199,6 +200,27 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
     showToast(action === 'reject' ? '差戻しました' : '確認済にしました', 'success')
     fetchActivities()
     router.refresh()
+  }
+
+  // 報連相を「確認中」にする：見て動き出したことを送り手に見せる（回答はまだ）。
+  const markReviewing = async (cr: CaseReportRow) => {
+    if (!currentMemberId) return
+    const supabase = createClient()
+    const { error } = await supabase.from('case_reports')
+      .update({ status: '確認中', reviewing_by: currentMemberId, reviewing_at: new Date().toISOString() })
+      .eq('id', cr.id)
+    if (error) { showToast('確認中にできませんでした', 'error'); return }
+    if (cr.requester_id) {
+      await supabase.from('notifications').insert({
+        member_id: cr.requester_id,
+        type: 'case_report_confirmed',
+        case_id: caseData.id,
+        title: '報連相が確認中になりました',
+        body: `${caseData.case_number} ${caseData.deal_name}：${memberName(currentMemberId)} さんが確認中です`,
+      })
+    }
+    showToast('確認中にしました', 'success')
+    fetchActivities()
   }
 
   // 報連相の確認：確認者＝自分で確定し、依頼者へ通知
@@ -404,8 +426,10 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
                 {caseReports.map(cr => {
                   const confirmer = allMembers.find(m => m.id === cr.confirmer_id)
                   const isRequester = !!currentMemberId && cr.requester_id === currentMemberId
-                  const canConfirm = cr.status === '依頼中' && !!currentMemberId && !isRequester
-                  const kindColor = cr.kind === '相談' ? 'bg-amber-50 text-amber-700' : cr.kind === '連絡' ? 'bg-blue-50 text-blue-700' : 'bg-emerald-50 text-emerald-700'
+                  // 受け取った人は「確認中にする」で一旦止められる。回答（確認する）は最後まで押せる。
+                  const canConfirm = cr.status !== '確認済' && !!currentMemberId && !isRequester
+                  const canReview = cr.status === '依頼中' && !!currentMemberId && !isRequester
+                  const kindColor = cr.kind === '要対応' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
                   return (
                     <tr key={cr.id} className="hover:bg-gray-50/60">
                       <td className="px-3 py-2.5"><span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-semibold ${kindColor}`}>{cr.kind}</span></td>
@@ -420,13 +444,21 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
                         ) : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-3 py-2.5">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium ${cr.status === '確認済' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{cr.status}</span>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium ${
+                          cr.status === '確認済' ? 'bg-emerald-50 text-emerald-700'
+                          : cr.status === '確認中' ? 'bg-sky-50 text-sky-700'
+                          : 'bg-amber-50 text-amber-700'}`}>{CASE_REPORT_STATUS_LABEL[cr.status] ?? cr.status}</span>
                       </td>
                       <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{cr.confirmed_date ?? <span className="text-gray-300">—</span>}</td>
                       <td className="px-3 py-2.5 text-right">
+                        {canReview && (
+                          <button type="button" onClick={() => markReviewing(cr)} className="inline-flex items-center gap-1 px-2.5 py-1 mr-1 text-[11px] font-semibold text-sky-700 bg-sky-50 border border-sky-200 rounded-md hover:bg-sky-100 whitespace-nowrap">
+                            確認中にする
+                          </button>
+                        )}
                         {canConfirm && (
                           <button type="button" onClick={() => { setConfirmReport(cr); setConfirmReportComment('') }} className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 whitespace-nowrap">
-                            <Check className="w-3 h-3" strokeWidth={2.25} />確認する
+                            <Check className="w-3 h-3" strokeWidth={2.25} />{cr.kind === '要対応' ? '回答する' : '確認した'}
                           </button>
                         )}
                         {cr.status === '依頼中' && isRequester && <span className="text-[11px] text-gray-400">本人は確認不可</span>}

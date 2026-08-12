@@ -7,17 +7,23 @@
 import { useRef, useState, useEffect, type ReactNode } from 'react'
 import { X, Minus, GripVertical } from 'lucide-react'
 
-export default function FloatingWindow({ isOpen, onClose, title, children, footer, width = 400 }: {
+export default function FloatingWindow({ isOpen, onClose, title, children, footer, width = 400, resizable = false, height = 460 }: {
   isOpen: boolean
   onClose: () => void
   title: string
   children: ReactNode
   footer?: ReactNode
   width?: number
+  /** 右下のつまみで大きさを変えられるようにする */
+  resizable?: boolean
+  /** resizable のときの初期の高さ */
+  height?: number
 }) {
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
+  const [size, setSize] = useState<{ w: number; h: number }>({ w: width, h: height })
   const [minimized, setMinimized] = useState(false)
   const dragRef = useRef<{ dx: number; dy: number } | null>(null)
+  const resizeRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null)
 
   // 初回オープン時に右上寄りへ配置（以降は保持）。閉じたら最小化を解除。
   useEffect(() => {
@@ -30,12 +36,21 @@ export default function FloatingWindow({ isOpen, onClose, title, children, foote
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
+      if (resizeRef.current) {
+        // 右下のつまみ：掴んだ位置からの差分でサイズを変える（小さくしすぎないよう下限を置く）
+        const r = resizeRef.current
+        setSize({
+          w: Math.max(320, Math.min(window.innerWidth - 40, r.w + (e.clientX - r.x))),
+          h: Math.max(260, Math.min(window.innerHeight - 80, r.h + (e.clientY - r.y))),
+        })
+        return
+      }
       if (!dragRef.current) return
       const nx = Math.min(window.innerWidth - 60, Math.max(0, e.clientX - dragRef.current.dx))
       const ny = Math.min(window.innerHeight - 40, Math.max(0, e.clientY - dragRef.current.dy))
       setPos({ x: nx, y: ny })
     }
-    const onUp = () => { dragRef.current = null; document.body.style.userSelect = '' }
+    const onUp = () => { dragRef.current = null; resizeRef.current = null; document.body.style.userSelect = '' }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
@@ -47,11 +62,16 @@ export default function FloatingWindow({ isOpen, onClose, title, children, foote
     dragRef.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y }
     document.body.style.userSelect = 'none'
   }
+  const startResize = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    resizeRef.current = { x: e.clientX, y: e.clientY, w: size.w, h: size.h }
+    document.body.style.userSelect = 'none'
+  }
 
   return (
     <div
       className="fixed z-[70] flex flex-col rounded-xl border border-gray-200 bg-white shadow-2xl"
-      style={{ left: pos.x, top: pos.y, width, maxWidth: 'calc(100vw - 24px)' }}
+      style={{ left: pos.x, top: pos.y, width: resizable ? size.w : width, maxWidth: 'calc(100vw - 24px)' }}
       role="dialog"
     >
       <div
@@ -72,8 +92,14 @@ export default function FloatingWindow({ isOpen, onClose, title, children, foote
       </div>
       {!minimized && (
         <>
-          <div className="p-3.5 overflow-y-auto" style={{ maxHeight: '68vh' }}>{children}</div>
+          <div className="p-3.5 overflow-y-auto" style={resizable ? { height: size.h } : { maxHeight: '68vh' }}>{children}</div>
           {footer && <div className="flex justify-end gap-2 px-3.5 py-2.5 border-t border-gray-100 bg-gray-50 rounded-b-xl">{footer}</div>}
+          {/* 右下のつまみ（掴んで大きさを変える） */}
+          {resizable && (
+            <div onMouseDown={startResize} title="ドラッグで大きさを変える"
+              className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize"
+              style={{ background: 'linear-gradient(135deg, transparent 50%, rgb(203 213 225) 50%, rgb(203 213 225) 60%, transparent 60%, transparent 70%, rgb(203 213 225) 70%, rgb(203 213 225) 80%, transparent 80%)' }} />
+          )}
         </>
       )}
     </div>

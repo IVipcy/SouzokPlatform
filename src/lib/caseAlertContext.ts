@@ -8,6 +8,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { overdueSeverity, billOverdueSeverity } from '@/lib/overdue'
 import { CONTRACT_PENDING_STATUSES } from '@/lib/constants'
+import { caseReportSeverity } from '@/lib/caseReports'
 import type { AlertSeverity, CaseAlertContext } from '@/lib/alertRules'
 
 // バナーの区分（chui=要注意 / kakunin=要確認）→ アラートの深刻度
@@ -37,12 +38,14 @@ export async function fetchCaseAlertContexts(
   if (caseIds.length === 0) return out
 
   const empty = <T,>() => Promise.resolve({ data: [] as T[] })
-  const [membersRes, invoicesRes, tasksRes, docsRes, reportsRes] = await Promise.all([
+  const [membersRes, invoicesRes, tasksRes, docsRes, reportsRes, hourensouRes] = await Promise.all([
     supabase.from('case_members').select('case_id,role').in('case_id', caseIds),
     supabase.from('invoices').select('case_id,invoice_type,status,created_at,due_date').in('case_id', caseIds),
     preloaded.tasks ? empty<unknown>() : supabase.from('tasks').select('case_id,task_kind,status,due_date').in('case_id', caseIds),
     supabase.from('contract_documents').select('case_id,status,arrival_date').in('case_id', caseIds),
     preloaded.reports ? empty<unknown>() : supabase.from('progress_reports').select('case_id,status,confirmed_date').in('case_id', caseIds),
+    // 報連相（要対応の未回答だけアラートに出す）
+    supabase.from('case_reports').select('case_id,kind,status,requested_date').in('case_id', caseIds),
   ])
   const taskRows = preloaded.tasks ?? (tasksRes.data ?? [])
   const reportRows = preloaded.reports ?? (reportsRes.data ?? [])
@@ -79,6 +82,16 @@ export async function fetchCaseAlertContexts(
     if (CONTRACT_PENDING_STATUSES.includes(d.status ?? '') && !d.arrival_date) contractPending.add(d.case_id)
   }
 
+  // 報連相（要対応）が未回答のまま何営業日たったか。最大の深刻度と件数を持つ。
+  const reportSev = new Map<string, AlertSeverity>()
+  const reportCnt = new Map<string, number>()
+  for (const r of (hourensouRes.data ?? []) as Array<{ case_id: string; kind: string; status: string; requested_date: string | null }>) {
+    const s = sevOf(caseReportSeverity(r, todayStr))
+    if (!s) continue
+    reportCnt.set(r.case_id, (reportCnt.get(r.case_id) ?? 0) + 1)
+    if (s === 'high' || (s === 'mid' && reportSev.get(r.case_id) !== 'high')) reportSev.set(r.case_id, s)
+  }
+
   // 直近7日に「確認済」の案件報告があるか（週次報告の漏れ判定）
   const weekAgo = new Date(todayStr + 'T00:00:00')
   weekAgo.setDate(weekAgo.getDate() - 7)
@@ -99,6 +112,8 @@ export async function fetchCaseAlertContexts(
       recentWeeklyConfirmed: recentWeekly.has(id),
       taskOverdue: taskSev.get(id) ?? null,
       billOverdue: billSev.get(id) ?? null,
+      reportActionOverdue: reportSev.get(id) ?? null,
+      reportActionCount: reportCnt.get(id) ?? 0,
     })
   }
   return out

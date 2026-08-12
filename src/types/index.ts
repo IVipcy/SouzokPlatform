@@ -1218,8 +1218,12 @@ export type CaseComplaintRow = {
   confirm_comment: string | null
 }
 
-// === 報連相（報告/連絡/相談。migration 196） ===
-export type CaseReportKind = '報告' | '連絡' | '相談'
+// === 報連相（情報共有／要対応。migration 196・240） ===
+//   情報共有 … 見ておいてもらうもの。放置してもアラートには出さない
+//   要対応   … 回答が無いと作業が進まないもの。1営業日で要確認・3営業日で要注意
+export type CaseReportKind = '情報共有' | '要対応'
+/** 報連相のステータス。依頼中=未回答／確認中=見て動いている／確認済=回答済 */
+export type CaseReportStatus = '依頼中' | '確認中' | '確認済'
 export type CaseReportRow = {
   id: string
   case_id: string
@@ -1228,10 +1232,13 @@ export type CaseReportRow = {
   recipient_ids: string[]         // 通知先メンバー（複数可）
   message: string | null
   requested_date: string
-  status: ProgressReportStatus
+  status: CaseReportStatus
   confirmer_id: string | null
   confirmed_date: string | null
   confirm_comment: string | null
+  /** 「確認中にする」を押した人と時刻（migration 240） */
+  reviewing_by: string | null
+  reviewing_at: string | null
   created_at: string
   updated_at: string
 }

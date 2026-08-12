@@ -22,6 +22,8 @@ import PageHeader from '@/components/ui/PageHeader'
 import HelpHint from '@/components/ui/HelpHint'
 import { SeverityLegend } from '@/components/ui/TaskSeverityHelp'
 import OfficeManagerDashboard, { type OfficeRow } from './OfficeManagerDashboard'
+import HourenSouTable, { type HourenSouItem } from '@/components/features/my/HourenSouTable'
+import type { CaseReportStatus } from '@/types'
 import TaskListClient, { isTaskInRoleScope, type CaseInfo, type TaskJump } from '@/components/features/tasks/TaskListClient'
 import { bizDaysOverdue } from '@/lib/overdue'
 import { getStartSignal, type ReadinessReceipt } from '@/lib/taskReadiness'
@@ -50,16 +52,16 @@ export type HourenSouRow = {
   caseId: string
   caseNumber: string
   dealName: string
-  kind: string                // 報告 / 連絡 / 相談
+  kind: string                // 情報共有 / 要対応
   message: string | null
   requestedDate: string
-  status: '依頼中' | '確認済'
+  status: CaseReportStatus
   recipientNames: string[]
   confirmerName: string | null
   confirmedDate: string | null
 }
 
-type TabKey = 'start' | 'tasks' | 'mail' | 'hourensou'
+type TabKey = 'start' | 'tasks' | 'mail' | 'hourensou' | 'hourensouAction'
 
 const normalizeStatus = (s: string) => {
   if (s === '未着手') return '着手前'
@@ -147,7 +149,17 @@ export default function OfficeDashboardTabs({
     selectTab('tasks')
   }
 
-  const pendingHourenSou = hourenSou.filter(h => h.status === '依頼中').length
+  // 情報共有＝見ておいてもらうもの／要対応＝回答が要るもの。タブを分ける。
+  const shareSent = hourenSou.filter(h => h.kind !== '要対応')
+  const actionSent = hourenSou.filter(h => h.kind === '要対応')
+  const pendingHourenSou = shareSent.filter(h => h.status === '依頼中').length
+  const pendingAction = actionSent.filter(h => h.status !== '確認済').length
+  const toItems = (rows: HourenSouRow[]): HourenSouItem[] => rows.map(r => ({
+    id: r.id, caseId: r.caseId, caseNumber: r.caseNumber, dealName: r.dealName,
+    kind: r.kind, message: r.message, requestedDate: r.requestedDate,
+    status: r.status, personLabel: r.recipientNames.join('、'),
+    confirmerName: r.confirmerName, confirmedDate: r.confirmedDate, isMine: true,
+  }))
 
   return (
     <div>
@@ -176,7 +188,8 @@ export default function OfficeDashboardTabs({
         <TabBtn v="start" label="作業着手待ち" icon={PlayCircle} count={startRows.length} current={tab} onSelect={selectTab} />
         <TabBtn v="tasks" label="タスク" icon={ListChecks} count={readyCount} current={tab} onSelect={selectTab} sev={taskSev} />
         <TabBtn v="mail" label="郵便" icon={Mail} count={mails.length} current={tab} onSelect={selectTab} />
-        <TabBtn v="hourensou" label="報連相" icon={MessageSquare} count={pendingHourenSou} current={tab} onSelect={selectTab} />
+        <TabBtn v="hourensou" label="報連相（情報共有）" icon={MessageSquare} count={pendingHourenSou} current={tab} onSelect={selectTab} />
+        <TabBtn v="hourensouAction" label="報連相（要対応）" icon={MessageSquare} count={pendingAction} current={tab} onSelect={selectTab} />
       </div>
 
       {tab === 'start' && (
@@ -194,7 +207,17 @@ export default function OfficeDashboardTabs({
 
       {tab === 'mail' && <MailTab rows={mails} today={today} />}
 
-      {tab === 'hourensou' && <HourenSouTab rows={hourenSou} />}
+      {tab === 'hourensou' && (
+        <HourenSouTable rows={toItems(shareSent)} mode="sent" todayStr={today}
+          title="報連相（情報共有・自分が出したもの）"
+          note="見ておいてもらう共有です。相手が確認したかどうかだけ見えます" />
+      )}
+
+      {tab === 'hourensouAction' && (
+        <HourenSouTable rows={toItems(actionSent)} mode="sent" todayStr={today}
+          title="報連相（要対応・自分が出したもの）"
+          note="回答が無いと自分の作業が止まるものです。1営業日で要確認・3営業日で要注意のアラートに出ます" />
+      )}
     </div>
   )
 }
@@ -278,69 +301,6 @@ function MailTab({ rows, today }: { rows: MailRow[]; today: string }) {
   )
 }
 
-// ── 報連相：自分が出した報告・連絡・相談。確認されたかどうかまで見える。 ──
-const KIND_CHIP: Record<string, string> = {
-  報告: 'bg-brand-50 text-brand-700 border-brand-200',
-  連絡: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  相談: 'bg-amber-50 text-amber-800 border-amber-200',
-}
-
-function HourenSouTab({ rows }: { rows: HourenSouRow[] }) {
-  const TH = 'px-2.5 py-2 text-left font-semibold whitespace-nowrap'
-  return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-      <div className="px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 flex-wrap">
-        <span className="text-[14px] font-bold text-gray-900">報連相（自分が出したもの）</span>
-        <span className="text-[12px] font-normal text-gray-400">{rows.length}件</span>
-        <span className="text-[11.5px] text-gray-400 ml-2">タスクや案件詳細から送った報告・連絡・相談です。</span>
-      </div>
-      {rows.length === 0 ? (
-        <div className="px-4 py-12 text-center text-[13px] text-gray-400">出している報連相はありません</div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: 980 }}>
-            <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
-              <tr>
-                <th className={TH}>種類</th>
-                <th className={TH}>案件管理番号</th>
-                <th className={TH}>案件名</th>
-                <th className={TH}>内容</th>
-                <th className={TH}>宛先</th>
-                <th className={TH}>送信日</th>
-                <th className={TH}>状態</th>
-                <th className={TH}>確認者 / 確認日</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {rows.map(r => (
-                <tr key={r.id} className="hover:bg-gray-50/60">
-                  <td className="px-2.5 py-2">
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold border ${KIND_CHIP[r.kind] ?? 'bg-gray-50 text-gray-600 border-gray-200'}`}>{r.kind}</span>
-                  </td>
-                  <td className="px-2.5 py-2 font-mono text-gray-500">{r.caseNumber}</td>
-                  <td className="px-2.5 py-2">
-                    <Link href={`/cases/${r.caseId}?tab=progress&sub=report`} className="font-semibold text-gray-800 hover:text-brand-600 hover:underline">{r.dealName}</Link>
-                  </td>
-                  <td className="px-2.5 py-2 text-gray-700 whitespace-pre-wrap max-w-[320px]">{r.message || <span className="text-gray-300">—</span>}</td>
-                  <td className="px-2.5 py-2 text-gray-700">{r.recipientNames.join('、') || <span className="text-gray-300">—</span>}</td>
-                  <td className="px-2.5 py-2 font-mono text-gray-600">{r.requestedDate}</td>
-                  <td className="px-2.5 py-2">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${r.status === '確認済' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                      {r.status === '確認済' ? '確認済' : '返事待ち'}
-                    </span>
-                  </td>
-                  <td className="px-2.5 py-2 text-gray-700">
-                    {r.confirmerName ? `${r.confirmerName}${r.confirmedDate ? ` / ${r.confirmedDate}` : ''}` : <span className="text-gray-300">—</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ── 要注意／要確認のバナー ──
 // 期限が近い順に5件だけ出す。バナーで全部を並べると画面が埋まってタブに届かないので、

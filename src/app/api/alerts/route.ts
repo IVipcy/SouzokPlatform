@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { ALERT_SEVERITY_ORDER, type AlertItem } from '@/lib/alerts'
 import { evaluateCaseAlerts, ALERT_DAYS } from '@/lib/alertRules'
+import { caseReportSeverity } from '@/lib/caseReports'
 import { overdueSeverity, bizDaysOverdue } from '@/lib/overdue'
 import { isMinimalMode } from '@/lib/featureMode'
 import { CONTRACT_PENDING_STATUSES, PROGRESS_REPORT_STATE_URGENT } from '@/lib/constants'
@@ -40,7 +41,7 @@ export async function GET() {
 
   if (myCaseIds.length === 0) return NextResponse.json({ alerts: [] })
 
-  const [{ data: casesRaw }, { data: taskRaw }, { data: invRaw }, { data: reportRaw }, { data: reviewDoneRaw }, { data: contractDocRaw }, { data: caseTaskRaw }, { data: parcelRaw }] = await Promise.all([
+  const [{ data: casesRaw }, { data: taskRaw }, { data: invRaw }, { data: reportRaw }, { data: reviewDoneRaw }, { data: contractDocRaw }, { data: caseTaskRaw }, { data: parcelRaw }, { data: hourensouRaw }] = await Promise.all([
     supabase.from('cases')
       .select('id,case_number,deal_name,status,has_complaint,expected_completion_date,completion_date,meeting_date,meeting_executed_date,client_response_due_date,order_received_date,order_sheet_completed_at,management_started_at')
       .in('id', myCaseIds),
@@ -60,6 +61,8 @@ export async function GET() {
     // 受注/管理宛の郵送物一式（未開封・到着連絡済み）→ 到着物あり アラート
     supabase.from('document_receipts').select('id, case_id, cases(case_number, deal_name)')
       .in('case_id', myCaseIds).eq('is_parcel', true).not('arrival_notified_at', 'is', null).is('opened_at', null),
+    // 報連相（要対応の未回答）→ 1営業日で要確認・3営業日で要注意
+    supabase.from('case_reports').select('case_id,kind,status,requested_date').in('case_id', myCaseIds),
   ])
 
   type CaseRow = {
@@ -96,6 +99,16 @@ export async function GET() {
   const recentConfirmed = new Set(reports.filter(r => r.status === '確認済' && (r.confirmed_date ?? '') >= weekAgoStr).map(r => r.case_id))
   // 事務管理タスク（task_kind='case'）が1件でもある案件
   const hasCaseTasks = new Set(((caseTaskRaw ?? []) as Array<{ case_id: string }>).map(r => r.case_id))
+  // 報連相（要対応）が未回答のまま放置されている案件（最大の深刻度と件数）
+  const reportSevByCase = new Map<string, 'high' | 'mid'>()
+  const reportCntByCase = new Map<string, number>()
+  for (const r of ((hourensouRaw ?? []) as Array<{ case_id: string; kind: string; status: string; requested_date: string | null }>)) {
+    const sv = caseReportSeverity(r, todayStr)
+    if (!sv) continue
+    const s = sv === 'chui' ? 'high' : 'mid'
+    reportCntByCase.set(r.case_id, (reportCntByCase.get(r.case_id) ?? 0) + 1)
+    if (s === 'high' || reportSevByCase.get(r.case_id) !== 'high') reportSevByCase.set(r.case_id, s)
+  }
 
   const alerts: AlertItem[] = []
   const push = (a: AlertItem) => alerts.push(a)
@@ -116,6 +129,8 @@ export async function GET() {
       recentWeeklyConfirmed: recentConfirmed.has(c.id),
       responseCheckDone: reviewDoneCaseIds.has(c.id),
       billOverdue: overduePayCaseIds.has(c.id) ? 'mid' : null,
+      reportActionOverdue: reportSevByCase.get(c.id) ?? null,
+      reportActionCount: reportCntByCase.get(c.id) ?? 0,
     }, todayStr)
     for (const h of hits) {
       if (h.audience === 'sales' && !isMySales) continue

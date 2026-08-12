@@ -14,6 +14,7 @@
 // 営業日＝日曜と祝日を除く日（土曜は営業日）。
 
 import { bizDaysOverdue } from '@/lib/overdue'
+import { REPORT_KAKUNIN_BIZ_DAYS, REPORT_CHUI_BIZ_DAYS } from '@/lib/caseReports'
 
 export type AlertSeverity = 'claim' | 'high' | 'mid' | 'info'
 export const ALERT_SEVERITY_ORDER: Record<AlertSeverity, number> = { claim: 0, high: 1, mid: 2, info: 3 }
@@ -97,6 +98,10 @@ export type CaseAlertContext = {
   taskOverdue?: AlertSeverity | null
   /** 入金期日超過の最大深刻度 */
   billOverdue?: AlertSeverity | null
+  /** 報連相（要対応）が未回答のまま放置されている最大深刻度。情報共有は数えない */
+  reportActionOverdue?: AlertSeverity | null
+  /** 上の件数（理由文に出す） */
+  reportActionCount?: number
 }
 
 const dayOf = (v: string | null | undefined) => (v ? v.slice(0, 10) : null)
@@ -123,6 +128,16 @@ export function evaluateCaseAlerts(c: CaseAlertInput, ctx: CaseAlertContext, tod
       reason: ctx.taskOverdue === 'high'
         ? `期日から${ALERT_CAL_DAYS.taskHigh}日以上たった未完了タスクがあります`
         : `期日を${ALERT_DAYS.taskMid}営業日過ぎた未完了タスクがあります`, tab: 'tasks' })
+  }
+
+  // 報連相（要対応）の放置。情報共有はここに来ない（アラートに出さない）。
+  if (ctx.reportActionOverdue) {
+    const n = ctx.reportActionCount ?? 1
+    out.push({ key: 'report_action_overdue', category: '報連相 未回答', severity: ctx.reportActionOverdue, audience: 'both',
+      reason: ctx.reportActionOverdue === 'high'
+        ? `要対応の報連相が${REPORT_CHUI_BIZ_DAYS}営業日以上そのままです（${n}件）`
+        : `要対応の報連相が${REPORT_KAKUNIN_BIZ_DAYS}営業日そのままです（${n}件）`,
+      tab: 'progress' })
   }
 
   if (ctx.billOverdue) {

@@ -20,6 +20,7 @@ import { fetchCaseAlertContexts } from '@/lib/caseAlertContext'
 import { evaluateCaseAlerts, bannerOf } from '@/lib/alertRules'
 import { computeUrgentReportAlerts, computeParcelArrivalAlerts } from '@/lib/caseStateAlerts'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
+import HourenSouTable, { type HourenSouItem } from '@/components/features/my/HourenSouTable'
 import MyTaskCreateButton from '@/components/features/tasks/MyTaskCreateButton'
 import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
 import CaseReportInbox from '@/components/features/my/CaseReportInbox'
@@ -37,7 +38,7 @@ import {
   type DashReferral,
   type SalesMetricsBundle,
 } from '@/lib/dashboardMetrics'
-import type { TaskRow, ProgressReportRow } from '@/types'
+import type { TaskRow, ProgressReportRow, CaseReportStatus } from '@/types'
 
 /**
  * マイページ — 認証ユーザー本人のみ閲覧可能。
@@ -51,7 +52,7 @@ import type { TaskRow, ProgressReportRow } from '@/types'
  */
 
 type SearchParams = Promise<{ tab?: string; period?: string; as?: string }>
-type TabKey = 'meetings' | 'prep' | 'cases' | 'billing' | 'referrals' | 'progress' | 'hourensou' | 'complaints' | 'tasks'
+type TabKey = 'meetings' | 'prep' | 'cases' | 'billing' | 'referrals' | 'progress' | 'hourensou' | 'hourensouAction' | 'complaints' | 'tasks'
 
 // 相談案件 = 面談〜検討〜失注（受注前）。依頼確定待ち/受注/戻り受注/作業着手準備 は「未着手案件」へ移管。
 const CONSULT_STATUSES = new Set(['面談設定済', '検討中', '失注'])
@@ -820,9 +821,9 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   // === 報連相 受信（自分が通知先=recipient_ids に含まれる case_reports） ===
   // 案件報告(progress_reports)とは別テーブル。承認は無く「確認する」のみ。案件をまたいで横断表示。
   type CaseReportRaw = {
-    id: string; case_id: string; kind: '報告' | '連絡' | '相談'
+    id: string; case_id: string; kind: string
     requester_id: string | null; recipient_ids: string[] | null; message: string | null
-    requested_date: string | null; status: '依頼中' | '確認済'; confirmer_id: string | null; confirmed_date: string | null
+    requested_date: string | null; status: CaseReportStatus; confirmer_id: string | null; confirmed_date: string | null
     cases: { case_number: string; deal_name: string } | null
   }
   let hourensouRaw: CaseReportRaw[] = []
@@ -834,28 +835,24 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       .order('requested_date', { ascending: false })
     hourensouRaw = (data ?? []) as unknown as CaseReportRaw[]
   }
-  type HourensouRow = {
-    reportId: string; case_id: string; case_number: string; deal_name: string
-    kind: '報告' | '連絡' | '相談'
-    requesterName: string | null; requestedDate: string | null; message: string | null
-    status: '依頼中' | '確認済'; confirmedDate: string | null; confirmerName: string | null
-  }
-  const hourensouRows: HourensouRow[] = hourensouRaw
+  const hourensouRows: HourenSouItem[] = hourensouRaw
     .map(r => ({
-      reportId: r.id, case_id: r.case_id,
-      case_number: r.cases?.case_number ?? '', deal_name: r.cases?.deal_name ?? '',
+      id: r.id, caseId: r.case_id,
+      caseNumber: r.cases?.case_number ?? '', dealName: r.cases?.deal_name ?? '',
       kind: r.kind,
-      requesterName: r.requester_id ? memberById.get(r.requester_id) ?? null : null,
+      personLabel: (r.requester_id ? memberById.get(r.requester_id) : null) ?? '',
       requestedDate: r.requested_date, message: r.message,
       status: r.status, confirmedDate: r.confirmed_date,
       confirmerName: r.confirmer_id ? memberById.get(r.confirmer_id) ?? null : null,
+      isMine: r.requester_id === memberId,
     }))
-    .sort((a, b) => {
-      if (a.status !== b.status) return a.status === '依頼中' ? -1 : 1
-      return (b.requestedDate ?? '').localeCompare(a.requestedDate ?? '')
-    })
-  // タブバッジ: 未確認(依頼中)かつ自分が報告者でない
-  const hourensouPendingCount = hourensouRaw.filter(r => r.status === '依頼中' && r.requester_id !== memberId).length
+    .sort((a, b) => (b.requestedDate ?? '').localeCompare(a.requestedDate ?? ''))
+  // 情報共有＝見ておくもの／要対応＝回答が要るもの。タブを分ける。
+  const shareRows = hourensouRows.filter(r => r.kind !== '要対応')
+  const actionRows = hourensouRows.filter(r => r.kind === '要対応')
+  // タブバッジ: 未回答（依頼中）かつ自分が送ったものでない
+  const hourensouPendingCount = shareRows.filter(r => r.status === '依頼中' && !r.isMine).length
+  const hourensouActionCount = actionRows.filter(r => r.status !== '確認済' && !r.isMine).length
 
   // 請求タブ: 自分が担当（受注/管理いずれか）として関与する全案件の請求を対象にする。
   //   （旧: 管理担当は managerCaseIds のみ → 自分が受注担当で持っている案件の請求が出ない不具合があった）
@@ -916,6 +913,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   if (isSales) validTabs.push('referrals')
   if (showProgress) validTabs.push('progress')
   if (showHourensou) validTabs.push('hourensou')
+  if (showHourensou) validTabs.push('hourensouAction')
   // クレーム報告受信タブ（受注担当のみ）
   if (isSales) validTabs.push('complaints')
   validTabs.push('tasks')
@@ -1010,7 +1008,10 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           <TabLink href={`/my?tab=progress${asSuffix}`} label={`案件報告${progressBadgeCount > 0 ? ` (${progressBadgeCount})` : ''}`} Icon={ClipboardCheck} active={activeTab === 'progress'} />
         )}
         {showHourensou && (
-          <TabLink href={`/my?tab=hourensou${asSuffix}`} label={`報連相${hourensouPendingCount > 0 ? ` (${hourensouPendingCount})` : ''}`} Icon={MessagesSquare} active={activeTab === 'hourensou'} />
+          <TabLink href={`/my?tab=hourensou${asSuffix}`} label={`報連相（情報共有）${hourensouPendingCount > 0 ? ` (${hourensouPendingCount})` : ''}`} Icon={MessagesSquare} active={activeTab === 'hourensou'} />
+        )}
+        {showHourensou && (
+          <TabLink href={`/my?tab=hourensouAction${asSuffix}`} label={`報連相（要対応）${hourensouActionCount > 0 ? ` (${hourensouActionCount})` : ''}`} Icon={MessagesSquare} active={activeTab === 'hourensouAction'} />
         )}
         {isSales && (
           <TabLink href={`/my?tab=complaints${asSuffix}`} label={`クレーム報告${salesPendingComplaintsCount > 0 ? ` (${salesPendingComplaintsCount})` : ''}`} Icon={AlertTriangle} active={activeTab === 'complaints'} />
@@ -1109,67 +1110,26 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       )}
 
 
-      {/* 報連相（受信）：自分が通知先の case_reports を横断表示。確認は案件詳細の報連相・メモタブで行う */}
+      {/* 報連相（受信）。情報共有＝見ておくもの／要対応＝回答が要るもの でタブを分ける。
+          どちらも 未回答／確認中／回答済 のサブタブつき。 */}
       {activeTab === 'hourensou' && showHourensou && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 flex-wrap">
-            <MessagesSquare className="w-4 h-4 text-brand-600" strokeWidth={2.25} />
-            <h3 className="text-[14px] font-bold text-gray-900">報連相（受信）</h3>
-            <span className="text-[11px] text-gray-400 ml-2">未確認 {hourensouPendingCount} 件</span>
-            <span className="ml-auto text-[11px] text-gray-400">案件詳細の報連相・メモタブで内容を確認→「確認する」を押します</span>
-          </div>
-          {(() => {
-            const KIND_CHIP = { 報告: 'bg-emerald-100 text-emerald-700 border-emerald-200', 連絡: 'bg-sky-100 text-sky-700 border-sky-200', 相談: 'bg-amber-100 text-amber-800 border-amber-300' } as const
-            return hourensouRows.length === 0 ? (
-              <div className="px-4 py-12 text-center text-[13px] text-gray-400">受信中の報連相はありません</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-[13px]" style={{ minWidth: 1000 }}>
-                  <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium">分類</th>
-                      <th className="px-3 py-2 text-left font-medium">案件管理番号</th>
-                      <th className="px-3 py-2 text-left font-medium">案件名</th>
-                      <th className="px-3 py-2 text-left font-medium">送信者</th>
-                      <th className="px-3 py-2 text-left font-medium">送信日</th>
-                      <th className="px-3 py-2 text-left font-medium">内容</th>
-                      <th className="px-3 py-2 text-left font-medium">ステータス</th>
-                      <th className="px-3 py-2 text-left font-medium">確認者</th>
-                      <th className="px-3 py-2 text-left font-medium">確認日</th>
-                      <th className="px-3 py-2 w-28" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {hourensouRows.map(r => (
-                      <tr key={r.reportId} className="hover:bg-gray-50/60">
-                        <td className="px-3 py-2.5">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-semibold border ${KIND_CHIP[r.kind]}`}>{r.kind}</span>
-                        </td>
-                        <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500">{r.case_number}</td>
-                        <td className="px-3 py-2.5">
-                          <Link href={`/cases/${r.case_id}?tab=progress&sub=memo&openReport=${r.reportId}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[220px]">{r.deal_name}</Link>
-                        </td>
-                        <td className="px-3 py-2.5 text-[12px] text-gray-700">{r.requesterName || <span className="text-gray-300">—</span>}</td>
-                        <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{r.requestedDate ?? <span className="text-gray-300">—</span>}</td>
-                        <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-pre-wrap max-w-[240px]">{r.message || <span className="text-gray-300">—</span>}</td>
-                        <td className="px-3 py-2.5">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium ${r.status === '確認済' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{r.status === '依頼中' ? '未確認' : '確認済'}</span>
-                        </td>
-                        <td className="px-3 py-2.5 text-[12px] text-gray-700">{r.confirmerName || <span className="text-gray-300">—</span>}</td>
-                        <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{r.confirmedDate ?? <span className="text-gray-300">—</span>}</td>
-                        <td className="px-3 py-2.5 text-right">
-                          {r.status === '依頼中' && (
-                            <Link href={`/cases/${r.case_id}?tab=progress&sub=memo&openReport=${r.reportId}`} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50 whitespace-nowrap">確認する</Link>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )
-          })()}
-        </div>
+        <HourenSouTable
+          rows={shareRows}
+          mode="received"
+          title="報連相（情報共有）"
+          note="見ておいてほしい共有です。確認したら「確認した」を押します（アラートには出ません）"
+          todayStr={todayStr}
+        />
+      )}
+
+      {activeTab === 'hourensouAction' && showHourensou && (
+        <HourenSouTable
+          rows={actionRows}
+          mode="received"
+          title="報連相（要対応）"
+          note="回答が無いと相手の作業が止まります。1営業日で要確認・3営業日で要注意のアラートに出ます"
+          todayStr={todayStr}
+        />
       )}
 
       {/* 個別管理案件（紹介のみ） */}
