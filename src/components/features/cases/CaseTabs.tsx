@@ -85,7 +85,7 @@ const COUNT_KEY: Partial<Record<TabKey, 'taskCount'>> = {
 }
 
 type Group = 'main' | 'practice' | 'info' | 'header'
-const TAB_GROUP: Record<TabKey, Group> = {
+export const TAB_GROUP: Record<TabKey, Group> = {
   // 請求(contract)は依頼者連絡(clientInfo)の右に置くため main グループに含める。
   basicInfo: 'main', progress: 'main', orderSheet: 'main', clientInfo: 'main', contract: 'main', tasks: 'main',
   deceased: 'practice', legalInfo: 'practice', assets: 'practice', division: 'practice', will: 'practice',

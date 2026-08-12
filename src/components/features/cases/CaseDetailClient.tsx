@@ -16,7 +16,7 @@ import { getCompletionCaution, type CompletionCaution } from '@/lib/completionCa
 import { checkCaseCompletable, billingPatternLabel, refundStageLabel, type MissingInvoice, type PendingRefund, type MissingReferral } from '@/lib/caseCompletionGate'
 import { stripGyomu } from '@/lib/kotei'
 import CaseHeader from './CaseHeader'
-import CaseTabs, { type TabKey } from './CaseTabs'
+import CaseTabs, { TAB_GROUP, type TabKey } from './CaseTabs'
 import BasicInfoTab from './BasicInfoTab'
 import FreeWorkTab from './WorkContentField'
 import MeetingInfoTab from './MeetingInfoTab'
@@ -452,12 +452,13 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   // ※システム管理者(system_manager)や受注担当・事務管理担当は従来どおり全タブ。
   const isManagerViewer = viewerRole === 'manager' || viewerRole === 'sub_manager'
   const isSalesViewer = viewerRole === 'sales'
-  // 管理担当が行う実務タブ（受注区分→業務で許可されたものだけ表示。allowedPracticeTabs 未定義＝全表示）。
-  const MANAGER_PRACTICE: TabKey[] = ['trust', 'will', 'probate', 'guardianship', 'mediation', 'succession', 'legalInfo']
-  const managerPractice = MANAGER_PRACTICE.filter(t => !allowedPracticeTabs || allowedPracticeTabs.includes(t))
+  // 実務タブは事務管理担当と同じものを出す（この案件の受注区分→業務で許可されたもの全部）。
+  // 以前は管理担当が手を動かすタブ（遺言・信託・遺産承継など）だけに絞っていたが、
+  // 管理担当は戸籍や財産調査の中身も見て進捗を確認するため、絞らないことにした。
+  const managerPractice = tabVisRaw.visible.filter(t => TAB_GROUP[t] === 'practice')
   // 末尾に 案件情報 グループ (assignees/ownerSales/meeting) を追加。CaseTabs 側で InfoDropdown「案件情報」にまとめて表示される。
   // 到着物は管理担当も見る（受信の状況を確認する）。W-Check自体は事務管理の作業。
-  const MANAGER_TABS: TabKey[] = ['orderSheet', 'progress', 'clientInfo', ...managerPractice, 'referral', 'contract', 'delivery', 'tasks', 'receipts', 'assignees', 'ownerSales', 'meeting']
+  const MANAGER_TABS: TabKey[] = [...new Set<TabKey>(['orderSheet', 'progress', 'clientInfo', ...managerPractice, 'referral', 'contract', 'delivery', 'tasks', 'receipts', 'assignees', 'ownerSales', 'meeting'])]
   // 面談設定済（まだ受注もしていない段階）では管理担当も通常のタブ構成で見る。
   // 請求・納品まで並ぶのは、この段階では早すぎるため。
   const managerFixedTabs = isManagerViewer && caseState.status !== '面談設定済'
