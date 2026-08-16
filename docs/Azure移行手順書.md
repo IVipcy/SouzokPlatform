@@ -69,11 +69,18 @@ Azureと契約します。個人名義でOK。あとで支払いカードだけ�
 5. **携帯電話でSMS認証**（届いた番号を入力）
 6. **クレジットカード情報を入力**
    - ⚠️ 本人確認のためで、**すぐに課金はされません**
-   - 最初は無料枠から使われます
 7. 契約書に同意 → 完了
 
+### ⚠️ 実際にやってみて分かったこと（2026-08-12）
+
+- **「Azure の無料アカウントは対象外」と出ることがある**（会社テナントのアカウント・過去に無料枠を使った場合）。
+  その場合は画面の「**従量課金制の価格で Azure にサインアップします**」から進めばよい。やることは同じで、使った分だけの請求。
+- 申し込み後、**「ご使用のアカウントを確認中です」で審査待ちになることがある**（数分〜数時間）。
+  承認されるとメールが届く。待たずに https://signup.azure.com/screen を開いて「Refresh」でも状態を確認できる。
+- 会社のMicrosoft 365アカウント（`＠〜.onmicrosoft.com`）は、普段のメールと**同じ受信箱の別名**のことが多い。届かないときは https://outlook.office.com で確認。
+
 ### ✅ できたらOKの確認
-ブラウザで **https://portal.azure.com** を開いて、青い管理画面が表示されればOK。
+ブラウザで **https://portal.azure.com** を開き、左メニュー「サブスクリプション」に契約が1つ表示されればOK。
 
 > **つまずいたら**：カードが弾かれる場合はデビットカードやプリペイドは不可のことがあります。通常のクレジットカードを使ってください。
 
@@ -94,6 +101,11 @@ Azureをコマンドで操作する道具を、パソコンに入れます。
 4. 「Finish」で完了
 5. **PowerShellを一度すべて閉じて、開き直す**（重要！閉じないと認識されません）
 
+> **winget が使えるなら1行で入ります**（UACの確認が出たら「はい」）。
+> ```powershell
+> winget install -e --id Microsoft.AzureCLI --accept-source-agreements --accept-package-agreements
+> ```
+
 ### ✅ できたらOKの確認
 
 PowerShellを開いて、下をコピペして実行：
@@ -105,6 +117,15 @@ az version
 バージョン番号（`azure-cli 2.xx.x` のような表示）が出ればOKです。
 
 > **つまずいたら**：`az は認識されません` と出たら、PowerShellを閉じ忘れています。**すべてのPowerShellウィンドウを閉じて開き直して**ください。
+> **VS Code のターミナルは VS Code ごと再起動**しないとPATHが読み直されません。
+> 急ぐときは絶対パスで叩けます（32bit版で入った場合のパス）。
+> ```powershell
+> & "C:\Program Files (x86)\Microsoft SDKs\Azure\CLI2\wbin\az.cmd" login
+> ```
+> そのウィンドウだけPATHを通すなら：
+> ```powershell
+> $env:Path += ";C:\Program Files (x86)\Microsoft SDKs\Azure\CLI2\wbin"
+> ```
 
 ---
 
@@ -129,6 +150,9 @@ az version
 | `ANTHROPIC_API_KEY` | AI（Claude）の鍵 |
 | `INBOUND_API_KEY` | 相続ステーション連携用の鍵 |
 | `INBOUND_HMAC_SECRET` | 相続ステーション連携の署名用 |
+
+**これで全部です**（アプリが読んでいる環境変数を洗い出して確認済み）。
+先頭が `NEXT_PUBLIC_` の2つは**ビルド時に埋め込まれる**ので STEP 5 のビルドで渡します。残りは実行時に渡します。
 
 > **`.env.local` に無い項目があったら**：Renderの管理画面 → 該当サービス → 左メニュー「**Environment**」から確認できます。
 
