@@ -125,7 +125,7 @@ export default function RewardBreakdownSection({ caseId, onTotals }: {
                   <thead>
                     <tr className="text-[11px] text-gray-400">
                       <th className="px-1.5 pb-1.5 text-left font-normal">項目</th>
-                      <th className="px-1.5 pb-1.5 text-right font-normal w-28">金額（報酬）</th>
+                      <th className="px-1.5 pb-1.5 text-right font-normal w-28">金額（報酬・税込）</th>
                       <th className="w-7" />
                     </tr>
                   </thead>

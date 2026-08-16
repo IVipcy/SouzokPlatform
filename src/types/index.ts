@@ -896,8 +896,10 @@ export type FinancialAssetRow = {
   accrued_interest_required: string | null  // 経過利息要否（預金）
   share_cert_required: string | null        // 所有株式数証明要否（信託）
   unclaimed_dividend_required: string | null // 未受領配当金要否（信託）
-  survey_period_type: string | null         // 相続開始日 / 任意指定
-  survey_date: string | null                // 調査基準日（任意指定時）
+  survey_period_type: string | null         // 旧：相続開始日 / 任意指定（migration 245 で balance_cert_* に移行。表示では使わない）
+  survey_date: string | null                // 旧：調査基準日（任意指定時）
+  balance_cert_on_death: boolean            // 残高証明を相続開始日で取る（migration 245）
+  balance_cert_dates: string[] | null       // 残高証明の取得日（任意の日付・複数。migration 245）
   survey_prohibited_start: string | null    // 財産調査禁止期間 開始日（口座単位。migration 162）
   survey_prohibited_end: string | null      // 財産調査禁止期間 終了日（口座単位。migration 162）
   survey_prohibited_reason: string | null   // 財産調査禁止理由（口座単位。migration 162）

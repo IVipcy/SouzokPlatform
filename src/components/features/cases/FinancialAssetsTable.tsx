@@ -29,7 +29,7 @@ type Col = { key: keyof FinancialAssetRow; label: string; type: ColType; width?:
 // 取得区分（自社/依頼者）と調査禁止(開始/終了/理由)は 表の左端に固定配置する（cols とは別にヘッダ/行で描画）。
 // 依頼者取得なら以降の調査系入力は不要になる。
 
-// 種別ごとの列定義（取得区分・調査禁止は左端固定・調査期間・備考・進捗列は共通で末尾に付与）
+// 種別ごとの列定義（取得区分・調査禁止は左端固定・残高証明取得日・備考・進捗列は共通で末尾に付与）
 const COLUMNS: Record<Kind, Col[]> = {
   '預貯金': [
     { key: 'institution_name', label: '金融機関名', type: 'text' },
@@ -239,7 +239,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
     onRefresh?.()
   }
 
-  // 列数（空表示のcolspan用）。取得区分+調査期間+調査禁止+備考+削除=5 固定 ＋cols＋各条件列。
+  // 列数（空表示のcolspan用）。取得区分+残高証明取得日+調査禁止+備考+削除=5 固定 ＋cols＋各条件列。
   const colCount = 5 + cols.length
     + (showBalanceCols ? 3 : 0)     // 残高+根拠資料有無+根拠資料
     + (showTxPeriods ? 1 : 0)
@@ -327,6 +327,34 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
     )
   }
 
+  // ── 残高証明取得日 ──
+  // 「相続開始日」と任意の日付は併用する（相続開始日の残高と、直近の残高の両方を取ることがある）。
+  // 任意の日付は何本でも足せる。
+  const balCertDates = (r: FinancialAssetRow) => (r.balance_cert_dates ?? []) as string[]
+  const saveBalCertDates = (r: FinancialAssetRow, list: string[]) => commit(r.id, 'balance_cert_dates', list)
+  const renderBalanceCertCell = (r: FinancialAssetRow) => {
+    const list = balCertDates(r)
+    const dCls = 'w-[130px] flex-none px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500'
+    return (
+      <div className="flex flex-col gap-1 min-w-[170px]">
+        <label className="inline-flex items-center gap-1.5 text-[11.5px] cursor-pointer">
+          <input type="checkbox" checked={!!r.balance_cert_on_death} onChange={e => commit(r.id, 'balance_cert_on_death', e.target.checked)} className="w-4 h-4 accent-brand-600" />
+          <span className={r.balance_cert_on_death ? 'text-gray-700 font-semibold' : 'text-gray-500'}>相続開始日</span>
+        </label>
+        {list.map((d, i) => (
+          <div key={i} className="flex items-center gap-1">
+            <input type="date" value={d ?? ''} onChange={e => saveBalCertDates(r, list.map((x, j) => (j === i ? e.target.value : x)))} className={dCls} />
+            <button type="button" onClick={() => saveBalCertDates(r, list.filter((_, j) => j !== i))} title="この日付を削除" className="text-gray-300 hover:text-red-500 flex-none"><Trash2 className="w-3.5 h-3.5" /></button>
+          </div>
+        ))}
+        <button type="button" onClick={() => saveBalCertDates(r, [...list, ''])}
+          className="self-start inline-flex items-center gap-1 text-[11px] font-semibold text-brand-600 hover:text-brand-700">
+          <Plus className="w-3 h-3" strokeWidth={2.5} />日付を追加
+        </button>
+      </div>
+    )
+  }
+
   // 投信有無・貸金庫有無（預金・実務のみ）。貸金庫ありでタスク生成ポップアップ。
   const renderTrustSafeCell = (r: FinancialAssetRow) => (
     <div className="flex flex-col gap-1.5">
@@ -386,6 +414,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
             : <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200">未受信</span>}
         </CardRow>
       )}
+      <CardRow label="残高証明取得日">{renderBalanceCertCell(r)}</CardRow>
       {showTrustSafe && <CardRow label="投信/貸金庫">{renderTrustSafeCell(r)}</CardRow>}
       <CardRow label="調査禁止">{renderBanCell(r)}</CardRow>
       <CardRow label="備考"><TextInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="特記事項" /></CardRow>
@@ -422,7 +451,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
               {progressMode && <th className="px-2 py-2 text-center font-semibold w-24">凍結確認</th>}
               {showConfirmed && <th className="px-2 py-2 text-center font-semibold w-24">残高確定</th>}
               {showTxPeriods && <th className="px-2 py-2 text-left font-semibold w-64">取引明細の取得期間</th>}
-              <th className="px-2 py-2 text-left font-semibold w-52">調査期間</th>
+              <th className="px-2 py-2 text-left font-semibold w-44">残高証明取得日</th>
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">請求日</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">到着日</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-20">受信</th>}
@@ -499,15 +528,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                   )}
                   {/* 取引明細の取得期間（複数本） */}
                   {showTxPeriods && <td className={`px-2 py-1.5 ${lock}`}>{renderTxPeriodsCell(r)}</td>}
-                  {/* 調査期間（任意指定の文字が潰れないよう固定幅＋折返し可） */}
-                  <td className="px-2 py-1.5">
-                    <div className="flex items-center gap-1 flex-wrap">
-                      <SmallSelect value={r.survey_period_type ?? ''} options={['相続開始日', '任意指定']} onChange={v => save(r.id, 'survey_period_type', v)} placeholder="—" className="w-[88px] flex-none" />
-                      {r.survey_period_type === '任意指定' && (
-                        <input type="date" value={r.survey_date ?? ''} onChange={e => setLocal(r.id, 'survey_date', e.target.value)} onBlur={e => commit(r.id, 'survey_date', e.target.value)} className="w-[130px] flex-none px-1 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" />
-                      )}
-                    </div>
-                  </td>
+                  {/* 残高証明取得日（相続開始日のチェック＋任意の日付を何本でも） */}
+                  <td className="px-2 py-1.5">{renderBalanceCertCell(r)}</td>
                   {progressMode && (
                     <td className={`px-2 py-1.5 ${lock}`}><input type="date" value={r.request_date ?? ''} onChange={e => setLocal(r.id, 'request_date', e.target.value)} onBlur={e => commit(r.id, 'request_date', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" /></td>
                   )}

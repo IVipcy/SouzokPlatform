@@ -156,7 +156,7 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
             <col style={{ width: 300 }} /><col style={{ width: 64 }} /><col style={{ width: 80 }} /><col style={{ width: 96 }} /><col /><col style={{ width: 52 }} />
           </colgroup>
           <thead><tr className="text-[10.5px] text-gray-500 border-b border-gray-100">
-            <th className="px-1.5 py-1 text-left font-medium">名目</th><th className="px-1.5 py-1 text-right font-medium">数量</th><th className="px-1.5 py-1 text-right font-medium">単価</th><th className="px-1.5 py-1 text-right font-medium">金額</th><th className="px-1.5 py-1 text-left font-medium">備考</th><th className="px-1.5 py-1" />
+            <th className="px-1.5 py-1 text-left font-medium">名目</th><th className="px-1.5 py-1 text-right font-medium">数量</th><th className="px-1.5 py-1 text-right font-medium">単価（税込）</th><th className="px-1.5 py-1 text-right font-medium">金額（税込）</th><th className="px-1.5 py-1 text-left font-medium">備考</th><th className="px-1.5 py-1" />
           </tr></thead>
           <tbody>
             {items.map(r => (

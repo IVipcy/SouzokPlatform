@@ -231,7 +231,7 @@ export default function ContractTab({ caseData, tasks, onRefresh: _onRefresh, pa
       {/* 前受金。契約時にもらう額なので、請求パターンのすぐ下（時系列の順）に置く。
           パターン②③（一括）は前受金＝確定報酬で入力する値がないため出さない。 */}
       {pattern.value === 'staged' && (
-        <Section title="前受金（契約時に受け取る額）">
+        <Section title="前受金（契約時に受け取る額・税込）">
           <div className="flex items-center gap-5 flex-wrap text-[12.5px]">
             <span className="inline-flex items-center gap-2">
               <span className="font-semibold" style={{ color: SHIGYO_COLORS['行政'].color }}>行政</span>
