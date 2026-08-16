@@ -83,52 +83,45 @@ export default function MemoPhotoBox({ caseId, memos, setMemos, ensureCaseId, cu
 
   if (readOnly && photos.length === 0) return null
 
+  // 右上のボタン1つ＋その下にサムネイル。シートの先頭を占領しないよう小さくまとめる。
   return (
-    <div className="bg-white border border-brand-200 rounded-xl overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-2.5 bg-brand-50 border-b border-brand-100">
-        <Camera className="w-4 h-4 text-brand-700 flex-none" strokeWidth={2} />
-        <span className="text-[13.5px] font-bold text-brand-800 flex-1">面談メモ（写真）</span>
-        {photos.length > 0 && <span className="text-[11px] font-mono text-brand-700">{photos.length}枚</span>}
-      </div>
-      <div className="p-3 space-y-2.5">
-        {!readOnly && (
-          <>
-            <p className="text-[11.5px] text-gray-500 leading-snug">
-              紙のメモを撮るだけでも構いません。ここに残しておけば、シートを埋めずにそのまま面談結果登録へ進めます。
-            </p>
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              disabled={busy}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-[14px] font-bold text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-50"
-            >
-              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" strokeWidth={2.25} />}
-              {busy ? '保存中…' : '面談メモを撮る／画像を添付'}
-            </button>
-            {/* スマホではカメラが直接開く。複数枚まとめて選べる。 */}
-            <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple className="hidden"
-              onChange={e => pick(e.target.files)} />
-          </>
-        )}
-        {photos.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {photos.map(m => (
-              <div key={m.id} className="relative">
-                {urls[m.id]
-                  // eslint-disable-next-line @next/next/no-img-element
-                  ? <a href={urls[m.id]} target="_blank" rel="noreferrer"><img src={urls[m.id]} alt="面談メモ" className="h-24 rounded border border-gray-200 bg-white" /></a>
-                  : <div className="h-24 w-20 rounded border border-gray-200 bg-gray-50 flex items-center justify-center text-[11px] text-gray-400">読込中</div>}
-                {!readOnly && (
-                  <button type="button" onClick={() => remove(m)} title="削除"
-                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-gray-200 text-gray-400 hover:text-red-500 flex items-center justify-center shadow-sm">
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+    <div className="flex flex-col items-end gap-1.5">
+      {!readOnly && (
+        <>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={busy}
+            title="紙のメモを撮るだけでもOK。シートを埋めずに面談結果登録へ進めます"
+            className="inline-flex items-center gap-1.5 text-[12.5px] px-3 py-2 min-h-[38px] rounded-lg border border-brand-300 bg-brand-50 text-brand-700 font-semibold hover:bg-brand-100 disabled:opacity-50"
+          >
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" strokeWidth={2.25} />}
+            {busy ? '保存中…' : '面談メモ写真'}
+            {photos.length > 0 && <span className="text-[11px] font-mono opacity-80">{photos.length}</span>}
+          </button>
+          {/* スマホではカメラが直接開く。複数枚まとめて選べる。 */}
+          <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple className="hidden"
+            onChange={e => pick(e.target.files)} />
+        </>
+      )}
+      {photos.length > 0 && (
+        <div className="flex flex-wrap justify-end gap-1.5">
+          {photos.map(m => (
+            <div key={m.id} className="relative">
+              {urls[m.id]
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <a href={urls[m.id]} target="_blank" rel="noreferrer"><img src={urls[m.id]} alt="面談メモ" className="h-14 rounded border border-gray-200 bg-white" /></a>
+                : <div className="h-14 w-11 rounded border border-gray-200 bg-gray-50 flex items-center justify-center text-[10px] text-gray-400">…</div>}
+              {!readOnly && (
+                <button type="button" onClick={() => remove(m)} title="削除"
+                  className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-white border border-gray-200 text-gray-400 hover:text-red-500 flex items-center justify-center shadow-sm">
+                  <Trash2 className="w-2.5 h-2.5" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

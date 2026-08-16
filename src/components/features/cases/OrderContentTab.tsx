@@ -80,8 +80,12 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
 
     // 受注区分に紐づく管理業務（auto gyomu＝遺言/信託/検認/精算書 等）だけ入れ替え。
     // 実施業務セレクタ・その他で選んだ業務は保持する。
-    const autoValues = new Set(Object.values(CATEGORY_AUTO_GYOMU))
-    const autoNew = newKeys.map(k => CATEGORY_AUTO_GYOMU[k]).filter((g): g is string => !!g)
+    // 受注区分1つに業務が複数ぶら下がることがある（遺産承継＝精算書作成＋指図書作成）
+    const autoValues = new Set(Object.values(CATEGORY_AUTO_GYOMU).flat())
+    const autoNew = newKeys.flatMap(k => {
+      const g = CATEGORY_AUTO_GYOMU[k]
+      return g ? (Array.isArray(g) ? g : [g]) : []
+    })
     const nextRoles = roles.filter(r => !(autoValues.has(r.gyomu) && !autoNew.includes(r.gyomu)))
     for (const g of autoNew) if (!nextRoles.some(r => r.gyomu === g)) nextRoles.push(...(defaultRolesForGyomu(g) as RoleRow[]))
 

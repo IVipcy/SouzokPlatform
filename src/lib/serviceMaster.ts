@@ -45,7 +45,9 @@ export const ORDER_CATEGORY_ROWS: string[][] = [
 ]
 
 // 受注区分を選ぶと自動で有効になる管理担当業務（1:1）。共通業務は実施業務セレクタで別途選ぶ。
-export const CATEGORY_AUTO_GYOMU: Record<string, string> = {
+// 受注区分によっては複数の業務が一度に決まる（遺産承継＝精算書作成＋指図書作成）。
+export const CATEGORY_AUTO_GYOMU: Record<string, string | string[]> = {
+  '遺産承継': ['精算書作成', '指図書作成'],
   '遺言': '遺言作成',
   '信託': '信託契約書作成',
   '検認': '検認手続き',
@@ -75,8 +77,9 @@ export const GYOMU_SELECTOR_ROWS: GyomuSelectorItem[][] = [
   [
     { label: '解約', gyomus: ['解約'] },
     { label: '手紙', gyomus: ['手紙'] },
-    { label: '遺産承継', gyomus: ['精算書作成', '指図書作成'] },
-    { label: '契約書', gyomus: ['契約書作成'] },
+    // 遺産承継は実施業務から外した。受注区分で「遺産承継」を選べば必ずやる業務なので、
+    // 改めて選ばせる意味がない。精算書作成・指図書作成は CATEGORY_AUTO_GYOMU で自動的に有効になる。
+    { label: '契約書作成支援', gyomus: ['契約書作成'] },
   ],
 ]
 // セレクタに出す内部業務名の集合（重複判定・除外用）。

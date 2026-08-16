@@ -18,6 +18,7 @@ import type { SelectedCase } from '@/app/(authenticated)/meeting/MeetingPageClie
 import MeetingSheetTab, { MemoCarryOver } from './MeetingSheetTab'
 import { partsForCase, activePartKeys } from '@/lib/serviceParts'
 import type { TimelineReceipt } from '@/components/features/cases/CaseTimeline'
+import MemoPhotoBox from './MemoPhotoBox'
 import type {
   CaseRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow,
   DivisionDetailRow, AgreementDispatchRow, ExpenseRow, TaskRow, ClientCommunicationRow, CaseReferralRow,
@@ -277,6 +278,9 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
                 ? '面談中の要点を記録します。各項目・メモは案件に保存され、②面談結果登録・③オーダーシートに引き継がれます。'
                 : 'セクション見出しだけの白紙です。書いたあと「テキスト化」で各セクションのメモ欄に入り、そこから項目に反映できます。'}
             </p>
+            {/* 面談メモ（写真）。シートを埋めずに紙のメモを撮って終わらせたい人の入口。
+                保存先は手書き画像と同じなので、案件詳細・オーダーシートにもそのまま出る。 */}
+            <MemoPhotoBox caseId={caseState.id} memos={memoList} setMemos={setMemos} ensureCaseId={ensureCase} currentMemberId={currentMemberId} />
             <div className="hidden sm:inline-flex rounded-lg border border-gray-200 overflow-hidden flex-none bg-white">
               {([['fields', '項目モード', ClipboardList], ['white', '白紙モード', PencilLine]] as const).map(([m, label, Icon], i) => (
                 <button key={m} type="button" onClick={() => setSheetMode(m)}

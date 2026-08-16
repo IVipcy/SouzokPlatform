@@ -20,6 +20,7 @@ import { useRowsFrom } from '@/lib/useRowsFrom'
 import type { CaseRow, CaseClientRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, CaseOtherAssetRow } from '@/types'
 import type { MeetingMemoRow } from './IntakeCaseClient'
 import MemoPhotoBox from './MemoPhotoBox'
+import { toKatakana } from '@/lib/kana'
 
 const BUCKET = 'meeting-memos'
 
@@ -462,6 +463,8 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
     return m
   }, [otherAssets])
   const cl = caseData.clients
+  // 振込名義人の自動入力元＝メイン依頼者のふりがな（clients.furigana が空なら依頼者一覧のメインから）
+  const mainFurigana = cl?.furigana || (caseClients.find(c => c.priority === 'main') ?? caseClients[0])?.furigana
 
   const clearAi = (key: string) => setAiFilled(prev => { if (!prev.has(key)) return prev; const n = new Set(prev); n.delete(key); return n })
 
@@ -495,15 +498,29 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
 
   return (
     <div className="space-y-3">
-      {/* 面談メモ（写真）。シートを埋めない人はここに紙のメモを撮って残す。
-          保存先は手書き画像と同じなので、案件詳細・オーダーシートにもそのまま出る。 */}
-      <MemoPhotoBox caseId={caseData.id} memos={memos} setMemos={setMemos} ensureCaseId={ensureCaseId} currentMemberId={currentMemberId} />
       {sec('clientInfo', '依頼者情報', null, (
         <div className="space-y-3">
           <CaseClientsTable caseId={caseData.id} clients={caseClients} onRefresh={onRefresh} clientId={caseData.client_id} ensureCaseId={ensureCaseId} />
           <FieldGrid>
             <InlineEdit label="住所" value={cl?.address ?? null} ai={aiFilled.has('address')} onSave={v => { clearAi('address'); return patchClient({ address: v || null }) }} fullWidth />
-            <InlineEdit label="振込名義人 候補①（カナ）" value={cl?.transfer_name_kana ?? null} ai={aiFilled.has('transfer_name_kana')} onSave={v => { clearAi('transfer_name_kana'); return patchClient({ transfer_name_kana: v || null }) }} mono />
+            {/* 振込名義人＝入金CSV突合のキー。本人振込なら依頼者のふりがなをカタカナで入れる。
+                案件詳細の依頼者タブと同じボタンを、面談シートにも置く。 */}
+            <InlineEdit
+              label="振込名義人 候補①（カナ）"
+              value={cl?.transfer_name_kana ?? null}
+              ai={aiFilled.has('transfer_name_kana')}
+              onSave={v => { clearAi('transfer_name_kana'); return patchClient({ transfer_name_kana: toKatakana(v) || null }) }}
+              mono
+              hint={mainFurigana ? undefined : 'メイン依頼者にふりがなが未入力です（上の依頼者一覧で入れると取得できます）'}
+              action={
+                <button
+                  type="button"
+                  disabled={!mainFurigana}
+                  onClick={() => mainFurigana && patchClient({ transfer_name_kana: toKatakana(mainFurigana) })}
+                  className="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-1.5 py-0.5 rounded border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >メイン依頼者のフリガナを取得</button>
+              }
+            />
           </FieldGrid>
         </div>
       ), runExtract('clientInfo'))}
