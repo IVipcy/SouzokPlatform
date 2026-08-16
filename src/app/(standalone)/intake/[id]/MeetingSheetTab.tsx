@@ -19,6 +19,7 @@ import { MoneyInput } from '@/components/features/cases/FinancialAssetsTable'
 import { useRowsFrom } from '@/lib/useRowsFrom'
 import type { CaseRow, CaseClientRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, CaseOtherAssetRow } from '@/types'
 import type { MeetingMemoRow } from './IntakeCaseClient'
+import MemoPhotoBox from './MemoPhotoBox'
 
 const BUCKET = 'meeting-memos'
 
@@ -153,7 +154,7 @@ function SavedMemos({ memos, onDelete, readOnly }: { memos: MeetingMemoRow[]; on
 }
 
 // ③オーダーシートへ引き継ぐ、手書きメモ（読み取り専用・セクション別）。
-export const SEC_LABEL: Record<string, string> = { clientInfo: '依頼者情報', order: '提案内容・手続き内容', deceased: '相続人調査', assets_re: '財産調査（不動産）', assets_deposit: '財産調査（預金）', assets_securities: '財産調査（証券）', assets_trust: '財産調査（信託）', assets_insurance: '財産調査（生命保険）', referral: '他事業者紹介' }
+export const SEC_LABEL: Record<string, string> = { memoPhoto: '面談メモ（写真）', clientInfo: '依頼者情報', order: '提案内容・手続き内容', deceased: '相続人調査', assets_re: '財産調査（不動産）', assets_deposit: '財産調査（預金）', assets_securities: '財産調査（証券）', assets_trust: '財産調査（信託）', assets_insurance: '財産調査（生命保険）', referral: '他事業者紹介' }
 
 /** 白紙メモの帯（＝セクション）の並び順。SEC_LABEL からラベルを引く。 */
 export const WB_ORDER = ['clientInfo', 'order', 'deceased', 'assets_re', 'assets_deposit', 'assets_securities', 'assets_trust', 'assets_insurance', 'referral'] as const
@@ -441,8 +442,8 @@ const OPTIONAL_FIN: { kind: string; label: string; section: string; cols: FinCol
   { kind: '生命保険', label: '生命保険', section: 'assets_insurance', cols: [{ key: 'institution_name', label: '保険会社名' }] },
 ]
 
-// currentMemberId は手書き画像の保存に使っていたが、手書きを白紙モードへ移したため未使用（Props型には残す）。
-export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensureCaseId, memos, setMemos, caseClients, heirs, properties, financialAssets, otherAssets = [], onRefresh }: Props) {
+// currentMemberId は面談メモ（写真）の保存者として使う。
+export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensureCaseId, memos, setMemos, caseClients, heirs, properties, financialAssets, otherAssets = [], onRefresh, currentMemberId }: Props) {
   const [aiFilled, setAiFilled] = useState<Set<string>>(new Set())
   const [diagramOpen, setDiagramOpen] = useState(false)   // 相続関係図の開閉（既定は閉じる）
   // 追加表示中の財産種別。すでに1行でも入っている種別は開いた状態で始める。
@@ -494,6 +495,9 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
 
   return (
     <div className="space-y-3">
+      {/* 面談メモ（写真）。シートを埋めない人はここに紙のメモを撮って残す。
+          保存先は手書き画像と同じなので、案件詳細・オーダーシートにもそのまま出る。 */}
+      <MemoPhotoBox caseId={caseData.id} memos={memos} setMemos={setMemos} ensureCaseId={ensureCaseId} currentMemberId={currentMemberId} />
       {sec('clientInfo', '依頼者情報', null, (
         <div className="space-y-3">
           <CaseClientsTable caseId={caseData.id} clients={caseClients} onRefresh={onRefresh} clientId={caseData.client_id} ensureCaseId={ensureCaseId} />
