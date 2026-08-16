@@ -575,6 +575,13 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           <div className="flex-1 min-w-0">
             <div className="text-[11px] text-brand-100">作業中のタスク</div>
             <div className="text-[13px] font-bold truncate">{focusTask.title}</div>
+            {/* 作業内容（作業指示）。タスク詳細に戻らなくても、何をする作業か読めるようにする。 */}
+            {focusTask.procedure_text && (
+              <p className="text-[11.5px] text-brand-50/90 leading-snug whitespace-pre-wrap mt-0.5 max-h-[3.2em] overflow-y-auto pr-1"
+                title={focusTask.procedure_text}>
+                {focusTask.procedure_text}
+              </p>
+            )}
           </div>
           <button
             type="button"
