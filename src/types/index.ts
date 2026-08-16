@@ -55,6 +55,9 @@ export type Member = {
 // === DB行型（Supabaseレスポンス準拠） ===
 
 export type CaseRow = {
+  /** 面談結果登録を保存した時点の面談シート内容（migration 242） */
+  meeting_snapshot?: unknown
+  meeting_snapshot_at?: string | null
   id: string
   case_number: string
   lp_case_number: string | null   // LP案件管理番号（相続ステーション側の元番号）

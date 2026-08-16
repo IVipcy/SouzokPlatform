@@ -6,6 +6,7 @@ import { User, FileText, CheckCircle2, ChevronDown, type LucideIcon } from 'luci
 import { createClient } from '@/lib/supabase/client'
 import { applyRouteToCaseNumber } from '@/lib/caseNumber'
 import { seedRewardItemsFromProposal } from '@/lib/rewardFromProposal'
+import { saveMeetingSnapshot } from '@/lib/meetingSnapshot'
 
 // 受注が決まったとみなすステータス（提案金額を報酬内訳へ引き継ぐ判定に使う）
 const ORDER_STATUSES = new Set(['受注', '戻り受注', '作業着手準備', '対応中'])
@@ -613,6 +614,9 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         else await supabase.from('case_clients').insert({ case_id: caseId, ...row })
       }
 
+
+      // 3-z. 面談時点の記録を撮る（面談シートはこれを表示する。オーダーシートで直しても変わらない）
+      await saveMeetingSnapshot(supabase, caseId)
 
       // 4. 他事業者紹介要否 → case_referrals（チェック分をupsert。未チェックの削除はタブ側で実施）
       //    税理士/不動産は依頼内容(content)も同時に保存（LP案件一覧の該当列のソースとなる）

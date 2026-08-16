@@ -19,6 +19,8 @@ import MeetingSheetTab, { MemoCarryOver } from './MeetingSheetTab'
 import { partsForCase, activePartKeys } from '@/lib/serviceParts'
 import type { TimelineReceipt } from '@/components/features/cases/CaseTimeline'
 import MemoPhotoBox from './MemoPhotoBox'
+import MeetingSnapshotView from './MeetingSnapshotView'
+import { readMeetingSnapshot } from '@/lib/meetingSnapshot'
 import type {
   CaseRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow,
   DivisionDetailRow, AgreementDispatchRow, ExpenseRow, TaskRow, ClientCommunicationRow, CaseReferralRow,
@@ -112,6 +114,11 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
   // 面談シート内で CaseClientsTable などが直接 supabase.update を叩いた後、
   // caseState が stale だと ②面談結果登録に転記される selectedCase が古いままになる。
   useEffect(() => { setCaseState(caseData) }, [caseData])
+  // ①は面談時点の記録（②を保存した瞬間の写し）を出す。あとから③で直しても①は変わらない。
+  // 記録が無い案件（②未実施・過去分）は従来どおり最新をそのまま編集する。
+  const snapshot = readMeetingSnapshot(caseState)
+  const [showLatestSheet, setShowLatestSheet] = useState(false)
+  const showSnapshot = !!snapshot && !showLatestSheet
   // 面談シートの手書きメモは①で作成、③でも参照するため親でstate管理。
   const [memoList, setMemos] = useState<MeetingMemoRow[]>(memos)
   const [discardOpen, setDiscardOpen] = useState(false)
@@ -274,13 +281,16 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
               モードは①へ入るたび 'fields' に戻るので、スマホから白紙モードに入ることはない。 */}
           <div className="flex items-start gap-3 mb-3 flex-wrap">
             <p className="text-[12px] text-gray-500 flex-1 min-w-[200px] leading-relaxed">
-              {sheetMode === 'fields'
+              {showSnapshot
+                ? '面談結果登録を保存した時点の記録です。取り直すには②面談結果登録をもう一度保存してください。'
+                : sheetMode === 'fields'
                 ? '面談中の要点を記録します。各項目・メモは案件に保存され、②面談結果登録・③オーダーシートに引き継がれます。'
                 : 'セクション見出しだけの白紙です。書いたあと「テキスト化」で各セクションのメモ欄に入り、そこから項目に反映できます。'}
             </p>
             {/* 面談メモ（写真）。シートを埋めずに紙のメモを撮って終わらせたい人の入口。
                 保存先は手書き画像と同じなので、案件詳細・オーダーシートにもそのまま出る。 */}
             <MemoPhotoBox caseId={caseState.id} memos={memoList} setMemos={setMemos} ensureCaseId={ensureCase} currentMemberId={currentMemberId} />
+            {!showSnapshot && (
             <div className="hidden sm:inline-flex rounded-lg border border-gray-200 overflow-hidden flex-none bg-white">
               {([['fields', '項目モード', ClipboardList], ['white', '白紙モード', PencilLine]] as const).map(([m, label, Icon], i) => (
                 <button key={m} type="button" onClick={() => setSheetMode(m)}
@@ -289,9 +299,12 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
                 </button>
               ))}
             </div>
+            )}
           </div>
 
-          {sheetMode === 'white' ? (
+          {showSnapshot ? (
+            <MeetingSnapshotView snapshot={snapshot!} onEditLatest={() => setShowLatestSheet(true)} />
+          ) : sheetMode === 'white' ? (
             <WhiteboardTab
               caseData={caseState} patchCase={patchCase} patchClient={patchClient} ensureCaseId={ensureCase}
               currentMemberId={currentMemberId} memos={memoList} setMemos={setMemos}
@@ -299,8 +312,19 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
               onGoFields={() => { setSheetMode('fields'); window.scrollTo(0, 0) }}
             />
           ) : (
-          <MeetingSheetTab caseData={caseState} patchCase={patchCase} patchClient={patchClient} ensureCaseId={ensureCase} currentMemberId={currentMemberId} memos={memoList} setMemos={setMemos}
-            caseClients={rest.caseClients} heirs={rest.heirs} properties={rest.properties} financialAssets={rest.financialAssets} otherAssets={rest.otherAssets} onRefresh={() => router.refresh()} />
+          <>
+            {snapshot && (
+              <div className="mb-2 flex items-center gap-2 flex-wrap rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                <span className="text-[12px] text-gray-600 flex-1 min-w-[200px]">いまの内容（③オーダーシートと同じ）を出しています。直すとオーダーシートにも反映されます。</span>
+                <button type="button" onClick={() => setShowLatestSheet(false)}
+                  className="flex-none text-[12px] font-semibold px-3 py-1.5 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-100">
+                  面談時点の記録に戻す
+                </button>
+              </div>
+            )}
+            <MeetingSheetTab caseData={caseState} patchCase={patchCase} patchClient={patchClient} ensureCaseId={ensureCase} currentMemberId={currentMemberId} memos={memoList} setMemos={setMemos}
+              caseClients={rest.caseClients} heirs={rest.heirs} properties={rest.properties} financialAssets={rest.financialAssets} otherAssets={rest.otherAssets} onRefresh={() => router.refresh()} />
+          </>
           )}
           {/* 面談シート最下部の保存ボタン。入力欄は blur で随時オートセーブされているが、
               明示的な「保存して次へ」を用意して迷わないように。押下で②面談結果登録タブへ遷移。 */}
