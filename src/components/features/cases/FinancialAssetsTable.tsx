@@ -136,6 +136,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   const showTrustSafe = progressMode && kind === '預貯金'
   const showFreezeFlag = !progressMode
   const showBalanceCols = progressMode || showConfirmed
+  // 取引明細の取得期間。取引明細の列を持つ種別（預金）の実務タブだけに出す。
+  const showTxPeriods = progressMode && cols.some(c => c.key === 'transaction_detail_required')
   const [safeDepositPrompt, setSafeDepositPrompt] = useState<{ bank: string } | null>(null)
 
   // 残高確定・凍結確認は「確認簿へ依頼 → 確認簿で確認」をやめ、この表でそのままチェックする。
@@ -198,7 +200,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   //
   // 画面の値もここで更新する。以前は DB だけ書いて手元の行を直しておらず、
   // チェックボックスが押しても変わらない（＝押せない）ように見えていた。
-  const commit = async (id: string, field: keyof FinancialAssetRow, value: string | boolean | string[]) => {
+  const commit = async (id: string, field: keyof FinancialAssetRow, value: unknown) => {
     const key = `${id}:${String(field)}`
     clearTimeout(timersRef.current[key])
     delete timersRef.current[key]
@@ -240,6 +242,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   // 列数（空表示のcolspan用）。取得区分+調査期間+調査禁止+備考+削除=5 固定 ＋cols＋各条件列。
   const colCount = 5 + cols.length
     + (showBalanceCols ? 3 : 0)     // 残高+根拠資料有無+根拠資料
+    + (showTxPeriods ? 1 : 0)
     + (showFreezeFlag ? 1 : 0)
     + (progressMode ? 7 : 0)       // 凍結状態+凍結確認+請求+到着+受信+関連+備考結果
     + (showConfirmed ? 1 : 0)
@@ -281,6 +284,49 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
       </div>
     )
   }
+  // ── 取引明細の取得期間（口座ごと・複数本） ──
+  // 相続開始日までの1本で済むとは限らず、使途不明金の確認などで別の年度を追加請求することがある。
+  const txPeriodsOf = (r: FinancialAssetRow) => (r.transaction_periods ?? []) as { start: string | null; end: string | null }[]
+  const saveTxPeriods = (r: FinancialAssetRow, list: { start: string | null; end: string | null }[]) =>
+    commit(r.id, 'transaction_periods', list)
+  // 取引明細を「要」にした時点で、空の1本目を用意する（毎回「追加」を押さずに済むように）
+  const selectCol = async (r: FinancialAssetRow, key: keyof FinancialAssetRow, v: string) => {
+    await commit(r.id, key, v)
+    if (key === 'transaction_detail_required' && v === '要' && txPeriodsOf(r).length === 0) {
+      await saveTxPeriods(r, [{ start: null, end: null }])
+    }
+  }
+  const renderTxPeriodsCell = (r: FinancialAssetRow) => {
+    const list = txPeriodsOf(r)
+    const need = (r.transaction_detail_required ?? '') === '要'
+    // 「不要」に戻しても入力済みの期間は消さない（畳んで残す）。
+    if (!need && list.length === 0) return <span className="text-[12px] text-gray-300">—</span>
+    const setAt = (i: number, key: 'start' | 'end', v: string) =>
+      saveTxPeriods(r, list.map((x, j) => (j === i ? { ...x, [key]: v || null } : x)))
+    const removeAt = (i: number) => saveTxPeriods(r, list.filter((_, j) => j !== i))
+    const dCls = 'px-1 py-1 text-[11px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500'
+    return (
+      <div className="flex flex-col gap-1 min-w-[248px]">
+        {list.map((x, i) => (
+          <div key={i} className="flex items-center gap-1">
+            <span className="text-[10.5px] text-gray-400 w-3 flex-none">{i + 1}</span>
+            <input type="date" value={x.start ?? ''} onChange={e => setAt(i, 'start', e.target.value)} className={dCls} />
+            <span className="text-[10.5px] text-gray-400">〜</span>
+            <input type="date" value={x.end ?? ''} onChange={e => setAt(i, 'end', e.target.value)} className={dCls} />
+            <button type="button" onClick={() => removeAt(i)} title="この期間を削除" className="text-gray-300 hover:text-red-500 flex-none"><Trash2 className="w-3.5 h-3.5" /></button>
+          </div>
+        ))}
+        {!need && list.length > 0 && <span className="text-[10.5px] text-gray-400">取引明細は「要」ではありません</span>}
+        {need && (
+          <button type="button" onClick={() => saveTxPeriods(r, [...list, { start: null, end: null }])}
+            className="self-start inline-flex items-center gap-1 text-[11px] font-semibold text-brand-600 hover:text-brand-700">
+            <Plus className="w-3 h-3" strokeWidth={2.5} />期間を追加
+          </button>
+        )}
+      </div>
+    )
+  }
+
   // 投信有無・貸金庫有無（預金・実務のみ）。貸金庫ありでタスク生成ポップアップ。
   const renderTrustSafeCell = (r: FinancialAssetRow) => (
     <div className="flex flex-col gap-1.5">
@@ -313,9 +359,10 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
         <CardRow key={c.key} label={c.label}>
           {c.type === 'text'
             ? <TextInput value={(r[c.key] as string) ?? null} onChange={v => setLocal(r.id, c.key, v)} onCommit={v => commit(r.id, c.key, v)} />
-            : <SmallSelect value={(r[c.key] as string) ?? ''} options={c.type === 'cancel' ? CANCEL : c.type === 'accountType' ? ACCOUNT_TYPES : REQ} onChange={v => save(r.id, c.key, v)} />}
+            : <SmallSelect value={(r[c.key] as string) ?? ''} options={c.type === 'cancel' ? CANCEL : c.type === 'accountType' ? ACCOUNT_TYPES : REQ} onChange={v => selectCol(r, c.key, v)} />}
         </CardRow>
       ))}
+      {showTxPeriods && <CardRow label="取引明細の取得期間">{renderTxPeriodsCell(r)}</CardRow>}
       {showBalanceCols && <CardRow label="残高/評価額">{banned ? <span className="text-[12px] text-gray-400">禁止期間中は入力不可</span> : <MoneyInput value={r.balance_amount} onCommit={v => commit(r.id, 'balance_amount', v)} />}</CardRow>}
       {progressMode && (
         <CardRow label="凍結確認">
@@ -362,7 +409,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
       <ContractReceivedBlock docs={contractDocs} caseId={caseId} onRefresh={onRefresh} />
       {/* 表示：PC(sm以上)は表・スマホはカード。案件詳細/オーダーシート共通（表に統一・横スクロール）。 */}
       <div className="hidden sm:block overflow-x-auto">
-        <table className="text-[13px] border-collapse" style={{ minWidth: progressMode ? 2560 : 1300, width: 'max-content' }}>
+        <table className="text-[13px] border-collapse" style={{ minWidth: progressMode ? 2820 : 1300, width: 'max-content' }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
               {showFreezeFlag && <th className="px-2 py-2 text-left font-semibold w-28">凍結済み</th>}
@@ -374,6 +421,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
               {showBalanceCols && <th className="px-2 py-2 text-left font-semibold w-56">根拠資料</th>}
               {progressMode && <th className="px-2 py-2 text-center font-semibold w-24">凍結確認</th>}
               {showConfirmed && <th className="px-2 py-2 text-center font-semibold w-24">残高確定</th>}
+              {showTxPeriods && <th className="px-2 py-2 text-left font-semibold w-64">取引明細の取得期間</th>}
               <th className="px-2 py-2 text-left font-semibold w-52">調査期間</th>
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">請求日</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">到着日</th>}
@@ -411,7 +459,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                       {c.type === 'text' ? (
                         <TextInput value={(r[c.key] as string) ?? null} onChange={v => setLocal(r.id, c.key, v)} onCommit={v => commit(r.id, c.key, v)} />
                       ) : (
-                        <SmallSelect value={(r[c.key] as string) ?? ''} options={c.type === 'cancel' ? CANCEL : c.type === 'accountType' ? ACCOUNT_TYPES : REQ} onChange={v => save(r.id, c.key, v)} />
+                        <SmallSelect value={(r[c.key] as string) ?? ''} options={c.type === 'cancel' ? CANCEL : c.type === 'accountType' ? ACCOUNT_TYPES : REQ} onChange={v => selectCol(r, c.key, v)} />
                       )}
                     </td>
                   ))}
@@ -449,6 +497,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                           : <span className="text-[11px] text-gray-300">残高待ち</span>}
                     </td>
                   )}
+                  {/* 取引明細の取得期間（複数本） */}
+                  {showTxPeriods && <td className={`px-2 py-1.5 ${lock}`}>{renderTxPeriodsCell(r)}</td>}
                   {/* 調査期間（任意指定の文字が潰れないよう固定幅＋折返し可） */}
                   <td className="px-2 py-1.5">
                     <div className="flex items-center gap-1 flex-wrap">
