@@ -583,6 +583,7 @@ export type HeirRow = {
   birth_date: string | null
   relationship_type: string | null   // 被相続人との続柄（法定相続人・代襲まで網羅。migration 103でCHECK撤去）
   lived_together: boolean            // 被相続人と同居していたか（相関図にバッジ表示。migration 222）
+  is_deceased: boolean               // 死亡している相続人（数次相続・代襲の判断。相関図で「故」。migration 243）
   other_parent_heir_id: string | null // もう一方の親＝前妻・前夫の heirs.id（未設定は現配偶者との子。migration 225）
   legal_share_num: number | null     // 法定相続割合（分子）。目録の参考行に使う（migration 227）
   legal_share_den: number | null     // 法定相続割合（分母）

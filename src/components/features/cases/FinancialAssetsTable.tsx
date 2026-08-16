@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Trash2, Plus, Lock, LockOpen, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { evidenceDocsFor } from '@/lib/constants'
@@ -92,9 +92,35 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   const authUser = useAuth()
   const memberName = authUser?.memberName ?? authUser?.email ?? null   // 確認のハンコに出す名前
   const [rows, setRows] = useState<FinancialAssetRow[]>(() => assets.filter(a => a.asset_type === kind))
+  // 入力したがまだ保存できていない値（行ID→項目）。親からの再取得で消されないよう手元に持つ。
+  const pendingRef = useRef<Record<string, Partial<FinancialAssetRow>>>({})
+  // 入力中の自動保存タイマー（行ID:項目 ごと）
+  const timersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  // この画面で追加した行。サーバーの一覧にまだ載っていない間も消さないための印。
+  const addedRef = useRef<Set<string>>(new Set())
   // assets prop（親のonRefresh後の最新データ）が変わったら rows を同期。
   // これが無いと、オーダーシートで追加した口座が実務タブに反映されない等の不整合が起きる。
-  useEffect(() => { setRows(assets.filter(a => a.asset_type === kind)) }, [assets, kind])
+  //
+  // ただし単純に置き換えてはいけない。「＋追加」は直後に親の再取得を投げるので、
+  // 追加した行に金融機関名を打っている最中に古いデータが返ってきて、打った文字が消えていた
+  // （＝最後に追加した行だけ保存されない）。未保存の値と、まだ一覧に載っていない追加行は残す。
+  useEffect(() => {
+    const server = assets.filter(a => a.asset_type === kind)
+    const ids = new Set(server.map(a => a.id))
+    const merged = server.map(a => {
+      const p = pendingRef.current[a.id]
+      return p ? { ...a, ...p } as FinancialAssetRow : a
+    })
+    setRows(prev => [...merged, ...prev.filter(r => !ids.has(r.id) && addedRef.current.has(r.id))])
+  }, [assets, kind])
+  // 画面を離れるときは、待機中の自動保存をその場で流す（ページを移っても入力が消えないように）
+  useEffect(() => () => {
+    Object.values(timersRef.current).forEach(clearTimeout)
+    for (const [id, patch] of Object.entries(pendingRef.current)) {
+      if (patch && Object.keys(patch).length > 0) void supabase.from('financial_assets').update(patch).eq('id', id)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [busy, setBusy] = useState(false)
   // 口座種別・口座番号は実務タブのみ（オーダーシートでは非表示）。エクセルR74-75。
   const cols = COLUMNS[kind].filter(c => progressMode || c.key !== 'account_type')
@@ -105,9 +131,11 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   // 財産調査禁止ホールド：調査禁止指定=指定あり かつ（期間指定で終了日前 / 連絡待ちで未解除）のとき調査を止める。
   const todayYmd = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })()
   const isSurveyBanned = (r: FinancialAssetRow) => isSurveyBanActive(r, todayYmd)
-  // 投信/貸金庫チェックは実務・預金のみ。凍結確認済フラグはオーダーシート(!progressMode)のみ左端に出す。
+  // 投信/貸金庫チェックは実務・預金のみ。凍結済みフラグはオーダーシート(!progressMode)のみ左端に出す。
+  // 残高/評価額・根拠資料は調査で分かることなので、オーダーシート（面談時のヒアリング）では出さない。
   const showTrustSafe = progressMode && kind === '預貯金'
   const showFreezeFlag = !progressMode
+  const showBalanceCols = progressMode || showConfirmed
   const [safeDepositPrompt, setSafeDepositPrompt] = useState<{ bank: string } | null>(null)
 
   // 残高確定・凍結確認は「確認簿へ依頼 → 確認簿で確認」をやめ、この表でそのままチェックする。
@@ -152,8 +180,18 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   // 連絡待ちの解除（お客様OK）：解除日を当日で記録。
   const releaseWait = (row: FinancialAssetRow) => patchReq(row, { prohibition_released_at: todayYmd })
 
-  const setLocal = (id: string, field: keyof FinancialAssetRow, value: unknown) =>
+  const applyLocal = (id: string, field: keyof FinancialAssetRow, value: unknown) =>
     setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } as FinancialAssetRow : r)))
+
+  // 入力中：手元の表示を更新し、未保存の値として控えたうえで、少し待ってから保存する。
+  // フォーカスを外す前にページを移っても、離脱時にまとめて保存されるので消えない。
+  const setLocal = (id: string, field: keyof FinancialAssetRow, value: unknown) => {
+    applyLocal(id, field, value)
+    pendingRef.current[id] = { ...pendingRef.current[id], [field]: value }
+    const key = `${id}:${String(field)}`
+    clearTimeout(timersRef.current[key])
+    timersRef.current[key] = setTimeout(() => { commit(id, field, value as string) }, 800)
+  }
 
   // 文字列以外（根拠資料の有無=boolean、根拠資料の種別=string[]）も保存できるようにする。
   // 空文字だけ null に落とす従来の挙動は維持（他の列がそれ前提のため）。
@@ -161,10 +199,20 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   // 画面の値もここで更新する。以前は DB だけ書いて手元の行を直しておらず、
   // チェックボックスが押しても変わらない（＝押せない）ように見えていた。
   const commit = async (id: string, field: keyof FinancialAssetRow, value: string | boolean | string[]) => {
+    const key = `${id}:${String(field)}`
+    clearTimeout(timersRef.current[key])
+    delete timersRef.current[key]
     const v = value === '' ? null : value
-    setLocal(id, field, v)
+    applyLocal(id, field, v)
+    pendingRef.current[id] = { ...pendingRef.current[id], [field]: v }
     const { error } = await supabase.from('financial_assets').update({ [field]: v }).eq('id', id)
-    if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
+    if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
+    // 保存できたので未保存の印を落とす（以降は親の再取得で上書きされてよい）
+    const p = pendingRef.current[id]
+    if (p) {
+      delete p[field]
+      if (Object.keys(p).length === 0) delete pendingRef.current[id]
+    }
   }
   const save = (id: string, field: keyof FinancialAssetRow, value: string) => { commit(id, field, value) }
 
@@ -174,6 +222,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
     const { data, error } = await supabase.from('financial_assets').insert({ case_id: caseId, asset_type: kind, institution_name: institutionFilter ?? '', acquirer: '自社' }).select('*').single()
     setBusy(false)
     if (error || !data) { showToast(`追加に失敗しました: ${error?.message ?? ''}`, 'error'); return }
+    addedRef.current.add((data as FinancialAssetRow).id)
     setRows(prev => [...prev, data as FinancialAssetRow])
     onRefresh?.()
   }
@@ -182,12 +231,15 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
     if (!confirm(`「${row.institution_name || '未入力'}」を削除しますか？`)) return
     const { error } = await supabase.from('financial_assets').delete().eq('id', row.id)
     if (error) { showToast(`削除に失敗しました: ${error.message}`, 'error'); return }
+    delete pendingRef.current[row.id]
+    addedRef.current.delete(row.id)
     setRows(prev => prev.filter(r => r.id !== row.id))
     onRefresh?.()
   }
 
-  // 列数（空表示のcolspan用）。取得区分+残高+調査期間+調査禁止+備考+削除=6 固定 ＋cols＋各条件列。
-  const colCount = 6 + cols.length
+  // 列数（空表示のcolspan用）。取得区分+調査期間+調査禁止+備考+削除=5 固定 ＋cols＋各条件列。
+  const colCount = 5 + cols.length
+    + (showBalanceCols ? 3 : 0)     // 残高+根拠資料有無+根拠資料
     + (showFreezeFlag ? 1 : 0)
     + (progressMode ? 7 : 0)       // 凍結状態+凍結確認+請求+到着+受信+関連+備考結果
     + (showConfirmed ? 1 : 0)
@@ -236,16 +288,16 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
       <label className="inline-flex items-center gap-1.5 text-[12px]"><input type="checkbox" checked={r.has_safe_deposit} onChange={e => toggleSafeDeposit(r, e.target.checked)} className="w-4 h-4 accent-brand-600" />貸金庫あり</label>
     </div>
   )
-  // 凍結確認済フラグ（オーダーシート・事前凍結）
+  // 凍結済みフラグ（オーダーシート・事前凍結）
   const renderFreezeFlagCell = (r: FinancialAssetRow) => (
-    <label className="inline-flex items-center gap-1.5 text-[12px]"><input type="checkbox" checked={r.freeze_confirmed} onChange={e => toggleFreezeFlag(r, e.target.checked)} className="w-4 h-4 accent-emerald-600" /><span className={r.freeze_confirmed ? 'text-emerald-700 font-semibold' : 'text-gray-500'}>凍結確認済</span></label>
+    <label className="inline-flex items-center gap-1.5 text-[12px]"><input type="checkbox" checked={r.freeze_confirmed} onChange={e => toggleFreezeFlag(r, e.target.checked)} className="w-4 h-4 accent-emerald-600" /><span className={r.freeze_confirmed ? 'text-emerald-700 font-semibold' : 'text-gray-500'}>凍結済み</span></label>
   )
 
   // 口座1件＝1カード（口座タブ／スマホ表示で共用）。請求日・到着日・備考結果は progressMode のみ。
   const renderCard = (r: FinancialAssetRow) => { const banned = isSurveyBanned(r); return (
     <div key={r.id} className={`rounded-xl border ${banned ? 'border-gray-300 bg-gray-50' : 'border-gray-200 bg-white'}`}>
       {banned && <div className="px-3 py-1.5 text-[11px] font-semibold text-gray-600 bg-gray-100 border-b border-gray-200 flex items-center gap-1"><Lock className="w-3 h-3" strokeWidth={2} />財産調査 ホールド中（調査禁止指定あり）調査は編集できません</div>}
-      {showFreezeFlag && <CardRow label="凍結確認済（事前凍結）">{renderFreezeFlagCell(r)}</CardRow>}
+      {showFreezeFlag && <CardRow label="凍結済み（事前凍結）">{renderFreezeFlagCell(r)}</CardRow>}
       {progressMode && (
         <CardRow label="凍結可否">
           {r.freeze_confirmed
@@ -264,7 +316,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
             : <SmallSelect value={(r[c.key] as string) ?? ''} options={c.type === 'cancel' ? CANCEL : c.type === 'accountType' ? ACCOUNT_TYPES : REQ} onChange={v => save(r.id, c.key, v)} />}
         </CardRow>
       ))}
-      <CardRow label="残高/評価額">{banned ? <span className="text-[12px] text-gray-400">禁止期間中は入力不可</span> : <MoneyInput value={r.balance_amount} onCommit={v => commit(r.id, 'balance_amount', v)} />}</CardRow>
+      {showBalanceCols && <CardRow label="残高/評価額">{banned ? <span className="text-[12px] text-gray-400">禁止期間中は入力不可</span> : <MoneyInput value={r.balance_amount} onCommit={v => commit(r.id, 'balance_amount', v)} />}</CardRow>}
       {progressMode && (
         <CardRow label="凍結確認">
           {banned ? <span className="text-[12px] text-gray-400">禁止期間中はチェックできません</span>
@@ -313,13 +365,13 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
         <table className="text-[13px] border-collapse" style={{ minWidth: progressMode ? 2560 : 1300, width: 'max-content' }}>
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
-              {showFreezeFlag && <th className="px-2 py-2 text-left font-semibold w-28">凍結確認済</th>}
+              {showFreezeFlag && <th className="px-2 py-2 text-left font-semibold w-28">凍結済み</th>}
               {progressMode && <th className="px-2 py-2 text-center font-semibold w-24">凍結可否</th>}
               <th className="px-2 py-2 text-left font-semibold w-28">取得区分</th>
               {cols.map(c => <th key={c.key} className={`px-2 py-2 text-left font-semibold ${c.width ?? ''}`}>{c.label}</th>)}
-              <th className="px-2 py-2 text-right font-semibold w-32">残高/評価額</th>
-              <th className="px-2 py-2 text-center font-semibold w-20">根拠資料<span className="block text-[10px] font-normal text-gray-400">有無</span></th>
-              <th className="px-2 py-2 text-left font-semibold w-56">根拠資料</th>
+              {showBalanceCols && <th className="px-2 py-2 text-right font-semibold w-32">残高/評価額</th>}
+              {showBalanceCols && <th className="px-2 py-2 text-center font-semibold w-20">根拠資料<span className="block text-[10px] font-normal text-gray-400">有無</span></th>}
+              {showBalanceCols && <th className="px-2 py-2 text-left font-semibold w-56">根拠資料</th>}
               {progressMode && <th className="px-2 py-2 text-center font-semibold w-24">凍結確認</th>}
               {showConfirmed && <th className="px-2 py-2 text-center font-semibold w-24">残高確定</th>}
               <th className="px-2 py-2 text-left font-semibold w-52">調査期間</th>
@@ -364,18 +416,24 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                     </td>
                   ))}
                   {/* 残高/評価額（目録・精算書の収入の源泉）。禁止期間中は入力不可＝禁止バッジを表示 */}
+                  {showBalanceCols && (
                   <td className="px-2 py-1.5">
                     {banned
                       ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold text-gray-500 bg-gray-100 border border-gray-300" title={r.survey_prohibited_reason ?? '財産調査禁止期間中'}><Lock className="w-3 h-3" strokeWidth={2} />禁止期間中〜{r.survey_prohibited_end?.slice(5).replace('-', '/')}</span>
                       : <MoneyInput value={r.balance_amount} onCommit={v => commit(r.id, 'balance_amount', v)} />}
                   </td>
+                  )}
                   {/* 根拠資料：目録に載せる金額の裏付け。有無のチェックと、何で確認したかの種別。 */}
+                  {showBalanceCols && (
                   <td className="px-2 py-1.5 text-center">
                     <input type="checkbox" checked={!!r.has_evidence} onChange={e => commit(r.id, 'has_evidence', e.target.checked)} className="w-4 h-4 accent-brand-600" />
                   </td>
+                  )}
+                  {showBalanceCols && (
                   <td className="px-2 py-1.5">
                     <EvidenceDocsCell row={r} onCommit={commit} />
                   </td>
+                  )}
                   {/* 凍結確認（解約タスクの着手ゲート）。確認簿を経由せずここで付ける。 */}
                   {progressMode && (
                     <td className={`px-2 py-1.5 text-center ${lock}`}>

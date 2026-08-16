@@ -81,6 +81,7 @@ const emptyHeirForm = () => ({
   is_applicant: false,
   is_client: false,
   lived_together: false,
+  is_deceased: false,
   // もう一方の親（前妻・前夫）。前婚の子だけ設定する。migration 225
   other_parent_heir_id: '',
 })
@@ -207,6 +208,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       phone: heir.phone ?? (isMainClientHeir ? (mainClient?.phone ?? caseData.clients?.phone ?? '') : ''),
       email: heir.email ?? (isMainClientHeir ? (mainClient?.email ?? caseData.clients?.email ?? '') : ''),
       is_legal_heir: heir.is_legal_heir,
+      is_deceased: heir.is_deceased,
       is_applicant: heir.is_applicant,
       is_client: heir.is_client ?? false,
       lived_together: heir.lived_together ?? false,
@@ -225,9 +227,10 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
   }
 
   // 一覧の上で相続人の1項目だけ直す（住所など。編集フォームを開かずに埋められるように）
-  const saveHeirField = async (heirId: string, field: string, value: string) => {
+  const saveHeirField = async (heirId: string, field: string, value: string | boolean) => {
     const supabase = createClient()
-    const { error } = await supabase.from('heirs').update({ [field]: value.trim() || null }).eq('id', heirId)
+    const v = typeof value === 'boolean' ? value : (value.trim() || null)
+    const { error } = await supabase.from('heirs').update({ [field]: v }).eq('id', heirId)
     if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
     onRefresh()
   }
@@ -402,7 +405,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                 <thead>
                   <tr>
                     {/* オーダーシート（受注担当ざっくり）では詳細列(生年月日/住所/本籍)を隠し、実務タブ（管理担当詳細化）で表示。エクセルR42-44 */}
-                    {['氏名', ...(orderSheetMode ? [] : ['生年月日', '住所', '本籍']), ''].map((h, hi) => (
+                    {['氏名', '存命/死亡', ...(orderSheetMode ? [] : ['生年月日', '住所', '本籍']), ''].map((h, hi) => (
                       <th key={hi} className="text-left px-3 py-2 text-[11px] font-medium text-brand-700 tracking-[0.04em] bg-brand-50/60 border-b border-brand-100">{h}</th>
                     ))}
                   </tr>
@@ -424,7 +427,17 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                           {heir.is_applicant && (
                             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-700">申出人</span>
                           )}
+                          {heir.is_deceased && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-gray-200 text-gray-700">故</span>
+                          )}
                         </div>
+                      </td>
+                      {/* 存命／死亡。数次相続・代襲の判断の起点なので、編集フォームを開かずに切り替えられるようにする。 */}
+                      <td className="px-3 py-2.5">
+                        <label className="inline-flex items-center gap-1.5 text-[12px] cursor-pointer">
+                          <input type="checkbox" checked={heir.is_deceased} onChange={e => saveHeirField(heir.id, 'is_deceased', e.target.checked)} className="w-4 h-4 accent-gray-600 rounded" />
+                          <span className={heir.is_deceased ? 'text-gray-700 font-semibold' : 'text-gray-400'}>{heir.is_deceased ? '死亡' : '存命'}</span>
+                        </label>
                       </td>
                       {!orderSheetMode && (
                         <>
@@ -486,6 +499,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                         {heir.is_legal_heir && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-600">法定相続人</span>}
                         {heir.is_client && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200">依頼者</span>}
                         {heir.is_applicant && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-700">申出人</span>}
+                        {heir.is_deceased && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-gray-200 text-gray-700">故</span>}
                       </div>
                     </div>
                     <div className="flex items-center gap-1 flex-none">
@@ -494,6 +508,10 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                     </div>
                   </div>
                   <div className="space-y-1.5 text-[12.5px] text-gray-700">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={heir.is_deceased} onChange={e => saveHeirField(heir.id, 'is_deceased', e.target.checked)} className="w-4 h-4 accent-gray-600 rounded" />
+                      <span className={heir.is_deceased ? 'text-gray-700 font-semibold' : 'text-gray-400'}>{heir.is_deceased ? '死亡' : '存命'}</span>
+                    </label>
                     {!orderSheetMode && (
                       <>
                         <div className="flex gap-2"><span className="text-gray-400 w-16 flex-none">生年月日</span><span>{heir.birth_date ? <>{heir.birth_date}{toWareki(heir.birth_date) && <span className="text-gray-400 ml-1">{toWareki(heir.birth_date)}</span>}</> : '—'}</span></div>
@@ -580,6 +598,10 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                         <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer" title="相続関係図に「同居」バッジで表示されます">
                           <input type="checkbox" checked={heirForm.lived_together} onChange={e => setHeirForm(f => ({ ...f, lived_together: e.target.checked }))} className="rounded" />
                           被相続人と同居
+                        </label>
+                        <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer" title="数次相続・代襲の判断に使います。相続関係図に「故」で表示されます">
+                          <input type="checkbox" checked={heirForm.is_deceased} onChange={e => setHeirForm(f => ({ ...f, is_deceased: e.target.checked }))} className="rounded" />
+                          死亡している
                         </label>
                       </div>
                     </div>

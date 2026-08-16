@@ -16,7 +16,6 @@ import AssetsTotalBand from './AssetsTotalBand'
 import { OTHER_ASSET_KINDS } from '@/lib/constants'
 import ReferralTab from './ReferralTab'
 import CancellationTab from './CancellationTab'
-import RegistrationTab from './RegistrationTab'
 import DivisionTab from './DivisionTab'
 import PracticeProcedureTab from './PracticeProcedureTab'
 import { WorkContentField, workContentPlaceholder } from './WorkContentField'
@@ -180,11 +179,15 @@ export default function OrderSheet({
     { title: '依頼者情報', gate: 'clientInfo', node: <ClientInfoTab caseData={caseData} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={onRefresh} orderSheetMode caseClients={caseClients} /> },
     { title: '受注内容', workContentKey: 'order', node: <OrderContentTab caseData={caseData} patchCase={patchCase} orderSheetMode hideOrderMemo={guided} /> },
     { title: '相続人調査', gate: 'deceased', node: <DeceasedTab caseData={caseData} heirs={heirs} kosekiRequests={kosekiRequests} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} caseClients={caseClients} /> },
-    // 財産調査は「合計 → 不動産 → 金融資産 → その他財産 → 相続債務 → その他費用」の順に並べる。
-    // 合計は先頭の1か所だけ（各ブロックの合計バンドは hideSummary で消す）。
+    // 財産調査は「不動産 → 金融資産 → その他財産 → 相続債務 → その他費用」の順に並べる。
+    // 合計だけのページは作らない（1枚使うほどの中身が無いため）。最初の財産ページの先頭に1つ置く。
     // その他財産・相続債務・その他費用は金融資産ではないので、金融ブロックから出して別に置く。
-    { title: '財産調査（合計）', gate: 'assets', workContentKey: 'assets', node: <AssetsTotalBand properties={properties} financialAssets={financialAssets} otherAssets={otherAssets} /> },
-    { title: '財産（不動産）', gate: 'assets', workContentKey: 'assets_re', node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['realestate']} showOtherKinds={[]} hideSummary /> },
+    { title: '財産（不動産）', gate: 'assets', workContentKey: 'assets_re', node: (
+      <>
+        <AssetsTotalBand properties={properties} financialAssets={financialAssets} otherAssets={otherAssets} />
+        <div className="mt-3"><AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['realestate']} showOtherKinds={[]} hideSummary /></div>
+      </>
+    ) },
     { title: '財産（金融資産）', gate: 'assets', workContentKey: 'assets_deposit', node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} otherAssets={otherAssets} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['deposit', 'securities', 'trust', 'insurance']} showOtherKinds={[]} hideSummary /> },
     // その他財産は常に出す。相続債務・その他費用はあまり発生しないので、
     // 中身があるときか「＋ 追加」を押したときだけセクションを出す。
@@ -211,7 +214,8 @@ export default function OrderSheet({
     { title: '他事業者紹介', gate: 'referral', anchorId: 'os-referral', node: <ReferralTab caseData={caseData} referrals={referrals} onRefresh={onRefresh} orderSheetMode /> },
     { title: '遺産分割', gate: 'division', node: <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} agreementDispatches={agreementDispatches} onRefresh={onRefresh} patchCase={patchCase} mode="division" orderSheetMode /> },
     { title: '遺言', gate: 'will', node: <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} mode="will" orderSheetMode /> },
-    { title: '相続登記', gate: 'registration', node: <RegistrationTab caseData={caseData} properties={properties} onRefresh={onRefresh} patchCase={patchCase} contractDocuments={contractDocuments} orderSheetMode /> },
+    // 相続登記は受注時点で物件ごとの登記内容までは決まらないので、オーダーシートでは作業内容（フリー）だけにする。
+    { title: '相続登記', gate: 'registration', node: <HintNote>登記に関する作業内容を下の欄に書いてください（物件ごとの登記の管理は実務タブで行います）。</HintNote> },
     { title: '解約等（銀行・証券・自動車）', gate: 'cancellation', node: <CancellationTab financialAssets={financialAssets} onRefresh={onRefresh} receipts={receipts} orderSheetMode /> },
     ...PROCEDURE_TABS.map(p => ({
       title: p.title,

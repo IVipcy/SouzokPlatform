@@ -238,6 +238,7 @@ export default function InheritanceDiagramV2({
             registeredAddress={spouse.registered_address}
             isLegalHeir={spouse.is_legal_heir}
             livedTogether={spouse.lived_together}
+            isDeceased={spouse.is_deceased}
             isApplicant={spouse.is_applicant} isClient={spouse.is_client}
           />
         )}
@@ -257,6 +258,7 @@ export default function InheritanceDiagramV2({
             registeredAddress={heir.registered_address}
             isLegalHeir={heir.is_legal_heir}
             livedTogether={heir.lived_together}
+            isDeceased={heir.is_deceased}
             isApplicant={heir.is_applicant} isClient={heir.is_client}
             noteBadge={groupKeyOf(heir) !== 'current' ? '前婚の子' : undefined}
           />
@@ -345,6 +347,7 @@ function ParentsLayout({
             registeredAddress={p.registered_address}
             isLegalHeir={p.is_legal_heir}
             livedTogether={p.lived_together}
+            isDeceased={p.is_deceased}
             isApplicant={p.is_applicant} isClient={p.is_client}
           />
         ))}
@@ -376,6 +379,7 @@ function ParentsLayout({
             registeredAddress={spouse.registered_address}
             isLegalHeir={spouse.is_legal_heir}
             livedTogether={spouse.lived_together}
+            isDeceased={spouse.is_deceased}
             isApplicant={spouse.is_applicant} isClient={spouse.is_client}
           />
         )}
@@ -508,6 +512,7 @@ function SiblingsLayout({
               registeredAddress={heir.registered_address}
               isLegalHeir={heir.is_legal_heir}
               livedTogether={heir.lived_together}
+              isDeceased={heir.is_deceased}
               isApplicant={heir.is_applicant} isClient={heir.is_client}
               notHeir={isFormerSpouseHeir(heir)}
               noteBadge={isHalfBloodHeir(heir) ? '半血（相続分1/2）' : undefined}
@@ -528,6 +533,7 @@ function SiblingsLayout({
             registeredAddress={spouse.registered_address}
             isLegalHeir={spouse.is_legal_heir}
             livedTogether={spouse.lived_together}
+            isDeceased={spouse.is_deceased}
             isApplicant={spouse.is_applicant} isClient={spouse.is_client}
           />
         )}

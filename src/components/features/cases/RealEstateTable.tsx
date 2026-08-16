@@ -157,7 +157,6 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
             <thead>
               <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
                 <th className={TH + ' w-28'}>物件種別</th>
-                <th className={TH + ' w-28'}>取得区分</th>
                 <th className={TH}>所在地<span className="block text-[10px] font-normal text-gray-400">名寄帳取得後に地番を要確認</span></th>
                 <th className={TH + ' text-right w-32'}>評価額</th>
                 <th className={TH}>備考</th>
@@ -166,11 +165,10 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
             </thead>
             <tbody>
               {visibleRows.length === 0 ? (
-                <tr><td colSpan={6} className="px-3 py-6 text-center text-[13px] text-gray-400">不動産が登録されていません</td></tr>
+                <tr><td colSpan={5} className="px-3 py-6 text-center text-[13px] text-gray-400">不動産が登録されていません</td></tr>
               ) : visibleRows.map(r => (
                 <tr key={r.id} className="border-b border-gray-100">
                   <TypeCell r={r} setLocal={setLocal} commit={commit} />
-                  <AcquirerCell r={r} setLocal={setLocal} commit={commit} />
                   <CellInput value={r.address} onChange={v => setLocal(r.id, 'address', v)} onCommit={v => commit(r.id, 'address', v)} placeholder="所在地（住所を予測）" suggestions={addrOptions} />
                   <td className="px-2.5 py-1.5"><MoneyInput value={r.appraisal_value} onCommit={v => commit(r.id, 'appraisal_value', v)} /></td>
                   <CellInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="住人・売却意向 等" />
@@ -450,11 +448,13 @@ function RealCard({ r, setLocal, commit, saveNumber, onDelete, orderSheetMode, s
             {PROPERTY_TYPES.map(o => <option key={o} value={o}>{o}</option>)}
           </select>
         </FieldBlock>
+        {!orderSheetMode && (
         <FieldBlock label="取得区分">
           <select value={r.acquirer ?? '自社'} onChange={e => { setLocal(r.id, 'acquirer', e.target.value); commit(r.id, 'acquirer', e.target.value) }} className={selCls}>
             {ACQUIRERS.map(a => <option key={a} value={a}>{acquirerLabel(a)}</option>)}
           </select>
         </FieldBlock>
+        )}
         {showMuni && (
           <FieldBlock label="市区町村">
             <input type="text" value={r.municipality ?? ''} onChange={e => setLocal(r.id, 'municipality', e.target.value)} onBlur={e => commit(r.id, 'municipality', e.target.value)} placeholder="例: 東京都墨田区" className={inputCls} />
