@@ -143,6 +143,8 @@ const fmtMonthDay = (d: { months: number; days: number }) => d.months > 0 ? `${d
 // 稼働中案件の 受注 → 現在 → 業務完了予定 の3点軸。
 // 受注→現在の矢印は 最終接触の鮮度(freshnessFlag)で 青/黄/赤 に色分け、上に経過日数。
 // 現在→業務完了予定 は淡い水色、上に残り日数。
+// 業務完了予定を過ぎたら、その区間（線・矢じり・完了予定アイコン・日付・ラベル）を赤にする。
+// 受注→現在は色の意味が違う（最終接触からの放置度合い）ので触らない。
 function ActiveMilestoneAxis({ caseData, compact }: { caseData: CaseRow; compact: boolean }) {
   const parse = (s: string | null | undefined) => { if (!s) return null; const d = new Date(s); return Number.isNaN(d.getTime()) ? null : d }
   const orderDate = parse(ymd(caseData.order_received_date) ?? ymd(caseData.order_date))
@@ -153,8 +155,11 @@ function ActiveMilestoneAxis({ caseData, compact }: { caseData: CaseRow; compact
   const elapsedDiff = orderDate ? monthDayDiff(orderDate, now) : null
   const remainOver = !!goalDate && goalDate.getTime() < now.getTime()
   const remainDiff = goalDate && !remainOver ? monthDayDiff(now, goalDate) : null
+  // 超過しているときは「どれだけ過ぎたか」を出す（「超過」の2文字だけでは遅れ具合が読めない）
+  const overDiff = goalDate && remainOver ? monthDayDiff(goalDate, now) : null
   const elapsed = elapsedDiff ? fmtMonthDay(elapsedDiff) : '—'
-  const remain = remainOver ? '超過' : (remainDiff ? fmtMonthDay(remainDiff) : '—')
+  const remain = remainOver ? (overDiff ? fmtMonthDay(overDiff) : '超過') : (remainDiff ? fmtMonthDay(remainDiff) : '—')
+  const remainCls = remainOver ? '#ef4444' : '#93c5fd'
   // 「現在」の位置を 経過:残り の日数比で動かす（flex-grow 比率）。0でも最小幅は確保。
   const elapsedDays = elapsedDiff?.totalDays ?? 0
   const remainDays = remainDiff?.totalDays ?? 0
@@ -179,17 +184,20 @@ function ActiveMilestoneAxis({ caseData, compact }: { caseData: CaseRow; compact
   const lineTop = 30 + circlePx / 2                // 軸ラインのY（paddingTop=30 基準）
 
   // アイコン（連続ラインの上に重ねる。z-10 で線より前面）
-  const Node = ({ Icon, label, date, cur, future }: { Icon: LucideIcon; label: string; date: string | null; cur?: boolean; future?: boolean }) => (
+  const Node = ({ Icon, label, date, cur, future, over }: { Icon: LucideIcon; label: string; date: string | null; cur?: boolean; future?: boolean; over?: boolean }) => (
     <div className="relative flex-none z-10" style={{ width: circlePx, height: circlePx }}>
       {/* 現在アイコンはパルスリングで点滅 */}
       {cur && <span className="absolute inset-0 rounded-full bg-brand-400/60 animate-ping" />}
-      <span className={`relative w-full h-full rounded-full flex items-center justify-center shadow-sm ${future ? 'bg-white text-gray-400 border-2 border-gray-300' : 'bg-brand-700 text-white'} ${cur ? 'ring-4 ring-brand-100' : ''}`}>
+      <span className={`relative w-full h-full rounded-full flex items-center justify-center shadow-sm ${
+        over ? 'bg-white text-red-600 border-2 border-red-500'
+        : future ? 'bg-white text-gray-400 border-2 border-gray-300'
+        : 'bg-brand-700 text-white'} ${cur ? 'ring-4 ring-brand-100' : ''}`}>
         <Icon className={iconSz} strokeWidth={2} />
       </span>
       {/* 下：ノード名＋日付（絶対配置・中央） */}
       <div className="absolute left-1/2 -translate-x-1/2 text-center whitespace-nowrap" style={{ top: circlePx + 6 }}>
-        <div className={`${compact ? 'text-[11px]' : 'text-[13px]'} font-semibold leading-tight ${future ? 'text-gray-400' : 'text-gray-900'}`}>{label}</div>
-        <div className={`${compact ? 'text-[10px]' : 'text-[11px]'} font-mono text-gray-400`}>{date ?? '—'}</div>
+        <div className={`${compact ? 'text-[11px]' : 'text-[13px]'} font-semibold leading-tight ${over ? 'text-red-600' : future ? 'text-gray-400' : 'text-gray-900'}`}>{label}</div>
+        <div className={`${compact ? 'text-[10px]' : 'text-[11px]'} font-mono ${over ? 'text-red-600' : 'text-gray-400'}`}>{date ?? '—'}</div>
       </div>
     </div>
   )
@@ -212,8 +220,11 @@ function ActiveMilestoneAxis({ caseData, compact }: { caseData: CaseRow; compact
       {/* 上下のラベル分の余白を確保しつつ、連続ラインの上にアイコン・矢印を重ねる（横スクロールは出さない）。
           両端は 端ノードの日付ラベルがはみ出さないよう左右パディングを確保。 */}
       <div className="relative w-full" style={{ paddingTop: 30, paddingBottom: 34, paddingLeft: 44, paddingRight: 44 }}>
-        {/* 連続した横一線（背面・アイコン中心の高さ・全幅） */}
+        {/* 連続した横一線（背面・アイコン中心の高さ・全幅）。超過時は右端の余白も薄い赤にして帯をつなぐ。 */}
         <div className="absolute left-0 right-0" style={{ top: 30 + circlePx / 2 - 1.5, height: 3, background: '#c7d2fe' }} />
+        {remainOver && (
+          <div className="absolute right-0" style={{ left: '50%', top: 30 + circlePx / 2 - 1.5, height: 3, background: '#fecaca' }} />
+        )}
         {/* 月目盛り（背面・上部余白内に収める。軸ラインまで短い点線＋小さな月ラベル） */}
         {monthTicks.filter((_, i) => i % tickStep === 0).map((t, i) => (
           <div
@@ -230,8 +241,9 @@ function ActiveMilestoneAxis({ caseData, compact }: { caseData: CaseRow; compact
           <Node Icon={Handshake} label="受注" date={orderDate ? ymd(caseData.order_received_date) ?? ymd(caseData.order_date) : null} />
           <Segment color={elapsedCls} sub="経過" label={elapsed} grow={elapsedDays} />
           <Node Icon={Play} label="現在" date={ymd(now.toISOString())} cur />
-          <Segment color="#93c5fd" sub="残り" label={remain} grow={remainDays} />
-          <Node Icon={Flag} label="業務完了予定" date={goalDate ? ymd(caseData.expected_completion_date) : null} future />
+          {/* 超過しているときは、過ぎた日数ぶん線が伸びる（遅れの大きさが目で分かる） */}
+          <Segment color={remainCls} sub={remainOver ? '超過' : '残り'} label={remain} grow={remainOver ? (overDiff?.totalDays ?? 0) : remainDays} />
+          <Node Icon={Flag} label="業務完了予定" date={goalDate ? ymd(caseData.expected_completion_date) : null} future over={remainOver} />
         </div>
       </div>
     </div>
