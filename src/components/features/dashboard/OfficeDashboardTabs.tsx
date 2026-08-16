@@ -61,7 +61,7 @@ export type HourenSouRow = {
   confirmedDate: string | null
 }
 
-type TabKey = 'start' | 'tasks' | 'mail' | 'hourensou' | 'hourensouAction'
+type TabKey = 'start' | 'tasks' | 'hourensou' | 'hourensouAction'
 
 const normalizeStatus = (s: string) => {
   if (s === '未着手') return '着手前'
@@ -149,6 +149,17 @@ export default function OfficeDashboardTabs({
     selectTab('tasks')
   }
 
+  // 郵便タブの色。未対応のうち「いちばん古いもの」で決める。
+  //   当日に届いた分だけ＝青／翌営業日まで来た＝緑／2営業日以上そのまま＝オレンジ
+  const mailTone: 'blue' | 'green' | 'orange' = (() => {
+    let worst = 0
+    for (const m of mails) {
+      const d = m.receivedDate ? bizDaysOverdue(m.receivedDate, today) : 0
+      if (d > worst) worst = d
+    }
+    return worst >= 2 ? 'orange' : worst === 1 ? 'green' : 'blue'
+  })()
+
   // 情報共有＝見ておいてもらうもの／要対応＝回答が要るもの。タブを分ける。
   const shareSent = hourenSou.filter(h => h.kind !== '要対応')
   const actionSent = hourenSou.filter(h => h.kind === '要対応')
@@ -167,7 +178,7 @@ export default function OfficeDashboardTabs({
         eyebrow="Dashboard"
         title="事務管理担当ダッシュボード"
         icon={ClipboardList}
-        description="作業着手待ち・タスク・郵便・報連相をここにまとめています。"
+        description="作業着手待ち・タスク（郵便を含む）・報連相をここにまとめています。"
       />
 
       {/* 要注意／要確認バナー（自分の持ち場のタスクだけ） */}
@@ -187,7 +198,6 @@ export default function OfficeDashboardTabs({
       <div className="flex items-center gap-1 border-b border-gray-200 mb-4 flex-wrap">
         <TabBtn v="start" label="作業着手待ち" icon={PlayCircle} count={startRows.length} current={tab} onSelect={selectTab} />
         <TabBtn v="tasks" label="タスク" icon={ListChecks} count={readyCount} current={tab} onSelect={selectTab} sev={taskSev} />
-        <TabBtn v="mail" label="郵便" icon={Mail} count={mails.length} current={tab} onSelect={selectTab} />
         <TabBtn v="hourensou" label="報連相（情報共有）" icon={MessageSquare} count={pendingHourenSou} current={tab} onSelect={selectTab} />
         <TabBtn v="hourensouAction" label="報連相（要対応）" icon={MessageSquare} count={pendingAction} current={tab} onSelect={selectTab} />
       </div>
@@ -202,10 +212,12 @@ export default function OfficeDashboardTabs({
           tasks={tasks} caseMap={caseMap} allMembers={allMembers} currentMemberId={currentMemberId}
           receipts={receipts} financeBlockedCaseIds={financeBlockedCaseIds} freezeAssetsByCase={freezeAssetsByCase}
           roleScope="assistant" jump={jump}
+          extraTab={{
+            key: 'mail', label: '郵便', count: mails.length, tone: mailTone,
+            content: <MailTab rows={mails} today={today} />,
+          }}
         />
       )}
-
-      {tab === 'mail' && <MailTab rows={mails} today={today} />}
 
       {tab === 'hourensou' && (
         <HourenSouTable rows={toItems(shareSent)} mode="sent" todayStr={today}
@@ -232,20 +244,21 @@ function MailTab({ rows, today }: { rows: MailRow[]; today: string }) {
         <span className="text-[12px] font-normal text-gray-400">{rows.length}件</span>
         <HelpHint title="ここに出るもの">
           <span className="block mb-1.5">
-            <b className="font-bold text-gray-900">前営業日と本日</b>に届いた到着物のうち、まだ対応していないものです。
-          </span>
-          <span className="block mb-1.5 text-gray-500">
+            直近30日に届いた到着物のうち、<b className="font-bold text-gray-900">まだ対応していないもの</b>です。
             受信簿で受信の確定をすると、ここから消えます。
           </span>
           <span className="block text-gray-500">
-            月曜は前営業日が土曜になるので、土日に届いたぶんもここに残ります。
+            タブの色は、いちばん古い未対応で決まります。
+            <b className="font-bold text-brand-700">青</b>＝本日届いたぶんだけ／
+            <b className="font-bold text-emerald-700">緑</b>＝翌営業日まで来た／
+            <b className="font-bold text-orange-700">オレンジ</b>＝2営業日以上そのまま。
             それより前のものは受信簿で探してください。
           </span>
         </HelpHint>
         <Link href="/documents" className="ml-auto text-[12px] font-semibold text-brand-700 hover:underline">受信簿を開く</Link>
       </div>
       {rows.length === 0 ? (
-        <div className="px-4 py-12 text-center text-[13px] text-gray-400">前営業日・本日に届いて未対応の郵便はありません</div>
+        <div className="px-4 py-12 text-center text-[13px] text-gray-400">未対応の郵便はありません</div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: 900 }}>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2, ListChecks, PackageCheck, Package, Compass, HelpCircle, ChevronDown, ChevronsUpDown } from 'lucide-react'
@@ -63,6 +63,19 @@ type Props = {
    * 案件・受注担当・管理担当の列は案件内で一定なので出さない。
    */
   caseScope?: boolean
+  /**
+   * 業務タブの「すべて」の右に差し込む追加タブ（事務管理ダッシュボードの郵便）。
+   * このタブを開いている間は、タスク用の絞り込み（ステータス・遅れ・優先度）は関係ないので隠す。
+   */
+  extraTab?: {
+    key: string
+    label: string
+    /** タブに出す件数（未対応の郵便物の数） */
+    count: number
+    /** タブの色。blue=当日 / green=翌営業日 / orange=2営業日以上そのまま */
+    tone: 'blue' | 'green' | 'orange'
+    content: ReactNode
+  }
 }
 
 /** ダッシュボードのバナー →「すべて」タブを指定条件で絞った状態にする指示 */
@@ -182,7 +195,14 @@ function Chip({ label, note, tone, on, onClick }: {
   )
 }
 
-export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [], roleScope = 'assistant', financeBlockedCaseIds = [], freezeAssetsByCase = {}, embedded = false, jump = null, caseScope = false }: Props) {
+// 郵便タブの色。当日=青／翌営業日=緑／2営業日以上そのまま=オレンジ。
+const EXTRA_TAB_TONE = {
+  blue:   { text: 'text-brand-700',  dot: 'bg-brand-500',  badge: 'bg-brand-100 text-brand-700' },
+  green:  { text: 'text-emerald-700', dot: 'bg-emerald-500', badge: 'bg-emerald-100 text-emerald-700' },
+  orange: { text: 'text-orange-700', dot: 'bg-orange-500', badge: 'bg-orange-100 text-orange-700' },
+} as const
+
+export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [], roleScope = 'assistant', financeBlockedCaseIds = [], freezeAssetsByCase = {}, embedded = false, jump = null, caseScope = false, extraTab }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentMemberId = useCurrentMember(serverMemberId)
@@ -239,6 +259,8 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   }
 
   const today = new Date().toISOString().split('T')[0]
+  // 追加タブ（郵便）を開いているか。開いている間はタスクの絞り込みを出さない。
+  const onExtraTab = !!extraTab && taskTab === extraTab.key
 
   // 案件タスク（task_kind='case'）を担当区分(work_role)で振り分ける。
   // 受注/管理担当の初期タスク(task_kind='system')はどちらの一覧からも除外。
@@ -557,7 +579,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         )}
 
         {/* Toolbar: status pills + 受注区分/業務区分 + 自分のタスクトグル */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className={`flex items-center gap-2 flex-wrap ${onExtraTab ? 'hidden' : ''}`}>
           <span className="text-[11.5px] font-semibold text-gray-400">ステータス</span>
           <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
             <FilterTab label="すべて"   count={kpis.total}    active={statusFilter === 'all'}    onClick={() => setStatusFilter('all')} />
@@ -620,7 +642,21 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 
         {/* 業務タブ（実務タブ・実施業務と同じ名前で分ける）。左の点＝そのタブでいちばん重いタスク。 */}
         <div className="flex items-center gap-0.5 flex-wrap mt-2.5 border-b border-gray-200 -mb-3">
-          {[{ key: 'all', label: 'すべて' }, ...ASSISTANT_TASK_TABS].map(t => {
+          {extraTab && (() => {
+            const on = taskTab === extraTab.key
+            const c = EXTRA_TAB_TONE[extraTab.tone]
+            return (
+              <button type="button" onClick={() => setTaskTab(extraTab.key)}
+                title="未対応の郵便物。当日=青／翌営業日=緑／2営業日以上そのまま=オレンジ"
+                className={`inline-flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold border-b-2 transition-colors order-1 ${
+                  on ? `border-brand-600 ${c.text}` : `border-transparent ${c.text} hover:text-gray-800`}`}>
+                <span className={`w-1.5 h-1.5 rounded-full flex-none ${c.dot}`} />
+                {extraTab.label}
+                <span className={`font-mono text-[11.5px] px-1.5 py-0.5 rounded-full ${c.badge}`}>{extraTab.count}</span>
+              </button>
+            )
+          })()}
+          {[{ key: 'all', label: 'すべて' }, ...ASSISTANT_TASK_TABS].map((t, i) => {
             const on = taskTab === t.key
             const info = tabInfo[t.key]
             const n = info?.ready ?? 0
@@ -629,6 +665,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
             return (
               <button key={t.key} type="button" onClick={() => setTaskTab(t.key)}
                 title={SEVERITY_TAB_NOTE[sev]}
+                style={{ order: i === 0 ? 0 : i + 1 }}
                 className={`inline-flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold border-b-2 transition-colors ${
                   on
                     ? `border-brand-600 ${sev === 'blue' ? 'text-brand-700' : c.text}`
@@ -646,6 +683,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         </div>
       </div>
 
+      {onExtraTab ? extraTab!.content : (
       <>
       {/* 一括操作バー（選択数 > 0 時のみ） */}
       {selectedIds.size > 0 && (
@@ -680,6 +718,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         caseScope={caseScope}
       />
       </>
+      )}
 
       {editTask && (
         <EditTaskModal

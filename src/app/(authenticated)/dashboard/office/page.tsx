@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { loadTaskListData } from '@/lib/loadTaskListData'
-import { prevBizDay } from '@/lib/overdue'
 import OfficeDashboardTabs, { type MailRow, type HourenSouRow } from '@/components/features/dashboard/OfficeDashboardTabs'
 import type { OfficeRow } from '@/components/features/dashboard/OfficeManagerDashboard'
 
@@ -14,7 +13,13 @@ export default async function OfficeDashboardPage() {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
   const today = new Date().toLocaleDateString('sv-SE')
-  const mailFrom = prevBizDay(today) ?? today
+  // 郵便は「まだ対応していないもの」を全部出す（放置されたぶんを消さない）。
+  // 30日より前のものは受信簿で探す想定。
+  const mailFrom = (() => {
+    const d = new Date(today + 'T00:00:00')
+    d.setDate(d.getDate() - 30)
+    return d.toLocaleDateString('sv-SE')
+  })()
 
   const { data: casesData } = await supabase
     .from('cases')
@@ -34,9 +39,8 @@ export default async function OfficeDashboardPage() {
   const [invRes, teamsRes, mailRes, reportRes, memberRes, taskData] = await Promise.all([
     caseIds.length ? supabase.from('invoices').select('case_id, invoice_type, status').in('case_id', caseIds) : Promise.resolve({ data: [] }),
     supabase.from('teams').select('id, name'),
-    // 郵便：前営業日と本日に届いた到着物のうち、対応（started_at）が付いていないもの。
-    // 本日だけだと、前日の夕方に届いて手つかずのものが翌朝に消えてしまうため2日ぶん見る。
-    // 月曜は前営業日＝土曜なので、土日ぶんもここに残る。
+    // 郵便：直近30日に届いた到着物のうち、対応（started_at）が付いていないもの。
+    // タブの色は「いちばん古い未対応」で決める（当日=青／翌営業日=緑／2営業日以上=オレンジ）。
     supabase
       .from('document_receipts')
       .select('id, case_id, received_date, sequence_no, location, postal_type, is_parcel, opened_at, started_at, items:document_receipt_items(item_name, quantity, received_from, sort_order), case:cases(case_number, deal_name)')
