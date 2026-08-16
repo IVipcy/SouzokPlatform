@@ -181,11 +181,17 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
   const [bulkChecked, setBulkChecked] = useState<string[]>([])
   const toggleBulk = (value: string) =>
     setBulkChecked(prev => (prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]))
+  // 既に行で選ばれている受領待ち。まとめて選ぶ側でも重複させない。
+  // 同じ受領待ちを指す行が2つできると、各行のプルダウン（他の行で選ばれた候補を外す作り）から
+  // 両方とも選択肢が消え、どちらの行も空欄に見えたまま二重登録されてしまう。
+  const linkedValues = new Set(items.map(i => i.linked).filter(Boolean))
+
   const applyBulkPick = () => {
     const picked = bulkChecked
+      .filter(v => !linkedValues.has(v))
       .map(v => deliverables.find(o => o.value === v))
       .filter((o): o is DeliverableOption => !!o)
-    if (picked.length === 0) { setBulkOpen(false); return }
+    if (picked.length === 0) { setBulkChecked([]); setBulkOpen(false); return }
     const rows: ItemDraft[] = picked.map(o => ({ ...newItem(), linked: o.value, item_name: o.label }))
     setItems(prev => {
       // 何も入っていない行（最初の1行など）は置き換える
@@ -470,10 +476,13 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
           </div>
         </div>
 
-        {/* 到着物（複数） */}
-        <div>
+        {/* 到着物（複数）。郵送物一式のときは中身を開けないので触れないようにする
+            （到着日・〒の種類・原本格納先は封筒を見れば分かるので、そのまま入力できる）。 */}
+        <div className={parcelMode ? 'opacity-45 pointer-events-none select-none' : ''} aria-disabled={parcelMode}>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-[12px] font-semibold text-gray-500">到着物 <span className="text-red-500">*</span></label>
+            <label className="block text-[12px] font-semibold text-gray-500">
+              到着物 {parcelMode ? <span className="font-normal text-gray-400">（郵送物一式のため入力不要）</span> : <span className="text-red-500">*</span>}
+            </label>
             <div className="flex items-center gap-1.5">
               {deliverables.length > 0 && (
                 <Button
@@ -503,7 +512,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
                 <span className="text-[12px] font-semibold text-brand-800">受領待ちの到着物から選ぶ</span>
                 <span className="text-[11px] text-brand-700">{bulkChecked.length}件</span>
                 <div className="ml-auto flex items-center gap-1.5">
-                  <button type="button" onClick={() => setBulkChecked(deliverables.map(o => o.value))}
+                  <button type="button" onClick={() => setBulkChecked(deliverables.map(o => o.value).filter(v => !linkedValues.has(v)))}
                     className="text-[11.5px] text-brand-700 hover:underline">すべて選ぶ</button>
                   <span className="text-gray-300">/</span>
                   <button type="button" onClick={() => setBulkChecked([])}
@@ -516,10 +525,11 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
                     <div className="text-[11px] font-semibold text-gray-500 mb-0.5">{group}</div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-0.5">
                       {opts.map(o => (
-                        <label key={o.value} className="flex items-center gap-1.5 text-[12.5px] text-gray-700 cursor-pointer py-0.5">
-                          <input type="checkbox" checked={bulkChecked.includes(o.value)} onChange={() => toggleBulk(o.value)}
-                            className="w-3.5 h-3.5 accent-brand-600" />
+                        <label key={o.value} className={`flex items-center gap-1.5 text-[12.5px] py-0.5 ${linkedValues.has(o.value) ? 'text-gray-400' : 'text-gray-700 cursor-pointer'}`}>
+                          <input type="checkbox" disabled={linkedValues.has(o.value)} checked={bulkChecked.includes(o.value) || linkedValues.has(o.value)} onChange={() => toggleBulk(o.value)}
+                            className="w-3.5 h-3.5 accent-brand-600 disabled:opacity-60" />
                           <span className="truncate">{o.label}</span>
+                          {linkedValues.has(o.value) && <span className="flex-none text-[10px] text-gray-400 border border-gray-200 rounded-full px-1.5">選択済</span>}
                         </label>
                       ))}
                     </div>
