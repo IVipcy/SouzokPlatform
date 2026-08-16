@@ -7,6 +7,8 @@ import PostalLookupButton from '@/components/ui/PostalLookupButton'
 import type { CaseRow } from '@/types'
 import NameHint from '@/components/ui/NameHint'
 import { normalizePersonName } from '@/lib/personName'
+import AddressHint from '@/components/ui/AddressHint'
+import { normalizeAddress } from '@/lib/address'
 
 type Props = {
   isOpen: boolean
@@ -131,7 +133,7 @@ export default function EditClientModal({ isOpen, onClose, caseData, onSaved }: 
               <FormField label="続柄" value={form.relationship_to_deceased} onChange={v => setForm(p => ({ ...p, relationship_to_deceased: v }))} placeholder="長男、配偶者など" />
             </div>
             <div><PostalLookupButton zip={form.postal_code} onResolved={addr => setForm(p => ({ ...p, address: addr }))} /></div>
-            <FormField label="住所" value={form.address} onChange={v => setForm(p => ({ ...p, address: v }))} />
+            <FormField label="住所" value={form.address} onChange={v => setForm(p => ({ ...p, address: v }))} address />
             <div className="grid grid-cols-2 gap-2">
               <FormField label="電話番号" value={form.phone} onChange={v => setForm(p => ({ ...p, phone: v }))} />
               <FormField label="メール" value={form.email} onChange={v => setForm(p => ({ ...p, email: v }))} type="email" />
@@ -152,10 +154,12 @@ export default function EditClientModal({ isOpen, onClose, caseData, onSaved }: 
   )
 }
 
-function FormField({ label, value, onChange, placeholder, type = 'text', personName = false }: {
+function FormField({ label, value, onChange, placeholder, type = 'text', personName = false, address = false }: {
   label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string
   /** 氏名欄。姓と名のあいだを全角スペースに揃え、区切りが無ければ注意文を出す */
   personName?: boolean
+  /** 住所欄。数字・英字を半角に揃え、都道府県から始まっていなければ注意文を出す */
+  address?: boolean
 }) {
   return (
     <div>
@@ -164,11 +168,13 @@ function FormField({ label, value, onChange, placeholder, type = 'text', personN
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
-        onBlur={personName ? (e => onChange(normalizePersonName(e.target.value))) : undefined}
-        placeholder={personName ? '山田　太郎' : placeholder}
+        onBlur={personName ? (e => onChange(normalizePersonName(e.target.value)))
+          : address ? (e => onChange(normalizeAddress(e.target.value))) : undefined}
+        placeholder={personName ? '山田　太郎' : address ? '埼玉県さいたま市大宮区1-4-1' : placeholder}
         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
       />
       {personName && <NameHint value={value} />}
+      {address && <AddressHint value={value} />}
     </div>
   )
 }

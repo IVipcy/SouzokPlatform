@@ -22,6 +22,8 @@ import KosekiSection from './KosekiSection'
 import KosekiPlanTable from './KosekiPlanTable'
 import NameHint from '@/components/ui/NameHint'
 import { normalizePersonName } from '@/lib/personName'
+import AddressHint from '@/components/ui/AddressHint'
+import { normalizeAddress } from '@/lib/address'
 import {
   Section,
   FieldGrid,
@@ -365,12 +367,13 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                 onSave={v => saveCaseField('deceased_postal_code', v.replace(/[^0-9]/g, ''))}
                 action={(zip) => <PostalLookupButton zip={zip} onResolved={addr => saveCaseField('deceased_address', addr)} className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-brand-600 hover:text-brand-700 px-2 py-1 rounded-md border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed" />}
               />
-              <InlineEdit label="被相続人住所" value={caseData.deceased_address} onSave={v => saveCaseField('deceased_address', v)} fullWidth />
+              <InlineEdit label="被相続人住所" value={caseData.deceased_address} onSave={v => saveCaseField('deceased_address', v)} fullWidth address />
               <InlineEdit
                 label="被相続人本籍"
                 value={caseData.deceased_registered_address}
                 onSave={v => saveCaseField('deceased_registered_address', v)}
                 fullWidth
+                address
                 action={
                   <button
                     type="button"
@@ -603,8 +606,11 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                     type="text"
                     value={heirForm.address}
                     onChange={e => setHeirForm(f => ({ ...f, address: e.target.value }))}
+                    onBlur={e => setHeirForm(f => ({ ...f, address: normalizeAddress(e.target.value) }))}
+                    placeholder="埼玉県さいたま市大宮区1-4-1"
                     className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
                   />
+                  <AddressHint value={heirForm.address} />
                 </FormField>
                 <FormField label="本籍">
                   <div className="flex items-center gap-2">
@@ -612,6 +618,8 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                       type="text"
                       value={heirForm.registered_address}
                       onChange={e => setHeirForm(f => ({ ...f, registered_address: e.target.value }))}
+                      onBlur={e => setHeirForm(f => ({ ...f, registered_address: normalizeAddress(e.target.value) }))}
+                      placeholder="埼玉県さいたま市大宮区1-4-1"
                       className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
                     />
                     <button

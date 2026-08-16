@@ -4,6 +4,8 @@ import { useState, useRef, useEffect, createContext, useContext } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import AddressHint from '@/components/ui/AddressHint'
+import { normalizeAddress } from '@/lib/address'
 import { notifyManagerAssigned } from '@/lib/managerAssignNotify'
 import UserAvatar from '@/components/ui/UserAvatar'
 import HintTip from '@/components/ui/HintTip'
@@ -144,7 +146,7 @@ export function QIRow({ label, children }: { label: string; children: React.Reac
 }
 
 // ─── InlineEdit (text) ───
-export function InlineEdit({ label, value, onSave, mono, fullWidth, required, action, hint, ai }: {
+export function InlineEdit({ label, value, onSave, mono, fullWidth, required, action, hint, ai, address }: {
   label: string
   value?: string | null
   onSave: (value: string) => Promise<void>
@@ -156,6 +158,8 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
   action?: React.ReactNode | ((current: string) => React.ReactNode)
   hint?: string             // 値の下に出す補助説明（例: 郵便番号で住所自動入力）
   ai?: boolean              // AIが自動入力した値は青文字で表示（人が手直しすると消す運用）
+  /** 住所・本籍の欄。数字と英字を半角に揃えて保存し、都道府県から始まっていなければ注意文を出す */
+  address?: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
@@ -180,7 +184,9 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
   const handleStartEdit = () => { setDraft(value ?? ''); setEditing(true) }
 
   const handleSave = async () => {
-    const trimmed = draft.trim()
+    // 住所欄は保存時に半角へ揃える（全角数字だと書類のレイアウトが崩れ、検索も一致しないため）
+    const trimmed = address ? normalizeAddress(draft) : draft.trim()
+    if (trimmed !== draft) setDraft(trimmed)
     if (trimmed === (value ?? '')) { setEditing(false); return }
     setSaving(true)
     await withToast(() => onSave(trimmed))
@@ -211,6 +217,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
           placeholder="入力"
           className={`w-full h-10 px-3 text-[13px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400 ${mono ? 'font-mono' : ''} ${ai ? 'text-blue-600' : ''}`}
         />
+        {address && <AddressHint value={draft} />}
         {hint && <p className="mt-0.5 text-[11px] text-gray-400">{hint}</p>}
       </div>
     )
