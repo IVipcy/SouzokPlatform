@@ -14,7 +14,7 @@ import CompleteTaskModal from './CompleteTaskModal'
 import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES, TASK_PRIORITIES, getWorkRoleDef } from '@/lib/constants'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
-import { ASSISTANT_TASK_TABS, tabKeyOfGyomu } from '@/lib/assistantTaskTabs'
+import { ASSISTANT_TASK_TABS, tabKeyOfGyomu, isHiddenForAssistant } from '@/lib/assistantTaskTabs'
 import { taskSeverity, SEVERITY_RANK, SEVERITY_TAB, SEVERITY_TAB_NOTE, SEVERITY_LABEL, type TaskSeverity } from '@/lib/taskSeverity'
 import { bizDaysUntil } from '@/lib/overdue'
 import { koteiOf, koteiRank } from '@/lib/kotei'
@@ -211,7 +211,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   const [statusFilter, setStatusFilter] = useState<string>('着手前')
   // 自分のタスクは既定OFF。出社直後は未アサインの着手前を拾うのが日常動線。
   const [filterMine, setFilterMine] = useState(searchParams.get('assignee') === 'mine')
-  // 業務タブ（相続人調査／不動産調査／…／その他）。'all'＝すべて。
+  // 業務タブ（戸籍／不動産調査／…／その他）。'all'＝すべて。
   // 以前は工程(KOTEI)で絞らせていたが、実務と対応しない中間の括りだったので置き換えた。
   const [taskTab, setTaskTab] = useState<string>('all')
   // 遅れ・優先度の絞り込み。業務タブを切り替えても外れない（どのタブでも同じ条件で見たいため）。
@@ -288,6 +288,10 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         t.started_by === currentMemberId ||
         (t.task_assignees ?? []).some(a => a.member_id === currentMemberId && a.role === 'primary'),
       )
+    }
+    // 相続登記は相続登記チームの持ち場。事務管理の一覧には出さない（案件詳細では出す）。
+    if (roleScope === 'assistant' && !caseScope) {
+      result = result.filter(t => !isHiddenForAssistant(gyomuOf(t)))
     }
     // 業務タブ（'all' 以外は そのタブに属する業務のタスクだけ）
     if (taskTab !== 'all') {
