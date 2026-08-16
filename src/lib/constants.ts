@@ -414,9 +414,44 @@ export const KOSEKI_REQUEST_REASONS = [
 export const KOSEKI_REQUEST_PATTERNS = ['司法書士', '行政書士', 'いきいき'] as const
 
 // === 請求の種別 ===
+// 請求の種別①（依頼書1枚で何を頼むか。複数選択・「・」区切りで持つ）。
+// 謄本/抄本は「どの形でもらうか」なので種別②へ分けた。
 export const KOSEKI_REQUEST_TYPES = [
-  '戸籍', '除籍', '原戸籍', '謄本', '抄本', '住民票', '除票', '戸籍の附票',
+  '戸籍', '除籍', '原戸籍', '住民票', '除票', '戸籍の附票',
 ] as const
+// 請求の種別②（戸籍請求のときだけ。複数選択）
+export const KOSEKI_DOC_FORMS = ['謄本', '抄本'] as const
+// 請求法人（どの法人の名前で請求するか）
+export const KOSEKI_FIRMS = ['行政', '司法', 'いきいき'] as const
+// 住民票記載の基礎証明外事項（住民票を請求するときだけ。複数選択）
+export const JUMINHYO_EXTRA_ITEMS = [
+  '世帯主', '世帯主の氏名及び世帯主との続柄', '本籍', 'その他（移動履歴記載希望）',
+] as const
+// 提出先の既定
+export const KOSEKI_SUBMIT_TO_DEFAULT = '依頼者に渡す'
+
+// オーダーシートの見立て（1行＝1人）
+export const KOSEKI_PLAN_RANGES = ['出生～死亡すべて', '死亡のみ', '現在戸籍'] as const
+export const KOSEKI_PLAN_ADDRESS_DOCS = ['住民票', '戸籍の附票'] as const
+
+// 複数選択は「・」でつないだ1つの文字列で持つ（列を増やさないため）
+export const splitMulti = (v: string | null | undefined): string[] =>
+  (v ?? '').split('・').map(x => x.trim()).filter(Boolean)
+export const joinMulti = (arr: string[]): string | null => (arr.length > 0 ? arr.join('・') : null)
+
+// 戸籍系と住民票は同じ依頼書で請求できない（役所の様式が別）。混ざっていたら警告する。
+const KOSEKI_FAMILY = ['戸籍', '除籍', '原戸籍', '戸籍の附票']
+const JUMINHYO_FAMILY = ['住民票', '除票']
+export const mixesKosekiAndJuminhyo = (docTypes: string | null | undefined): boolean => {
+  const list = splitMulti(docTypes)
+  return list.some(x => KOSEKI_FAMILY.includes(x)) && list.some(x => JUMINHYO_FAMILY.includes(x))
+}
+/** 住民票系を含むか（基礎証明外事項の欄を出すかの判定） */
+export const includesJuminhyo = (docTypes: string | null | undefined): boolean =>
+  splitMulti(docTypes).some(x => JUMINHYO_FAMILY.includes(x))
+/** 戸籍系を含むか（種別②＝謄本/抄本の欄を出すかの判定） */
+export const includesKoseki = (docTypes: string | null | undefined): boolean =>
+  splitMulti(docTypes).some(x => KOSEKI_FAMILY.includes(x))
 
 // === 報酬内訳の項目リスト（司法/行政 共通） ===
 export const REWARD_ITEM_OPTIONS = ['手続き一式', '相続登記', '遺産承継', '戸籍請求サポート', 'その他'] as const

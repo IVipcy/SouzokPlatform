@@ -15,6 +15,8 @@ import { SectionHeading } from '@/components/ui/InlineFields'
 import HintTip from '@/components/ui/HintTip'
 import {
   KOSEKI_REQUEST_TYPES, KOSEKI_RANGES, KOSEKI_REQUEST_REASONS,
+  KOSEKI_DOC_FORMS, KOSEKI_FIRMS, JUMINHYO_EXTRA_ITEMS, KOSEKI_SUBMIT_TO_DEFAULT,
+  mixesKosekiAndJuminhyo, includesKoseki, includesJuminhyo,
   KOSEKI_REQUEST_KINDS, REQUEST_KIND_HELP, isMistakenRequest,
   HEIR_RELATIONSHIPS,
 } from '@/lib/constants'
@@ -23,7 +25,7 @@ import {
 const KIND_HINT = KOSEKI_REQUEST_KINDS.map(k => `${k}：${REQUEST_KIND_HELP[k]}`).join('\n')
 import ProgressSummary from './ProgressSummary'
 import KosekiImagePanel from './KosekiImagePanel'
-import { TxtCell, SelCell, DateCell, MoneyCell } from './PracticeTableCells'
+import { TxtCell, SelCell, MultiCell, DateCell, MoneyCell } from './PracticeTableCells'
 import CheckRequestControl from './CheckRequestControl'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import AnnotatedImage from './AnnotatedImage'
@@ -155,8 +157,20 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
       })
       if (he) { showToast(`相続人一覧への追加に失敗: ${he.message}`, 'error'); return }
     }
+    // オーダーシート（戸籍の取得計画）の見立てを、請求範囲の初期値にする。役所ごとに書き換えられる。
+    const { data: planRow } = await supabase
+      .from('koseki_plans').select('range_text').eq('case_id', caseId).eq('person_name', person).maybeSingle()
+    const plan = planRow as { range_text: string | null } | null
     const { data, error } = await supabase.from('koseki_requests')
-      .insert({ case_id: caseId, sort_order: requests.length, is_additional: form.needsApproval, additional_reason: form.needsApproval ? (form.reason || null) : null, target_person: form.target_person || null, request_to: form.request_to || null })
+      .insert({
+        case_id: caseId, sort_order: requests.length,
+        is_additional: form.needsApproval,
+        additional_reason: form.needsApproval ? (form.reason || null) : null,
+        target_person: form.target_person || null,
+        request_to: form.request_to || null,
+        range_text: plan?.range_text ?? null,
+        submit_to: KOSEKI_SUBMIT_TO_DEFAULT,
+      })
       .select('id').single()
     if (error || !data) { showToast(`追加に失敗: ${error?.message ?? ''}`, 'error'); return }
     if (form.needsApproval) {
@@ -477,16 +491,27 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                 <div className="px-3 py-6 text-center text-[12px] text-gray-400">この対象者の戸籍請求がありません。下の「この対象者の戸籍を追加請求」から登録してください（転籍が判明したら役所を足していきます）。</div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="text-[12px] border-collapse" style={{ minWidth: 1660, width: 'max-content' }}>
+                  {/* 請求範囲の入力候補（オーダーシートの見立てと同じ言葉を使えるように） */}
+                  <datalist id="koseki-range-list">
+                    {KOSEKI_RANGES.map(o => <option key={o} value={o} />)}
+                  </datalist>
+                  <table className="text-[12px] border-collapse" style={{ minWidth: 2200, width: 'max-content' }}>
                     <thead>
                       <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
                         <th className="px-2 py-2 text-left font-semibold w-24">
                           <span className="inline-flex items-center gap-1">請求区分<HintTip text={KIND_HINT} /></span>
                         </th>
                         <th className="px-2 py-2 text-left font-semibold w-20">取得区分</th>
+                        <th className="px-2 py-2 text-left font-semibold w-20">請求法人</th>
                         <th className="px-2 py-2 text-left font-semibold w-40">請求先（役所）</th>
-                        <th className="px-2 py-2 text-left font-semibold w-32">範囲</th>
-                        <th className="px-2 py-2 text-left font-semibold w-24">種別</th>
+                        <th className="px-2 py-2 text-left font-semibold w-56">
+                          <span className="inline-flex items-center gap-1">請求の種別①<HintTip text="依頼書1枚で何を頼むか。戸籍と戸籍の附票は1枚で請求できますが、戸籍と住民票は1枚では請求できません（行を分けてください）。" /></span>
+                        </th>
+                        <th className="px-2 py-2 text-left font-semibold w-28">種別②<span className="block text-[10px] font-normal text-gray-400">戸籍のとき</span></th>
+                        <th className="px-2 py-2 text-left font-semibold w-32">筆頭者／世帯主</th>
+                        <th className="px-2 py-2 text-left font-semibold w-64">基礎証明外事項<span className="block text-[10px] font-normal text-gray-400">住民票のとき</span></th>
+                        <th className="px-2 py-2 text-left font-semibold w-32">請求範囲</th>
+                        <th className="px-2 py-2 text-left font-semibold w-32">提出先</th>
                         <th className="px-2 py-2 text-left font-semibold w-36">戸籍請求理由</th>
                         <th className="px-2 py-2 text-left font-semibold w-28">請求日</th>
                         <th className="px-2 py-2 text-left font-semibold w-28">到着日</th>
@@ -689,9 +714,28 @@ function KosekiRow({ r, i, meId, highlight = false, rowTasks = [], onRefresh, sa
     <tr ref={rowRef} className={`border-b border-gray-100 last:border-b-0 ${highlight ? 'bg-brand-50 ring-2 ring-brand-300 ring-inset' : mistaken ? 'bg-red-50/40' : i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
       <td className="px-2 py-1.5"><SelCell value={r.request_kind ?? '通常請求'} options={[...KOSEKI_REQUEST_KINDS]} onChange={v => saveField(r.id, 'request_kind', v)} /></td>
       <td className="px-2 py-1.5"><SelCell value={r.acquirer} options={ACQUIRERS} onChange={v => saveField(r.id, 'acquirer', v)} /></td>
+      <td className="px-2 py-1.5"><SelCell value={r.request_firm} options={[...KOSEKI_FIRMS]} onChange={v => saveField(r.id, 'request_firm', v)} /></td>
       <td className="px-2 py-1.5"><TxtCell value={r.request_to} onCommit={v => saveField(r.id, 'request_to', v)} placeholder="役所名" /></td>
-      <td className="px-2 py-1.5"><SelCell value={r.range_text} options={[...KOSEKI_RANGES]} onChange={v => saveField(r.id, 'range_text', v)} /></td>
-      <td className="px-2 py-1.5"><SelCell value={r.doc_types} options={[...KOSEKI_REQUEST_TYPES]} onChange={v => saveField(r.id, 'doc_types', v)} /></td>
+      {/* 請求の種別①。戸籍系と住民票系が混ざったら、1枚では請求できないので警告を出す（保存はできる）。 */}
+      <td className="px-2 py-1.5">
+        <MultiCell value={r.doc_types} options={[...KOSEKI_REQUEST_TYPES]} onChange={v => saveField(r.id, 'doc_types', v)} />
+        {mixesKosekiAndJuminhyo(r.doc_types) && (
+          <p className="mt-1 text-[10.5px] text-amber-700 leading-snug">戸籍と住民票は1枚で請求できません。行を分けてください</p>
+        )}
+      </td>
+      <td className="px-2 py-1.5">
+        {includesKoseki(r.doc_types)
+          ? <MultiCell value={r.doc_form} options={[...KOSEKI_DOC_FORMS]} onChange={v => saveField(r.id, 'doc_form', v)} />
+          : <span className="text-gray-300 text-[11px]">—</span>}
+      </td>
+      <td className="px-2 py-1.5"><TxtCell value={r.head_person} onCommit={v => saveField(r.id, 'head_person', v)} placeholder="筆頭者/世帯主" /></td>
+      <td className="px-2 py-1.5">
+        {includesJuminhyo(r.doc_types)
+          ? <MultiCell value={r.juminhyo_items} options={[...JUMINHYO_EXTRA_ITEMS]} onChange={v => saveField(r.id, 'juminhyo_items', v)} />
+          : <span className="text-gray-300 text-[11px]">—</span>}
+      </td>
+      <td className="px-2 py-1.5"><TxtCell value={r.range_text} onCommit={v => saveField(r.id, 'range_text', v)} placeholder="出生～死亡 等" list="koseki-range-list" /></td>
+      <td className="px-2 py-1.5"><TxtCell value={r.submit_to} onCommit={v => saveField(r.id, 'submit_to', v)} placeholder={KOSEKI_SUBMIT_TO_DEFAULT} /></td>
       <td className="px-2 py-1.5"><SelCell value={r.request_reason} options={[...KOSEKI_REQUEST_REASONS]} onChange={v => saveField(r.id, 'request_reason', v)} /></td>
       <td className="px-2 py-1.5">{isClient ? <span className="text-[11px] text-gray-400">依頼者取得</span> : <DateCell value={r.request_date} onCommit={v => saveMany(r.id, { request_date: v || null, ...(v && !r.request_done_by ? { request_done_by: meId } : {}) })} />}</td>
       <td className="px-2 py-1.5"><DateCell value={r.arrival_date} onCommit={v => saveMany(r.id, { arrival_date: v || null, ...(v && !r.receipt_done_by ? { receipt_done_by: meId } : {}) })} /></td>

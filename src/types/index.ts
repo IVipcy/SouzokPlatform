@@ -615,7 +615,13 @@ export type KosekiRequestRow = {
   request_to: string | null       // 請求先（市区町村/本籍地役所）
   target_person: string | null    // 対象者（誰の戸籍か。被相続人/相続人から選択）
   range_text: string | null       // 範囲（出生から死亡まで/現在戸籍 等。migration 099）
-  doc_types: string | null        // 種別（戸籍/除籍/原戸籍/附票 など）
+  doc_types: string | null        // 請求の種別①（戸籍/除籍/原戸籍/住民票/除票/戸籍の附票。複数は「・」区切り）
+  // 依頼書1枚ぶんの請求条件（migration 241）
+  request_firm: string | null     // 請求法人（行政/司法/いきいき）
+  doc_form: string | null         // 請求の種別②（謄本/抄本。戸籍請求のときだけ）
+  head_person: string | null      // 筆頭者／世帯主
+  juminhyo_items: string | null   // 住民票記載の基礎証明外事項（複数は「・」区切り）
+  submit_to: string | null        // 提出先（既定は「依頼者に渡す」）
   purpose: string | null          // 取得目的
   request_reason: string | null       // 戸籍請求理由
   request_reason_other: string | null // 戸籍請求理由（その他）
@@ -1239,6 +1245,20 @@ export type CaseReportRow = {
   /** 「確認中にする」を押した人と時刻（migration 240） */
   reviewing_by: string | null
   reviewing_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+// === 戸籍の取得計画（オーダーシート。1行＝1人。migration 241） ===
+// 「誰の、どんな戸籍が要りそうか」の見立て。実務タブの請求条件（koseki_requests）の初期値になる。
+export type KosekiPlanRow = {
+  id: string
+  case_id: string
+  person_name: string
+  range_text: string | null    // 戸籍の取得範囲（出生～死亡すべて/死亡のみ/現在戸籍/自由入力）
+  address_doc: string | null   // 住所関係書類（住民票/戸籍の附票/自由入力）
+  note: string | null
+  sort_order: number
   created_at: string
   updated_at: string
 }

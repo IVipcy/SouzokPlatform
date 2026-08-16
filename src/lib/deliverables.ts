@@ -148,7 +148,13 @@ export function buildDeliverableOptions(
     for (const k of kosekiRequests) {
       // 受領日が入っている＝受信済は候補から除外
       if (k.arrival_date) continue
-      const parts = [k.request_to, k.target_person, k.doc_types].filter(Boolean)
+      // 同じ役所・同じ人でも「戸籍一式」と「住民票」で行が分かれる（1枚で請求できないため）。
+      // どちらが届いたのか選べるよう、範囲と種別まで名前に出す。
+      //   例）横浜市港北区 / 金子　はつえ / 出生～死亡（戸籍・除籍・原戸籍・戸籍の附票）
+      const kinds = (k.doc_types ?? '').trim()
+      const range = (k.range_text ?? '').trim()
+      const detail = range && kinds ? `${range}（${kinds}）` : (range || kinds)
+      const parts = [k.request_to, k.target_person, detail].filter(Boolean)
       const label = parts.length > 0 ? parts.join(' / ') : '戸籍請求'
       opts.push({
         value: `koseki:${k.id}:arrival_date`,

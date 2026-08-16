@@ -22,6 +22,37 @@ export function SelCell({ value, options, onChange }: { value: string | null; op
   return <select value={value ?? ''} onChange={e => onChange(e.target.value)} style={{ fontFamily: 'inherit' }} className={cellSel}><option value="">—</option>{options.map(o => <option key={o} value={o}>{o}</option>)}</select>
 }
 
+// 複数選択のセル。「戸籍・除籍・原戸籍」のように「・」でつないだ1つの文字列で持つ。
+// 依頼書1枚で何を頼むか（種別①）など、同時に複数あり得るものに使う。
+export function MultiCell({ value, options, onChange, disabled = false }: {
+  value: string | null
+  options: readonly string[]
+  onChange: (v: string | null) => void
+  disabled?: boolean
+}) {
+  const picked = (value ?? '').split('・').map(x => x.trim()).filter(Boolean)
+  const toggle = (o: string) => {
+    const next = picked.includes(o) ? picked.filter(x => x !== o) : [...picked, o]
+    // 選択肢の並び順を保つ（押した順にならないように）
+    const sorted = options.filter(x => next.includes(x))
+    onChange(sorted.length > 0 ? sorted.join('・') : null)
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {options.map(o => {
+        const on = picked.includes(o)
+        return (
+          <button key={o} type="button" disabled={disabled} onClick={() => toggle(o)}
+            className={`px-1.5 py-0.5 text-[11px] rounded border transition-colors disabled:opacity-40 ${
+              on ? 'bg-brand-50 text-brand-700 border-brand-300 font-semibold' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}>
+            {o}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export function DateCell({ value, onCommit }: { value: string | null; onCommit: (v: string) => void }) {
   return <input type="date" defaultValue={value ?? ''} onBlur={e => { if (e.target.value !== (value ?? '')) onCommit(e.target.value) }} className={cellInp} />
 }
