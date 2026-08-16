@@ -36,7 +36,9 @@ export default function AssigneesTab({ caseData, caseMembers, allMembers, onRefr
       <Section title="担当者">
         <FieldGrid>
           <InlineMemberSelect label="受注担当" roleKey="sales" assigned={salesMembers} allMembers={allMembers} caseId={caseData.id} onRefresh={onRefresh} multi={false} />
-          <InlineMemberSelect label="管理担当" roleKey="manager" assigned={managerMembers} allMembers={allMembers} caseId={caseData.id} onRefresh={onRefresh} multi={false} searchable candidateRoles={['manager', 'sub_manager']} />
+          {/* 管理担当は2名まで。退職時の引継ぎ・サブ担当を置けるようにするため。
+              先に選んだ人が主担当（一覧の「管理担当」列に出るのはこの人）。 */}
+          <InlineMemberSelect label="管理担当" roleKey="manager" assigned={managerMembers} allMembers={allMembers} caseId={caseData.id} onRefresh={onRefresh} multi maxSelect={2} searchable candidateRoles={['manager', 'sub_manager']} />
         </FieldGrid>
         {/* 管理担当の割り振り（稼働状況一覧へ遷移して割り振る） */}
         {(

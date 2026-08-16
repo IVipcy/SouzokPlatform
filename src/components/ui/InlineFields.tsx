@@ -785,7 +785,7 @@ export function InlineTextarea({ label, value, onSave, fullWidth, placeholder, h
 }
 
 // ─── InlineMemberSelect (担当者選択) ───
-export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseId, onRefresh, multi, searchable, candidateRoles }: {
+export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseId, onRefresh, multi, searchable, candidateRoles, maxSelect }: {
   label: string
   roleKey: string
   assigned: CaseMemberRow[]
@@ -797,6 +797,8 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
   searchable?: boolean
   /** 指定時、この primary_role の候補のみ表示（例: ['manager','sub_manager']） */
   candidateRoles?: string[]
+  /** multi のときの上限人数（管理担当は2名まで。引継ぎ・サブ担当のため） */
+  maxSelect?: number
 }) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -838,6 +840,8 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
         const existing = assigned.find(cm => cm.member_id === memberId)
         if (existing) {
           await supabase.from('case_members').delete().eq('id', existing.id)
+        } else if (maxSelect && assigned.length >= maxSelect) {
+          showToast(`${label}は${maxSelect}名までです。入れ替えるときは先に外してください`, 'error')
         } else {
           await supabase.from('case_members').insert({ case_id: caseId, member_id: memberId, role: roleKey })
           assignedManagerId = memberId
@@ -858,7 +862,10 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
 
   return (
     <div ref={containerRef} className="py-1.5 border-b border-gray-50">
-      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">{label}</div>
+      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">
+        {label}
+        {multi && maxSelect && <span className="ml-1.5 font-normal text-[11px] text-gray-400">{maxSelect}名まで（{assigned.length}/{maxSelect}）</span>}
+      </div>
       {editing ? (
         <div className="mt-1 p-2 border border-brand-400 rounded bg-brand-50/30">
           {searchable && (

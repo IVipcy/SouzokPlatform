@@ -51,9 +51,9 @@ export async function ensureReceiptTask(invoiceId: string): Promise<void> {
     .select('member_id')
     .eq('case_id', inv.case_id)
     .eq('role', 'manager')
-    .limit(1)
-  const mgr = ((cm ?? []) as Array<{ member_id: string }>)[0]?.member_id
-  if (mgr) {
-    await supabase.from('task_assignees').insert({ task_id: (nt as { id: string }).id, member_id: mgr, role: 'primary' })
+  // 管理担当は2名まで置ける（引継ぎ・サブ担当）。いる人全員にアサインする。
+  const mgrs = [...new Set(((cm ?? []) as Array<{ member_id: string }>).map(x => x.member_id).filter(Boolean))]
+  if (mgrs.length > 0) {
+    await supabase.from('task_assignees').insert(mgrs.map(member_id => ({ task_id: (nt as { id: string }).id, member_id, role: 'primary' })))
   }
 }

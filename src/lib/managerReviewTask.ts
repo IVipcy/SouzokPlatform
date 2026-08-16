@@ -65,8 +65,10 @@ export async function createManagerReviewTask(opts: {
   if (error) console.error('createManagerReviewTask: task insert failed', error)
   const taskId = nt ? (nt as { id: string }).id : null
 
-  if (taskId && recipients[0]) {
-    await supabase.from('task_assignees').insert({ task_id: taskId, member_id: recipients[0], role: 'primary' })
+  // 案件の管理担当（2名まで置ける）全員にアサインする。フォールバックの全管理担当は先頭だけ。
+  if (taskId && recipients.length > 0) {
+    const assignTo = cm && (cm as Array<{ member_id: string }>).length > 0 ? recipients : [recipients[0]]
+    await supabase.from('task_assignees').insert(assignTo.map(member_id => ({ task_id: taskId, member_id, role: 'primary' })))
   }
   if (recipients.length === 0) return { notified: 0, error: '通知先の管理担当が見つかりませんでした' }
   // アラートのリンク先＝依頼元の「当該タスク」（管理担当が状況を見て助けられるように）。無ければヘルプタスク。
