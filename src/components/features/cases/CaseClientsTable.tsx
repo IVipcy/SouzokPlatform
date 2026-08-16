@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { HEIR_RELATIONSHIPS } from '@/lib/constants'
 import type { CaseClientRow } from '@/types'
+import NameHint from '@/components/ui/NameHint'
+import { normalizePersonName } from '@/lib/personName'
 
 type Props = {
   caseId: string
@@ -225,7 +227,12 @@ function ClientCard({ r, setLocal, commit, commitVal, onDelete }: {
         <button type="button" onClick={onDelete} className="text-gray-300 hover:text-red-500 p-1.5" title="削除"><Trash2 className="w-4 h-4" /></button>
       </div>
       <div className="space-y-2.5">
-        <CFieldBlock label="氏名"><input type="text" value={r.name ?? ''} onChange={e => setLocal(r.id, 'name', e.target.value)} onBlur={e => commit(r.id, 'name', e.target.value)} placeholder="山田 太郎" className={inputCls} /></CFieldBlock>
+        <CFieldBlock label="氏名">
+          <input type="text" value={r.name ?? ''} onChange={e => setLocal(r.id, 'name', e.target.value)}
+            onBlur={e => { const v = normalizePersonName(e.target.value); setLocal(r.id, 'name', v); commit(r.id, 'name', v) }}
+            placeholder="山田　太郎" className={inputCls} />
+          <NameHint value={r.name} />
+        </CFieldBlock>
         <CFieldBlock label="ふりがな"><input type="text" value={r.furigana ?? ''} onChange={e => setLocal(r.id, 'furigana', e.target.value)} onBlur={e => commit(r.id, 'furigana', e.target.value)} placeholder="やまだ たろう" className={inputCls} /></CFieldBlock>
         <div className="grid grid-cols-2 gap-2.5">
           <CFieldBlock label="続柄"><select value={r.relationship ?? ''} onChange={e => { setLocal(r.id, 'relationship', e.target.value); commit(r.id, 'relationship', e.target.value) }} className={inputCls}><option value="">選択</option>{r.relationship && !(HEIR_RELATIONSHIPS as readonly string[]).includes(r.relationship) && <option value={r.relationship}>{r.relationship}</option>}{HEIR_RELATIONSHIPS.map(o => <option key={o} value={o}>{o}</option>)}</select></CFieldBlock>

@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import PostalLookupButton from '@/components/ui/PostalLookupButton'
 import type { CaseRow } from '@/types'
+import NameHint from '@/components/ui/NameHint'
+import { normalizePersonName } from '@/lib/personName'
 
 type Props = {
   isOpen: boolean
@@ -141,7 +143,7 @@ export default function EditClientModal({ isOpen, onClose, caseData, onSaved }: 
         <div>
           <div className="text-[13px] font-bold text-gray-400 tracking-wider uppercase mb-2">⚰️ 被相続人情報</div>
           <div className="grid grid-cols-2 gap-2">
-            <FormField label="氏名" value={form.deceased_name} onChange={v => setForm(p => ({ ...p, deceased_name: v }))} />
+            <FormField label="氏名" value={form.deceased_name} onChange={v => setForm(p => ({ ...p, deceased_name: v }))} personName />
             <FormField label="相続開始日" value={form.date_of_death} onChange={v => setForm(p => ({ ...p, date_of_death: v }))} type="date" />
           </div>
         </div>
@@ -150,8 +152,10 @@ export default function EditClientModal({ isOpen, onClose, caseData, onSaved }: 
   )
 }
 
-function FormField({ label, value, onChange, placeholder, type = 'text' }: {
+function FormField({ label, value, onChange, placeholder, type = 'text', personName = false }: {
   label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string
+  /** 氏名欄。姓と名のあいだを全角スペースに揃え、区切りが無ければ注意文を出す */
+  personName?: boolean
 }) {
   return (
     <div>
@@ -160,9 +164,11 @@ function FormField({ label, value, onChange, placeholder, type = 'text' }: {
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
+        onBlur={personName ? (e => onChange(normalizePersonName(e.target.value))) : undefined}
+        placeholder={personName ? '山田　太郎' : placeholder}
         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
       />
+      {personName && <NameHint value={value} />}
     </div>
   )
 }

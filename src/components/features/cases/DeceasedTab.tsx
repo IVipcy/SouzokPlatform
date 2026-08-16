@@ -20,6 +20,8 @@ import { WorkContentField } from './WorkContentField'
 import TabTasksSection from './TabTasksSection'
 import { SubTabs } from '@/components/ui/SubTabs'
 import KosekiSection from './KosekiSection'
+import NameHint from '@/components/ui/NameHint'
+import { normalizePersonName } from '@/lib/personName'
 import {
   Section,
   FieldGrid,
@@ -514,8 +516,11 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                     type="text"
                     value={heirForm.name}
                     onChange={e => setHeirForm(f => ({ ...f, name: e.target.value }))}
+                    onBlur={e => setHeirForm(f => ({ ...f, name: normalizePersonName(e.target.value) }))}
+                    placeholder="山田　太郎"
                     className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
                   />
+                  <NameHint value={heirForm.name} />
                 </FormField>
                 <FormField label="被相続人との続柄">
                   <select
