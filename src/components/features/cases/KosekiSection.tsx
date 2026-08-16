@@ -106,11 +106,13 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
   const focusId = searchParams.get('focus')
   const focusReq = focusId ? requests.find(r => r.id === focusId) : undefined
   const [sub, setSub] = useState<string>(focusReq ? ((focusReq.target_person ?? '').trim() || '__unset__') : 'top')
-  const [addOpen, setAddOpen] = useState(false)
+  // 戸籍の追加は2通り。何が起きるかボタン名で言い切るため、モーダルも入口で分ける。
+  //   new      … 戸籍を読んで出てきた人を足す（相続人一覧にも登録される）
+  //   existing … 既にいる対象者の戸籍をもう1件足す（転籍先の役所など）
+  const [addTarget, setAddTarget] = useState<{ mode: 'new' } | { mode: 'existing'; person: string } | null>(null)
   const [memoByName, setMemoByName] = useState<Record<string, string>>({})  // 人ごとの進捗/結果メモ（相関図ホバー用）
   const deceasedName = caseData.deceased_name
 
-  const targetOptions = [deceasedName, ...heirs.map(h => h.name)].filter((v): v is string => !!v && v.trim() !== '')
 
   // 人ごとの進捗/結果メモ（scope=koseki_person_<name>）を読み込み、相関図ホバーに反映。
   // 状態は廃止し請求日/到着日から自動判定。②カードはメモ専用。
@@ -163,7 +165,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
       const rows = (mgrs ?? []).map(m => ({ member_id: (m as { id: string }).id, type: 'koseki_additional', case_id: caseId, title: '追加戸籍請求の承認依頼', body: `${form.target_person || '対象者未定'}／${form.request_to || '請求先未定'}：${form.reason}` }))
       if (rows.length) await supabase.from('notifications').insert(rows)
     }
-    setAddOpen(false)
+    setAddTarget(null)
     setSub((form.target_person || '').trim() || '__unset__')
     showToast(form.needsApproval ? '戸籍を追加しました（要承認・管理担当へ通知）' : '戸籍を追加しました', 'success')
     onRefresh?.()
@@ -378,9 +380,11 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
             </div>
           )
         })}
-        {sub !== 'top' && (
-          <button type="button" onClick={() => setAddOpen(true)} className="mt-1 text-left text-[11.5px] px-2.5 py-1.5 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-brand-700 hover:border-brand-300 inline-flex items-center gap-1"><Plus className="w-3 h-3" />戸籍を追加</button>
-        )}
+        {/* 戸籍を読んで新しい人が出てきたとき。TOPを見ている最中でも押せるようにする。 */}
+        <button type="button" onClick={() => setAddTarget({ mode: 'new' })}
+          className="mt-1 text-left text-[11.5px] px-2.5 py-1.5 rounded-md border border-dashed border-brand-300 text-brand-700 hover:bg-brand-50 inline-flex items-start gap-1">
+          <Plus className="w-3 h-3 flex-none mt-0.5" /><span className="leading-tight">対象者を新規追加して戸籍請求</span>
+        </button>
       </div>
 
       {/* 本文 */}
@@ -405,10 +409,21 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                   </thead>
                   <tbody>
                     {requests.length === 0 ? (
-                      <tr><td colSpan={7} className="px-3 py-6 text-center text-gray-400">戸籍請求がありません。左で人を選び「戸籍を追加」から登録してください。</td></tr>
+                      <tr><td colSpan={7} className="px-3 py-6 text-center text-gray-400">戸籍請求がありません。左下の「対象者を新規追加して戸籍請求」から登録してください。</td></tr>
                     ) : requests.map((r, i) => (
                       <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-brand-50/30 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`} onClick={() => setSub((r.target_person ?? '').trim() || '__unset__')}>
-                        <td className="px-2.5 py-2 font-medium text-gray-800">{r.target_person || <span className="text-gray-300">—</span>}{r.is_additional && <span className="ml-1 text-[10px] text-amber-600">追加</span>}</td>
+                        {/* 対象者。ホバーで出る「＋戸籍」から、その人の戸籍をもう1件足せる（人を選び直さなくていい） */}
+                        <td className="px-2.5 py-2 font-medium text-gray-800 group/cell">
+                          {r.target_person || <span className="text-gray-300">—</span>}
+                          {r.is_additional && <span className="ml-1 text-[10px] text-amber-600">追加</span>}
+                          {(r.target_person ?? '').trim() && (
+                            <button type="button" title={`${r.target_person} の戸籍を追加請求`}
+                              onClick={e => { e.stopPropagation(); setAddTarget({ mode: 'existing', person: (r.target_person ?? '').trim() }) }}
+                              className="ml-1.5 align-middle text-[10px] px-1.5 py-0.5 rounded border border-brand-200 text-brand-700 bg-brand-50 opacity-0 group-hover/cell:opacity-100 transition-opacity">
+                              ＋戸籍
+                            </button>
+                          )}
+                        </td>
                         <td className="px-2.5 py-2 text-gray-700">{r.request_to || <span className="text-gray-300">—</span>}</td>
                         <td className="px-2.5 py-2">{r.request_date?.slice(5).replace('-', '/') || '—'}</td>
                         <td className="px-2.5 py-2">{r.arrival_date?.slice(5).replace('-', '/') || '—'}</td>
@@ -459,7 +474,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                 right={activeHeir ? <RelationshipPicker value={activeHeir.relationship_type} onChange={v => saveRelationship(activeHeir.id, v)} /> : undefined}
                 className="mb-2.5 pb-1.5 border-b border-gray-200" />
               {personRequests.length === 0 ? (
-                <div className="px-3 py-6 text-center text-[12px] text-gray-400">この人の戸籍請求がありません。「戸籍を追加」から登録してください（転籍が判明したら役所を足していきます）。</div>
+                <div className="px-3 py-6 text-center text-[12px] text-gray-400">この対象者の戸籍請求がありません。下の「この対象者の戸籍を追加請求」から登録してください（転籍が判明したら役所を足していきます）。</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="text-[12px] border-collapse" style={{ minWidth: 1660, width: 'max-content' }}>
@@ -498,6 +513,13 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                   </table>
                 </div>
               )}
+              {/* 転籍で役所を遡るとき用。対象者は選択中の人で固定なので選び直さなくていい。 */}
+              {sub !== '__unset__' && (
+                <button type="button" onClick={() => setAddTarget({ mode: 'existing', person: activePerson })}
+                  className="mt-2.5 inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded-md hover:bg-brand-100">
+                  <Plus className="w-3.5 h-3.5" />この対象者の戸籍を追加請求
+                </button>
+              )}
             </div>
             {/* この人の戸籍のスキャン画像。アップロード直後に書き込むか聞く。 */}
             <div className="bg-white border border-gray-200 rounded-lg p-3.5">
@@ -506,7 +528,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
           </div>
         )}
       </div>
-      {addOpen && <AddKosekiModal targetOptions={targetOptions} defaultPerson={activePerson} onClose={() => setAddOpen(false)} onSubmit={submitAdd} />}
+      {addTarget && <AddKosekiModal mode={addTarget.mode} person={addTarget.mode === 'existing' ? addTarget.person : ''} onClose={() => setAddTarget(null)} onSubmit={submitAdd} />}
 
       {/* 戸籍画像のビューア。閉じずに全員ぶんを横送りできる */}
       {viewerId && (
@@ -563,15 +585,15 @@ function KosekiImageCell({ images, urls, onOpen, onAdd }: {
   )
 }
 
-const NEW_PERSON = '__new__'
-
-function AddKosekiModal({ targetOptions, defaultPerson, onClose, onSubmit }: {
-  targetOptions: string[]
-  defaultPerson: string
+// 戸籍の追加。入口は2つで、開いた時点で「誰の戸籍か」は決まっている。
+//   new      … 戸籍を読んで出てきた対象者を足す（相続人一覧にも登録される）
+//   existing … 既にいる対象者の戸籍をもう1件足す（転籍先の役所など）
+function AddKosekiModal({ mode, person, onClose, onSubmit }: {
+  mode: 'new' | 'existing'
+  person: string
   onClose: () => void
   onSubmit: (form: { target_person: string; request_to: string; reason: string; needsApproval: boolean; isNewPerson: boolean; relationship: string }) => void
 }) {
-  const [target, setTarget] = useState(defaultPerson || '')
   // 戸籍を読んで出てきた人をその場で足す。相続人一覧にも同時に登録される。
   const [newName, setNewName] = useState('')
   const [newRel, setNewRel] = useState('')
@@ -580,20 +602,17 @@ function AddKosekiModal({ targetOptions, defaultPerson, onClose, onSubmit }: {
   const [needsApproval, setNeedsApproval] = useState(false)
   const [busy, setBusy] = useState(false)
   const inp = 'w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-[12.5px] outline-none focus:border-brand-400 bg-white'
-  const isNew = target === NEW_PERSON
-  const personName = isNew ? newName.trim() : target.trim()
+  const isNew = mode === 'new'
+  const personName = isNew ? newName.trim() : person.trim()
   const canSubmit = !!personName && (!needsApproval || !!reason.trim())
   return (
-    <Modal isOpen onClose={onClose} title="戸籍を追加">
+    <Modal isOpen onClose={onClose} title={isNew ? '対象者を新規追加して戸籍請求' : `${person} さんの戸籍を追加請求`}>
       <div className="space-y-3">
-        <div><label className="block text-[11px] text-gray-500 mb-1">対象者（誰の戸籍か）</label>
-          <select value={target} onChange={e => setTarget(e.target.value)} className={inp}>
-            <option value="">選択…</option>
-            <option value={NEW_PERSON}>＋ 新しい人を入力</option>
-            {targetOptions.map(o => <option key={o} value={o}>{o}</option>)}
-          </select>
-          {!isNew && <p className="text-[10.5px] text-gray-400 mt-1">戸籍を読んで出てきた人は「＋ 新しい人を入力」から足せます。</p>}
-        </div>
+        {!isNew && (
+          <p className="text-[11.5px] text-brand-800 bg-brand-50 border border-brand-100 rounded-md px-3 py-2">
+            対象者は <strong>{person}</strong> さんで固定です。転籍が判明したときなど、同じ人の戸籍をもう1件足します。
+          </p>
+        )}
         {isNew && (
           <div className="rounded-md border border-brand-200 bg-brand-50/50 px-3 py-2.5 space-y-2">
             <div>
@@ -607,7 +626,7 @@ function AddKosekiModal({ targetOptions, defaultPerson, onClose, onSubmit }: {
                 {HEIR_RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
               <p className="text-[10.5px] text-gray-400 mt-1">
-                この人は相続人一覧にも登録されます。分からなければ未設定のままで構いません。
+                この対象者は相続人一覧にも登録されます。続柄が分からなければ未設定のままで構いません。
                 被代襲者や数次相続の被相続人など、相続人ではない人もここに入れてください。
               </p>
             </div>
