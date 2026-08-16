@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Plus, Table2, Lock, ShieldCheck, Trash2, Inbox, Split, Copy } from 'lucide-react'
+import { Plus, Table2, Lock, ShieldCheck, Trash2, Inbox, Split, Copy, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { normalizeTaskStatus } from '@/lib/taskReadiness'
@@ -26,6 +26,7 @@ const KIND_HINT = KOSEKI_REQUEST_KINDS.map(k => `${k}：${REQUEST_KIND_HELP[k]}`
 import ProgressSummary from './ProgressSummary'
 import KosekiImagePanel from './KosekiImagePanel'
 import { TxtCell, SelCell, MultiCell, DateCell, MoneyCell } from './PracticeTableCells'
+import KosekiRequestDocumentModal from './KosekiRequestDocumentModal'
 import CheckRequestControl from './CheckRequestControl'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import AnnotatedImage from './AnnotatedImage'
@@ -112,6 +113,8 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
   //   new      … 戸籍を読んで出てきた人を足す（相続人一覧にも登録される）
   //   existing … 既にいる対象者の戸籍をもう1件足す（転籍先の役所など）
   const [addTarget, setAddTarget] = useState<{ mode: 'new' } | { mode: 'existing'; person: string } | null>(null)
+  // 戸籍請求書を出す行。1行＝依頼書1枚なので、その行だけを入れて出力画面を開く。
+  const [docRequest, setDocRequest] = useState<KosekiRequestRow | null>(null)
   const [memoByName, setMemoByName] = useState<Record<string, string>>({})  // 人ごとの進捗/結果メモ（相関図ホバー用）
   const deceasedName = caseData.deceased_name
 
@@ -532,7 +535,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                           rowTasks={tasks.filter(t => t.source_rid === `koseki:${r.id}` || t.source_rid === `koseki-read:${r.id}`)}
                           onRefresh={onRefresh}
                           saveField={saveField} saveMany={saveMany}
-                          onDelete={() => delRequest(r)} onCopy={() => copyRequest(r)} />
+                          onDelete={() => delRequest(r)} onCopy={() => copyRequest(r)} onMakeDoc={() => setDocRequest(r)} />
                       ))}
                     </tbody>
                   </table>
@@ -554,6 +557,18 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
         )}
       </div>
       {addTarget && <AddKosekiModal mode={addTarget.mode} person={addTarget.mode === 'existing' ? addTarget.person : ''} onClose={() => setAddTarget(null)} onSubmit={submitAdd} />}
+
+      {/* 戸籍請求書。この行の内容（請求先・対象者・種別・筆頭者・範囲）がそのまま入る */}
+      {docRequest && (
+        <KosekiRequestDocumentModal
+          isOpen
+          onClose={() => setDocRequest(null)}
+          caseData={caseData}
+          tasks={tasks}
+          heirs={heirs}
+          kosekiRequests={[docRequest]}
+        />
+      )}
 
       {/* 戸籍画像のビューア。閉じずに全員ぶんを横送りできる */}
       {viewerId && (
@@ -678,7 +693,7 @@ function AddKosekiModal({ mode, person, onClose, onSubmit }: {
 }
 
 // 戸籍1件＝1行。全項目をインライン編集（横スクロール）。要承認は行を帯にして承認ボタンを出す。
-function KosekiRow({ r, i, meId, highlight = false, rowTasks = [], onRefresh, saveField, saveMany, onDelete, onCopy }: {
+function KosekiRow({ r, i, meId, highlight = false, rowTasks = [], onRefresh, saveField, saveMany, onDelete, onCopy, onMakeDoc }: {
   r: KosekiRequestRow
   i: number
   meId: string | null
@@ -689,6 +704,7 @@ function KosekiRow({ r, i, meId, highlight = false, rowTasks = [], onRefresh, sa
   saveMany: (id: string, patch: Partial<KosekiRequestRow>) => Promise<void>
   onDelete: () => void
   onCopy: () => void
+  onMakeDoc: () => void
 }) {
   const rowRef = useRef<HTMLTableRowElement | null>(null)
   useEffect(() => { if (highlight && rowRef.current) rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' }) }, [highlight])
@@ -777,6 +793,8 @@ function KosekiRow({ r, i, meId, highlight = false, rowTasks = [], onRefresh, sa
           : <span className="text-[11px] text-gray-300">—</span>}
       </td>
       <td className="px-2 py-1.5 text-center whitespace-nowrap">
+        <button type="button" onClick={onMakeDoc} title="この行の内容で戸籍請求書を作る"
+          className="text-gray-400 hover:text-brand-600 mr-1.5"><FileText className="w-3.5 h-3.5" /></button>
         <button type="button" onClick={onCopy} title="この行をコピーして再請求を作る（請求先・対象者・範囲・種別・理由を引き継ぎ、日付と費用は空）"
           className="text-gray-300 hover:text-brand-600 mr-1.5"><Copy className="w-3.5 h-3.5" /></button>
         <button type="button" onClick={onDelete} title="削除" className="text-gray-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>

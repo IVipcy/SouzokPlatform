@@ -12,7 +12,7 @@ import {
   type KosekiVariant,
   type KosekiAgentOfficeId,
 } from '@/lib/officeProfiles'
-import { KOSEKI_REQUEST_TYPES } from '@/lib/constants'
+import { KOSEKI_REQUEST_TYPES, KOSEKI_DOC_FORMS, includesJuminhyo } from '@/lib/constants'
 import type { CaseRow, TaskRow, HeirRow, KosekiRequestRow } from '@/types'
 
 type Props = {
@@ -27,10 +27,15 @@ type Props = {
   defaultTaskId?: string
 }
 
-/** doc_types の自由記述文字列から請求種別を抽出（マッチしなければ空＝未選択）。
- *  ①勝手に「戸籍・謄本」を付けない。実務タブで選んでいればそれを反映、無ければ空。 */
-function parseRequestTypes(docTypes: string | null | undefined): string[] {
-  return KOSEKI_REQUEST_TYPES.filter(t => (docTypes ?? '').includes(t))
+// 請求書で選べる種別＝実務タブの種別①（戸籍/除籍/…）＋種別②（謄本/抄本）。
+// 種別を①②に分けたあとも、請求書は1枚の様式に両方を印字するのでここでは並べて扱う。
+const DOC_CHOICES = [...KOSEKI_REQUEST_TYPES, ...KOSEKI_DOC_FORMS] as const
+
+/** 実務タブの種別（①②）から請求種別を拾う。マッチしなければ空＝未選択。
+ *  勝手に「戸籍・謄本」を付けない。 */
+function parseRequestTypes(...docTypes: (string | null | undefined)[]): string[] {
+  const joined = docTypes.filter(Boolean).join('・')
+  return DOC_CHOICES.filter(t => joined.includes(t))
 }
 
 // 全角→半角、数字以外を除去
@@ -82,6 +87,31 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
     return submissions.map(s => s.city ?? '').filter(Boolean)
   }, [tasks])
 
+  // 実務タブの1行 → 請求書の1行。
+  // 本籍・住所は「請求対象者本人のもの」を入れる。被相続人のものを相続人の請求書に入れると
+  // 役所に出せない紙になるので、分からなければ空欄のままにする。
+  //   戸籍・除籍・原戸籍・附票 … その人の本籍
+  //   住民票・除票             … その人の住所
+  const rowFromRequest = (k: KosekiRequestRow): RequestRow => {
+    const who = (k.target_person ?? '').trim() || (caseData.deceased_name ?? '')
+    const isDeceased = !!caseData.deceased_name && who === caseData.deceased_name
+    const heir = isDeceased ? undefined : heirs.find(h => (h.name ?? '').trim() === who)
+    const wantsAddress = includesJuminhyo(k.doc_types)
+    const honseki = wantsAddress
+      ? (isDeceased ? (caseData.deceased_address ?? '') : (heir?.address ?? ''))
+      : (isDeceased ? (caseData.deceased_registered_address ?? '') : (heir?.registered_address ?? ''))
+    const rangeNote = k.range_text ? `${who}さまの${k.range_text}の一連の戸籍が必要です。` : ''
+    return createRow({
+      municipality: k.request_to ?? '',
+      honseki,
+      // 筆頭者／世帯主は実務タブの入力が最優先。無ければ被相続人のときだけ本人名を入れる。
+      hittousha: (k.head_person ?? '').trim() || (isDeceased ? (caseData.deceased_name ?? '') : ''),
+      targetName: who,
+      requestTypes: parseRequestTypes(k.doc_types, k.doc_form),
+      notes: [rangeNote, k.request_reason, k.request_reason_other, k.notes].filter(Boolean).join(' ') || '',
+    })
+  }
+
   useEffect(() => {
     if (!isOpen) return
     // モーダルを開くたびにリセット
@@ -92,18 +122,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
     const hittousha = caseData.deceased_name ?? ''
     if (kosekiRequests.length > 0) {
       // 戸籍請求一覧（誰の・どこに・どの種別）から初期行を作成。本籍・筆頭者は被相続人からプリセット。
-      setRows(kosekiRequests.map(k => {
-        const who = k.target_person || caseData.deceased_name || ''
-        const rangeNote = k.range_text ? `${who}さまの${k.range_text}の一連の戸籍が必要です。` : ''
-        return createRow({
-          municipality: k.request_to ?? '',
-          honseki,
-          hittousha,
-          targetName: k.target_person ?? caseData.deceased_name ?? '',
-          requestTypes: parseRequestTypes(k.doc_types),
-          notes: [rangeNote, k.request_reason, k.request_reason_other, k.notes].filter(Boolean).join(' ') || '',
-        })
-      }))
+      setRows(kosekiRequests.map(k => rowFromRequest(k)))
     } else if (prefilledCities.length > 0) {
       setRows(prefilledCities.map(city => createRow({ municipality: city, honseki, hittousha, targetName: caseData.deceased_name ?? '' })))
     } else {
@@ -444,7 +463,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
                 </div>
                 <Field label="請求の種別（複数選択可）">
                   <div className="flex flex-wrap gap-1.5">
-                    {KOSEKI_REQUEST_TYPES.map(type => {
+                    {DOC_CHOICES.map(type => {
                       const on = row.requestTypes.includes(type)
                       return (
                         <button

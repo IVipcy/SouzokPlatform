@@ -245,6 +245,14 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
   }
 
   const targetRows = useMemo(() => rows.filter(r => r.selection === 'target'), [rows])
+
+  // 受領先に選んだ相続人のうち、住所が空の人。宛先なしで封筒を刷らないよう止める。
+  // 住所が分かるのは戸籍の附票か住民票を取ったときだけなので、ここで初めて気づくことが多い。
+  const missingAddressHeirs = (() => {
+    const ids = new Set(targetRows.map(r => r.recipientHeirId).filter(Boolean) as string[])
+    return heirs.filter(h => ids.has(h.id) && !(h.address ?? '').trim())
+  })()
+
   const excludeRows = useMemo(() => rows.filter(r => r.selection === 'exclude'), [rows])
   const unselectedRows = useMemo(() => rows.filter(r => r.selection === null), [rows])
   const checkedCount = useMemo(() => targetRows.filter(r => !!r.checkedAt).length, [targetRows])
@@ -279,9 +287,18 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
             </button>
             <button
               type="button"
-              onClick={() => setEnvelopeOpen(true)}
-              title="返送用の封筒を作成"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition-colors"
+              onClick={() => {
+                if (missingAddressHeirs.length > 0) {
+                  showToast(`住所が未登録です：${missingAddressHeirs.map(h => h.name).join('、')}。相続人一覧で住所を入れてください`, 'error')
+                  return
+                }
+                setEnvelopeOpen(true)
+              }}
+              title={missingAddressHeirs.length > 0 ? '受領先の住所が未登録です' : '返送用の封筒を作成'}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-semibold border transition-colors ${
+                missingAddressHeirs.length > 0
+                  ? 'text-red-700 bg-red-50 border-red-300 hover:bg-red-100'
+                  : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'}`}
             >
               <Mail className="w-3.5 h-3.5" strokeWidth={2} />封筒印刷
             </button>
@@ -386,11 +403,14 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
                           {/* 依頼者は窓口なので分かるように添える（納品物の多くはこの人あて） */}
                           {heirs.map(h => <option key={h.id} value={h.id}>{h.name || '（氏名未入力）'}{h.is_client ? '（依頼者）' : ''}</option>)}
                         </select>
-                        {r.recipientHeirId && (
-                          <div className="mt-0.5 text-[10px] text-gray-400 truncate" title={heirs.find(h => h.id === r.recipientHeirId)?.address ?? ''}>
-                            {heirs.find(h => h.id === r.recipientHeirId)?.address || '住所未登録'}
-                          </div>
-                        )}
+                        {r.recipientHeirId && (() => {
+                          const addr = (heirs.find(h => h.id === r.recipientHeirId)?.address ?? '').trim()
+                          return (
+                            <div className={`mt-0.5 text-[10px] truncate ${addr ? 'text-gray-400' : 'text-red-600 font-semibold'}`} title={addr || '相続人一覧で住所を入れてください'}>
+                              {addr || '住所未登録（封筒を刷れません）'}
+                            </div>
+                          )
+                        })()}
                       </td>
                     )}
                     {filter === 'target' && (

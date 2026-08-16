@@ -104,17 +104,42 @@ function setCell(ws: ExcelJS.Worksheet, addr: string, value: string | number | D
 }
 
 /**
- * 「戸籍　・　除籍　・　原戸籍」のような '・' 区切りラベルのうち、
- * 選択された種別を【】で囲って分かるようにする（Excel図形の□囲い相当をテキストで表現）。
+ * 「戸籍　・　除籍　・　原戸籍」のようなラベルのうち、選択された種別を【】で囲う
+ * （Excel図形の□囲い相当をテキストで表現）。
+ *
+ * 以前は '・' で切って1語ずつ突き合わせていたが、テンプレの
+ * 「戸籍の附票（本籍地・筆頭者記載あり）」はカッコの中にも '・' があるため語が割れ、
+ * 附票だけ永久に印が付かなかった。区切りに頼らず、種別名そのものを探して囲む。
+ *
+ * 「戸籍」は「原戸籍」「戸籍の附票」の一部でもあるので、長い名前から順に処理し、
+ * 既に囲んだところは二重に囲まない。
  */
 function markTypes(ws: ExcelJS.Worksheet, addr: string, selected: Set<string>) {
-  const cur = ws.getCell(addr).value
-  if (typeof cur !== 'string' || !cur.includes('・')) return
-  const marked = cur.split('・').map(tok => {
-    const t = tok.trim()
-    return selected.has(t) ? tok.replace(t, `【${t}】`) : tok
-  }).join('・')
-  ws.getCell(addr).value = marked
+  const cell = ws.getCell(addr)
+  const cur = cell.value
+  if (typeof cur !== 'string' || cur.trim() === '') return
+
+  let text = cur
+  const names = [...selected].filter(Boolean).sort((a, b) => b.length - a.length)
+  for (const name of names) {
+    if (text.includes(`【${name}】`)) continue
+    const idx = text.indexOf(name)
+    if (idx < 0) continue
+    // 既に囲んだ語の内側（例：【戸籍の附票】の中の「戸籍」）は触らない
+    const before = text.slice(0, idx)
+    if ((before.match(/【/g)?.length ?? 0) > (before.match(/】/g)?.length ?? 0)) continue
+    text = `${before}【${name}】${text.slice(idx + name.length)}`
+  }
+  if (text === cur) return
+  cell.value = text
+
+  // 【】のぶん文字が伸びる。セル幅は固定なので、収まるように縮める。
+  // 結合セルでは shrinkToFit が効かないことがあるため、伸びた量に応じてフォントも落とす。
+  const grew = text.length - cur.length
+  const base = cell.font?.size ?? 11
+  const size = grew >= 8 ? Math.max(8, base - 2) : grew >= 4 ? Math.max(9, base - 1) : base
+  cell.alignment = { ...(cell.alignment ?? {}), shrinkToFit: true }
+  cell.font = { ...(cell.font ?? {}), size }
 }
 
 export async function POST(request: NextRequest) {
