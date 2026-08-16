@@ -11,6 +11,7 @@ import { useCurrentMember } from '@/lib/useCurrentMember'
 import { koteiOf } from '@/lib/kotei'
 import { partsForCase, activePartKeys } from '@/lib/serviceParts'
 import type { MemberRow } from '@/types'
+import { isHiddenForAssistant } from '@/lib/assistantTaskTabs'
 
 // 担当区分。事務管理＝業務ひもづきの通常タスク。管理担当/受注担当＝systemタスクで、その担当へ割当＋通知。
 type RoleKind = 'assistant' | 'manager' | 'sales'
@@ -62,7 +63,10 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
   // 選べる業務区分＝この案件の実施業務 ＋ 常に選べる「納品」「その他」。
   // その他＝どの業務にも属さない任意タスクの置き場（事務管理タスク一覧の「その他」タブに出る）。
   const ALWAYS_SELECTABLE = ['納品', 'その他']
+  // 相続登記は相続登記チームの持ち場（受領するだけ）で、事務管理のタスク一覧には出さない。
+  // 選べてしまうと、作った本人のダッシュボードから消えて迷子になるため、選択肢から外す。
   const gyomuChoices = [...gyomuOptions, ...ALWAYS_SELECTABLE.filter(g => !gyomuOptions.includes(g))]
+    .filter(g => !isHiddenForAssistant(g))
   // 管理担当/受注担当タスクは、案件の実施業務にかかわらず全業務から選べるようにする。
   // 精算書作成のように受注区分に出てこない業務でも、あとから足したくなるため。
   const managerGyomuChoices = [...GYOMU_ALL.filter(g => g !== 'その他'), 'その他']
