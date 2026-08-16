@@ -12,7 +12,6 @@ import {
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, isSystemManager } from '@/lib/auth'
-import { isMinimalMode, MINIMAL_LANDING } from '@/lib/featureMode'
 
 type Card = {
   href: string | null
@@ -40,8 +39,6 @@ const TONE_STYLES: Record<Card['tone'], { iconBg: string; iconColor: string }> =
 }
 
 export default async function DashboardTopPage() {
-  // ミニマム運用モードではダッシュボードを隠し、マイページを着地先にする
-  if (isMinimalMode()) redirect(MINIMAL_LANDING)
   // 相続登記チームメンバー(システム管理者除く)は 専用ダッシュボード /dashboard/touki-team に直行
   {
     const u = await getCurrentUser()

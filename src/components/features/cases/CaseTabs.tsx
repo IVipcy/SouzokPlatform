@@ -24,7 +24,7 @@ type Props = {
   /** info グループ（面談情報・契約残手続き等）をドロップダウンに畳むか。
    *  対応中以降は true（案件情報にまとめる）、それ以前は false（タブが少ないので展開）。 */
   groupInfoTabs?: boolean
-  /** true のとき、グループ分けせず visibleTabs の順序どおりにフラット表示（ミニマム運用の固定順用）。 */
+  /** true のとき、グループ分けせず visibleTabs の順序どおりにフラット表示（検討中〜受注の固定順用）。 */
   flatOrder?: boolean
   /** 互換のため残置（管理情報は MeetingInfoTab の案件情報セクションへ統合済み） */
   onOpenManagementInfo?: () => void
@@ -130,7 +130,7 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
     return <InfoDropdown label="案件基本情報" tabs={basicInfoTabs} activeTab={activeTab} highlightSet={highlightSet} onTabChange={onTabChange} />
   }
 
-  // ミニマム運用など固定順で見せたいときは、グループ分けせず visibleTabs の順のままフラット表示。
+  // 固定順で見せたいときは、グループ分けせず visibleTabs の順のままフラット表示。
   // docs / documentCreate はヘッダーボタンで開くタブなので、フラット表示でもピルにはしない。
   if (flatOrder) {
     const flatTabs = all.filter(key => TAB_GROUP[key] !== 'header' && !BASIC_INFO_TABS.includes(key))

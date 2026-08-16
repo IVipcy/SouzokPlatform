@@ -22,7 +22,6 @@ import KakuteiInvoiceModal from './KakuteiInvoiceModal'
 import InvoiceDocumentModal from './InvoiceDocumentModal'
 import ImportShihoInvoiceModal from './ImportShihoInvoiceModal'
 import { FileText, Download } from 'lucide-react'
-import { isMinimalMode } from '@/lib/featureMode'
 
 type Props = {
   caseData: CaseRow
@@ -41,8 +40,6 @@ const yen = (v: number | null | undefined) =>
 
 // expenses / referrals は受け取るだけ（付帯収益・パートナー報酬の削除で参照しなくなった。呼び出し側の互換のため型には残す）
 export default function ContractTab({ caseData, tasks, onRefresh: _onRefresh, patchCase, orderSheetMode = false }: Props) {
-  // ミニマム運用モードでは請求サマリー・付帯収益・パートナー報酬・案件トータル収益見込を非表示
-  const minimal = isMinimalMode()
   // 請求書の発行は受注確定（受注／戻り受注）以降のみ。依頼確定待ち以前は不可。
   const canBill = ['受注', '戻り受注', '対応中', '完了'].includes(caseData.status)
   // 請求パターン（案件単位）。②③は前受金に確定分を含む「一括」＝確定請求なし。③は立替実費もなし。
@@ -279,7 +276,7 @@ export default function ContractTab({ caseData, tasks, onRefresh: _onRefresh, pa
       </Section>
 
 
-          {!minimal && (<>
+          {(<>
           {/* 請求サマリー（報酬・前受金は上の内訳から自動。契約日は受注内容へ・特記事項は廃止） */}
           <Section title="請求サマリー" icon="💳">
             {/* 計算の流れ（報酬＋実費−前受金＝請求金額）を横一列で読めるようにする。

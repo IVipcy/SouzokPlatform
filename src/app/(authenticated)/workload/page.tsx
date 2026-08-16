@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
-import { isMinimalMode } from '@/lib/featureMode'
 import { Gauge } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import WorkloadClient, { type WorkloadTeam, type WorkloadRow, type ManagerCandidate, type UnassignedCaseRow } from '@/components/features/workload/WorkloadClient'
@@ -16,7 +15,6 @@ const INACTIVE_CASE = new Set(['完了', '失注'])
 type Props = { searchParams: Promise<{ assignCaseId?: string }> }
 
 export default async function WorkloadPage({ searchParams }: Props) {
-  if (isMinimalMode()) redirect('/my')
   const sp = await searchParams
   const assignCaseId = sp.assignCaseId ?? null
   const supabase = await createClient()

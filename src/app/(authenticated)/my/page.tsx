@@ -3,7 +3,6 @@ import Link from 'next/link'
 import { UserCircle, ClipboardList, ListChecks, MessageSquare, MessagesSquare, Sparkles, ClipboardCheck, Receipt, AlertTriangle, PenSquare } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, canSeeMyPage, isSystemManager } from '@/lib/auth'
-import { isMinimalMode } from '@/lib/featureMode'
 import MyPageCasesTab from '@/components/features/my/MyPageCasesTab'
 import ConsultationCasesTable, { type ConsultCase } from '@/components/features/my/ConsultationCasesTable'
 import ReferralCasesTable from '@/components/features/my/ReferralCasesTable'
@@ -1016,10 +1015,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         {isSales && (
           <TabLink href={`/my?tab=complaints${asSuffix}`} label={`クレーム報告${salesPendingComplaintsCount > 0 ? ` (${salesPendingComplaintsCount})` : ''}`} Icon={AlertTriangle} active={activeTab === 'complaints'} />
         )}
-        {/* ミニマム運用モードではタスクタブを非表示 */}
-        {!isMinimalMode() && (
-          <TabLink href={`/my?tab=tasks${asSuffix}`} label={`タスク (${taskTabCount})`} Icon={ListChecks} active={activeTab === 'tasks'} />
-        )}
+        <TabLink href={`/my?tab=tasks${asSuffix}`} label={`タスク (${taskTabCount})`} Icon={ListChecks} active={activeTab === 'tasks'} />
       </div>
 
       {/* 当月面談（相談案件一覧） */}

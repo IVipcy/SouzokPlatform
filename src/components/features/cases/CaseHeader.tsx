@@ -6,7 +6,6 @@ import { Inbox, FolderOpen, FilePlus, ChevronDown } from 'lucide-react'
 import { ALERT_SEVERITY_STYLE } from '@/lib/alerts'
 import { getCaseStatusLabel, CASE_STATUSES, billingPatternOf } from '@/lib/constants'
 import { createClient } from '@/lib/supabase/client'
-import { isMinimalMode } from '@/lib/featureMode'
 import { MilestoneAxis, type TimelineStatusEvent } from './CaseTimeline'
 import type { TabKey } from './CaseTabs'
 import type { CaseRow, CaseReferralRow, TaskRow, CaseMemberRow, MemberRow } from '@/types'
@@ -199,8 +198,8 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                   ) : <span className="text-[11px] text-gray-300">未設定</span>}
                 </MetaRow>
 
-                {/* 相続税申告（自動判定）。クリックで税理士セクションへ。ミニマム時は非表示 */}
-                {!isMinimalMode() && (
+                {/* 相続税申告（自動判定）。クリックで税理士セクションへ */}
+                {(
                   <MetaRow label="相続税申告">
                     <button
                       type="button"

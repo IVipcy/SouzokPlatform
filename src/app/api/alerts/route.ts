@@ -5,14 +5,7 @@ import { ALERT_SEVERITY_ORDER, type AlertItem } from '@/lib/alerts'
 import { evaluateCaseAlerts, ALERT_DAYS } from '@/lib/alertRules'
 import { caseReportSeverity } from '@/lib/caseReports'
 import { overdueSeverity, bizDaysOverdue } from '@/lib/overdue'
-import { isMinimalMode } from '@/lib/featureMode'
 import { CONTRACT_PENDING_STATUSES, PROGRESS_REPORT_STATE_URGENT } from '@/lib/constants'
-
-// ミニマム運用時にアラートから除外する初期対応タスク（検討状況確認 sys_review_status は残す）
-const MINIMAL_HIDDEN_TASK_KEYS = new Set([
-  'sys_order_sheet', 'sys_contract_send', 'sys_contract_docs_upload',
-  'sys_case_handover', 'sys_advance_invoice', 'sys_advance_payment_confirm',
-])
 
 function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -144,11 +137,7 @@ export async function GET() {
   }
 
   // タスク期限超過（自分担当の未完了タスク）
-  // ミニマム運用時は、受注時の初期対応タスク（オーダーシート・契約書送付 等）はアラートから除外。
-  // 「検討状況の確認」(sys_review_status) は残す。
-  const minimal = isMinimalMode()
   for (const t of tasks) {
-    if (minimal && t.template_key && MINIMAL_HIDDEN_TASK_KEYS.has(t.template_key)) continue
     // しきい値はバナー・案件色と共通（5営業日=黄／14日=赤）。1〜4営業日の軽微は出さない。
     const tsev = t.status !== 'キャンセル' ? overdueSeverity(t.due_date, todayStr) : null
     if (tsev) {

@@ -61,7 +61,6 @@ import { toneOfTab, TONE_BG } from '@/lib/practiceTabTone'
 import { GYOMU_TAB } from '@/lib/serviceMaster'
 import { getSelectableCaseStatuses, isContractProcDone, isContractDocsReceived } from '@/lib/constants'
 import { countReceiptsNeedingLink } from '@/lib/receiptLink'
-import { gatesDisabled, isMinimalMode, MINIMAL_CASE_TABS } from '@/lib/featureMode'
 import type { TimelineReceipt, TimelineStatusEvent } from './CaseTimeline'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow, DivisionDetailRow, AgreementDispatchRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow, CaseFileRow, AssetInventoryRow, CaseOtherAssetRow } from '@/types'
 
@@ -141,8 +140,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     && !caseMembers.some(cm => cm.role === 'manager')
     && !caseDataProp.manager_assign_skipped
     && !allMembers.find(m => m.id === currentMemberId)?.is_dispatcher
-    && tabFromUrl !== 'assignees'
-    && !gatesDisabled())
+    && tabFromUrl !== 'assignees')
   // 案件ステータス→「完了」ゲート：請求パターン別の入金完了条件を満たしていない時に表示するモーダル
   const [completionBlocked, setCompletionBlocked] = useState<{ missing: MissingInvoice[]; pendingRefunds: PendingRefund[]; missingReferrals: MissingReferral[]; billingPattern: string; hasInvoices: boolean } | null>(null)
   // 検討中→（契約書待ち）/受託 へ進む前に面談情報の更新を促すゲート（対象ステータスを保持）
@@ -302,7 +300,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       setNavDismissed(false)
       // 受注系にした瞬間 → 管理担当の割振り依頼ポップ（管理担当が未アサイン かつ 割り振らない指定でない ときだけ）
       // 割振り担当本人には出さない（自分で割り振れるので依頼する相手がいない）
-      if (!managerAssigned && !caseState.manager_assign_skipped && !isDispatcher && !gatesDisabled()) setAssignReqOpen(true)
+      if (!managerAssigned && !caseState.manager_assign_skipped && !isDispatcher) setAssignReqOpen(true)
     }
     // （タスク出しは作業着手準備の「タスク出し」ゲートで管理担当が行うため、
     //   対応中化の際の「タスクを設定してください」ポップアップは廃止）
@@ -403,17 +401,16 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   // 作業進行中（対応中）で開いたとき：初期タスク出しの単一ゲート（タスク一括生成を促す。出したら消える）。
   const initialTasksGenerated = tasks.some(t => t.task_kind === 'case')
   const initialTasksSteps = getInitialTasksFlowSteps({ tasksGenerated: initialTasksGenerated })
-  // ミニマム運用モードでは各フロー・ナビ（ハードゲート案内）を出さない
-  const jutakuNavVisible = (caseState.status === '受注' || caseState.status === '戻り受注') && !navDismissed && !gatesDisabled()
-  const kentouNavVisible = caseState.status === '検討中（契約書待ち）' && !navDismissed && !gatesDisabled()
-  const workPrepNavVisible = caseState.status === '作業着手準備' && !navDismissed && !gatesDisabled()
+  const jutakuNavVisible = (caseState.status === '受注' || caseState.status === '戻り受注') && !navDismissed
+  const kentouNavVisible = caseState.status === '検討中（契約書待ち）' && !navDismissed
+  const workPrepNavVisible = caseState.status === '作業着手準備' && !navDismissed
   // 作業進行中は「初期タスク出し」だけを案内（タスク未生成のときのみ）。ステータスは進めない。
-  const wipNavVisible = caseState.status === '対応中' && !navDismissed && !gatesDisabled() && !initialTasksGenerated
+  const wipNavVisible = caseState.status === '対応中' && !navDismissed && !initialTasksGenerated
   // 着手ナビ：対応中なのにまだ着手していない（案件タスクが1つも対応中/完了でない）とき、
   // 案件進捗タブを点滅させて「ここで着手」を促す（受託/検討フローと同じ見せ方）。
   const normTaskStatus = (s: string) => s === '未着手' ? '着手前' : ['Wチェック待ち', '保留'].includes(s) ? '対応中' : s === 'キャンセル' ? '完了' : s
   // 初期タスク出しが済んでから（=wipNavが消えてから）着手を促す。二重ハイライトを避ける。
-  const kickoffNeeded = caseState.status === '対応中' && !gatesDisabled() && initialTasksGenerated
+  const kickoffNeeded = caseState.status === '対応中' && initialTasksGenerated
     && !tasks.some(t => t.task_kind !== 'system' && ['対応中', '完了'].includes(normTaskStatus(t.status)))
   // 順不同のため、未完了ステップのタブをすべて同時ハイライト
   const activeNavSteps = jutakuNavVisible ? flowSteps : kentouNavVisible ? kentouSteps : workPrepNavVisible ? workPrepSteps : wipNavVisible ? initialTasksSteps : []
@@ -444,8 +441,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     referralPartnerCount: caseReferrals?.length ?? 0,
     allowedPracticeTabs,
   })
-  // ミニマム運用モードでは、ステータス非依存で固定順のタブだけ表示
-  const minimal = isMinimalMode()
   // 管理担当（manager/sub_manager）は事務作業タブを見せず、管理担当が担う業務に絞る。
   //   オーダーシート（案件情報）／進捗サマリー／依頼者連絡／管理担当の実務タブ（受注区分で出し分け）
   //   ／法定相続一覧図／他事業者紹介／請求／タスク。案件進捗(basicInfo)は撤去。
@@ -499,11 +494,9 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     ? tabVisRaw.visible.filter(t => MANAGER_ONLY_PRACTICE.includes(t) && t !== activeTab).length
     : 0
 
-  const tabVis = minimal
-    ? { visible: MINIMAL_CASE_TABS as TabKey[], collapsed: [] as TabKey[] }
-    : managerFixedTabs
-      ? { visible: MANAGER_TABS, collapsed: [] as TabKey[] }
-      : hideForAssistant(tabVisRaw)
+  const tabVis = managerFixedTabs
+    ? { visible: MANAGER_TABS, collapsed: [] as TabKey[] }
+    : hideForAssistant(tabVisRaw)
   // 現在のタブが表示対象外なら先頭タブにフォールバック。ただし docs/documentCreate はヘッダーから開く特別タブなので許容。
   const HEADER_TABS: TabKey[] = ['receipts', 'docs', 'documentCreate']
   const effectiveTab: TabKey = (tabVis.visible.includes(activeTab) || HEADER_TABS.includes(activeTab)) ? activeTab : tabVis.visible[0]
@@ -511,7 +504,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const tabTone = toneOfTab(effectiveTab)
   // 検討中〜受注（＋失注）は固定順のフラット表示（グループ分けせず指定順のピルで見せる）
   const FLAT_ORDER_STATUSES = ['検討中', '検討中（契約書待ち）', '受注', '戻り受注', '失注']
-  const flatOrderTabs = minimal || FLAT_ORDER_STATUSES.includes(caseState.status ?? '')
+  const flatOrderTabs = FLAT_ORDER_STATUSES.includes(caseState.status ?? '')
 
   // 実施タブ（受注区分/業務由来）で、紐づくタスクが全件完了しているものは折り畳み対象。
   // タスクは task.phase(=業務区分文字列) から GYOMU_TAB マッピングで所属タブを判定。
@@ -552,7 +545,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       <CaseHeader
         caseData={caseState}
         latestCommunicationDate={latestCommunicationDate}
-        caseAlerts={minimal ? [] : caseAlerts}
+        caseAlerts={caseAlerts}
         tasks={tasks}
         statusHistory={statusHistory}
         selectableStatuses={getSelectableCaseStatuses(!!caseState.order_sheet_completed_at, caseState.status, managerAssigned, true, contractProcDone, kentouContractReady)}
@@ -562,10 +555,10 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           setActiveTab('orderSheet')
           setTimeout(() => document.getElementById('os-referral')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120)
         }}
-        showReceiptsAction={!minimal}
+        showReceiptsAction
         receiptCount={unhandledReceiptCount}
         receiptTotal={(documentReceipts ?? []).reduce((n, r) => n + (r.items?.length ?? 0), 0)}
-        showDocsAction={!minimal}
+        showDocsAction
         showDocumentCreateAction={true}
         docCount={caseFiles.length + createdDocuments.filter(d => !!d.file_path).length}
         highlightTabs={navHighlightTabs}
@@ -637,7 +630,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         />
 
         {/* 事務管理担当：管理担当が手を動かすタブは既定で隠している。見たいときだけ出す。 */}
-        {isAssistantViewer && !minimal && hiddenManagerTabCount > 0 && (
+        {isAssistantViewer && hiddenManagerTabCount > 0 && (
           <div className="flex justify-end -mt-3 mb-3">
             <button type="button" onClick={() => setShowManagerTabs(v => !v)}
               className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-gray-500 hover:text-brand-700 border border-gray-200 rounded-md px-2 py-1 bg-white">

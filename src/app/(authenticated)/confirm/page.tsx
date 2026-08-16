@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { isMinimalMode } from '@/lib/featureMode'
 import ConfirmClient, { type ConfirmItem } from '@/components/features/confirm/ConfirmClient'
 
 // 確認簿：全案件横断で「発送✓・着✓・確定・承認・凍結確認」の未処理を集める。
@@ -16,7 +15,6 @@ const ACTIVE = new Set(['対応中'])
 const yen = (n: number | null | undefined) => (n == null ? null : `¥${Math.round(n).toLocaleString('ja-JP')}`)
 
 export default async function ConfirmPage() {
-  if (isMinimalMode()) redirect('/my')
   const supabase = await createClient()
 
   const { data: casesRaw } = await supabase.from('cases').select('id,case_number,deal_name,status').eq('intake_draft', false).order('case_number')

@@ -14,7 +14,6 @@ import { MoneyInput } from './FinancialAssetsTable'
 import SelectOrTextField from './SelectOrTextField'
 import { EXPENSE_NONTAX_ITEMS, EXPENSE_TAX_ITEMS, expenseItemTaxable, SHIGYO_COLORS, isMistakenRequest } from '@/lib/constants'
 import { fetchCaseExpenses, type CaseExpenseRow } from '@/lib/caseExpenses'
-import { isMinimalMode } from '@/lib/featureMode'
 import { registrationTax } from '@/lib/registrationTax'
 import type { BillingExpenseItemRow, RealEstatePropertyRow } from '@/types'
 
@@ -212,8 +211,7 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
 
   return (
     <div className="space-y-4">
-      {/* 実務タブからの取り込みはミニマム運用では非表示（実務タブ自体が非表示のため） */}
-      {!isMinimalMode() && (
+      {(
         <div className="flex items-center justify-between gap-3">
           <p className="text-[11px] text-gray-400">各実務タブ（戸籍の小為替・不動産の取得資料・登録免許税）で確定した立替実費を取り込めます。手入力分はそのまま残ります。</p>
           <button type="button" onClick={openImport} disabled={importing}

@@ -14,7 +14,6 @@ import ExcelJS from 'exceljs'
 import { getKakuteiVariant, KAKUTEI_FIELDS, computeKakutei, type ExpenseItem } from '@/lib/kakuteiVariants'
 import { STAMP_FILES } from '@/lib/ininjoVariants'
 import { KOSEKI_AGENT_OFFICES, OFFICE_PROFILES } from '@/lib/officeProfiles'
-import { isMinimalMode } from '@/lib/featureMode'
 
 type Body = {
   caseId: string
@@ -194,10 +193,8 @@ export async function POST(request: NextRequest) {
     const downloadFilename = `確定請求書_立替実費_${def.officeLabel}_${caseData.case_number ?? caseId}.xlsx`
     const storagePath = `${caseId}/${Date.now()}_${crypto.randomUUID()}.xlsx`
     const uploadBuffer = Buffer.from(outBuffer as ArrayBuffer)
-    // ミニマム運用モードでは案件フォルダ（storage/documents）へ保存せず、ローカルDLのみ。
-    const minimal = isMinimalMode()
     let savedPath: string | null = null
-    if (!minimal) {
+    {
       const { error: uploadErr } = await supabase.storage
         .from('documents')
         .upload(storagePath, uploadBuffer, {

@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { FileText } from 'lucide-react'
 import { useModal } from '@/hooks/useModal'
-import { isMinimalMode } from '@/lib/featureMode'
 import type { CaseRow, TaskRow, HeirRow, RealEstatePropertyRow, ContractDocumentRow, KosekiRequestRow } from '@/types'
 import KosekiRequestDocumentModal from './KosekiRequestDocumentModal'
 import FixedAssetRequestDocumentModal from './FixedAssetRequestDocumentModal'
@@ -49,13 +48,10 @@ const DOCUMENTS: DocumentItem[] = [
   // 封筒印刷は 納品タブ側 (原本受領証と並べて配置) に移設。
 ]
 
-// ミニマム運用モードで利用可にする書類（請求書系＋領収書のみ）
-const MINIMAL_DOC_KEYS = new Set(['invoice_advance', 'invoice_final', 'receipt_final', 'receipt'])
 // 請求書・領収書は受注確定（受注／戻り受注）以降のみ発行可
 const BILLING_DOC_KEYS = new Set(['invoice_advance', 'invoice_final', 'receipt_final', 'receipt'])
 
 export default function DocumentGenerators({ caseData, tasks, heirs, properties, kosekiRequests = [], contractDocuments = [], defaultTaskId, onGenerated }: Props) {
-  const minimal = isMinimalMode()
   const canBill = ['受注', '戻り受注', '対応中', '完了'].includes(caseData.status)
   const [, setSelectedKey] = useState<string | null>(null)
   const kosekiModal = useModal()
@@ -103,11 +99,9 @@ export default function DocumentGenerators({ caseData, tasks, heirs, properties,
       {/* 書類一覧 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {DOCUMENTS.map(doc => {
-          // ミニマム運用モードでは請求書・領収書のみ利用可。他はグレーアウト（1ヶ月後に解放）。
-          const minimalBlocked = minimal && !MINIMAL_DOC_KEYS.has(doc.key)
           // 請求書・領収書は受注確定以降のみ
           const billingBlocked = BILLING_DOC_KEYS.has(doc.key) && !canBill
-          const ready = doc.status === 'ready' && !minimalBlocked && !billingBlocked
+          const ready = doc.status === 'ready' && !billingBlocked
           return (
             <button
               key={doc.key}
@@ -127,8 +121,6 @@ export default function DocumentGenerators({ caseData, tasks, heirs, properties,
                   <span className="text-[12px] text-green-600 font-semibold">✓ 利用可能</span>
                 ) : billingBlocked ? (
                   <span className="text-[12px] text-amber-600 font-medium">受注後に発行</span>
-                ) : minimalBlocked ? (
-                  <span className="text-[12px] text-brand-500 font-medium">1ヶ月後</span>
                 ) : (
                   <span className="text-[12px] text-gray-400 font-medium">準備中</span>
                 )}

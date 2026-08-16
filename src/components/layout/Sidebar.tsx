@@ -22,7 +22,6 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { isNavVisible } from '@/lib/featureMode'
 import { useConfirmPendingCount } from '@/lib/useConfirmPendingCount'
 import { useStartWaitingCount } from '@/lib/useStartWaitingCount'
 import { useAuth } from '@/components/providers/AuthProvider'
@@ -166,7 +165,6 @@ export default function Sidebar() {
         const isTouKi = !!user?.isTouKiTeam
         const myRoleForNav: Role = isTouKi && !SALES_MGR.includes(myRole) ? 'manager' : myRole
         const visibleSections = navSections.map(s => ({ ...s, items: s.items.filter(it => {
-          if (!isNavVisible(it.href)) return false  // ミニマム運用モードでの非表示
           if (it.toukiOnly) return isTouKi || isSysManager
           if (isSysManager) return true              // システム管理者は全部見える
           return !it.roles || it.roles.includes(myRoleForNav)
