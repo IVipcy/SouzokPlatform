@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
+import { PREPAY_THANKS_TITLE } from '@/lib/prepayThanks'
 
 // 前受金が「入金済」になったら、受注担当＋管理担当に共有の「前受金入金御礼連絡」タスクを自動生成する。
 // ・1タスクを両者にアサイン（どちらかが御礼連絡すれば完了）。
@@ -32,7 +33,7 @@ export async function ensurePrepaymentThankYouTask(invoiceId: string): Promise<v
     .from('tasks')
     .insert({
       case_id: inv.case_id,
-      title: '前受金入金御礼連絡',
+      title: PREPAY_THANKS_TITLE,
       task_kind: 'system',       // 受注担当/管理担当タスク
       // 案件を進める工程ではなく、随時発生するお客様連絡なので「その他」タブに置く。
       phase: 'その他',

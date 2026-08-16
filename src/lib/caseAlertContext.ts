@@ -9,6 +9,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { overdueSeverity, billOverdueSeverity } from '@/lib/overdue'
 import { CONTRACT_PENDING_STATUSES } from '@/lib/constants'
 import { caseReportSeverity } from '@/lib/caseReports'
+import { PREPAY_THANKS_TITLE, prepayThanksSeverity } from '@/lib/prepayThanks'
 import type { AlertSeverity, CaseAlertContext } from '@/lib/alertRules'
 
 // バナーの区分（chui=要注意 / kakunin=要確認）→ アラートの深刻度
@@ -23,7 +24,7 @@ const OPEN_TASK = (st: string) => st !== '完了' && st !== 'キャンセル'
  */
 export type AlertPreloaded = {
   /** 呼び出し元が既に取ってあるタスク（案件一覧など）。渡せばここでは取り直さない。 */
-  tasks?: Array<{ case_id: string; task_kind: string | null; status: string; due_date: string | null }>
+  tasks?: Array<{ case_id: string; title?: string | null; task_kind: string | null; status: string; due_date: string | null }>
   /** 同上：案件報告 */
   reports?: Array<{ case_id: string; status: string; confirmed_date: string | null }>
 }
@@ -41,7 +42,7 @@ export async function fetchCaseAlertContexts(
   const [membersRes, invoicesRes, tasksRes, docsRes, reportsRes, hourensouRes] = await Promise.all([
     supabase.from('case_members').select('case_id,role').in('case_id', caseIds),
     supabase.from('invoices').select('case_id,invoice_type,status,created_at,due_date').in('case_id', caseIds),
-    preloaded.tasks ? empty<unknown>() : supabase.from('tasks').select('case_id,task_kind,status,due_date').in('case_id', caseIds),
+    preloaded.tasks ? empty<unknown>() : supabase.from('tasks').select('case_id,title,task_kind,status,due_date').in('case_id', caseIds),
     supabase.from('contract_documents').select('case_id,status,arrival_date').in('case_id', caseIds),
     preloaded.reports ? empty<unknown>() : supabase.from('progress_reports').select('case_id,status,confirmed_date').in('case_id', caseIds),
     // 報連相（要対応の未回答だけアラートに出す）
@@ -69,9 +70,16 @@ export async function fetchCaseAlertContexts(
   // 事務管理タスクの有無と、タスク期限超過の最大深刻度
   const hasCaseTasks = new Set<string>()
   const taskSev = new Map<string, AlertSeverity>()
-  for (const t of taskRows as Array<{ case_id: string; task_kind: string | null; status: string; due_date: string | null }>) {
+  // 前受金の入金御礼連絡だけは早く鳴らす（1営業日=要確認／2営業日=要注意）
+  const prepaySev = new Map<string, AlertSeverity>()
+  for (const t of taskRows as Array<{ case_id: string; title?: string | null; task_kind: string | null; status: string; due_date: string | null }>) {
     if (t.task_kind === 'case') hasCaseTasks.add(t.case_id)
     if (!OPEN_TASK(t.status)) continue
+    if (t.title === PREPAY_THANKS_TITLE) {
+      const s = prepayThanksSeverity(t.due_date, todayStr)
+      if (s === 'high' || (s === 'mid' && prepaySev.get(t.case_id) !== 'high')) prepaySev.set(t.case_id, s as AlertSeverity)
+      continue   // 一般のタスク期限超過とは二重に出さない
+    }
     const s = sevOf(overdueSeverity(t.due_date, todayStr))
     if (s === 'high' || (s === 'mid' && taskSev.get(t.case_id) !== 'high')) taskSev.set(t.case_id, s)
   }
@@ -111,6 +119,7 @@ export async function fetchCaseAlertContexts(
       contractPending: contractPending.has(id),
       recentWeeklyConfirmed: recentWeekly.has(id),
       taskOverdue: taskSev.get(id) ?? null,
+      prepayThanksOverdue: prepaySev.get(id) ?? null,
       billOverdue: billSev.get(id) ?? null,
       reportActionOverdue: reportSev.get(id) ?? null,
       reportActionCount: reportCnt.get(id) ?? 0,

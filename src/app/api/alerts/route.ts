@@ -4,6 +4,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { ALERT_SEVERITY_ORDER, type AlertItem } from '@/lib/alerts'
 import { evaluateCaseAlerts, ALERT_DAYS } from '@/lib/alertRules'
 import { caseReportSeverity } from '@/lib/caseReports'
+import { PREPAY_THANKS_TITLE, prepayThanksSeverity } from '@/lib/prepayThanks'
 import { overdueSeverity, bizDaysOverdue } from '@/lib/overdue'
 import { CONTRACT_PENDING_STATUSES, PROGRESS_REPORT_STATE_URGENT } from '@/lib/constants'
 
@@ -138,6 +139,15 @@ export async function GET() {
 
   // タスク期限超過（自分担当の未完了タスク）
   for (const t of tasks) {
+    // 前受金の入金御礼連絡だけ早く鳴らす（1営業日=要確認／2営業日=要注意）。
+    if (t.title === PREPAY_THANKS_TITLE) {
+      const psev = t.status !== 'キャンセル' ? prepayThanksSeverity(t.due_date, todayStr) : null
+      if (psev) {
+        push({ id: `prepay-${t.id}`, severity: psev, category: '前受金入金御礼 未連絡', title: t.title,
+          body: `入金を確認した ${t.due_date} から日がたっています。お客様へ御礼のご連絡をお願いします`, href: `/tasks/${t.id}` })
+      }
+      continue
+    }
     // しきい値はバナー・案件色と共通（5営業日=黄／14日=赤）。1〜4営業日の軽微は出さない。
     const tsev = t.status !== 'キャンセル' ? overdueSeverity(t.due_date, todayStr) : null
     if (tsev) {

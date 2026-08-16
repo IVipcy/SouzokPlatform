@@ -54,6 +54,8 @@ export const ALERT_DAYS = {
   inactivityHigh: 10,     // 最終接触→未対応（要注意）
   billBase: 5,            // 入金期日超過→督促の起点（ここから暦日で数える）
   taskMid: 5,             // タスク期日超過（要確認）
+  prepayThanksMid: 1,     // 前受金入金御礼連絡（要確認）
+  prepayThanksHigh: 2,    // 前受金入金御礼連絡（要注意）
 } as const
 /** 暦日で見るもの（営業日ではない） */
 export const ALERT_CAL_DAYS = {
@@ -98,6 +100,8 @@ export type CaseAlertContext = {
   taskOverdue?: AlertSeverity | null
   /** 入金期日超過の最大深刻度 */
   billOverdue?: AlertSeverity | null
+  /** 前受金の入金御礼連絡が未完了のまま何日たったか（1営業日=mid / 2営業日=high） */
+  prepayThanksOverdue?: AlertSeverity | null
   /** 報連相（要対応）が未回答のまま放置されている最大深刻度。情報共有は数えない */
   reportActionOverdue?: AlertSeverity | null
   /** 上の件数（理由文に出す） */
@@ -128,6 +132,16 @@ export function evaluateCaseAlerts(c: CaseAlertInput, ctx: CaseAlertContext, tod
       reason: ctx.taskOverdue === 'high'
         ? `期日から${ALERT_CAL_DAYS.taskHigh}日以上たった未完了タスクがあります`
         : `期日を${ALERT_DAYS.taskMid}営業日過ぎた未完了タスクがあります`, tab: 'tasks' })
+  }
+
+  // 前受金の入金御礼連絡。入金を確認した日が期限で、そこから1営業日で要確認・2営業日で要注意。
+  // 「お礼の電話が遅れる」のは目に見えて印象が悪いので、他のタスクより早く鳴らす。
+  if (ctx.prepayThanksOverdue) {
+    out.push({ key: 'prepay_thanks', category: '前受金入金御礼 未連絡', severity: ctx.prepayThanksOverdue, audience: 'both',
+      reason: ctx.prepayThanksOverdue === 'high'
+        ? `前受金の入金御礼連絡が${ALERT_DAYS.prepayThanksHigh}営業日たっても終わっていません`
+        : `前受金の入金御礼連絡が${ALERT_DAYS.prepayThanksMid}営業日たっても終わっていません`,
+      tab: 'tasks' })
   }
 
   // 報連相（要対応）の放置。情報共有はここに来ない（アラートに出さない）。
