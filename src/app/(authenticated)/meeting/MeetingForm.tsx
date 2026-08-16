@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { User, FileText, CheckCircle2, ChevronDown, type LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -297,6 +297,38 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
     onDirtyChange?.(true)
   }
 
+  // 面談シート（/intake）で入れた依頼者・同行者を初期値にする。
+  // 面談シートは case_clients に保存し、この画面は依頼者マスタ(clients)から初期値を作っていたため、
+  // シートで入れたふりがな・電話番号・同行者が画面に出ず、保存で消えていた。
+  const loadedClientsRef = useRef(false)
+  useEffect(() => {
+    if (selectedCase.id === 'new' || loadedClientsRef.current) return
+    loadedClientsRef.current = true
+    ;(async () => {
+      const { data: rows } = await createClient()
+        .from('case_clients')
+        .select('id, name, furigana, priority, birth_date, relationship, phone, mobile_phone, email, sort_order')
+        .eq('case_id', selectedCase.id)
+        .order('sort_order').order('created_at')
+      const list = (rows ?? []) as Array<{
+        id: string; name: string | null; furigana: string | null; priority: string | null
+        birth_date: string | null; relationship: string | null
+        phone: string | null; mobile_phone: string | null; email: string | null
+      }>
+      if (list.length === 0) return
+      setData(prev => ({
+        ...prev,
+        clients: list.map(r => ({
+          id: r.id,
+          priority: (r.priority === 'main' ? 'main' : 'companion') as 'main' | 'companion',
+          name: r.name ?? '', kana: r.furigana ?? '', birthday: r.birth_date ?? '',
+          relationship: r.relationship ?? '', phone: r.phone ?? '',
+          mobilePhone: r.mobile_phone ?? '', email: r.email ?? '',
+        })),
+      }))
+    })()
+  }, [selectedCase.id])
+
   // 提案金額（⑧）：司法書士報酬 / 行政書士報酬 をそれぞれ proposal_judicial / proposal_administrative に
   //   「提案せず」or 税抜(カンマ整形)で保存。税込は表示のみ（×1.10）。合計も表示のみ。
   type ProposalField = 'proposalJudicial' | 'proposalAdministrative'
@@ -554,12 +586,19 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         }
       }
 
-      // 3-b. 依頼者（同行者含む）を case_clients に保存（全置換）
-      await supabase.from('case_clients').delete().eq('case_id', caseId)
-      const clientRows = formData.clients
-        .filter(c => c.name.trim())
-        .map((c, i) => ({
-          case_id: caseId,
+      // 3-b. 依頼者（同行者含む）を case_clients へ。
+      // 全置換にすると、面談シートで入れた項目（外字有無・連絡先希望など、この画面に無い欄）まで
+      // 消えてしまうので、既存行は id で更新し、画面から消えた行だけ削除する。
+      const kept = formData.clients.filter(c => c.name.trim())
+      const keptIds = kept.map(c => c.id).filter(Boolean) as string[]
+      {
+        const del = supabase.from('case_clients').delete().eq('case_id', caseId)
+        // 残す行があるときは、それ以外を削除。1行も残らないなら全部削除。
+        const { error: e } = keptIds.length > 0 ? await del.not('id', 'in', `(${keptIds.join(',')})`) : await del
+        if (e) console.error('case_clients cleanup failed', e)
+      }
+      for (const [i, c] of kept.entries()) {
+        const row = {
           name: c.name.trim(),
           furigana: c.kana || null,
           priority: c.priority,
@@ -569,11 +608,11 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
           mobile_phone: c.mobilePhone || null,
           email: c.email || null,
           sort_order: i,
-        }))
-      if (clientRows.length > 0) {
-        const { error } = await supabase.from('case_clients').insert(clientRows)
-        if (error) throw new Error(`依頼者の保存に失敗: ${error.message}`)
+        }
+        if (c.id) await supabase.from('case_clients').update(row).eq('id', c.id)
+        else await supabase.from('case_clients').insert({ case_id: caseId, ...row })
       }
+
 
       // 4. 他事業者紹介要否 → case_referrals（チェック分をupsert。未チェックの削除はタブ側で実施）
       //    税理士/不動産は依頼内容(content)も同時に保存（LP案件一覧の該当列のソースとなる）

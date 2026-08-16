@@ -5,6 +5,8 @@ import { DEFAULT_DOCS, DEFAULT_ROLES, type DocRow, type RoleRow } from '@/compon
 
 // 依頼者（同行者含む）1人分
 export type ClientPerson = {
+  /** case_clients.id。面談シートで先に入力された行はこれを持ち、保存時に上書きではなく更新する */
+  id?: string
   priority: 'main' | 'companion'  // メイン依頼人 / 同行者
   name: string
   kana: string
