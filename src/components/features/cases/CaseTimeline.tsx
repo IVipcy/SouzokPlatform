@@ -160,6 +160,10 @@ function ActiveMilestoneAxis({ caseData, compact }: { caseData: CaseRow; compact
   const elapsed = elapsedDiff ? fmtMonthDay(elapsedDiff) : '—'
   const remain = remainOver ? (overDiff ? fmtMonthDay(overDiff) : '超過') : (remainDiff ? fmtMonthDay(remainDiff) : '—')
   const remainCls = remainOver ? '#ef4444' : '#93c5fd'
+  // 超過時に左側へ出す「予定期間」＝受注から業務完了予定まで
+  const plannedDiff = orderDate && goalDate ? monthDayDiff(orderDate, goalDate) : null
+  const plannedSpan = plannedDiff ? fmtMonthDay(plannedDiff) : '—'
+  const plannedDays = plannedDiff?.totalDays ?? 0
   // 「現在」の位置を 経過:残り の日数比で動かす（flex-grow 比率）。0でも最小幅は確保。
   const elapsedDays = elapsedDiff?.totalDays ?? 0
   const remainDays = remainDiff?.totalDays ?? 0
@@ -220,11 +224,8 @@ function ActiveMilestoneAxis({ caseData, compact }: { caseData: CaseRow; compact
       {/* 上下のラベル分の余白を確保しつつ、連続ラインの上にアイコン・矢印を重ねる（横スクロールは出さない）。
           両端は 端ノードの日付ラベルがはみ出さないよう左右パディングを確保。 */}
       <div className="relative w-full" style={{ paddingTop: 30, paddingBottom: 34, paddingLeft: 44, paddingRight: 44 }}>
-        {/* 連続した横一線（背面・アイコン中心の高さ・全幅）。超過時は右端の余白も薄い赤にして帯をつなぐ。 */}
+        {/* 連続した横一線（背面・アイコン中心の高さ・全幅） */}
         <div className="absolute left-0 right-0" style={{ top: 30 + circlePx / 2 - 1.5, height: 3, background: '#c7d2fe' }} />
-        {remainOver && (
-          <div className="absolute right-0" style={{ left: '50%', top: 30 + circlePx / 2 - 1.5, height: 3, background: '#fecaca' }} />
-        )}
         {/* 月目盛り（背面・上部余白内に収める。軸ラインまで短い点線＋小さな月ラベル） */}
         {monthTicks.filter((_, i) => i % tickStep === 0).map((t, i) => (
           <div
@@ -236,14 +237,28 @@ function ActiveMilestoneAxis({ caseData, compact }: { caseData: CaseRow; compact
             <div className="mx-auto" style={{ width: 0, marginTop: 2, height: lineTop - 11, borderLeft: '1px dashed #d1d5db' }} />
           </div>
         ))}
-        {/* アイコン＋セグメント（前面） */}
+        {/* アイコン＋セグメント（前面）。
+            予定どおり  … 受注 →経過→ 現在 →残り→ 業務完了予定
+            超過している… 受注 →予定→ 業務完了予定 →超過(赤)→ 現在
+            旗を通り過ぎて赤い区間を進んでいる、という時系列どおりの並びにする。 */}
         <div className="relative flex items-center">
           <Node Icon={Handshake} label="受注" date={orderDate ? ymd(caseData.order_received_date) ?? ymd(caseData.order_date) : null} />
-          <Segment color={elapsedCls} sub="経過" label={elapsed} grow={elapsedDays} />
-          <Node Icon={Play} label="現在" date={ymd(now.toISOString())} cur />
-          {/* 超過しているときは、過ぎた日数ぶん線が伸びる（遅れの大きさが目で分かる） */}
-          <Segment color={remainCls} sub={remainOver ? '超過' : '残り'} label={remain} grow={remainOver ? (overDiff?.totalDays ?? 0) : remainDays} />
-          <Node Icon={Flag} label="業務完了予定" date={goalDate ? ymd(caseData.expected_completion_date) : null} future over={remainOver} />
+          {remainOver ? (
+            <>
+              <Segment color={elapsedCls} sub="予定" label={plannedSpan} grow={plannedDays} />
+              <Node Icon={Flag} label="業務完了予定" date={goalDate ? ymd(caseData.expected_completion_date) : null} future over />
+              {/* 過ぎた日数ぶん線が伸びる（遅れの大きさが目で分かる） */}
+              <Segment color={remainCls} sub="超過" label={remain} grow={overDiff?.totalDays ?? 0} />
+              <Node Icon={Play} label="現在" date={ymd(now.toISOString())} cur />
+            </>
+          ) : (
+            <>
+              <Segment color={elapsedCls} sub="経過" label={elapsed} grow={elapsedDays} />
+              <Node Icon={Play} label="現在" date={ymd(now.toISOString())} cur />
+              <Segment color={remainCls} sub="残り" label={remain} grow={remainDays} />
+              <Node Icon={Flag} label="業務完了予定" date={goalDate ? ymd(caseData.expected_completion_date) : null} future />
+            </>
+          )}
         </div>
       </div>
     </div>
