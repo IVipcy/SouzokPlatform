@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation'
 import { User, FileText, CheckCircle2, ChevronDown, type LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { applyRouteToCaseNumber } from '@/lib/caseNumber'
+import { seedRewardItemsFromProposal } from '@/lib/rewardFromProposal'
+
+// 受注が決まったとみなすステータス（提案金額を報酬内訳へ引き継ぐ判定に使う）
+const ORDER_STATUSES = new Set(['受注', '戻り受注', '作業着手準備', '対応中'])
 import { showToast } from '@/components/ui/Toast'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import { toKatakana } from '@/lib/kana'
@@ -520,6 +524,10 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         if (docRows.length > 0) {
           await supabase.from('contract_documents').insert(docRows)
         }
+        // 新規登録でいきなり受注（即受注・面談なし受注）のときも、提案金額を報酬内訳に引き継ぐ。
+        if (ORDER_STATUSES.has(formData.caseStatus)) {
+          await seedRewardItemsFromProposal(supabase, caseId)
+        }
       } else {
         const { error } = await supabase.from('cases').update(casePayload).eq('id', caseId)
         if (error) throw new Error(`案件の更新に失敗: ${error.message}`)
@@ -528,6 +536,12 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
           // 受注前なら経路コードを差し替える。受注以降は番号が外に出ているので触らない。
           const r = await applyRouteToCaseNumber(supabase, caseId, formData.orderRoute, null, !isOrderRouteLocked(formData.caseStatus))
           if (r.error) showToast(`案件番号の更新に失敗: ${r.error}`, 'error')
+        }
+        // 受注になったら、面談で出した提案金額を報酬内訳の初期行にする。
+        // 面談で金額を決めているのに請求タブでまた同じ数字を打つ手間をなくす。
+        // 既に報酬内訳がある案件・「提案せず」の士業には触らない。
+        if (ORDER_STATUSES.has(formData.caseStatus)) {
+          await seedRewardItemsFromProposal(supabase, caseId)
         }
         // 受注担当が未設定なら、相談結果を登録した本人を受注担当に紐付ける。
         // （LP連携案件は case_members が未作成のため、マイページの担当一覧に出てこない問題の対策）
