@@ -14,7 +14,7 @@ import RecordPaymentModal from './RecordPaymentModal'
 import BankCsvReconcileModal from './BankCsvReconcileModal'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import Button from '@/components/ui/Button'
-import { Edit2, FileText, MessagesSquare } from 'lucide-react'
+import { Edit2, FileText, MessagesSquare, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import { openOfficialInvoice, openOfficialReceipt } from '@/lib/openInvoiceDoc'
 import OpenInvoiceButton from './OpenInvoiceButton'
@@ -165,8 +165,10 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
 
   // 金額は一続きで読むので、6列をひとまとまりに見せる
   const MONEY_COLS = new Set(['amount', 'advance', 'expenses', 'paid', 'refund', 'diff'])
+  // 並び替えは日付・金額・超過だけに付ける（22列すべてに付けると見出しが賑やかになる）
+  const SORTABLE = new Set(['caseNo', 'invoiceDate', 'dueDate', 'overdue', 'paidDate', 'amount', 'paid', 'diff'])
   const { widths: colWidths, reset: resetColWidths, startResize: startColResize } = useResizableColumns('billingListColWidths', {
-    caseNo: 140, case: 180, assignee: 124, gyosei: 58, shiho: 58, type: 92, invoiceDate: 100, dueDate: 100, overdue: 92, paidDate: 100, status: 128, todo: 112, reason: 220, amount: 110, advance: 100, expenses: 100, paid: 100, refund: 100, diff: 90, pdf: 90, receipt: 90, remarks: 160,
+    caseNo: 140, case: 180, assignee: 124, gyosei: 58, shiho: 58, type: 92, invoiceDate: 100, dueDate: 100, overdue: 92, paidDate: 100, status: 128, todo: 112, reason: 220, amount: 110, advance: 100, expenses: 100, paid: 100, refund: 100, diff: 90, pdf: 90, receipt: 90, remarks: 220,
   })
   const HEADERS: Array<{ key: keyof typeof colWidths; label: string; align?: 'left' | 'right' }> = [
     { key: 'caseNo', label: '案件管理番号' },
@@ -353,6 +355,41 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
     if (inv.needs_review && inv.review_reason) return inv.review_reason
     return null
   }
+  // 並び替え（既定：請求日の新しい順）
+  const [sortKey, setSortKey] = useState<string>('invoiceDate')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const toggleSort = (key: string) => {
+    if (sortKey === key) setSortOrder(o => (o === 'asc' ? 'desc' : 'asc'))
+    else { setSortKey(key); setSortOrder(key === 'caseNo' ? 'asc' : 'desc') }
+  }
+
+  // 並び替え後の表示行。空欄は常に末尾へ送る（日付・金額とも「無い」ものを上に出したくない）
+  const sortedRows = useMemo(() => {
+    const val = (inv: InvoiceWithRelations): string | number | null => {
+      switch (sortKey) {
+        case 'caseNo': return inv.cases?.case_number ?? null
+        case 'invoiceDate': return inv.issued_date ?? null
+        case 'dueDate': return inv.due_date ?? null
+        case 'paidDate': return (inv.payments ?? []).filter(p => !p.is_refund).map(p => p.payment_date).sort().pop() ?? null
+        case 'overdue': return overdueDays(inv.due_date, inv.status, Date.now())
+        case 'amount': return inv.amount
+        case 'paid': return getPaidAmount(inv.payments)
+        case 'diff': return inv.amount - getPaidAmount(inv.payments)
+        default: return null
+      }
+    }
+    const dir = sortOrder === 'asc' ? 1 : -1
+    return [...filtered].sort((a, b) => {
+      const x = val(a), y = val(b)
+      if (x == null && y == null) return 0
+      if (x == null) return 1          // 空欄は末尾
+      if (y == null) return -1
+      return typeof x === 'number' && typeof y === 'number'
+        ? (x - y) * dir
+        : String(x).localeCompare(String(y)) * dir
+    })
+  }, [filtered, sortKey, sortOrder])
+
   // 確認依頼への回答（受注/管理）はアラートから自動オープン
   const [respondTarget, setRespondTarget] = useState<ConfirmRequestLite | null>(null)
   // 返金の承認（1次/2次）。やること列のボタンから直接開く
@@ -834,23 +871,32 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                 {HEADERS.map(h => (
                   <th
                     key={h.key as string}
-                    className={`relative border-b border-brand-100 px-3.5 py-2 text-[11px] font-medium text-brand-700 tracking-[0.04em] ${h.align === 'right' ? 'text-right' : 'text-left'} ${MONEY_COLS.has(h.key as string) ? 'bg-brand-100/50' : 'bg-brand-50/60'}`}
+                    className={`relative border-b border-brand-100 px-3.5 py-2 text-[11px] font-bold text-brand-700 tracking-[0.04em] ${h.align === 'right' ? 'text-right' : 'text-left'} ${MONEY_COLS.has(h.key as string) ? 'bg-brand-100/50' : 'bg-brand-50/60'}`}
                   >
-                    {h.label}
+                    {SORTABLE.has(h.key as string) ? (
+                      <button type="button" onClick={() => toggleSort(h.key as string)}
+                        title={sortKey === h.key ? (sortOrder === 'asc' ? '昇順で並び替え中。クリックで降順' : '降順で並び替え中。クリックで昇順') : 'クリックで並び替え'}
+                        className={`inline-flex items-center gap-0.5 hover:text-brand-800 transition-colors ${h.align === 'right' ? 'flex-row-reverse' : ''} ${sortKey === h.key ? 'text-brand-800' : ''}`}>
+                        {h.label}
+                        {sortKey === h.key
+                          ? (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3" strokeWidth={2.5} /> : <ArrowDown className="w-3 h-3" strokeWidth={2.5} />)
+                          : <ChevronsUpDown className="w-3 h-3 text-brand-300" strokeWidth={2} />}
+                      </button>
+                    ) : h.label}
                     <ResizeHandle onMouseDown={startColResize(h.key)} />
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {sortedRows.length === 0 ? (
                 <tr>
                   <td colSpan={HEADERS.length + 1} className="px-4 py-12 text-center text-sm text-gray-400">
                     該当する請求データがありません
                   </td>
                 </tr>
               ) : (
-                filtered.map(inv => {
+                sortedRows.map(inv => {
                   const st = INVOICE_STATUS_STYLES[inv.status] ?? INVOICE_STATUS_STYLES['作成済']
                   const paidAmount = getPaidAmount(inv.payments)
                   const refundTotal = getRefundTotal(inv.payments)
@@ -907,9 +953,9 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                         <div className="flex items-center gap-2">
                           <span className={`inline-flex items-center justify-center w-4 h-4 rounded text-[9px] font-bold text-white flex-shrink-0 ${cdot.cls}`} title={inv.cases?.contract_type ?? '契約形態未設定'}>{cdot.label}</span>
                           {inv.cases?.id ? (
-                            <Link href={`/cases/${inv.cases.id}`} className="font-mono text-[12px] text-gray-700 truncate hover:text-brand-700 hover:underline" title="案件詳細を開く">{caseNumber || '—'}</Link>
+                            <Link href={`/cases/${inv.cases.id}`} className="font-mono text-[13px] text-gray-700 truncate hover:text-brand-700 hover:underline" title="案件詳細を開く">{caseNumber || '—'}</Link>
                           ) : (
-                            <span className="font-mono text-[12px] text-gray-700 truncate">{caseNumber || '—'}</span>
+                            <span className="font-mono text-[13px] text-gray-700 truncate">{caseNumber || '—'}</span>
                           )}
                         </div>
                       </td>
@@ -917,12 +963,12 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                       <td className="px-3.5 py-2.5 overflow-hidden">
                         {inv.cases?.id ? (
                           <Link href={`/cases/${inv.cases.id}`} onClick={e => e.stopPropagation()} className="block group min-w-0">
-                            <div className="text-xs font-semibold text-gray-900 truncate group-hover:text-brand-700 group-hover:underline">{caseName}</div>
+                            <div className="text-[13px] font-semibold text-gray-900 truncate group-hover:text-brand-700 group-hover:underline">{caseName}</div>
                             {deceasedName && <div className="text-[12px] text-gray-400 truncate">被相続人: {deceasedName}</div>}
                           </Link>
                         ) : (
                           <div className="min-w-0">
-                            <div className="text-xs font-semibold text-gray-900 truncate">{caseName}</div>
+                            <div className="text-[13px] font-semibold text-gray-900 truncate">{caseName}</div>
                             {deceasedName && <div className="text-[12px] text-gray-400 truncate">被相続人: {deceasedName}</div>}
                           </div>
                         )}
@@ -960,9 +1006,9 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium ${typeStyle.bg} ${typeStyle.text}`}>{typeLabel}</span>
                       </td>
                       {/* 請求日 */}
-                      <td className="px-3.5 py-2.5 text-xs text-gray-500 font-mono">{inv.issued_date || '—'}</td>
+                      <td className="px-3.5 py-2.5 text-[13px] text-gray-500 font-mono">{inv.issued_date || '—'}</td>
                       {/* 入金期日 */}
-                      <td className={`px-3.5 py-2.5 text-xs font-mono ${od ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>{inv.due_date || '—'}</td>
+                      <td className={`px-3.5 py-2.5 text-[13px] font-mono ${od ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>{inv.due_date || '—'}</td>
                       {/* 超過日数。督促の起点なので数字を大きく出す */}
                       <td className="px-2 py-2.5 text-center">
                         {od == null
@@ -972,7 +1018,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                             </span>}
                       </td>
                       {/* 入金日（最新の入金。分割時は詳細パネルで内訳を見る） */}
-                      <td className="px-3.5 py-2.5 text-xs text-gray-500 font-mono">{lastPaidDate || '—'}</td>
+                      <td className="px-3.5 py-2.5 text-[13px] text-gray-500 font-mono">{lastPaidDate || '—'}</td>
                       {/* 入金ステータス（個別ドロップダウン編集可能） */}
                       <td className="px-3.5 py-2.5" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-1.5 flex-wrap">
