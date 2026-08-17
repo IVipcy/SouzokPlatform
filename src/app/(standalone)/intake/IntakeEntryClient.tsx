@@ -2,7 +2,8 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { PenSquare, Link2, Plus, ChevronRight, FileEdit, Clock } from 'lucide-react'
+import { PenSquare, Link2, Plus, ChevronRight, FileEdit, Clock, ArrowLeft } from 'lucide-react'
+import Link from 'next/link'
 import PageHeader from '@/components/ui/PageHeader'
 import CaseSelectScreen from '@/app/(authenticated)/meeting/CaseSelectScreen'
 import type { CaseData, SelectedCase } from '@/app/(authenticated)/meeting/MeetingPageClient'
@@ -36,6 +37,12 @@ export default function IntakeEntryClient({ cases, drafts }: Props) {
 
   return (
     <div>
+      {/* 管理画面へ戻る導線。PCでは「この画面から出る」は左上にあるのが自然なので、
+          右上の「管理画面へ」とは別にここへ置く。スマホは画面が狭く、端末側の戻る操作もあるので出さない。 */}
+      <Link href="/dashboard"
+        className="hidden sm:inline-flex items-center gap-1 text-[12.5px] text-gray-500 hover:text-gray-700 mb-1">
+        <ArrowLeft className="w-3.5 h-3.5" strokeWidth={2} />管理画面に戻る
+      </Link>
       <PageHeader
         eyebrow="Intake"
         title="面談登録"
