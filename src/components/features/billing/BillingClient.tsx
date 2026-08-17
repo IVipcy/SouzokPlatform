@@ -164,7 +164,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
   }
 
   const { widths: colWidths, reset: resetColWidths, startResize: startColResize } = useResizableColumns('billingListColWidths', {
-    caseNo: 140, case: 180, assignee: 110, gyosei: 58, shiho: 58, type: 92, invoiceDate: 100, dueDate: 100, overdue: 92, paidDate: 100, status: 128, todo: 112, reason: 220, amount: 110, advance: 100, expenses: 100, paid: 100, refund: 100, diff: 90, pdf: 90, receipt: 90, remarks: 160,
+    caseNo: 140, case: 180, assignee: 124, gyosei: 58, shiho: 58, type: 92, invoiceDate: 100, dueDate: 100, overdue: 92, paidDate: 100, status: 128, todo: 112, reason: 220, amount: 110, advance: 100, expenses: 100, paid: 100, refund: 100, diff: 90, pdf: 90, receipt: 90, remarks: 160,
   })
   const HEADERS: Array<{ key: keyof typeof colWidths; label: string; align?: 'left' | 'right' }> = [
     { key: 'caseNo', label: '案件管理番号' },
@@ -927,13 +927,19 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                       </td>
                       {/* 担当（上段＝受注担当・下段＝管理担当。管理は引継ぎ／サブで最大2名） */}
                       <td className="px-3.5 py-2.5" onClick={e => e.stopPropagation()}>
-                        <div className="flex flex-col gap-0.5 min-w-0">
-                          {sales
-                            ? <Link href={`/profile/${sales.id}`} className="text-xs text-gray-700 truncate hover:text-brand-700 hover:underline">{sales.name}</Link>
-                            : <span className="text-xs text-gray-300">—</span>}
-                          {managers.length > 0
-                            ? <span className="text-[11px] text-gray-400 truncate" title={managers.map(m => m.name).join(' / ')}>{managers.map(m => m.name).join(' / ')}</span>
-                            : <span className="text-[11px] text-gray-300">—</span>}
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <div className="flex items-center gap-1 min-w-0">
+                            <span className="flex-none inline-flex items-center justify-center w-[15px] h-[15px] rounded-[3px] text-[9.5px] font-bold bg-brand-50 text-brand-700" title="受注担当">受</span>
+                            {sales
+                              ? <Link href={`/profile/${sales.id}`} className="text-[12.5px] text-gray-800 truncate hover:text-brand-700 hover:underline">{sales.name}</Link>
+                              : <span className="text-[12.5px] text-gray-300">—</span>}
+                          </div>
+                          <div className="flex items-center gap-1 min-w-0">
+                            <span className="flex-none inline-flex items-center justify-center w-[15px] h-[15px] rounded-[3px] text-[9.5px] font-bold bg-emerald-50 text-emerald-700" title="管理担当">管</span>
+                            {managers.length > 0
+                              ? <span className="text-[12.5px] text-gray-600 truncate" title={managers.map(m => m.name).join(' / ')}>{managers.map(m => m.name).join(' / ')}</span>
+                              : <span className="text-[12.5px] text-gray-300">—</span>}
+                          </div>
                         </div>
                       </td>
                       {/* 行／司。該当する側だけ塗りのバッジで出す（縦に読んで件数が掴めるように） */}
@@ -1010,18 +1016,18 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                             : <span className="text-gray-200 text-xs">—</span>
                         })()}
                       </td>
-                      <td className="px-3.5 py-2.5 text-right text-xs font-mono font-medium text-gray-900">{fmt(inv.amount)}</td>
+                      <td className="px-3.5 py-2.5 text-right text-[13.5px] font-mono font-semibold text-gray-900">{fmt(inv.amount)}</td>
                       {/* 前受金（前受金請求＝請求額／確定請求＝差し引いた前受金控除） */}
-                      <td className="px-3.5 py-2.5 text-right text-xs font-mono text-gray-700">{fmt(inv.invoice_type === '前受金' ? inv.amount : (inv.advance_deduction || 0))}</td>
+                      <td className="px-3.5 py-2.5 text-right text-[13.5px] font-mono text-gray-700">{fmt(inv.invoice_type === '前受金' ? inv.amount : (inv.advance_deduction || 0))}</td>
                       {/* 実費（立替実費） */}
-                      <td className="px-3.5 py-2.5 text-right text-xs font-mono text-gray-700">{fmt(inv.expenses_amount || 0)}</td>
-                      <td className="px-3.5 py-2.5 text-right text-xs font-mono text-green-600">{fmt(paidAmount)}</td>
+                      <td className="px-3.5 py-2.5 text-right text-[13.5px] font-mono text-gray-700">{fmt(inv.expenses_amount || 0)}</td>
+                      <td className="px-3.5 py-2.5 text-right text-[13.5px] font-mono font-medium text-green-600">{fmt(paidAmount)}</td>
                       {/* 返金額 */}
-                      <td className="px-3.5 py-2.5 text-right text-xs font-mono">
-                        {refundTotal > 0 ? <span className="text-rose-600">−{fmt(refundTotal)}</span> : <span className="text-gray-300">—</span>}
+                      <td className="px-3.5 py-2.5 text-right text-[13.5px] font-mono">
+                        {refundTotal > 0 ? <span className="text-rose-600 font-medium">−{fmt(refundTotal)}</span> : <span className="text-gray-300">—</span>}
                       </td>
                       {/* 差額。不足＝赤、過入金（請求額より多い）＝琥珀で「+◯◯」 */}
-                      <td className="px-3.5 py-2.5 text-right text-xs font-mono">
+                      <td className="px-3.5 py-2.5 text-right text-[13.5px] font-mono">
                         {inv.amount > 0
                           ? diff > 0
                             ? <span className="text-red-500">{fmt(diff)}</span>
