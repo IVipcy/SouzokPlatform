@@ -14,18 +14,18 @@ import RecordPaymentModal from './RecordPaymentModal'
 import BankCsvReconcileModal from './BankCsvReconcileModal'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import Button from '@/components/ui/Button'
-import UserAvatar from '@/components/ui/UserAvatar'
-import { Edit2, FileText, MessagesSquare, MoreHorizontal } from 'lucide-react'
+import { Edit2, FileText, MessagesSquare } from 'lucide-react'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import { openOfficialInvoice, openOfficialReceipt } from '@/lib/openInvoiceDoc'
 import OpenInvoiceButton from './OpenInvoiceButton'
 import { showToast } from '@/components/ui/Toast'
-import { INVOICE_STATUS_STYLES, INVOICE_TYPE_LABEL, INVOICE_TYPE_STYLES, getCaseStatusLabel, billingPatternOf } from '@/lib/constants'
+import { INVOICE_STATUS_STYLES, INVOICE_TYPE_LABEL, INVOICE_TYPE_STYLES, SHIGYO_COLORS } from '@/lib/constants'
 import UnmatchedDepositsPanel from './UnmatchedDepositsPanel'
 import RefundListModal from './RefundListModal'
 import type { BillingRequestRow } from './BillingRequestsPanel'
 import BillingRefundRequestsList from './BillingRefundRequestsList'
 import RespondBillingRequestModal, { type ConfirmRequestLite } from './RespondBillingRequestModal'
+import RefundDecideModal from './RefundDecideModal'
 import { resolutionOf } from '@/lib/billingRequests'
 import BillingRequestModal, { type RequestInvoice } from './BillingRequestModal'
 import type { InvoiceRow, InvoiceStatus, CaseRow, ClientRow, MemberRow, CaseMemberRow, PaymentRow, UnmatchedDepositRow } from '@/types'
@@ -100,15 +100,19 @@ function overdueDays(dueDate: string | null, status: InvoiceStatus, todayMs: num
 }
 
 type Assignee = { id: string; name: string; avatarUrl: string | null }
+const toAssignee = (m: MemberRow | null): Assignee | null =>
+  m ? { id: m.id, name: m.name, avatarUrl: m.avatar_url ?? null } : null
+/** 担当は1列にまとめて出す。上段＝受注担当、下段＝管理担当（引継ぎ・サブで最大2名）。 */
 function getAssignees(caseData: InvoiceWithRelations['cases'] | null): {
   sales: Assignee | null
-  manager: Assignee | null
+  managers: Assignee[]
 } {
   const sales = caseData?.case_members?.find(cm => cm.role === 'sales')?.members ?? null
-  const manager = caseData?.case_members?.find(cm => cm.role === 'manager')?.members ?? null
-  const toA = (m: MemberRow | null): Assignee | null =>
-    m ? { id: m.id, name: m.name, avatarUrl: m.avatar_url ?? null } : null
-  return { sales: toA(sales), manager: toA(manager) }
+  const managers = (caseData?.case_members ?? [])
+    .filter(cm => cm.role === 'manager')
+    .map(cm => toAssignee(cm.members))
+    .filter((a): a is Assignee => a != null)
+  return { sales: toAssignee(sales), managers }
 }
 
 // 契約形態 → 行/司/連名 色（行=青/司=赤/連名=紫）
@@ -160,34 +164,31 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
   }
 
   const { widths: colWidths, reset: resetColWidths, startResize: startColResize } = useResizableColumns('billingListColWidths', {
-    caseNo: 140, case: 180, pattern: 120, route: 110, referral: 130, type: 90, caseStatus: 100, sales: 110, manager: 110, status: 120, actionStatus: 130, reviewReason: 200, dueDate: 100, overdue: 140, amount: 110, advance: 100, expenses: 100, paid: 100, refund: 100, diff: 90, invoiceDate: 100, pdf: 90, receipt: 90, remarks: 160, actions: 90,
+    caseNo: 140, case: 180, assignee: 110, gyosei: 58, shiho: 58, type: 92, invoiceDate: 100, dueDate: 100, overdue: 92, paidDate: 100, status: 128, todo: 112, reason: 220, amount: 110, advance: 100, expenses: 100, paid: 100, refund: 100, diff: 90, pdf: 90, receipt: 90, remarks: 160,
   })
   const HEADERS: Array<{ key: keyof typeof colWidths; label: string; align?: 'left' | 'right' }> = [
-    { key: 'caseNo', label: '案件番号' },
+    { key: 'caseNo', label: '案件管理番号' },
     { key: 'case', label: '案件名' },
-    { key: 'pattern', label: '請求パターン' },
-    { key: 'route', label: '受注ルート' },
-    { key: 'referral', label: '紹介元' },
+    { key: 'assignee', label: '担当' },
+    { key: 'gyosei', label: '行' },
+    { key: 'shiho', label: '司' },
     { key: 'type', label: '請求分類' },
-    { key: 'caseStatus', label: '案件ステータス' },
-    { key: 'sales', label: '受注担当' },
-    { key: 'manager', label: '管理担当' },
-    { key: 'status', label: '入金ステータス' },
-    { key: 'actionStatus', label: '対応状況' },
-    { key: 'reviewReason', label: '要確認理由' },
+    { key: 'invoiceDate', label: '請求日' },
     { key: 'dueDate', label: '入金期日' },
-    { key: 'overdue', label: '超過日数' },
+    { key: 'overdue', label: '超過' },
+    { key: 'paidDate', label: '入金日' },
+    { key: 'status', label: '入金ステータス' },
+    { key: 'todo', label: 'やること' },
+    { key: 'reason', label: '内容・理由' },
     { key: 'amount', label: '請求金額', align: 'right' },
     { key: 'advance', label: '前受金', align: 'right' },
     { key: 'expenses', label: '実費', align: 'right' },
     { key: 'paid', label: '入金済額', align: 'right' },
     { key: 'refund', label: '返金額', align: 'right' },
     { key: 'diff', label: '差額', align: 'right' },
-    { key: 'invoiceDate', label: '請求日' },
     { key: 'pdf', label: '請求書' },
     { key: 'receipt', label: '領収書' },
     { key: 'remarks', label: '備考' },
-    { key: 'actions', label: '操作' },
   ]
 
   // Modal states
@@ -296,17 +297,64 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
     else if (r.kind === 'refund') refundByInvoice.set(r.invoice_id, r)
   }
   const refundReqs = requests.filter(r => r.kind === 'refund' && r.status !== '完了')
-  // 行の「対応状況」（1状態）：返金依頼 > 確認依頼中 > 確認済(判定) > 要確認(未依頼) > なし
-  const actionStatusOf = (inv: InvoiceWithRelations): { label: string; cls: string } | null => {
-    if (refundByInvoice.has(inv.id)) return { label: '返金依頼', cls: 'bg-rose-50 text-rose-700 border-rose-200' }
+  // 行の「やること」（1つだけ）。優先度：返金 > 確認依頼 > 自動要確認。
+  // onClick があるものは “自分が動く番” ＝ ボタン。無いものは他人待ちの表示。
+  const BTN_ACCENT = 'bg-brand-600 text-white hover:bg-brand-700'
+  const BTN_DANGER = 'bg-rose-600 text-white hover:bg-rose-700'
+  const BTN_DONE   = 'bg-emerald-600 text-white hover:bg-emerald-700'
+  const TAG_WAIT   = 'bg-gray-100 text-gray-500'
+  const TAG_WARN   = 'bg-amber-50 text-amber-700 border border-amber-200'
+  const todoOf = (inv: InvoiceWithRelations): { label: string; cls: string; onClick?: () => void } | null => {
+    // ① 返金依頼：1次承認 → 2次承認 → 経理が返金を実行
+    const rf = refundByInvoice.get(inv.id)
+    if (rf) {
+      const st = rf.approval_status
+      if (st === 'pending_sales') {
+        return rf.sales_approver_id === currentMemberId
+          ? { label: '1次承認', cls: BTN_DANGER, onClick: () => setRefundDecideTarget(rf) }
+          : { label: '1次承認待ち', cls: TAG_WAIT }
+      }
+      if (st === 'pending_leader') {
+        return rf.leader_approver_id === currentMemberId
+          ? { label: '2次承認', cls: BTN_DANGER, onClick: () => setRefundDecideTarget(rf) }
+          : { label: '2次承認待ち', cls: TAG_WAIT }
+      }
+      if (st === 'rejected') return { label: '返金 却下', cls: TAG_WAIT }
+      // 承認済（または旧仕様で承認フローなし）＝経理が返金を実行する番
+      return { label: '返金を実行', cls: BTN_DONE, onClick: () => setSelectedId(inv.id) }
+    }
+    // ② 確認依頼：受注／管理が回答する
     const c = confirmByInvoice.get(inv.id)
-    if (c?.status === '依頼中') return { label: '確認依頼中', cls: 'bg-brand-50 text-brand-700 border-brand-200' }
-    if (c?.status === '回答済') { const r = resolutionOf(c.resolution); return { label: `確認済${r ? `・${r.label}` : ''}`, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' } }
-    if (inv.needs_review) return { label: '要確認', cls: 'bg-amber-50 text-amber-700 border-amber-200' }
+    if (c?.status === '依頼中') {
+      const mine = c.requester_id !== currentMemberId   // 依頼した本人以外＝回答する側
+      return mine
+        ? { label: '回答する', cls: BTN_ACCENT, onClick: () => setRespondTarget({ id: c.id, case_id: c.case_id, requester_id: c.requester_id, request_note: c.request_note, caseNumber: c.caseNumber, dealName: c.dealName }) }
+        : { label: '回答待ち', cls: TAG_WAIT }
+    }
+    if (c?.status === '回答済') {
+      const r = resolutionOf(c.resolution)
+      return { label: `回答あり${r ? `・${r.label}` : ''}`, cls: 'bg-emerald-50 text-emerald-700 border border-emerald-200' }
+    }
+    // ③ CSV突合が自動で立てた要確認
+    if (inv.needs_review) return { label: '要確認', cls: TAG_WARN }
+    return null
+  }
+  // 「内容・理由」：自動判定の理由・確認依頼の内容／回答・返金理由を1列に集約
+  const reasonOf = (inv: InvoiceWithRelations): string | null => {
+    const rf = refundByInvoice.get(inv.id)
+    if (rf) {
+      const amt = rf.refund_amount != null ? `返金 ${fmt(rf.refund_amount)}` : '返金'
+      return [amt, rf.reason_category, rf.request_note].filter(Boolean).join('／')
+    }
+    const c = confirmByInvoice.get(inv.id)
+    if (c) return [c.request_note, c.result_note && `回答：${c.result_note}`].filter(Boolean).join('／') || null
+    if (inv.needs_review && inv.review_reason) return inv.review_reason
     return null
   }
   // 確認依頼への回答（受注/管理）はアラートから自動オープン
   const [respondTarget, setRespondTarget] = useState<ConfirmRequestLite | null>(null)
+  // 返金の承認（1次/2次）。やること列のボタンから直接開く
+  const [refundDecideTarget, setRefundDecideTarget] = useState<BillingRequestRow | null>(null)
   // アラート(?respond=1)から来たら、その案件の未回答の確認依頼を自動でモーダル表示（案件ごとに1回）
   const respondHandledRef = useRef<string | null>(null)
   useEffect(() => {
@@ -711,6 +759,32 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
           onClose={() => setRespondTarget(null)} onSaved={() => { setRespondTarget(null); router.refresh() }} />
       )}
 
+      {/* 返金の1次/2次承認。「やること」列のボタンから直接開く */}
+      {refundDecideTarget && (
+        <RefundDecideModal
+          isOpen
+          request={{
+            id: refundDecideTarget.id,
+            case_id: refundDecideTarget.case_id,
+            invoice_id: refundDecideTarget.invoice_id,
+            requester_id: refundDecideTarget.requester_id,
+            request_note: refundDecideTarget.request_note,
+            reason_category: refundDecideTarget.reason_category,
+            fee_bearer: refundDecideTarget.fee_bearer,
+            refund_amount: refundDecideTarget.refund_amount,
+            requested_date: refundDecideTarget.requested_date,
+            approval_status: refundDecideTarget.approval_status ?? null,
+            sales_approver_id: refundDecideTarget.sales_approver_id ?? null,
+            leader_approver_id: refundDecideTarget.leader_approver_id ?? null,
+            caseNumber: refundDecideTarget.caseNumber,
+            dealName: refundDecideTarget.dealName,
+          }}
+          currentMemberId={currentMemberId}
+          onClose={() => setRefundDecideTarget(null)}
+          onDecided={() => { setRefundDecideTarget(null); router.refresh() }}
+        />
+      )}
+
       {statusFilter === 'refund' ? (
         <BillingRefundRequestsList refundReqs={refundReqs} refundEntries={refundEntries} canReconcile={canReconcile} currentMemberId={currentMemberId} onChanged={() => router.refresh()} />
       ) : (
@@ -780,9 +854,10 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                   const refundTotal = getRefundTotal(inv.payments)
                   const diff = inv.amount - paidAmount
                   const od = overdueDays(inv.due_date, inv.status, Date.now())
-                  const { sales, manager } = getAssignees(inv.cases)
+                  const { sales, managers } = getAssignees(inv.cases)
+                  // 入金日は最新の1件（分割入金の内訳は詳細パネルで見る）
+                  const lastPaidDate = (inv.payments ?? []).filter(p => !p.is_refund).map(p => p.payment_date).sort().pop() ?? null
                   const cdot = contractDot(inv.cases?.contract_type)
-                  const caseStatusLabel = getCaseStatusLabel(inv.cases?.status)
                   const caseName = inv.cases?.deal_name || '—'
                   const caseNumber = inv.cases?.case_number || ''
                   const deceasedName = inv.cases?.deceased_name || ''
@@ -796,7 +871,9 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                     <tr
                       key={inv.id}
                       ref={isLinkTarget ? highlightRowRef : undefined}
-                      className={`border-b border-gray-100 last:border-b-0 transition ${
+                      onClick={() => setSelectedId(inv.id === selectedId ? null : inv.id)}
+                      title="クリックで入金消込・依頼などの操作を開く"
+                      className={`border-b border-gray-100 last:border-b-0 transition cursor-pointer ${
                         isLinkTarget ? 'bg-amber-50/70 ring-2 ring-inset ring-amber-300' :
                         isBulkSelected ? 'bg-brand-50/60' :
                         isChecked ? 'bg-brand-50/80' :
@@ -848,49 +925,46 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                           </div>
                         )}
                       </td>
-                      {/* 請求パターン */}
-                      <td className="px-3.5 py-2.5 overflow-hidden">
-                        {(() => {
-                          const p = billingPatternOf(inv.cases?.billing_pattern)
-                          const short = p.value === 'staged' ? '段階請求' : p.value === 'lump_expense' ? '一括＋実費' : '一括のみ'
-                          const cls = p.value === 'staged' ? 'bg-gray-50 text-gray-600 border-gray-200' : 'bg-brand-50 text-brand-700 border-brand-100'
-                          return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${cls}`} title={p.desc}><span className="font-semibold">{p.no}</span>{short}</span>
-                        })()}
-                      </td>
-                      {/* 受注ルート */}
-                      <td className="px-3.5 py-2.5 text-xs text-gray-600 truncate">{inv.cases?.order_route || <span className="text-gray-300">—</span>}</td>
-                      {/* 紹介元（詳細） */}
-                      <td className="px-3.5 py-2.5 text-xs text-gray-600 truncate">{inv.cases?.order_route_detail || <span className="text-gray-300">—</span>}</td>
-                      {/* 請求分類（前受金 / 確定売上）＋ 発行法人 */}
-                      <td className="px-3.5 py-2.5">
-                        <div className="flex flex-col items-start gap-1">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium ${typeStyle.bg} ${typeStyle.text}`}>{typeLabel}</span>
-                          {inv.firm_type === 'gyosei' && <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[10px] font-medium bg-blue-50 text-blue-800">行政書士</span>}
-                          {inv.firm_type === 'shiho' && <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[10px] font-medium bg-red-50 text-red-800">司法書士</span>}
+                      {/* 担当（上段＝受注担当・下段＝管理担当。管理は引継ぎ／サブで最大2名） */}
+                      <td className="px-3.5 py-2.5" onClick={e => e.stopPropagation()}>
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          {sales
+                            ? <Link href={`/profile/${sales.id}`} className="text-xs text-gray-700 truncate hover:text-brand-700 hover:underline">{sales.name}</Link>
+                            : <span className="text-xs text-gray-300">—</span>}
+                          {managers.length > 0
+                            ? <span className="text-[11px] text-gray-400 truncate" title={managers.map(m => m.name).join(' / ')}>{managers.map(m => m.name).join(' / ')}</span>
+                            : <span className="text-[11px] text-gray-300">—</span>}
                         </div>
                       </td>
-                      {/* 案件ステータス */}
+                      {/* 行／司。該当する側だけ塗りのバッジで出す（縦に読んで件数が掴めるように） */}
+                      <td className="px-2 py-2.5 text-center">
+                        {inv.firm_type === 'gyosei'
+                          ? <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-bold text-white" style={{ backgroundColor: SHIGYO_COLORS['行政'].color }}>行政</span>
+                          : <span className="text-gray-200 text-xs">—</span>}
+                      </td>
+                      <td className="px-2 py-2.5 text-center">
+                        {inv.firm_type === 'shiho'
+                          ? <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-bold text-white" style={{ backgroundColor: SHIGYO_COLORS['司法'].color }}>司法</span>
+                          : <span className="text-gray-200 text-xs">—</span>}
+                      </td>
+                      {/* 請求分類（前受金 / 確定売上） */}
                       <td className="px-3.5 py-2.5">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium bg-slate-100 text-slate-600">{caseStatusLabel || '—'}</span>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium ${typeStyle.bg} ${typeStyle.text}`}>{typeLabel}</span>
                       </td>
-                      {/* 受注担当 */}
-                      <td className="px-3.5 py-2.5" onClick={e => e.stopPropagation()}>
-                        {sales ? (
-                          <Link href={`/profile/${sales.id}`} className="flex items-center gap-1.5 hover:text-brand-700 hover:underline">
-                            <UserAvatar name={sales.name} role="sales" url={sales.avatarUrl} size="sm" />
-                            <span className="text-xs text-gray-600 truncate">{sales.name}</span>
-                          </Link>
-                        ) : <span className="text-xs text-gray-300">—</span>}
+                      {/* 請求日 */}
+                      <td className="px-3.5 py-2.5 text-xs text-gray-500 font-mono">{inv.issued_date || '—'}</td>
+                      {/* 入金期日 */}
+                      <td className={`px-3.5 py-2.5 text-xs font-mono ${od ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>{inv.due_date || '—'}</td>
+                      {/* 超過日数。督促の起点なので数字を大きく出す */}
+                      <td className="px-2 py-2.5 text-center">
+                        {od == null
+                          ? <span className="text-gray-200 text-xs">—</span>
+                          : <span className="inline-flex items-baseline gap-0.5 text-red-600" title={`入金期日を ${od}日 過ぎています`}>
+                              <span className="text-[16px] font-bold leading-none">{od}</span><span className="text-[10px]">日</span>
+                            </span>}
                       </td>
-                      {/* 管理担当 */}
-                      <td className="px-3.5 py-2.5" onClick={e => e.stopPropagation()}>
-                        {manager ? (
-                          <Link href={`/profile/${manager.id}`} className="flex items-center gap-1.5 hover:text-brand-700 hover:underline">
-                            <UserAvatar name={manager.name} role="manager" url={manager.avatarUrl} size="sm" />
-                            <span className="text-xs text-gray-600 truncate">{manager.name}</span>
-                          </Link>
-                        ) : <span className="text-xs text-gray-300">—</span>}
-                      </td>
+                      {/* 入金日（最新の入金。分割時は詳細パネルで内訳を見る） */}
+                      <td className="px-3.5 py-2.5 text-xs text-gray-500 font-mono">{lastPaidDate || '—'}</td>
                       {/* 入金ステータス（個別ドロップダウン編集可能） */}
                       <td className="px-3.5 py-2.5" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-1.5 flex-wrap">
@@ -917,30 +991,24 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                           )}
                         </div>
                       </td>
-                      {/* 対応状況（要確認・依頼系を1状態で表示） */}
-                      <td className="px-3.5 py-2.5">
+                      {/* やること。自分が動く番ならボタン、他人待ちなら表示のみ */}
+                      <td className="px-2 py-2.5" onClick={e => e.stopPropagation()}>
                         {(() => {
-                          const a = actionStatusOf(inv)
-                          return a
-                            ? <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-bold border ${a.cls}`}>{a.label}</span>
-                            : <span className="text-gray-300 text-xs">—</span>
+                          const t = todoOf(inv)
+                          if (!t) return <span className="text-gray-200 text-xs">—</span>
+                          return t.onClick
+                            ? <button type="button" onClick={t.onClick} className={`inline-flex items-center px-2.5 py-1 rounded-[5px] text-[11px] font-bold transition ${t.cls}`}>{t.label}</button>
+                            : <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-bold ${t.cls}`}>{t.label}</span>
                         })()}
                       </td>
-                      {/* 要確認理由（CSV突合でAIが要確認にした理由） */}
+                      {/* 内容・理由。CSV突合の自動判定／確認依頼の内容／返金理由を1列に集約 */}
                       <td className="px-3.5 py-2.5 overflow-hidden">
-                        {inv.needs_review && inv.review_reason
-                          ? <span className="text-[11.5px] text-amber-800 bg-amber-50 border border-amber-100 rounded px-1.5 py-0.5 inline-block leading-snug" title={inv.review_reason}>{inv.review_reason}</span>
-                          : <span className="text-gray-300 text-xs">—</span>}
-                      </td>
-                      {/* 入金期日 */}
-                      <td className={`px-3.5 py-2.5 text-xs font-mono ${od ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>{inv.due_date || '—'}</td>
-                      {/* 超過日数（超過した未入金のみ） */}
-                      <td className="px-3.5 py-2.5">
-                        {od == null ? (
-                          <span className="text-gray-300 text-xs">—</span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium bg-red-50 text-red-700">{od}日超過</span>
-                        )}
+                        {(() => {
+                          const r = reasonOf(inv)
+                          return r
+                            ? <span className="text-[11.5px] text-gray-700 leading-snug line-clamp-2" title={r}>{r}</span>
+                            : <span className="text-gray-200 text-xs">—</span>
+                        })()}
                       </td>
                       <td className="px-3.5 py-2.5 text-right text-xs font-mono font-medium text-gray-900">{fmt(inv.amount)}</td>
                       {/* 前受金（前受金請求＝請求額／確定請求＝差し引いた前受金控除） */}
@@ -962,7 +1030,6 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                               : <span className="text-gray-400">—</span>
                           : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-3.5 py-2.5 text-xs text-gray-500 font-mono">{inv.issued_date || '—'}</td>
                       {/* 請求書（公式Excelに一本化。無い旧データは開く時に生成） */}
                       <td className="px-3.5 py-2.5 text-center" onClick={e => e.stopPropagation()}>
                         {isUnissued ? (
@@ -988,19 +1055,6 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                       {/* 備考（表上で直接編集） */}
                       <td className="px-2 py-1.5" onClick={e => e.stopPropagation()}>
                         <RemarksCell value={inv.notes} onCommit={v => handleNotesCommit(inv.id, v)} />
-                      </td>
-                      {/* 操作：入金消込・確認依頼・返金依頼をまとめた右パネルを開く（回答待ちはドット表示） */}
-                      <td className="px-2 py-2.5">
-                        <div className="flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedId(inv.id === selectedId ? null : inv.id)}
-                            className={`inline-flex items-center justify-center gap-1 w-[72px] py-1 text-[12px] font-semibold rounded border transition ${selectedId === inv.id ? 'bg-brand-50 text-brand-700 border-brand-200' : 'text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-brand-700'}`}
-                            title="入金消込・確認依頼・返金依頼などの操作を開く"
-                          >
-                            <MoreHorizontal className="w-3.5 h-3.5" strokeWidth={2} />操作
-                          </button>
-                        </div>
                       </td>
                     </tr>
                   )
@@ -1097,19 +1151,17 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                   </DetailSection>
                 )}
                 <div className="flex flex-col gap-2 pt-2">
-                  {/* 確認依頼の状態・回答（あれば） */}
+                  {/* 確認依頼・返金依頼の状態（読み取り専用）。
+                      回答・承認は表の「やること」列のボタンから行うので、ここには操作を置かない。 */}
                   {(() => {
                     const cReq = confirmByInvoice.get(selected.id)
                     if (!cReq) return null
                     const r = resolutionOf(cReq.resolution)
                     return (
-                      <div className="rounded-lg border border-brand-100 bg-brand-50/50 px-3 py-2 text-[11.5px]">
-                        <div className="font-semibold text-brand-800">確認依頼：{cReq.status === '依頼中' ? '回答待ち（受注/管理）' : `回答あり${r ? `・判定「${r.label}」` : ''}`}</div>
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-[11.5px]">
+                        <div className="font-semibold text-gray-700">確認依頼：{cReq.status === '依頼中' ? '回答待ち' : `回答あり${r ? `・判定「${r.label}」` : ''}`}</div>
                         {cReq.request_note && <div className="text-gray-500 mt-0.5">内容：{cReq.request_note}</div>}
                         {cReq.result_note && <div className="text-gray-600 mt-0.5">回答：{cReq.result_note}</div>}
-                        {cReq.status === '依頼中'
-                          ? <button onClick={() => setRespondTarget({ id: cReq.id, case_id: cReq.case_id, requester_id: cReq.requester_id, request_note: cReq.request_note, caseNumber: cReq.caseNumber, dealName: cReq.dealName })} className="mt-1.5 px-2.5 py-1 text-[11px] font-semibold text-white bg-brand-600 rounded hover:bg-brand-700">回答する（受注/管理）</button>
-                          : <div className="text-[10.5px] text-gray-400 mt-0.5">「入金消込」または「返金を依頼」で対応してください</div>}
                       </div>
                     )
                   })()}
