@@ -163,6 +163,8 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
     router.replace(qs ? `?${qs}` : window.location.pathname, { scroll: false })
   }
 
+  // 金額は一続きで読むので、6列をひとまとまりに見せる
+  const MONEY_COLS = new Set(['amount', 'advance', 'expenses', 'paid', 'refund', 'diff'])
   const { widths: colWidths, reset: resetColWidths, startResize: startColResize } = useResizableColumns('billingListColWidths', {
     caseNo: 140, case: 180, assignee: 124, gyosei: 58, shiho: 58, type: 92, invoiceDate: 100, dueDate: 100, overdue: 92, paidDate: 100, status: 128, todo: 112, reason: 220, amount: 110, advance: 100, expenses: 100, paid: 100, refund: 100, diff: 90, pdf: 90, receipt: 90, remarks: 160,
   })
@@ -832,7 +834,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                 {HEADERS.map(h => (
                   <th
                     key={h.key as string}
-                    className={`relative bg-brand-50/60 border-b border-brand-100 px-3.5 py-2 text-[11px] font-medium text-brand-700 tracking-[0.04em] ${h.align === 'right' ? 'text-right' : 'text-left'}`}
+                    className={`relative border-b border-brand-100 px-3.5 py-2 text-[11px] font-medium text-brand-700 tracking-[0.04em] ${h.align === 'right' ? 'text-right' : 'text-left'} ${MONEY_COLS.has(h.key as string) ? 'bg-brand-100/50' : 'bg-brand-50/60'}`}
                   >
                     {h.label}
                     <ResizeHandle onMouseDown={startColResize(h.key)} />
@@ -1016,18 +1018,18 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                             : <span className="text-gray-200 text-xs">—</span>
                         })()}
                       </td>
-                      <td className="px-3.5 py-2.5 text-right text-[13.5px] font-mono font-semibold text-gray-900">{fmt(inv.amount)}</td>
+                      <td className="px-3.5 py-2.5 text-right text-[13.5px] font-mono font-semibold text-gray-900 bg-gray-50/60">{fmt(inv.amount)}</td>
                       {/* 前受金（前受金請求＝請求額／確定請求＝差し引いた前受金控除） */}
-                      <td className="px-3.5 py-2.5 text-right text-[13.5px] font-mono text-gray-700">{fmt(inv.invoice_type === '前受金' ? inv.amount : (inv.advance_deduction || 0))}</td>
+                      <td className="px-3.5 py-2.5 text-right text-[13.5px] font-mono text-gray-700 bg-gray-50/60">{fmt(inv.invoice_type === '前受金' ? inv.amount : (inv.advance_deduction || 0))}</td>
                       {/* 実費（立替実費） */}
-                      <td className="px-3.5 py-2.5 text-right text-[13.5px] font-mono text-gray-700">{fmt(inv.expenses_amount || 0)}</td>
-                      <td className="px-3.5 py-2.5 text-right text-[13.5px] font-mono font-medium text-green-600">{fmt(paidAmount)}</td>
+                      <td className="px-3.5 py-2.5 text-right text-[13.5px] font-mono text-gray-700 bg-gray-50/60">{fmt(inv.expenses_amount || 0)}</td>
+                      <td className="px-3.5 py-2.5 text-right text-[13.5px] font-mono font-medium text-green-600 bg-gray-50/60">{fmt(paidAmount)}</td>
                       {/* 返金額 */}
-                      <td className="px-3.5 py-2.5 text-right text-[13.5px] font-mono">
+                      <td className="px-3.5 py-2.5 text-right text-[13.5px] font-mono bg-gray-50/60">
                         {refundTotal > 0 ? <span className="text-rose-600 font-medium">−{fmt(refundTotal)}</span> : <span className="text-gray-300">—</span>}
                       </td>
                       {/* 差額。不足＝赤、過入金（請求額より多い）＝琥珀で「+◯◯」 */}
-                      <td className="px-3.5 py-2.5 text-right text-[13.5px] font-mono">
+                      <td className="px-3.5 py-2.5 text-right text-[13.5px] font-mono bg-gray-50/60">
                         {inv.amount > 0
                           ? diff > 0
                             ? <span className="text-red-500">{fmt(diff)}</span>
