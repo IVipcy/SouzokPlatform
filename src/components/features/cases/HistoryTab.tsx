@@ -45,6 +45,9 @@ const noteGyomu = (n: CaseActivityRow): string => (n.gyomu ?? n.tasks?.phase ?? 
 // 進捗メモの工程（業務区分から導出）
 const noteKotei = (n: CaseActivityRow): string => { const g = noteGyomu(n); return g ? koteiOf(g) : '' }
 
+// 一覧行の操作ボタン（高さ固定・折り返しなし。並んだときに段差にならないよう共通化）
+const ROW_BTN = 'inline-flex items-center gap-1 h-[26px] px-2.5 text-[11px] font-semibold border rounded-md whitespace-nowrap shrink-0'
+
 type Props = {
   caseData: CaseRow
   allMembers: MemberRow[]
@@ -313,16 +316,26 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
 
   return (
     <div className="space-y-3.5">
-      {/* タブ上部の共通アクション（セクションの外・余白なしで並べる） */}
+      {/* タブ上部のアクション。そのタブで作るものだけを出す
+          （案件報告タブ＝案件報告／報連相・メモタブ＝報連相）。
+          案件報告は管理担当のみ作成できるので、隠さずグレーにして理由を出す。 */}
       <div className="flex flex-wrap justify-end gap-2">
-        {section !== 'memo' && canRequestReview && (
-          <Button variant="secondary" size="sm" leftIcon={<Send className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => compose?.openReport()}>
-            報告する
+        {section !== 'memo' ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<Send className="w-3.5 h-3.5" strokeWidth={2} />}
+            disabled={!canRequestReview}
+            title={canRequestReview ? undefined : '案件報告はこの案件の管理担当のみ作成できます'}
+            onClick={() => compose?.openReport()}
+          >
+            案件報告
+          </Button>
+        ) : (
+          <Button variant="secondary" size="sm" leftIcon={<MessageSquare className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => compose?.openHourenSou()}>
+            報連相
           </Button>
         )}
-        <Button variant="secondary" size="sm" leftIcon={<MessageSquare className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => compose?.openHourenSou()}>
-          報連相
-        </Button>
         <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={() => setAddTaskOpen(true)}>
           タスク化
         </Button>
@@ -382,13 +395,15 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium ${pr.status === '確認済' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{pr.status === '依頼中' ? '報告中' : pr.status}</span>
                       </td>
                       <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{pr.confirmed_date ?? <span className="text-gray-300">—</span>}</td>
-                      <td className="px-3 py-2.5 text-right">
-                        {canConfirm && (
-                          <button type="button" onClick={() => { setConfirmTarget(pr); setConfirmComment('') }} className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 whitespace-nowrap">
-                            <Check className="w-3 h-3" strokeWidth={2.25} />確認する
-                          </button>
-                        )}
-                        {pr.status === '依頼中' && isRequester && <span className="text-[11px] text-gray-400">本人は確認不可</span>}
+                      <td className="px-3 py-2.5">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {canConfirm && (
+                            <button type="button" onClick={() => { setConfirmTarget(pr); setConfirmComment('') }} className={ROW_BTN + ' text-gray-700 bg-white border-gray-300 hover:bg-gray-50'}>
+                              <Check className="w-3 h-3" strokeWidth={2.25} />確認する
+                            </button>
+                          )}
+                          {pr.status === '依頼中' && isRequester && <span className="text-[11px] text-gray-400">本人は確認不可</span>}
+                        </div>
                       </td>
                     </tr>
                   )
@@ -419,7 +434,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
                   <th className="px-3 py-2 text-left font-medium">確認者</th>
                   <th className="px-3 py-2 text-left font-medium">ステータス</th>
                   <th className="px-3 py-2 text-left font-medium">確認日付</th>
-                  <th className="px-3 py-2 w-28" />
+                  <th className="px-3 py-2 w-48" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -450,18 +465,21 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
                           : 'bg-amber-50 text-amber-700'}`}>{CASE_REPORT_STATUS_LABEL[cr.status] ?? cr.status}</span>
                       </td>
                       <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{cr.confirmed_date ?? <span className="text-gray-300">—</span>}</td>
-                      <td className="px-3 py-2.5 text-right">
-                        {canReview && (
-                          <button type="button" onClick={() => markReviewing(cr)} className="inline-flex items-center gap-1 px-2.5 py-1 mr-1 text-[11px] font-semibold text-sky-700 bg-sky-50 border border-sky-200 rounded-md hover:bg-sky-100 whitespace-nowrap">
-                            確認中にする
-                          </button>
-                        )}
-                        {canConfirm && (
-                          <button type="button" onClick={() => { setConfirmReport(cr); setConfirmReportComment('') }} className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 whitespace-nowrap">
-                            <Check className="w-3 h-3" strokeWidth={2.25} />{cr.kind === '要対応' ? '回答する' : '確認した'}
-                          </button>
-                        )}
-                        {cr.status === '依頼中' && isRequester && <span className="text-[11px] text-gray-400">本人は確認不可</span>}
+                      <td className="px-3 py-2.5">
+                        {/* 2つ並ぶので折り返さず高さを揃える（inline要素だと行が折れて段差になる） */}
+                        <div className="flex items-center justify-end gap-1.5">
+                          {canReview && (
+                            <button type="button" onClick={() => markReviewing(cr)} className={ROW_BTN + ' text-sky-700 bg-sky-50 border-sky-200 hover:bg-sky-100'}>
+                              確認中にする
+                            </button>
+                          )}
+                          {canConfirm && (
+                            <button type="button" onClick={() => { setConfirmReport(cr); setConfirmReportComment('') }} className={ROW_BTN + ' text-gray-700 bg-white border-gray-300 hover:bg-gray-50'}>
+                              <Check className="w-3 h-3" strokeWidth={2.25} />{cr.kind === '要対応' ? '回答する' : '確認した'}
+                            </button>
+                          )}
+                          {cr.status === '依頼中' && isRequester && <span className="text-[11px] text-gray-400">本人は確認不可</span>}
+                        </div>
                       </td>
                     </tr>
                   )

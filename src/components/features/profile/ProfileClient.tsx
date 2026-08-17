@@ -2,7 +2,7 @@
 
 import { useState, useRef, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Mail, Phone, MapPin, Utensils, Heart, Sparkles, MessageCircleHeart, Camera, Loader2, KeyRound } from 'lucide-react'
+import { Mail, Phone, MapPin, Utensils, Heart, Sparkles, MessageCircleHeart, Camera, Loader2, KeyRound, HeartHandshake, Search, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import UserAvatar from '@/components/ui/UserAvatar'
@@ -22,9 +22,11 @@ type Props = {
   member: MemberRow
   teamName: string | null
   isOwner: boolean
+  /** 相談相手（Sister/Brother）を選ぶ候補。自分以外の在籍者。 */
+  allMembers?: MemberRow[]
 }
 
-export default function ProfileClient({ member, teamName, isOwner }: Props) {
+export default function ProfileClient({ member, teamName, isOwner, allMembers = [] }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const supabase = createClient()
@@ -140,6 +142,20 @@ export default function ProfileClient({ member, teamName, isOwner }: Props) {
         )}
       </Section>
 
+      {/* 相談相手（Sister / Brother）。チームの外で面倒を見てくれる先輩を本人が登録する。
+          ここに入れた人は、報連相の通知先候補にチップで出る。 */}
+      <Section icon={<HeartHandshake className="w-4 h-4 text-brand-600" />} title="相談相手（Sister / Brother）">
+        <p className="text-[11.5px] text-gray-400 mb-2">
+          チームの外で相談に乗ってくれる先輩を登録します。報連相を送るときの通知先候補に出ます（何人でも登録できます）。
+        </p>
+        <MentorsField
+          value={member.mentor_ids ?? []}
+          members={allMembers}
+          editable={isOwner}
+          onSave={(v) => updateField('mentor_ids', v)}
+        />
+      </Section>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* コンタクト */}
         <Section icon={<Mail className="w-4 h-4 text-brand-600" />} title="コンタクト">
@@ -250,6 +266,84 @@ function PasswordChangeCard() {
         >
           {saving ? '変更中...' : 'パスワードを変更'}
         </button>
+      </div>
+    </div>
+  )
+}
+
+// ───────── 相談相手（Sister / Brother） ─────────
+// 本人が自分で登録する。複数可。保存は選んだ／外した時点で即反映（他のタグ欄と同じ挙動）。
+function MentorsField({ value, members, editable, onSave }: {
+  value: string[]
+  members: MemberRow[]
+  editable: boolean
+  onSave: (v: string[]) => Promise<void>
+}) {
+  const [ids, setIds] = useState<string[]>(value)
+  const [search, setSearch] = useState('')
+
+  const memberOf = (id: string) => members.find(m => m.id === id) ?? null
+  const picked = ids.map(memberOf).filter((m): m is MemberRow => !!m)
+
+  const commit = (next: string[]) => {
+    setIds(next)
+    onSave(next).catch(e => { console.error(e); showToast('保存に失敗しました', 'error'); setIds(ids) })
+  }
+
+  const q = search.trim()
+  const hits = q
+    ? members.filter(m => !ids.includes(m.id) && (m.name ?? '').includes(q)).slice(0, 8)
+    : []
+
+  if (!editable) {
+    if (picked.length === 0) return <span className="text-gray-300 italic text-xs">まだ登録されていません</span>
+    return (
+      <div className="flex flex-wrap gap-1.5">
+        {picked.map(m => (
+          <span key={m.id} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-200 bg-white text-[12.5px] text-gray-700">
+            <UserAvatar name={m.name} url={m.avatar_url ?? null} size="sm" />
+            {m.name}
+          </span>
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      {picked.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {picked.map(m => (
+            <span key={m.id} className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full border border-brand-200 bg-brand-50 text-[12.5px] font-semibold text-brand-700">
+              <UserAvatar name={m.name} url={m.avatar_url ?? null} size="sm" />
+              {m.name}
+              <button type="button" onClick={() => commit(ids.filter(x => x !== m.id))} className="p-0.5 rounded-full hover:bg-brand-100" title="外す">
+                <X className="w-3 h-3" strokeWidth={2.5} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="relative max-w-[320px]">
+        <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" strokeWidth={2} />
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="名前で検索して追加"
+          className="w-full text-[12.5px] border border-gray-200 rounded-lg pl-7 pr-2 py-1.5 bg-white focus:outline-none focus:border-brand-400"
+        />
+        {hits.length > 0 && (
+          <div className="absolute z-10 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-44 overflow-y-auto">
+            {hits.map(m => (
+              <button key={m.id} type="button" onClick={() => { commit([...ids, m.id]); setSearch('') }}
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left hover:bg-brand-50">
+                <UserAvatar name={m.name} url={m.avatar_url ?? null} size="sm" />
+                <span className="text-[12.5px] text-gray-700">{m.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

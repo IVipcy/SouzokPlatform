@@ -28,11 +28,20 @@ export default async function ProfilePage({ params }: Props) {
 
   const isOwner = currentUser?.memberId === id
 
+  // 相談相手（Sister/Brother）を選ぶための候補。自分以外の在籍者。
+  const { data: members } = await supabase
+    .from('members')
+    .select('id, name, avatar_url, avatar_color, email, is_active, primary_role, team_id')
+    .eq('is_active', true)
+    .neq('id', id)
+    .order('name')
+
   return (
     <ProfileClient
       member={member}
       teamName={teamName}
       isOwner={isOwner}
+      allMembers={members ?? []}
     />
   )
 }

@@ -81,10 +81,21 @@ export default function HourenSouModal({ isOpen, onClose, caseData, currentMembe
     [allMembers, myTeamId, currentMemberId, caseRoles],
   )
 
+  // 相談相手（Sister/Brother）。本人がプロフィールで登録した人（チーム外の先輩を想定）。
+  // 担当・同チームで既に出ている人は重複させない。
+  const mentors = useMemo(() => {
+    const my = allMembers.find(m => m.id === currentMemberId)
+    const ids = my?.mentor_ids ?? []
+    const dup = new Set([caseRoles.sales, caseRoles.manager, ...teamMembers.map(m => m.id)].filter(Boolean) as string[])
+    return ids
+      .map(id => allMembers.find(m => m.id === id))
+      .filter((m): m is MemberRow => !!m && m.is_active && m.id !== currentMemberId && !dup.has(m.id))
+  }, [allMembers, currentMemberId, caseRoles, teamMembers])
+
   // 検索で足す人（上のチップに出ていない人が対象）
   const shownIds = useMemo(
-    () => new Set([caseRoles.sales, caseRoles.manager, currentMemberId, ...teamMembers.map(m => m.id)].filter(Boolean) as string[]),
-    [caseRoles, currentMemberId, teamMembers],
+    () => new Set([caseRoles.sales, caseRoles.manager, currentMemberId, ...teamMembers.map(m => m.id), ...mentors.map(m => m.id)].filter(Boolean) as string[]),
+    [caseRoles, currentMemberId, teamMembers, mentors],
   )
   const searchHits = useMemo(() => {
     const q = search.trim()
@@ -213,6 +224,16 @@ export default function HourenSouModal({ isOpen, onClose, caseData, currentMembe
               <RecipientChip m={salesMember} label="受注担当" active={recipientIds.has(salesMember.id)} onToggle={() => toggleRecipient(salesMember.id)} />
             )}
           </div>
+          {mentors.length > 0 && (
+            <>
+              <div className="text-[11px] text-gray-400 pt-1">相談相手（Sister / Brother）</div>
+              <div className="flex flex-wrap gap-1.5">
+                {mentors.map(m => (
+                  <RecipientChip key={m.id} m={m} active={recipientIds.has(m.id)} onToggle={() => toggleRecipient(m.id)} />
+                ))}
+              </div>
+            </>
+          )}
           {teamMembers.length > 0 && (
             <>
               <div className="text-[11px] text-gray-400 pt-1">同じチームのメンバー</div>

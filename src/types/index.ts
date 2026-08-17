@@ -382,6 +382,7 @@ export type MemberRow = {
   favorite_food?: string | null
   is_touki_team?: boolean   // 相続登記チームメンバー (migration 205)
   is_dispatcher?: boolean   // 割振り担当（管理担当アサインの差配。migration 215）
+  mentor_ids?: string[] | null  // 相談相手（Sister/Brother）。本人が登録。報連相の通知先候補に出る（migration 246）
 }
 
 export type CaseMemberRow = {
