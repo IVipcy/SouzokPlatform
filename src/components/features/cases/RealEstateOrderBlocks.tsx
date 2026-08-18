@@ -248,7 +248,6 @@ export default function RealEstateOrderBlocks({ caseId, properties, acquisitions
                           return list.map((row, ri) => {
                             const acquirer = row?.acquirer ?? '自社'
                             const requestTo = row?.request_to ?? RE_REQUEST_TO_DEFAULT
-                            const dim = acquirer === '依頼者' || acquirer === '不要' ? 'opacity-40 pointer-events-none' : ''
                             const items = requestTo === '国税局HP' ? KOKUZEI_ITEMS : HOUMU_ITEMS
                             // 保存済みの行はその行へ、未保存の既定行は「作ってから」書き込む
                             const write = (patch: Partial<RealEstateAcquisitionRow>) => row ? writePropRow(row, patch) : patchProp(p, patch)
@@ -260,7 +259,7 @@ export default function RealEstateOrderBlocks({ caseId, properties, acquisitions
                                     {RE_ACQUIRERS.map(a => <option key={a} value={a}>{reAcquirerLabel(a)}</option>)}
                                   </select>
                                 </td>
-                                <td className={`px-2.5 py-1.5 ${dim}`}>
+                                <td className="px-2.5 py-1.5">
                                   <select value={requestTo} onChange={e => write({ request_to: e.target.value })} className="w-32 px-1.5 py-1 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
                                     {RE_REQUEST_TO.map(r => <option key={r} value={r}>{r}</option>)}
                                   </select>
@@ -287,7 +286,7 @@ export default function RealEstateOrderBlocks({ caseId, properties, acquisitions
                                     )}
                                   </div>
                                 </td>
-                                <td className={`px-2.5 py-2 ${dim}`}>
+                                <td className="px-2.5 py-2">
                                   <div className="flex flex-wrap gap-1.5">
                                     {items.map(item => {
                                       const on = row ? itemsOf(row).includes(item) : false
@@ -376,7 +375,6 @@ function MuniDocTable({ rows, muni, itemType, years, onPatch, onDelete, onToggle
             <tr><td colSpan={6} className="px-3 py-4 text-center text-[12px] text-gray-400">「＋ 追加」で行を作成してください</td></tr>
           ) : rows.map((row, i) => {
             const acquirer = row.acquirer ?? '自社'
-            const dim = acquirer === '依頼者' || acquirer === '不要' ? 'opacity-40 pointer-events-none' : ''
             const yr = row.doc_year ?? ''
             return (
               <tr key={row.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
@@ -386,7 +384,7 @@ function MuniDocTable({ rows, muni, itemType, years, onPatch, onDelete, onToggle
                   </select>
                 </td>
                 <td className="px-2.5 py-2 text-gray-700">{muni}</td>
-                <td className={`px-2.5 py-1.5 ${dim}`}>
+                <td className="px-2.5 py-1.5">
                   <select value={yr && !years.includes(yr) ? '__other__' : yr} onChange={e => { if (e.target.value !== '__other__') onPatch(row.id, { doc_year: e.target.value || null }) }} className="w-full px-1 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
                     <option value="">—</option>
                     {years.map(o => <option key={o} value={o}>{o}</option>)}

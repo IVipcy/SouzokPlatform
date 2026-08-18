@@ -10,11 +10,10 @@ export function acquirerLabel(a: string | null | undefined): string {
   return a === '依頼者' ? '依頼者取得' : '自社取得'
 }
 
-// 不動産(オーダーシート 名寄帳・評価証明・登記/法務局)の取得区分。「不要」を含む3値。
-export const RE_ACQUIRERS = ['不要', '自社', '依頼者'] as const
-export function reAcquirerLabel(a: string | null | undefined): string {
-  return a === '不要' ? '不要' : a === '依頼者' ? '依頼者取得' : '自社取得'
-}
+// 不動産(オーダーシート 名寄帳・評価証明・登記/法務局)の取得区分。
+// 「不要」は廃止（要らない資料は行ごと消す。migration 248 で既存は自社へ寄せた）。
+export const RE_ACQUIRERS = ACQUIRERS
+export const reAcquirerLabel = acquirerLabel
 
 // 登記情報/法務局(⑤)の請求先。路線価は請求先=国税局HPのときだけ選べる。
 export const RE_REQUEST_TO = ['JTN', '民事法務協会', '法務局', '国税局HP'] as const
