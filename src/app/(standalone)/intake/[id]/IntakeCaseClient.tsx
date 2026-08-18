@@ -10,6 +10,7 @@ import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { cascadeDeleteCase } from '@/lib/caseDelete'
+import { issueCaseNumber } from '@/lib/caseNumber'
 import OrderSheet from '@/components/features/cases/OrderSheet'
 import MeetingForm from '@/app/(authenticated)/meeting/MeetingForm'
 import WhiteboardTab from './WhiteboardTab'
@@ -171,13 +172,35 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
     throw new Error(`案件の作成に失敗: ${lastErr}`)
   }, [supabase, currentMemberId])
 
+  // 相続ステーションから受信しただけの案件は番号を持たない（migration 247）。
+  // 面談登録アプリで最初に入力した時点で採番し、面談担当も自分にする（再開リストに出すため）。
+  const numberingRef = useRef<Promise<void> | null>(null)
+  const issueNumberIfNeeded = useCallback(async (id: string) => {
+    if (numberingRef.current) return numberingRef.current
+    numberingRef.current = (async () => {
+      const { data } = await supabase.from('cases').select('case_number, order_route, meeting_owner_id').eq('id', id).single()
+      const row = data as { case_number: string | null; order_route: string | null; meeting_owner_id: string | null } | null
+      if (!row) return
+      if (!row.meeting_owner_id && currentMemberId) {
+        await supabase.from('cases').update({ meeting_owner_id: currentMemberId }).eq('id', id)
+      }
+      if (row.case_number) return
+      const { number } = await issueCaseNumber(supabase, id, row.order_route)
+      if (number) setCaseState(c => ({ ...c, case_number: number }))
+    })().catch(e => { numberingRef.current = null; console.error('採番に失敗', e) })
+    return numberingRef.current
+  }, [supabase, currentMemberId])
+
   // 実案件IDを保証（未作成なら作成）。同時呼び出しは1回の作成に集約。
   const ensureCase = useCallback(async (): Promise<string> => {
-    if (idRef.current) return idRef.current
+    if (idRef.current) {
+      await issueNumberIfNeeded(idRef.current)
+      return idRef.current
+    }
     if (ensuringRef.current) return ensuringRef.current
     ensuringRef.current = createDraftCase().catch(e => { ensuringRef.current = null; throw e })
     return ensuringRef.current
-  }, [createDraftCase])
+  }, [createDraftCase, issueNumberIfNeeded])
 
   const patchCase = async (patch: Partial<CaseRow>) => {
     const id = await ensureCase()

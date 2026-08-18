@@ -80,3 +80,40 @@ export async function applyRouteToCaseNumber(
   console.error('案件番号の経路コード更新に失敗', lastError)
   return { number: null, error: lastError }
 }
+
+/**
+ * 番号がまだ無い案件に採番する（YYMM + 経路コード + 当日連番）。
+ *
+ * 相続ステーションから受信しただけの案件は番号を持たない（migration 247）。
+ * 面談登録アプリで入力を始めた時点でここを呼び、その日の連番で番号を振る。
+ * 既に番号があれば何もしない。
+ */
+export async function issueCaseNumber(
+  supabase: SupabaseClient,
+  caseId: string,
+  orderRoute: string | null | undefined,
+  now: Date = new Date(),
+): Promise<{ number: string | null; error: string | null }> {
+  const code = routeCodeOf(orderRoute) ?? PENDING_ROUTE_CODE
+  const head = `${String(now.getFullYear()).slice(2)}${String(now.getMonth() + 1).padStart(2, '0')}`
+
+  // その日に振られた番号の最大連番+1 から探す（末尾4桁で判定）
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+  const { data: todayCases } = await supabase.from('cases').select('case_number').gte('created_at', startOfDay)
+  let seq = (todayCases ?? []).reduce((max: number, c: { case_number: string | null }) => {
+    const n = parseInt(String(c.case_number ?? '').slice(-4), 10)
+    return Number.isFinite(n) && n > max ? n : max
+  }, 0) + 1
+
+  let lastError = '不明なエラー'
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const next = `${head}${code}${String(seq).padStart(4, '0')}`
+    const { error } = await supabase.from('cases').update({ case_number: next }).eq('id', caseId).is('case_number', null)
+    if (!error) return { number: next, error: null }
+    lastError = error.message
+    if (error.code === '23505') { seq += 1; continue }   // 同じ番号が既にある → 次の連番へ
+    break
+  }
+  console.error('案件番号の採番に失敗', lastError)
+  return { number: null, error: lastError }
+}

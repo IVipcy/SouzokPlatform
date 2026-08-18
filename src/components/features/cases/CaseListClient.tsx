@@ -113,7 +113,7 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
         !!qDigits && !!v && v.replace(/[^0-9]/g, '').includes(qDigits)
       result = result.filter(c =>
         c.deal_name.toLowerCase().includes(q) ||
-        c.case_number.toLowerCase().includes(q) ||
+        c.case_number?.toLowerCase().includes(q) ||
         c.deceased_name?.toLowerCase().includes(q) ||
         c.deceased_furigana?.toLowerCase().includes(q) ||
         c.clients?.name?.toLowerCase().includes(q) ||

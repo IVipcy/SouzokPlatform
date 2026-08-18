@@ -19,7 +19,7 @@ export default function AssignRequestModal({ isOpen, onClose, caseId, caseNumber
   isOpen: boolean
   onClose: () => void
   caseId: string
-  caseNumber: string
+  caseNumber: string | null
   dealName: string
   allMembers: MemberRow[]
   onDone?: () => void

@@ -14,7 +14,6 @@ import { createServiceRoleClient } from '@/lib/supabase/server'
 import {
   verifyStationRequest,
   mapPayloadToDb,
-  generateCaseNumber,
   type StationCasePayload,
 } from '@/lib/stationIntegration'
 
@@ -168,17 +167,6 @@ export async function PUT(
   }
 
   // ── 新規作成（Upsert）──
-  const now = new Date()
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-  const { data: todayCases } = await supabase
-    .from('cases')
-    .select('case_number')
-    .gte('created_at', todayStart)
-  let seq = (todayCases ?? []).reduce((max, c) => {
-    const n = parseInt(String(c.case_number ?? '').slice(-4), 10)
-    return Number.isFinite(n) && n > max ? n : max
-  }, 0) + 1
-
   let clientId: string | null = null
   if (clientFields.name) {
     const { data: client, error: clientErr } = await supabase
@@ -193,29 +181,22 @@ export async function PUT(
     clientId = client.id
   }
 
-  let caseRow: { id: string; case_number: string; lp_case_number: string } | null = null
-  let lastErr: unknown = null
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const candidate = generateCaseNumber(now, seq - 1)
-    const { data, error } = await supabase
-      .from('cases')
-      .insert({
-        ...caseFields,
-        case_number: candidate,
-        deal_name: dealName,
-        status: '面談設定済',
-        client_id: clientId,
-      })
-      .select('id, case_number, lp_case_number')
-      .single()
-    if (!error && data) { caseRow = data; break }
-    lastErr = error
-    if (error?.code === '23505') { seq += 1; continue }
-    break
-  }
+  // 受信しただけの案件は番号を振らず「受信箱」に置く（POST と同じ。migration 247）
+  const { data: caseRow, error: caseErr } = await supabase
+    .from('cases')
+    .insert({
+      ...caseFields,
+      case_number: null,
+      intake_draft: true,
+      deal_name: dealName,
+      status: '面談設定済',
+      client_id: clientId,
+    })
+    .select('id, case_number, lp_case_number')
+    .single()
 
-  if (!caseRow) {
-    console.error('[station-integration] case insert failed', lastErr)
+  if (caseErr || !caseRow) {
+    console.error('[station-integration] case insert failed', caseErr)
     return jsonError('INTERNAL_ERROR', 'Failed to create case', 500)
   }
 

@@ -14,7 +14,6 @@ import { createServiceRoleClient } from '@/lib/supabase/server'
 import {
   verifyStationRequest,
   mapPayloadToDb,
-  generateCaseNumber,
   type StationCasePayload,
 } from '@/lib/stationIntegration'
 
@@ -82,18 +81,6 @@ export async function POST(req: NextRequest) {
   // マッピング
   const { caseFields, clientFields } = mapPayloadToDb(payload)
 
-  // 当日の既存 case_number から最大連番+1 を求めて採番（削除や同時挿入による番号衝突に強い）
-  const now = new Date()
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-  const { data: todayCases } = await supabase
-    .from('cases')
-    .select('case_number')
-    .gte('created_at', todayStart)
-  let seq = (todayCases ?? []).reduce((max, c) => {
-    const n = parseInt(String(c.case_number ?? '').slice(-4), 10)
-    return Number.isFinite(n) && n > max ? n : max
-  }, 0) + 1
-
   // clients を先に作成（client_id を取得）
   let clientId: string | null = null
   if (clientFields.name) {
@@ -116,29 +103,25 @@ export async function POST(req: NextRequest) {
       ? `${clientFields.name} 様 ご相続`
       : `相続案件（${payload.case_number}）`
 
-  let caseRow: { id: string; case_number: string; lp_case_number: string } | null = null
-  let lastErr: unknown = null
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const candidate = generateCaseNumber(now, seq - 1) // seq=1 → candidate末尾0001
-    const { data, error } = await supabase
-      .from('cases')
-      .insert({
-        ...caseFields,
-        case_number: candidate,
-        deal_name: dealName,
-        status: '面談設定済',
-        client_id: clientId,
-      })
-      .select('id, case_number, lp_case_number')
-      .single()
-    if (!error && data) { caseRow = data; break }
-    lastErr = error
-    if (error?.code === '23505') { seq += 1; continue }
-    break
-  }
+  // 受信しただけの案件は「受信箱」に置く（migration 247）。
+  //   ・case_number は振らない（面談登録アプリで入力した時点で採番する）
+  //   ・intake_draft=true なので相談案件一覧・KPI・タスクには出ない
+  //   ・面談登録アプリの「LP直案件」リストにだけ出て、そこから選んで入力できる
+  const { data: caseRow, error: caseErr } = await supabase
+    .from('cases')
+    .insert({
+      ...caseFields,
+      case_number: null,
+      intake_draft: true,
+      deal_name: dealName,
+      status: '面談設定済',
+      client_id: clientId,
+    })
+    .select('id, case_number, lp_case_number')
+    .single()
 
-  if (!caseRow) {
-    console.error('[station-integration] case insert failed', lastErr)
+  if (caseErr || !caseRow) {
+    console.error('[station-integration] case insert failed', caseErr)
     return jsonError('INTERNAL_ERROR', 'Failed to create case', 500)
   }
 
@@ -162,6 +145,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json(
     {
+      // 案件管理番号は面談登録の時点で確定するので、受信時点では null（キーは互換のため残す）
       pf_case_number: caseRow.case_number,
       lp_case_number: caseRow.lp_case_number,
       received_at: new Date().toISOString(),
