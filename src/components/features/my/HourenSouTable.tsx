@@ -6,6 +6,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { Eye, Check, CornerDownLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -64,6 +65,8 @@ export default function HourenSouTable({ rows, mode, title, note, todayStr }: Pr
   }
 
   const TH = 'px-3 py-2 text-left font-medium whitespace-nowrap'
+  // 操作ボタン（高さ固定・折り返しなし。案件詳細の報連相表と同じ形）
+  const ROW_BTN = 'inline-flex items-center gap-1 h-[26px] px-2.5 text-[12px] font-semibold border rounded-md whitespace-nowrap shrink-0'
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
@@ -99,7 +102,7 @@ export default function HourenSouTable({ rows, mode, title, note, todayStr }: Pr
                 <th className={TH}>内容</th>
                 <th className={TH}>ステータス</th>
                 <th className={TH}>確認者 / 確認日</th>
-                <th className="px-3 py-2 w-40" />
+                <th className="px-3 py-2 w-44 text-right font-medium">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -135,21 +138,27 @@ export default function HourenSouTable({ rows, mode, title, note, todayStr }: Pr
                     <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-nowrap">
                       {r.confirmerName ? `${r.confirmerName}${r.confirmedDate ? ` / ${r.confirmedDate}` : ''}` : <span className="text-gray-300">—</span>}
                     </td>
-                    <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                      {mode === 'received' && !r.isMine && r.status !== '確認済' && (
-                        <>
-                          {r.status === '依頼中' && (
-                            <button type="button" onClick={() => markReviewing(r)} disabled={busyId === r.id}
-                              className="inline-flex items-center px-2.5 py-1 mr-1 rounded-md text-[12px] font-semibold text-sky-700 bg-sky-50 border border-sky-200 hover:bg-sky-100 disabled:opacity-50">
-                              確認中にする
-                            </button>
-                          )}
-                          <Link href={`/cases/${r.caseId}?tab=progress&sub=memo&openReport=${r.id}`}
-                            className="inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50">
-                            {r.kind === '要対応' ? '回答する' : '確認した'}
-                          </Link>
-                        </>
-                      )}
+                    <td className="px-3 py-2.5">
+                      {/* 高さを揃えて横並び固定（折り返すと段差になる） */}
+                      <div className="flex items-center justify-end gap-1.5">
+                        {mode === 'received' && !r.isMine && r.status !== '確認済' && (
+                          <>
+                            {/* 「確認中にする」は要対応だけ。情報共有は放置してもアラートに出ないため中途半端な状態を作らない */}
+                            {r.kind === '要対応' && r.status === '依頼中' && (
+                              <button type="button" onClick={() => markReviewing(r)} disabled={busyId === r.id}
+                                className={ROW_BTN + ' text-sky-700 bg-sky-50 border-sky-200 hover:bg-sky-100 disabled:opacity-50'}>
+                                <Eye className="w-3 h-3" strokeWidth={2.25} />確認中にする
+                              </button>
+                            )}
+                            <Link href={`/cases/${r.caseId}?tab=progress&sub=memo&openReport=${r.id}`}
+                              className={ROW_BTN + ' text-brand-700 bg-white border-brand-300 hover:bg-brand-50'}>
+                              {r.kind === '要対応'
+                                ? <><CornerDownLeft className="w-3 h-3" strokeWidth={2.25} />回答する</>
+                                : <><Check className="w-3 h-3" strokeWidth={2.25} />確認した</>}
+                            </Link>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )

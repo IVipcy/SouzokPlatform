@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { StickyNote, ExternalLink, CheckCircle2 as CheckIcon, Send, Check, ListPlus, MessageSquare, Plus } from 'lucide-react'
+import { StickyNote, ExternalLink, CheckCircle2 as CheckIcon, Send, Check, ListPlus, MessageSquare, Plus, Eye, CornerDownLeft } from 'lucide-react'
 import UserAvatar from '@/components/ui/UserAvatar'
 import { Section } from '@/components/ui/InlineFields'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { CASE_REPORT_STATUS_LABEL } from '@/lib/caseReports'
+import { CASE_REPORT_STATUS_LABEL, caseReportSeverity, caseReportOverdueDays } from '@/lib/caseReports'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { koteiOf, koteiRank, koteiLabel, KOTEI_ORDER, KOTEI_GYOMU, KOTEI_COLOR } from '@/lib/kotei'
@@ -300,6 +300,9 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
   // タイムラインに統合したため、ここでは表示しない）
   // メモ一覧: 手動追加(HistoryTab の入力欄で書いたメモ)のみ表示。
   //   タスクに紐づく自動生成メモ(task_id あり = タスクの実施結果を自動転記した旧仕様)は除外。
+  // 超過日数の基準日（マイページの報連相表と同じ UTC 日付で揃える）
+  const todayStr = new Date().toISOString().split('T')[0]
+
   const notes = activities
     .filter(a => a.activity_type === 'note' && !a.task_id)
     .filter(a => !koteiFilter || noteKotei(a) === koteiFilter)
@@ -362,7 +365,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
                   <th className="px-3 py-2 text-left font-medium">確認者</th>
                   <th className="px-3 py-2 text-left font-medium">ステータス</th>
                   <th className="px-3 py-2 text-left font-medium">確認日付</th>
-                  <th className="px-3 py-2 w-28" />
+                  <th className="px-3 py-2 w-28 text-right font-medium">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -434,22 +437,33 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
                   <th className="px-3 py-2 text-left font-medium">確認者</th>
                   <th className="px-3 py-2 text-left font-medium">ステータス</th>
                   <th className="px-3 py-2 text-left font-medium">確認日付</th>
-                  <th className="px-3 py-2 w-48" />
+                  <th className="px-3 py-2 w-48 text-right font-medium">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {caseReports.map(cr => {
                   const confirmer = allMembers.find(m => m.id === cr.confirmer_id)
                   const isRequester = !!currentMemberId && cr.requester_id === currentMemberId
-                  // 受け取った人は「確認中にする」で一旦止められる。回答（確認する）は最後まで押せる。
                   const canConfirm = cr.status !== '確認済' && !!currentMemberId && !isRequester
-                  const canReview = cr.status === '依頼中' && !!currentMemberId && !isRequester
+                  // 「確認中にする」は要対応だけ。情報共有は放置してもアラートに出ないので、
+                  // 中途半端に止められる状態を作らず「確認した」で閉じてもらう。
+                  const canReview = cr.kind === '要対応' && cr.status === '依頼中' && !!currentMemberId && !isRequester
                   const kindColor = cr.kind === '要対応' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
+                  const sev = caseReportSeverity({ kind: cr.kind, status: cr.status, requested_date: cr.requested_date }, todayStr)
+                  const over = caseReportOverdueDays({ kind: cr.kind, status: cr.status, requested_date: cr.requested_date }, todayStr)
                   return (
-                    <tr key={cr.id} className="hover:bg-gray-50/60">
+                    <tr key={cr.id} className={`hover:bg-gray-50/60 ${sev === 'chui' ? 'bg-orange-50/40' : sev === 'kakunin' ? 'bg-amber-50/30' : ''}`}>
                       <td className="px-3 py-2.5"><span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-semibold ${kindColor}`}>{cr.kind}</span></td>
                       <td className="px-3 py-2.5 text-[12px] text-gray-700">{memberName(cr.requester_id)}</td>
-                      <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600">{cr.requested_date}</td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        <span className="text-[12px] font-mono text-gray-600">{cr.requested_date}</span>
+                        {/* 確認中にしても超過は止まらない。放置が見えるようマイページの表と同じバッジを出す */}
+                        {sev && (
+                          <span className={`ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10.5px] font-bold ${sev === 'chui' ? 'bg-[#F5842A] text-white' : 'bg-[#F7B733] text-white'}`}>
+                            {over}営業日超過
+                          </span>
+                        )}
+                      </td>
                       <td className="px-3 py-2.5 text-[12px] text-gray-700">{(cr.recipient_ids ?? []).map(memberName).join(', ') || <span className="text-gray-300">—</span>}</td>
                       <td className="px-3 py-2.5 text-[12px] text-gray-700 max-w-[220px] whitespace-pre-wrap">{cr.message || <span className="text-gray-300">—</span>}</td>
                       <td className="px-3 py-2.5 text-[12px] text-gray-700 max-w-[220px] whitespace-pre-wrap">{cr.confirm_comment || <span className="text-gray-300">—</span>}</td>
@@ -470,12 +484,14 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
                         <div className="flex items-center justify-end gap-1.5">
                           {canReview && (
                             <button type="button" onClick={() => markReviewing(cr)} className={ROW_BTN + ' text-sky-700 bg-sky-50 border-sky-200 hover:bg-sky-100'}>
-                              確認中にする
+                              <Eye className="w-3 h-3" strokeWidth={2.25} />確認中にする
                             </button>
                           )}
                           {canConfirm && (
                             <button type="button" onClick={() => { setConfirmReport(cr); setConfirmReportComment('') }} className={ROW_BTN + ' text-gray-700 bg-white border-gray-300 hover:bg-gray-50'}>
-                              <Check className="w-3 h-3" strokeWidth={2.25} />{cr.kind === '要対応' ? '回答する' : '確認した'}
+                              {cr.kind === '要対応'
+                                ? <><CornerDownLeft className="w-3 h-3" strokeWidth={2.25} />回答する</>
+                                : <><Check className="w-3 h-3" strokeWidth={2.25} />確認した</>}
                             </button>
                           )}
                           {cr.status === '依頼中' && isRequester && <span className="text-[11px] text-gray-400">本人は確認不可</span>}
@@ -694,11 +710,21 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
       <Modal
         isOpen={!!confirmReport}
         onClose={() => { setConfirmReport(null); setConfirmReportComment('') }}
-        title={confirmReport ? `${confirmReport.kind}を確認` : '確認'}
+        title={confirmReport ? (confirmReport.kind === '要対応' ? '要対応に回答' : '情報共有を確認') : '確認'}
         footer={
           <>
             <Button variant="secondary" onClick={() => { setConfirmReport(null); setConfirmReportComment('') }} disabled={confirmReportSaving}>キャンセル</Button>
-            <Button variant="primary" onClick={() => confirmReport && handleConfirmReport(confirmReport)} loading={confirmReportSaving} leftIcon={<Check className="w-3.5 h-3.5" strokeWidth={2.25} />}>確認した</Button>
+            {/* 行のボタンと同じ言葉にする（要対応＝回答／情報共有＝確認） */}
+            <Button
+              variant="primary"
+              onClick={() => confirmReport && handleConfirmReport(confirmReport)}
+              loading={confirmReportSaving}
+              leftIcon={confirmReport?.kind === '要対応'
+                ? <CornerDownLeft className="w-3.5 h-3.5" strokeWidth={2.25} />
+                : <Check className="w-3.5 h-3.5" strokeWidth={2.25} />}
+            >
+              {confirmReport?.kind === '要対応' ? '回答した' : '確認した'}
+            </Button>
           </>
         }
       >
@@ -710,11 +736,13 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
               <div className="text-[11px] text-gray-400 mt-1">{memberName(confirmReport.requester_id)} ・ {confirmReport.requested_date} 送信</div>
             </div>
             <div className="space-y-2">
-              <label className="block text-[13px] font-semibold text-gray-600">確認した内容 <span className="font-normal text-gray-400">（任意）</span></label>
+              <label className="block text-[13px] font-semibold text-gray-600">
+                {confirmReport.kind === '要対応' ? '回答' : '確認した内容'} <span className="font-normal text-gray-400">（任意）</span>
+              </label>
               <textarea
                 value={confirmReportComment}
                 onChange={e => setConfirmReportComment(e.target.value)}
-                placeholder="例：内容を確認しました／◯◯の方針で対応します"
+                placeholder={confirmReport.kind === '要対応' ? '例：◯◯の方針で対応してください' : '例：内容を確認しました'}
                 rows={4}
                 className="w-full text-[13px] border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400 resize-y"
               />
