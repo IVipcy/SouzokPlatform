@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import SelectOrTextField from './SelectOrTextField'
 import { KOSEKI_PLAN_RANGES, KOSEKI_PLAN_ADDRESS_DOCS } from '@/lib/constants'
 import type { CaseRow, HeirRow, KosekiPlanRow } from '@/types'
 
@@ -83,9 +84,12 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
                   <span className="block text-[10.5px] text-gray-400">{p.role}</span>
                 </td>
                 <td className="px-2 py-1.5">
-                  <input list="koseki-plan-ranges" defaultValue={plan?.range_text ?? ''} placeholder="出生～死亡すべて 等"
-                    onBlur={e => { if (e.target.value !== (plan?.range_text ?? '')) save(p.name, 'range_text', e.target.value) }}
-                    className={cellInp} />
+                  <SelectOrTextField
+                    value={plan?.range_text ?? null}
+                    options={KOSEKI_PLAN_RANGES}
+                    onSave={v => save(p.name, 'range_text', v)}
+                    placeholder="出生～死亡すべて 等"
+                  />
                 </td>
                 <td className="px-2 py-1.5">
                   <select value={plan?.address_doc ?? ''} onChange={e => save(p.name, 'address_doc', e.target.value)}
@@ -104,9 +108,6 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
           })}
         </tbody>
       </table>
-      <datalist id="koseki-plan-ranges">
-        {KOSEKI_PLAN_RANGES.map(o => <option key={o} value={o} />)}
-      </datalist>
       <p className="mt-2 text-[11px] text-gray-400">
         ここは「どんな戸籍が要りそうか」の見立てです。役所ごとの請求条件（筆頭者・謄本/抄本など）は、実務タブの戸籍請求で決めます。
       </p>
