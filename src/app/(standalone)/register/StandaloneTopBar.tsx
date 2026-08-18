@@ -13,6 +13,9 @@ export default function StandaloneTopBar() {
   const isOrderSheet = pathname?.startsWith('/order-sheet') ?? false
   const isMeetingSheet = pathname?.startsWith('/meeting-sheet') ?? false
   const isIntake = pathname?.startsWith('/intake') ?? false
+  // 面談登録のTOP(/intake)は本文の左上に「管理画面に戻る」を置いているので、右上の同じ導線は出さない。
+  // 入力中の画面(/intake/[id])は左上が「TOP」なので、こちらは右上を残す。
+  const hideAdminLink = pathname === '/intake'
   // /intake は統合入力アプリだが、アプリ名としては「面談登録」で通す（メニュー・マイページのボタンと統一）
   const title = isMeetingSheet ? '面談シート（仮）' : isOrderSheet ? 'オーダーシート入力' : '面談登録'
   const next = isMeetingSheet ? '/meeting-sheet' : isOrderSheet ? '/order-sheet' : isIntake ? '/intake' : '/register'
@@ -29,10 +32,12 @@ export default function StandaloneTopBar() {
       <img src="/logo-ocean.svg" alt="オーシャン" className="h-7 w-auto flex-shrink-0" />
       <span className="text-[15px] font-bold text-gray-900">{title}</span>
       {/* PC幅のみ：管理画面(TOP)へ戻る導線。タブレット/スマホは専用アプリとして使うため非表示。 */}
-      <Link href="/" className="ml-auto hidden lg:inline-flex items-center gap-1 text-[12px] font-semibold text-brand-700 border border-brand-200 bg-brand-50 px-2.5 py-1 rounded-md hover:bg-brand-100">
-        <LayoutGrid className="w-3.5 h-3.5" strokeWidth={2} />管理画面へ
-      </Link>
-      <button type="button" onClick={logout} className="lg:ml-2 ml-auto inline-flex items-center gap-1 text-[12px] text-gray-500 hover:text-gray-800 px-2 py-1 rounded-md hover:bg-gray-50">
+      {!hideAdminLink && (
+        <Link href="/" className="ml-auto hidden lg:inline-flex items-center gap-1 text-[12px] font-semibold text-brand-700 border border-brand-200 bg-brand-50 px-2.5 py-1 rounded-md hover:bg-brand-100">
+          <LayoutGrid className="w-3.5 h-3.5" strokeWidth={2} />管理画面へ
+        </Link>
+      )}
+      <button type="button" onClick={logout} className={`${hideAdminLink ? 'ml-auto' : 'lg:ml-2 ml-auto'} inline-flex items-center gap-1 text-[12px] text-gray-500 hover:text-gray-800 px-2 py-1 rounded-md hover:bg-gray-50`}>
         <LogOut className="w-4 h-4" strokeWidth={1.75} />ログアウト
       </button>
     </header>
