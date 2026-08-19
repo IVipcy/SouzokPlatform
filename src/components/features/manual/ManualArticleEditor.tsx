@@ -8,7 +8,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Eye, Save, Trash2, ChevronUp, ChevronDown, Upload, Loader2, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Eye, Save, Trash2, ChevronUp, ChevronDown, Upload, Loader2, AlertTriangle, Sparkles } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import { Scale } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -151,6 +151,15 @@ export default function ManualArticleEditor({ article }: { article: ManualArticl
           className="w-full px-2.5 py-1.5 text-[12px] border border-gray-200 rounded-md outline-none focus:border-brand-400" />
       </div>
 
+      {/* 白紙から書き起こす。AIはシステムの事実（しきい値・選択肢）をサーバー側で受け取る */}
+      <DraftBox
+        context={context}
+        onAdopt={bs => {
+          const made = bs.map(b => ({ ...newBlock(b.kind), body: b.body }))
+          setBlocksAndSave([...blocks, ...made])
+        }}
+      />
+
       {/* 本文（ブロック） */}
       <div className="space-y-3">
         {blocks.length === 0 && (
@@ -236,6 +245,100 @@ export default function ManualArticleEditor({ article }: { article: ManualArticl
           読み込み直す
         </button>
       </div>
+    </div>
+  )
+}
+
+// ── 白紙から下書きをつくる ──
+// AIはこの会話やコードを知らないので、サーバー側で「システムの事実」を添えている。
+// 事実に無いことは書かせず、分からない箇所は（要確認）で返ってくる。
+function DraftBox({ context, onAdopt }: {
+  context: string
+  onAdopt: (blocks: { kind: ArticleBlockKind; body: string }[]) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [theme, setTheme] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState<{ kind: ArticleBlockKind; body: string }[] | null>(null)
+
+  const run = async () => {
+    if (!theme.trim()) { showToast('何について書くかを入れてください', 'error'); return }
+    setBusy(true)
+    try {
+      const res = await fetch('/api/manual/assist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'draft', instruction: theme, context }),
+      })
+      const json = await res.json()
+      if (!res.ok) { showToast(json.error ?? 'AIの呼び出しに失敗しました', 'error'); return }
+      setResult(json.blocks as { kind: ArticleBlockKind; body: string }[])
+    } catch {
+      showToast('AIの呼び出しに失敗しました', 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="mb-3.5">
+      {!open ? (
+        <button type="button" onClick={() => setOpen(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-2 text-[12.5px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded-lg hover:bg-brand-100">
+          <Sparkles className="w-4 h-4" strokeWidth={2.25} />下書きをつくる
+        </button>
+      ) : (
+        <div className="bg-white border border-brand-200 rounded-lg p-3.5">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="w-4 h-4 text-brand-600" strokeWidth={2.25} />
+            <span className="text-[13px] font-semibold text-gray-800">下書きをつくる</span>
+            <button type="button" onClick={() => setOpen(false)} className="ml-auto text-[11.5px] text-gray-400 hover:text-gray-600">閉じる</button>
+          </div>
+          <p className="text-[11.5px] text-gray-400 mb-2">
+            アラートのしきい値・ステータス・受注ルートなど、このシステムの決まりはAIに渡してあります。
+            事実に無いことは書かず、分からない箇所は「（要確認）」で返ります。
+          </p>
+          <textarea
+            value={theme}
+            onChange={e => setTheme(e.target.value)}
+            rows={3}
+            placeholder="例：アラートがどこに出るのか、深刻度と案件の色の関係を説明したい"
+            className="w-full text-[13px] border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-brand-400 resize-y"
+          />
+          <div className="flex justify-end mt-2">
+            <button type="button" onClick={run} disabled={busy || !theme.trim()}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-[12.5px] font-semibold text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50">
+              {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" strokeWidth={2.25} />}
+              下書きを作る
+            </button>
+          </div>
+        </div>
+      )}
+
+      {result && (
+        <div className="fixed inset-0 z-40 bg-black/30 flex items-center justify-center p-4" onClick={() => setResult(null)}>
+          <div className="bg-white rounded-xl border border-gray-200 w-full max-w-2xl max-h-[80vh] overflow-y-auto p-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="w-4 h-4 text-brand-600" strokeWidth={2.25} />
+              <span className="text-[13.5px] font-semibold text-gray-800">下書き（{result.length}ブロック）</span>
+            </div>
+            <div className="space-y-2">
+              {result.map((b, i) => (
+                <div key={i} className={`border rounded-lg px-3 py-2 ${b.kind === 'warn' ? 'border-amber-200 bg-amber-50/60' : 'border-gray-200'}`}>
+                  <div className="text-[10.5px] text-gray-400 mb-0.5">{ARTICLE_BLOCK_LABEL[b.kind]}</div>
+                  <p className={`text-[12.5px] leading-[1.8] whitespace-pre-wrap ${b.kind === 'heading' ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>{b.body}</p>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2 mt-3">
+              <button type="button" onClick={() => setResult(null)}
+                className="px-3 py-1.5 text-[12.5px] font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">やめる</button>
+              <button type="button" onClick={() => { onAdopt(result); setResult(null); setOpen(false); setTheme('') }}
+                className="px-3 py-1.5 text-[12.5px] font-semibold text-white bg-brand-600 rounded-lg hover:bg-brand-700">下に追加する</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
