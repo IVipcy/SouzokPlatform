@@ -37,6 +37,8 @@ type SearchableRow = {
   deal_name: string
   sales_name?: string | null
   manager_name?: string | null
+  /** サブ管理担当者名（引継ぎ・応援。いないことが多い） */
+  sub_manager_name?: string | null
   team_name?: string | null
   procedure_type?: string[] | null
 }
@@ -44,7 +46,7 @@ function applySearch<T extends SearchableRow>(rows: T[], q: string): T[] {
   const qq = q.trim().toLowerCase()
   if (!qq) return rows
   return rows.filter(r => {
-    const hay = [r.case_number, r.lp_case_number, r.deal_name, r.sales_name, r.manager_name, r.team_name, ...(r.procedure_type ?? [])]
+    const hay = [r.case_number, r.lp_case_number, r.deal_name, r.sales_name, r.manager_name, r.sub_manager_name, r.team_name, ...(r.procedure_type ?? [])]
       .filter(Boolean).join(' ').toLowerCase()
     return hay.includes(qq)
   })

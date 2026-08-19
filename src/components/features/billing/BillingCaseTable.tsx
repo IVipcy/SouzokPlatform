@@ -194,6 +194,13 @@ export default function BillingCaseTable({ rows, title = '請求対象案件' }:
                             <UserAvatar name={r.managerName} role="manager" url={r.managerAvatarUrl} size="sm" /><span className="truncate">{r.managerName}</span>
                           </Link>
                         ) : <span className="text-gray-400">-</span>}
+                        {/* サブ管理担当（引継ぎ・応援）。列は増やさず、主担当の下に小さく出す */}
+                        {r.subManagerName && (
+                          <div className="flex items-center gap-1 mt-0.5 text-[11px] text-gray-500">
+                            <span className="truncate">{r.subManagerName}</span>
+                            <span className="px-1 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-500 flex-none">サブ</span>
+                          </div>
+                        )}
                       </td>
                       <td className="px-2.5 py-2 text-center whitespace-nowrap">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded border text-[12px] font-semibold ${STATUS_COLOR[r.invoiceStatus] ?? 'bg-gray-100 text-gray-700 border-gray-200'}`}>{r.invoiceStatus}</span>

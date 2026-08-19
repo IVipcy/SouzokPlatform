@@ -37,6 +37,8 @@ export type CaseInfo = {
   expected_completion_date: string | null
   sales?: CaseMemberInfo
   manager?: CaseMemberInfo
+  /** サブ管理担当（引継ぎ・応援。いないことが多い） */
+  subManager?: CaseMemberInfo
 }
 
 type Props = {
@@ -1075,6 +1077,13 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
           </Link>
         ) : (
           <span className="text-[12px] text-gray-300">—</span>
+        )}
+        {/* サブ管理担当（引継ぎ・応援）。列は増やさず主担当の下に小さく出す */}
+        {caseInfo?.subManager && (
+          <span className="flex items-center gap-1 mt-0.5 text-[11px] text-gray-500">
+            <span className="truncate">{caseInfo.subManager.name}</span>
+            <span className="px-1 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-500 flex-none">サブ</span>
+          </span>
         )}
       </td>
       </>)}

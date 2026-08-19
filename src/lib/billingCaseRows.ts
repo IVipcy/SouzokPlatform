@@ -17,6 +17,10 @@ export type BillingCaseRow = {
   managerId: string | null
   managerName: string | null
   managerAvatarUrl: string | null
+  /** サブ管理担当（引継ぎ・応援。いないことが多い） */
+  subManagerId: string | null
+  subManagerName: string | null
+  subManagerAvatarUrl: string | null
   bucket: BillingBucket
   invoiceId: string | null
   invoiceType: string              // 請求分類（前受金 / 確定請求）
@@ -99,11 +103,13 @@ export function buildBillingCaseRows(
   // 案件→受注担当/管理担当
   const salesByCase = new Map<string, MemberLike>()
   const managerByCase = new Map<string, MemberLike>()
+  const subManagerByCase = new Map<string, MemberLike>()
   for (const cm of caseMembers) {
     const m = membersById.get(cm.member_id)
     if (!m) continue
     if (cm.role === 'sales' && !salesByCase.has(cm.case_id)) salesByCase.set(cm.case_id, m)
     if (cm.role === 'manager' && !managerByCase.has(cm.case_id)) managerByCase.set(cm.case_id, m)
+    if (cm.role === 'sub_manager' && !subManagerByCase.has(cm.case_id)) subManagerByCase.set(cm.case_id, m)
   }
 
   // 案件→請求書（種別ごとに最新を引く）
@@ -141,6 +147,7 @@ export function buildBillingCaseRows(
     const estimate = wantType === '前受金' ? (c.advance_payment ?? 0) : feeTotal
     const sales = salesByCase.get(c.id) ?? null
     const mgr = managerByCase.get(c.id) ?? null
+    const sub = subManagerByCase.get(c.id) ?? null
     const paid = inv
       ? (paidByInvoice.get(inv.id) ?? (inv.status === '入金済' ? inv.amount : 0))
       : 0
@@ -158,6 +165,9 @@ export function buildBillingCaseRows(
       managerId: mgr?.id ?? null,
       managerName: mgr?.name ?? null,
       managerAvatarUrl: mgr?.avatar_url ?? null,
+      subManagerId: sub?.id ?? null,
+      subManagerName: sub?.name ?? null,
+      subManagerAvatarUrl: sub?.avatar_url ?? null,
       bucket,
       invoiceId: inv?.id ?? null,
       invoiceType: wantType,

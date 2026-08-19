@@ -107,7 +107,7 @@ export default function CaseStatusBoard({ tasks, caseMap }: Props) {
     const q = search.trim().toLowerCase()
     if (!q) return sorted
     return sorted.filter(r => {
-      const hay = [r.info.case_number, r.info.deal_name, r.info.manager?.name, r.info.sales?.name, r.info.service_category, r.info.service_category_2]
+      const hay = [r.info.case_number, r.info.deal_name, r.info.manager?.name, r.info.subManager?.name, r.info.sales?.name, r.info.service_category, r.info.service_category_2]
         .filter(Boolean).join(' ').toLowerCase()
       return hay.includes(q)
     })

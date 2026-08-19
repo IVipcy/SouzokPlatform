@@ -66,6 +66,7 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
   // 担当者（受注/管理）はヘッダーでは表示のみ（変更は「担当者」タブ）。
   const salesId = caseMembers.find(cm => cm.role === 'sales')?.member_id ?? null
   const managerId = caseMembers.find(cm => cm.role === 'manager')?.member_id ?? null
+  const subManagerId = caseMembers.find(cm => cm.role === 'sub_manager')?.member_id ?? null
   const nameOf = (id: string | null) => (id ? allMembers.find(m => m.id === id)?.name ?? null : null)
 
   // 請求ステータス（パターン別に請求完了を判定）。前受金入金済＋（①②は確定/立替も入金済）で完了。
@@ -241,6 +242,16 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                   <span className="text-[11.5px] text-gray-700">受注 <span className={nameOf(salesId) ? 'text-gray-900 font-medium' : 'text-gray-400'}>{nameOf(salesId) ?? '未設定'}</span></span>
                   <span className="text-gray-300">/</span>
                   <span className="text-[11.5px] text-gray-700">管理 <span className={nameOf(managerId) ? 'text-gray-900 font-medium' : 'text-gray-400'}>{nameOf(managerId) ?? '未設定'}</span></span>
+                  {/* サブ管理担当は付いている案件だけ出す（引継ぎ・応援中のみなので大半は付かない） */}
+                  {nameOf(subManagerId) && (
+                    <>
+                      <span className="text-gray-300">/</span>
+                      <span className="text-[11.5px] text-gray-700">
+                        <span className="text-gray-900 font-medium">{nameOf(subManagerId)}</span>
+                        <span className="ml-1 px-1 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-500">サブ</span>
+                      </span>
+                    </>
+                  )}
                 </MetaRow>
               </div>
             )}

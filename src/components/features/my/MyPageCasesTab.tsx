@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { cascadeDeleteCase } from '@/lib/caseDelete'
 import { getCaseStatusLabel } from '@/lib/constants'
+import ManagerNames from '@/components/ui/ManagerNames'
 
 type CaseFlag = 'purple' | 'red' | 'yellow' | 'blue' | null
 
@@ -28,6 +29,8 @@ export type MyCaseRow = {
   client_name?: string | null
   sales_name?: string | null
   manager_name?: string | null
+  /** サブ管理担当者名（引継ぎ・応援。いないことが多い） */
+  sub_manager_name?: string | null
   /** 担当チーム名（受注担当の所属チーム。検索用） */
   team_name?: string | null
   /** 受注内容（手続区分） */
@@ -371,7 +374,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
               </td>
               <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-nowrap">{c.sales_name || <span className="text-gray-300">—</span>}</td>
               {/* 管理担当 */}
-              <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-nowrap">{c.manager_name || <span className="text-gray-300">—</span>}</td>
+              <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-nowrap"><ManagerNames name={c.manager_name} subName={c.sub_manager_name} /></td>
               {/* オーダーシート作成（未作成=— / 作成済=タブへのリンク） */}
               <td className="px-3 py-2.5">
                 {c.order_sheet_completed_at ? (

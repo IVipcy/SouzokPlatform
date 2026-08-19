@@ -104,6 +104,7 @@ export default async function CasesPage() {
   const salesByCase = new Map<string, string>()
   const salesTeamByCase = new Map<string, string>()
   const managerByCase = new Map<string, string>()
+  const subManagerByCase = new Map<string, string>()
   for (const c of cases) {
     for (const cm of c.case_members ?? []) {
       if (!cm.members) continue
@@ -113,6 +114,8 @@ export default async function CasesPage() {
         if (teamName) salesTeamByCase.set(c.id, teamName)
       }
       if (cm.role === 'manager' && !managerByCase.has(c.id)) managerByCase.set(c.id, cm.members.name)
+      // サブ管理担当（引継ぎ・応援）。一覧では管理担当の列に並べて出す
+      if (cm.role === 'sub_manager' && !subManagerByCase.has(c.id)) subManagerByCase.set(c.id, cm.members.name)
     }
   }
 
@@ -221,6 +224,7 @@ export default async function CasesPage() {
       updated_at: c.updated_at,
       sales_name: salesByCase.get(c.id) ?? null,
       manager_name: managerByCase.get(c.id) ?? null,
+      sub_manager_name: subManagerByCase.get(c.id) ?? null,
       team_name: salesTeamByCase.get(c.id) ?? null,
       procedure_type: c.procedure_type,
       order_sheet_completed_at: c.order_sheet_completed_at,
@@ -275,6 +279,7 @@ export default async function CasesPage() {
     team_name: salesTeamByCase.get(c.id) ?? null,
     sales_name: salesByCase.get(c.id) ?? null,
     manager_name: managerByCase.get(c.id) ?? null,
+      sub_manager_name: subManagerByCase.get(c.id) ?? null,
     procedure_type: c.procedure_type,
     order_amount: c.fee_administrative && c.fee_administrative > 0 ? c.fee_administrative : (c.fee_judicial ?? null),
     order_sheet_completed_at: c.order_sheet_completed_at,
@@ -305,6 +310,7 @@ export default async function CasesPage() {
       sales_name: salesByCase.get(c.id) ?? null,
       team_name: salesTeamByCase.get(c.id) ?? null,
       manager_name: managerByCase.get(c.id) ?? null,
+      sub_manager_name: subManagerByCase.get(c.id) ?? null,
       advance_payment: advanceTotal(c),
       confirmed_revenue: confirmedRevenue(c),
       expected_completion_date: c.expected_completion_date,
@@ -326,6 +332,7 @@ export default async function CasesPage() {
     procedure_type: c.procedure_type,
     client_name: c.clients?.name ?? null,
     manager_name: managerByCase.get(c.id) ?? null,
+      sub_manager_name: subManagerByCase.get(c.id) ?? null,
     sales_name: salesByCase.get(c.id) ?? null,
     team_name: salesTeamByCase.get(c.id) ?? null,
   }))

@@ -8,6 +8,7 @@ import ProspectBadge from '@/components/ui/ProspectBadge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import { CASE_STATUSES } from '@/lib/constants'
 import { useCaseBulkDelete } from '@/components/features/cases/useCaseBulkDelete'
+import ManagerNames from '@/components/ui/ManagerNames'
 
 export type LpCaseRow = {
   id: string
@@ -38,6 +39,8 @@ export type LpCaseRow = {
   team_name?: string | null
   /** 管理担当者名 */
   manager_name: string | null
+  /** サブ管理担当者名（引継ぎ・応援。いないことが多い） */
+  sub_manager_name?: string | null
   /** 前受金額（円） */
   advance_payment: number | null
   /** 確定売上金額（円）。契約形態に応じて 行政/司法/合計 を採用 */
@@ -285,7 +288,7 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
                     {/* 受注担当 */}
                     <td className="px-3 py-2.5 text-[12px] text-gray-700">{c.sales_name || <span className="text-gray-300">—</span>}</td>
                     {/* 管理担当 */}
-                    <td className="px-3 py-2.5 text-[12px] text-gray-700">{c.manager_name || <span className="text-gray-300">—</span>}</td>
+                    <td className="px-3 py-2.5 text-[12px] text-gray-700"><ManagerNames name={c.manager_name} subName={c.sub_manager_name} /></td>
                     {/* 前受金額 */}
                     <td className="px-3 py-2.5 text-[12px] font-mono text-right text-gray-700">
                       {c.advance_payment && c.advance_payment > 0 ? (

@@ -6,6 +6,7 @@ import Badge from '@/components/ui/Badge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import { CASE_STATUSES, getCaseStatusLabel } from '@/lib/constants'
 import { useCaseBulkDelete } from '@/components/features/cases/useCaseBulkDelete'
+import ManagerNames from '@/components/ui/ManagerNames'
 
 export type ReferralRow = {
   id: string
@@ -17,6 +18,8 @@ export type ReferralRow = {
   procedure_type: string[] | null
   client_name: string | null
   manager_name: string | null
+  /** サブ管理担当者名（引継ぎ・応援。いないことが多い） */
+  sub_manager_name?: string | null
   sales_name?: string | null
   team_name?: string | null
 }
@@ -103,7 +106,7 @@ export default function ReferralCasesTable({ cases, selectable = false }: { case
                         <span className="text-gray-300">—</span>
                       )}
                     </td>
-                    <td className="px-3 py-2.5 text-[12px] text-gray-700">{c.manager_name || <span className="text-gray-300">—</span>}</td>
+                    <td className="px-3 py-2.5 text-[12px] text-gray-700"><ManagerNames name={c.manager_name} subName={c.sub_manager_name} /></td>
                     <td className="px-3 py-2.5 text-[12px] text-gray-700 truncate">{c.client_name || <span className="text-gray-300">—</span>}</td>
                     <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500 whitespace-nowrap">
                       {c.updated_at ? new Date(c.updated_at).toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : <span className="text-gray-300">—</span>}

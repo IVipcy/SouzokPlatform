@@ -14,6 +14,8 @@ export type TaskListCaseInfo = {
   expected_completion_date: string | null
   sales?: CaseMemberInfo
   manager?: CaseMemberInfo
+  /** サブ管理担当（引継ぎ・応援。いないことが多い） */
+  subManager?: CaseMemberInfo
 }
 
 /**
@@ -91,6 +93,7 @@ export async function loadTaskListData(): Promise<{
       expected_completion_date: c.expected_completion_date ?? null,
       sales: toMemberInfo(c.case_members?.find(cm => cm.role === 'sales')?.members),
       manager: toMemberInfo(c.case_members?.find(cm => cm.role === 'manager')?.members),
+      subManager: toMemberInfo(c.case_members?.find(cm => cm.role === 'sub_manager')?.members),
     }
   })
 

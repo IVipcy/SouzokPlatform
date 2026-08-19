@@ -210,6 +210,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const allCaseMembers = (allCaseMembersRaw ?? []) as Array<{ case_id: string; member_id: string; role: string }>
   const salesByCase = new Map<string, string>()
   const managerByCase = new Map<string, string>()
+  const subManagerByCase = new Map<string, string>()
   const salesMemberIdByCase = new Map<string, string>()
   for (const cm of allCaseMembers) {
     if (!myCaseIds.has(cm.case_id)) continue
@@ -220,6 +221,8 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       salesMemberIdByCase.set(cm.case_id, cm.member_id)
     }
     if (cm.role === 'manager' && !managerByCase.has(cm.case_id)) managerByCase.set(cm.case_id, name)
+    // サブ管理担当（引継ぎ・応援）。一覧では管理担当の列に並べて出す
+    if (cm.role === 'sub_manager' && !subManagerByCase.has(cm.case_id)) subManagerByCase.set(cm.case_id, name)
   }
 
   // === 2nd fetch（KPI算出に必要なデータ。マイグレーション未適用環境でも落ちないよう try で保護） ===
@@ -485,6 +488,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       client_name: c.client_id ? clientById.get(c.client_id) ?? null : null,
       sales_name: salesByCase.get(c.id) ?? null,
       manager_name: managerByCase.get(c.id) ?? null,
+      sub_manager_name: subManagerByCase.get(c.id) ?? null,
       procedure_type: c.procedure_type,
       order_sheet_completed_at: c.order_sheet_completed_at,
       // 進捗（次の未完了タスク + 完了/総数）＋ task_kind別 進捗 + 期限超過フラグ
@@ -607,6 +611,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       client_response_due_date: c.client_response_due_date,
       order_route_detail: c.order_route_detail,
       manager_name: managerByCase.get(c.id) ?? null,
+      sub_manager_name: subManagerByCase.get(c.id) ?? null,
       procedure_type: c.procedure_type,
       order_amount: c.fee_administrative && c.fee_administrative > 0 ? c.fee_administrative : (c.fee_judicial ?? null),
       order_sheet_completed_at: c.order_sheet_completed_at,
@@ -1140,6 +1145,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
             procedure_type: c.procedure_type,
             client_name: c.client_id ? clientById.get(c.client_id) ?? null : null,
             manager_name: managerByCase.get(c.id) ?? null,
+      sub_manager_name: subManagerByCase.get(c.id) ?? null,
           }))}
           selectable
         />

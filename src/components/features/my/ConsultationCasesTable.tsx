@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { cascadeDeleteCase } from '@/lib/caseDelete'
 import { CASE_STATUSES, getCaseStatusLabel } from '@/lib/constants'
+import ManagerNames from '@/components/ui/ManagerNames'
 
 export type ConsultCase = {
   id: string
@@ -33,6 +34,8 @@ export type ConsultCase = {
   sales_name?: string | null
   /** 管理担当者名 */
   manager_name: string | null
+  /** サブ管理担当者名（引継ぎ・応援。いないことが多い） */
+  sub_manager_name?: string | null
   /** 受注内容 = 手続き区分（複数可） */
   procedure_type: string[] | null
   /** 受注金額 = 報酬金額（行政 or 司法の入っている方） */
@@ -354,7 +357,7 @@ export default function ConsultationCasesTable({ cases, manageMode = false, sele
                     {manageMode && (
                       <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-nowrap">{c.sales_name || <span className="text-gray-300">—</span>}</td>
                     )}
-                    <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-nowrap">{c.manager_name || <span className="text-gray-300">—</span>}</td>
+                    <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-nowrap"><ManagerNames name={c.manager_name} subName={c.sub_manager_name} /></td>
                     <td className="px-3 py-2.5">
                       {c.order_sheet_completed_at ? (
                         <Link href={`/cases/${c.id}?tab=orderSheet`} className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100">作成済</Link>
