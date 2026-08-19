@@ -22,7 +22,6 @@ type Props = {
 }
 
 const cellInp = 'w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white transition'
-const cellSel = 'w-full px-1 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500'
 
 export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
   const [plans, setPlans] = useState<Record<string, KosekiPlanRow>>({})
@@ -99,11 +98,12 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
                   />
                 </td>
                 <td className="px-2 py-1.5">
-                  <select value={plan?.address_doc ?? ''} onChange={e => save(p.name, 'address_doc', e.target.value)}
-                    style={{ fontFamily: 'inherit' }} className={cellSel}>
-                    <option value="">—</option>
-                    {KOSEKI_PLAN_ADDRESS_DOCS.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
+                  <SelectOrTextField
+                    value={plan?.address_doc ?? null}
+                    options={KOSEKI_PLAN_ADDRESS_DOCS}
+                    onSave={v => save(p.name, 'address_doc', v)}
+                    placeholder="住民票 等"
+                  />
                 </td>
                 <td className="px-2 py-1.5">
                   <input defaultValue={plan?.note ?? ''} placeholder="（任意）"
