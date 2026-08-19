@@ -56,8 +56,12 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
   }
 
   // 1種別（預貯金／証券／信託）ぶんの解約テーブル。オーダーシートでは全種別を縦積み表示。
+  // オーダーシートは1画面で通して読むので、登録が無い種別は枠ごと出さない
+  // （「登録するとここで管理できます」の空枠が並ぶと、読む場所が増えるだけになる）。
+  // 実務タブはサブタブで種別を選んで開くため、空でも案内を出す。
   const renderKindBlock = (st: typeof SUBTABS[number]) => {
     const klist = rows.filter(r => r.asset_type === st.kind)
+    if (klist.length === 0 && orderSheetMode) return null
     return (
       <Section key={st.key} title={`${st.label}の解約手続`}>
         {klist.length === 0 ? (
@@ -123,9 +127,11 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
         // 案件詳細（実務）：金融機関単位の左レール＋カード
         <CancellationSection caseId={caseId} financialAssets={financialAssets} onRefresh={onRefresh} receipts={receipts} tasks={tasks} focus={focus} />
       ) : (
-        // オーダーシート：預貯金／証券／信託の解約をサブタブ廃止で全展開
+        // オーダーシート：預貯金／証券／信託の解約をサブタブ廃止で全展開（登録が無い種別は出さない）
         <div className="space-y-4">
-          {SUBTABS.map(renderKindBlock)}
+          {rows.length === 0
+            ? <p className="text-[12.5px] text-gray-400 py-3">財産調査で金融資産を登録すると、ここに解約手続の表が出ます。</p>
+            : SUBTABS.map(renderKindBlock)}
         </div>
       )}
     </div>
