@@ -29,9 +29,10 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
   const [loading, setLoading] = useState(true)
 
   // 対象者＝被相続人＋相続人。名前で対応づける（実務タブの請求対象者と同じキー）。
-  const people: { name: string; role: string }[] = [
+  // 依頼者は戸籍請求の起点（この人の戸籍から出す）なので、ここで分かるようにバッジを出す。
+  const people: { name: string; role: string; isClient?: boolean }[] = [
     ...(caseData.deceased_name ? [{ name: caseData.deceased_name, role: '被相続人' }] : []),
-    ...heirs.filter(h => h.name).map(h => ({ name: h.name, role: h.relationship || '相続人' })),
+    ...heirs.filter(h => h.name).map(h => ({ name: h.name, role: h.relationship || '相続人', isClient: !!h.is_client })),
   ]
 
   useEffect(() => {
@@ -81,7 +82,13 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
               <tr key={p.name} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                 <td className="px-2 py-1.5">
                   <span className="text-[12.5px] text-gray-800">{p.name}</span>
-                  <span className="block text-[10.5px] text-gray-400">{p.role}</span>
+                  <span className="flex items-center gap-1 mt-0.5">
+                    <span className="text-[10.5px] text-gray-400">{p.role}</span>
+                    {p.isClient && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-brand-50 text-brand-700 border border-brand-200"
+                        title="この案件を依頼した相続人。戸籍請求はこの人の分から出します">依頼者</span>
+                    )}
+                  </span>
                 </td>
                 <td className="px-2 py-1.5">
                   <SelectOrTextField
