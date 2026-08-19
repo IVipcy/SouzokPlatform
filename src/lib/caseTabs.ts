@@ -70,7 +70,9 @@ export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
   // 検討中：オーダーシート / 契約手続き / 請求 / タスク / 案件基本情報 / 面談情報。
   // docs / documentCreate はタブではなくヘッダーのボタンとして出すため visible に含める。
   if (status === '検討中') {
-    return { visible: ['orderSheet', 'contractProc', 'contract', 'clientInfo', 'tasks', 'assignees', 'ownerSales', 'meeting', 'receipts', 'docs', 'documentCreate'], collapsed: [] }
+    // 案件報告は受注前から出す。受注に至る前でも管理担当とのやりとりは発生するため
+    // （管理担当の画面には元から出ており、受注担当だけ見えないのは揃っていなかった）。
+    return { visible: ['orderSheet', 'progress', 'contractProc', 'contract', 'clientInfo', 'tasks', 'assignees', 'ownerSales', 'meeting', 'receipts', 'docs', 'documentCreate'], collapsed: [] }
   }
 
   // 依頼確定待ち（検討中（契約書待ち））/ 受注 / 戻り受注（即受注は status=受注）：

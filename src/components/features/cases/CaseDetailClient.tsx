@@ -455,17 +455,23 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   // 末尾に 案件情報 グループ (assignees/ownerSales/meeting) を追加。CaseTabs 側で InfoDropdown「案件情報」にまとめて表示される。
   // 到着物は管理担当も見る（受信の状況を確認する）。W-Check自体は事務管理の作業。
   // 契約手続きは案件報告の右。受注後の契約書類の回収状況は管理担当も見るため。
-  // 他事業者紹介は作業が始まってから。受注してから着手までのあいだに使う場面がなく、
-  // タブが1つ増えるだけになるため、対応中・完了でだけ出す。
+  // ただし対応中・完了では受注担当と同じく「その他」へ畳む（そこまでに終わっている前提）。
+  //
+  // 他事業者紹介と納品は作業が始まってから。受注してから着手までのあいだに使う場面がなく、
+  // タブが増えるだけになるため、対応中・完了でだけ出す。
   const managerBeforeWork = ['面談設定済', '検討中', '検討中（契約書待ち）', '受注', '戻り受注', '作業着手準備'].includes(caseState.status)
   const MANAGER_TABS: TabKey[] = [...new Set<TabKey>([
-    'orderSheet', 'progress', 'contractProc', 'clientInfo', ...managerPractice,
-    ...(managerBeforeWork ? [] : ['referral' as TabKey]),
-    'contract', 'delivery', 'tasks', 'receipts', 'assignees', 'ownerSales', 'meeting',
+    'orderSheet', 'progress',
+    ...(managerBeforeWork ? ['contractProc' as TabKey] : []),
+    'clientInfo', ...managerPractice,
+    ...(managerBeforeWork ? [] : ['referral' as TabKey, 'delivery' as TabKey]),
+    'contract', 'tasks', 'receipts', 'assignees', 'ownerSales', 'meeting',
   ])]
-  // 面談設定済（まだ受注もしていない段階）では管理担当も通常のタブ構成で見る。
-  // 請求・納品まで並ぶのは、この段階では早すぎるため。
-  const managerFixedTabs = isManagerViewer && caseState.status !== '面談設定済'
+  // 管理担当の固定タブを使わない場面：
+  //   面談設定済 … まだ受注していないので通常構成（請求・納品まで並ぶのは早すぎる）
+  //   失注・紹介のみ … その案件で管理担当がやることが無い。他のロールと同じ最小構成に揃える
+  const managerFixedTabs = isManagerViewer
+    && caseState.status !== '面談設定済' && caseState.status !== '失注' && caseState.status !== '紹介のみ'
 
   // 事務管理担当には、管理担当が手を動かす実務タブを既定で出さない（持ち場が違う）。
   // 見たいときだけ「管理担当のタブも表示」で出せるようにして、閉じ込めない。
@@ -503,9 +509,15 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     ? tabVisRaw.visible.filter(t => MANAGER_ONLY_PRACTICE.includes(t) && t !== activeTab).length
     : 0
 
+  // 経理・LP担当は持ち場に絞る。権限で塞ぐのではなく、実務タブが全部並ぶと
+  // 自分の仕事の場所が分からなくなるため（見たいときは案件基本情報から辿れる）。
+  const ACCOUNTING_TABS: TabKey[] = ['orderSheet', 'contract', 'clientInfo', 'ownerSales', 'assignees', 'receipts', 'docs', 'documentCreate']
+  const isBackOfficeViewer = viewerRole === 'accounting' || viewerRole === 'lp'
   const tabVis = managerFixedTabs
     ? { visible: MANAGER_TABS, collapsed: [] as TabKey[] }
-    : hideForAssistant(tabVisRaw)
+    : isBackOfficeViewer
+      ? { visible: tabVisRaw.visible.filter(t => ACCOUNTING_TABS.includes(t)), collapsed: [] as TabKey[] }
+      : hideForAssistant(tabVisRaw)
   // 現在のタブが表示対象外なら先頭タブにフォールバック。ただし docs/documentCreate はヘッダーから開く特別タブなので許容。
   const HEADER_TABS: TabKey[] = ['receipts', 'docs', 'documentCreate']
   const effectiveTab: TabKey = (tabVis.visible.includes(activeTab) || HEADER_TABS.includes(activeTab)) ? activeTab : tabVis.visible[0]
