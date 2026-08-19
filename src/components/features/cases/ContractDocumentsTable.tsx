@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Trash2, Plus, Check, CloudOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { REQUIRED_CONTRACT_DOCS } from '@/lib/constants'
+import { REQUIRED_CONTRACT_DOCS, REQUIRED_CONTRACT_DOC_CATEGORY } from '@/lib/constants'
 import type { ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
@@ -54,7 +54,9 @@ export default function ContractDocumentsTable({ caseId, documents, documentRece
     seededRef.current = true
     if (documents.some(d => d.category === '契約')) return
     ;(async () => {
-      const payload = DEFAULT_DOCS.map((name, i) => ({ case_id: caseId, name, category: '契約', sort_order: i }))
+      const payload = DEFAULT_DOCS.map((name, i) => ({
+        case_id: caseId, name, category: REQUIRED_CONTRACT_DOC_CATEGORY[name] ?? '契約', sort_order: i,
+      }))
       const { data, error } = await supabase.from('contract_documents').insert(payload).select('*')
       if (!error && data) { setRows(prev => [...prev, ...(data as ContractDocumentRow[])]); onRefresh?.() }
     })()

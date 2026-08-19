@@ -220,13 +220,29 @@ export const isContractProcDone = (
 // 契約時に必ずもらう契約書類5点（デフォルト表示・ナビの受領判定の対象）。
 export const REQUIRED_CONTRACT_DOCS = ['契約書', '料金表', '委任状', '本人確認書類', '印鑑証明書'] as const
 
+// 契約手続きで自動作成する5点の初期区分。
+//   契約書・料金表・委任状 … こちらで保管する（区分＝契約）
+//   本人確認書類・印鑑証明書 … お預かりして最後にお返しする（区分＝お客様預かり書類）
+// 「お客様預かり書類」は納品タブの対象になるので、返却漏れがそのまま拾える。
+export const REQUIRED_CONTRACT_DOC_CATEGORY: Record<string, string> = {
+  '契約書': '契約',
+  '料金表': '契約',
+  '委任状': '契約',
+  '本人確認書類': 'お客様預かり書類',
+  '印鑑証明書': 'お客様預かり書類',
+}
+
 // 受注→作業着手準備ナビの「契約書類の受領」完了判定。
-//   区分＝契約 の書類だけで判定（面談時受領の名寄帳・評価証明など他区分は数えない）。
-//   契約書類が1件以上あり、かつ すべて「受領済(到着日あり) or 不要」なら完了。
+//   対象＝区分が「契約」の書類 ＋ 必須5点（名前で判定）。
+//   本人確認書類・印鑑証明書は区分が「お客様預かり書類」になったが、契約時に集めるものなので
+//   ゲートの対象からは外さない（区分だけで判定するとゲートが緩む）。
+//   面談時受領の名寄帳・評価証明など、それ以外の区分は数えない。
+//   対象が1件以上あり、かつ すべて「受領済(到着日あり) or 不要」なら完了。
 export const isContractDocsReceived = (
-  docs: { category?: string | null; status?: string | null; arrival_date?: string | null }[],
+  docs: { name?: string | null; category?: string | null; status?: string | null; arrival_date?: string | null }[],
 ): boolean => {
-  const contract = docs.filter(d => d.category === '契約')
+  const required = new Set<string>(REQUIRED_CONTRACT_DOCS)
+  const contract = docs.filter(d => d.category === '契約' || required.has((d.name ?? '').trim()))
   return contract.length > 0 && contract.every(d => !!d.arrival_date || d.status === '不要')
 }
 
