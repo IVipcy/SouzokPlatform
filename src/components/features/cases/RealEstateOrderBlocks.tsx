@@ -12,7 +12,7 @@
 // 既定は「民事法務協会」。ほぼここで取るので、毎回選び直す手間をなくす（法務局へ行くのは例外）。
 
 import { useState, useRef } from 'react'
-import { Plus, Trash2, MapPin } from 'lucide-react'
+import { Plus, Trash2, MapPin, Pencil, Check, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import Modal from '@/components/ui/Modal'
@@ -183,6 +183,55 @@ export default function RealEstateOrderBlocks({ caseId, properties, acquisitions
     onRefresh?.()
   }
 
+  // ── 市区町村ブロックの名前を直す ──
+  // 市区町村は物件の municipality（未設定なら住所から推測）で決まるので、
+  // このブロックに属する物件すべてに新しい名前を明示して入れ直す。
+  // 名寄帳・評価証明の行（市区町村単位）も同じ名前で紐づいているので合わせて直す。
+  const [renaming, setRenaming] = useState<string | null>(null)
+  const [renameTo, setRenameTo] = useState('')
+  const submitRename = async (oldName: string) => {
+    const next = renameTo.trim()
+    if (!next || next === oldName) { setRenaming(null); return }
+    if (munis.includes(next)) { showToast('同じ名前の市区町村が既にあります', 'error'); return }
+    const ids = properties.filter(p => municipalityOf(p) === oldName).map(p => p.id)
+    const [a, b] = await Promise.all([
+      ids.length > 0
+        ? supabase.from('real_estate_properties').update({ municipality: next }).in('id', ids)
+        : Promise.resolve({ error: null }),
+      supabase.from('real_estate_acquisitions').update({ target_municipality: next })
+        .eq('case_id', caseId).eq('target_municipality', oldName),
+    ])
+    if (a.error || b.error) { showToast(`変更に失敗: ${a.error?.message ?? b.error?.message ?? ''}`, 'error'); return }
+    setRenaming(null)
+    showToast('市区町村名を変更しました', 'success')
+    onRefresh?.()
+  }
+
+  // ── 市区町村ブロックごと消す ──
+  // 中の物件と取得行がまとめて消えるので、何がいくつ消えるかを出してから確認する。
+  const deleteMuni = async (muni: string) => {
+    const props = properties.filter(p => municipalityOf(p) === muni)
+    const propIds = props.map(p => p.id)
+    const rows = localAcq.filter(a =>
+      (a.target_municipality ?? '').trim() === muni || (a.target_property_id && propIds.includes(a.target_property_id)))
+    const msg = [
+      `「${muni}」のブロックを削除します。`,
+      `　物件 ${props.length}件`,
+      `　取得予定の行 ${rows.length}件`,
+      '元に戻せません。よろしいですか。',
+    ].join('\n')
+    if (!confirm(msg)) return
+
+    // 面談時に受領✓で契約手続きに作った書類も一緒に消す（残すと宙に浮く）
+    const docIds = rows.map(r => r.contract_document_id).filter(Boolean) as string[]
+    if (docIds.length > 0) await supabase.from('contract_documents').delete().in('id', docIds)
+    if (rows.length > 0) await supabase.from('real_estate_acquisitions').delete().in('id', rows.map(r => r.id))
+    if (propIds.length > 0) await supabase.from('real_estate_properties').delete().in('id', propIds)
+    setLocalAcq(prev => prev.filter(r => !rows.some(x => x.id === r.id)))
+    showToast(`「${muni}」を削除しました`, 'success')
+    onRefresh?.()
+  }
+
   const acqSelectCls = 'px-1.5 py-1 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500 w-24'
   const chipCls = (on: boolean) =>
     `inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[11.5px] font-medium border transition-colors ${
@@ -199,7 +248,35 @@ export default function RealEstateOrderBlocks({ caseId, properties, acquisitions
         return (
           <div key={muni} className="border border-brand-200 rounded-xl overflow-hidden">
             <div className="bg-brand-50 px-3.5 py-2 flex items-center gap-1.5 text-[14px] font-semibold text-brand-800">
-              <MapPin className="w-4 h-4" strokeWidth={2} />{muni}
+              <MapPin className="w-4 h-4 flex-none" strokeWidth={2} />
+              {renaming === muni ? (
+                <>
+                  <input
+                    type="text" value={renameTo} autoFocus
+                    onChange={e => setRenameTo(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') void submitRename(muni); if (e.key === 'Escape') setRenaming(null) }}
+                    className="flex-1 min-w-0 max-w-[280px] px-2 py-1 text-[13px] font-normal border border-brand-300 rounded bg-white outline-none focus:border-brand-500"
+                  />
+                  <button type="button" onClick={() => void submitRename(muni)} className="p-1 text-brand-600 hover:text-brand-800" title="決定">
+                    <Check className="w-4 h-4" strokeWidth={2.5} />
+                  </button>
+                  <button type="button" onClick={() => setRenaming(null)} className="p-1 text-gray-400 hover:text-gray-600" title="やめる">
+                    <X className="w-4 h-4" strokeWidth={2.5} />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="truncate">{muni}</span>
+                  <button type="button" onClick={() => { setRenaming(muni); setRenameTo(muni) }}
+                    className="p-1 text-brand-400 hover:text-brand-700" title="市区町村名を直す">
+                    <Pencil className="w-3.5 h-3.5" strokeWidth={2} />
+                  </button>
+                  <button type="button" onClick={() => void deleteMuni(muni)}
+                    className="ml-auto p-1 text-brand-300 hover:text-red-500" title="この市区町村ブロックを削除">
+                    <Trash2 className="w-4 h-4" strokeWidth={2} />
+                  </button>
+                </>
+              )}
             </div>
             <div className="bg-white p-3.5 space-y-4">
 
