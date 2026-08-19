@@ -102,5 +102,7 @@ export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
 
   // 相談案件（面談設定済 等）
   // 契約書の授受・受信簿連携のため「到着物」「書類」タブを早い段階から表示する。
-  return { visible: ['basicInfo', 'meeting', 'clientInfo', 'receipts', 'docs', 'documentCreate', 'tasks'], collapsed: [] }
+  // 先頭の orderSheet は受注前は「面談シート」として開く（CaseDetailClient の showMeetingSheet）。
+  // 面談で聞き取った内容を案件詳細から見返せないと、次の連絡の準備ができないため。
+  return { visible: ['orderSheet', 'basicInfo', 'meeting', 'clientInfo', 'receipts', 'docs', 'documentCreate', 'tasks'], collapsed: [] }
 }
