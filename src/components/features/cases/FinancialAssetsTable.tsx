@@ -277,7 +277,9 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
           </div>
         )}
         {on && <TextInput value={r.survey_prohibited_reason} onChange={v => setLocal(r.id, 'survey_prohibited_reason', v)} onCommit={v => commit(r.id, 'survey_prohibited_reason', v)} placeholder="禁止理由" />}
-        {on && isWait && !r.prohibition_released_at && (
+        {/* 禁止の解除は実務の操作なので実務タブだけに出す。
+            オーダーシートは面談直後の指示書で、その場で解除することはない。 */}
+        {progressMode && on && isWait && !r.prohibition_released_at && (
           <button type="button" onClick={() => releaseWait(r)} className="self-start inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100"><LockOpen className="w-3 h-3" strokeWidth={2} />禁止を解除（お客様OK）</button>
         )}
         {on && isWait && r.prohibition_released_at && <span className="text-[10.5px] text-emerald-600">連絡待ち 解除済 {r.prohibition_released_at}</span>}
