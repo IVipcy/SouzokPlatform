@@ -22,8 +22,10 @@ type Props = {
 export default function AssigneesTab({ caseData, caseMembers, allMembers, onRefresh }: Props) {
   const salesMembers = caseMembers.filter(cm => cm.role === 'sales')
   const managerMembers = caseMembers.filter(cm => cm.role === 'manager')
+  const subManagerMembers = caseMembers.filter(cm => cm.role === 'sub_manager')
 
   // 管理担当がアサインされたら、チームへ出した引き継ぎアラート（case_handoff通知）を全員分解消する。
+  // サブだけ付いている状態は「割り振り済み」とは見なさない（主担当が決まっていないため）。
   const hasManager = managerMembers.length > 0
   useEffect(() => {
     if (!hasManager) return
@@ -36,9 +38,11 @@ export default function AssigneesTab({ caseData, caseMembers, allMembers, onRefr
       <Section title="担当者">
         <FieldGrid>
           <InlineMemberSelect label="受注担当" roleKey="sales" assigned={salesMembers} allMembers={allMembers} caseId={caseData.id} onRefresh={onRefresh} multi={false} />
-          {/* 管理担当は2名まで。退職時の引継ぎ・サブ担当を置けるようにするため。
-              先に選んだ人が主担当（一覧の「管理担当」列に出るのはこの人）。 */}
-          <InlineMemberSelect label="管理担当" roleKey="manager" assigned={managerMembers} allMembers={allMembers} caseId={caseData.id} onRefresh={onRefresh} multi maxSelect={2} searchable candidateRoles={['manager', 'sub_manager']} />
+          {/* 管理担当は主・サブで欄を分ける。1つの欄に2名入れる作りは、どちらが主なのか
+              画面からもデータからも分からず、選んだときの挙動も分かりにくかった。
+              一覧・アラート・請求で「管理担当」として扱うのは主担当のほう。 */}
+          <InlineMemberSelect label="管理担当" roleKey="manager" assigned={managerMembers} allMembers={allMembers} caseId={caseData.id} onRefresh={onRefresh} multi={false} searchable candidateRoles={['manager', 'sub_manager']} />
+          <InlineMemberSelect label="サブ管理担当" roleKey="sub_manager" assigned={subManagerMembers} allMembers={allMembers} caseId={caseData.id} onRefresh={onRefresh} multi={false} searchable candidateRoles={['manager', 'sub_manager']} />
         </FieldGrid>
         {/* 管理担当の割り振り（稼働状況一覧へ遷移して割り振る） */}
         {(

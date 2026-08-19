@@ -354,7 +354,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     : null
 
   // この案件の受注/管理担当なら、自分の案件の受信簿を操作できる（開封・中身の紐付け）
-  const viewerOwnsCase = caseMembers.some(cm => cm.member_id === currentMemberId && (cm.role === 'sales' || cm.role === 'manager'))
+  const viewerOwnsCase = caseMembers.some(cm => cm.member_id === currentMemberId && (cm.role === 'sales' || cm.role === 'manager' || cm.role === 'sub_manager'))
   // 受注より前（面談設定済・検討中・依頼確定待ち）で、まだオーダーシートを作り始めていない案件は
   // オーダーシートの位置に「面談シート」を出す。面談で聞き取った内容が案件詳細から辿れないため。
   // 「オーダーシートを作成」を押すと order_sheet_started_at が入り、次からはオーダーシートで開く。
@@ -369,7 +369,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   // 受注担当（進捗確認依頼の確認者＝依頼先）
   const salesMemberId = caseMembers.find(cm => cm.role === 'sales')?.member_id ?? null
   // 進捗確認の依頼は、この案件の管理担当（ログイン中の本人）だけが出せる
-  const isCaseManager = !!currentMemberId && caseMembers.some(cm => cm.role === 'manager' && cm.member_id === currentMemberId)
+  // 案件報告はサブ管理担当も出せる（引継ぎ中・応援中でも報告は必要なため）
+  const isCaseManager = !!currentMemberId && caseMembers.some(cm => (cm.role === 'manager' || cm.role === 'sub_manager') && cm.member_id === currentMemberId)
   // 契約手続き（契約関連書類）が全受信済か（対応中ガード用）
   const contractProcDone = isContractProcDone(contractDocuments)
   // 到着物ボタンの未対応件数（タスク紐づけ待ちの到着物数）

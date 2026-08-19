@@ -108,10 +108,11 @@ function getAssignees(caseData: InvoiceWithRelations['cases'] | null): {
   managers: Assignee[]
 } {
   const sales = caseData?.case_members?.find(cm => cm.role === 'sales')?.members ?? null
-  const managers = (caseData?.case_members ?? [])
-    .filter(cm => cm.role === 'manager')
-    .map(cm => toAssignee(cm.members))
-    .filter((a): a is Assignee => a != null)
+  // 主担当を先、サブ管理担当を後ろに並べる（誰に連絡すればよいかの順）
+  const managers = [
+    ...(caseData?.case_members ?? []).filter(cm => cm.role === 'manager'),
+    ...(caseData?.case_members ?? []).filter(cm => cm.role === 'sub_manager'),
+  ].map(cm => toAssignee(cm.members)).filter((a): a is Assignee => a != null)
   return { sales: toAssignee(sales), managers }
 }
 
