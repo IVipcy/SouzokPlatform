@@ -48,13 +48,19 @@ export const getCaseStatusLabel = (key: string | null | undefined): string =>
 // 相談案件      : 受注担当が「受注」に至るまでの状態（面談〜検討〜即受注/戻り受注/失注）
 // 個別管理案件  : 受託に至らず紹介のみ（裁判解決後などに「戻り受注」になり得る）
 // 管理案件      : 受託後、管理担当へ引き継がれ対応中〜完了
-export const CONSULT_STATUSES = ['面談設定済', '検討中', '検討中（契約書待ち）', '受注', '戻り受注', '失注'] as const
+// 作業着手準備は受注系の一部（受注してから作業に入るまでの準備段階）。
+// 分類に入っていなかったため getCaseCategory が null を返していた。
+export const CONSULT_STATUSES = ['面談設定済', '検討中', '検討中（契約書待ち）', '受注', '戻り受注', '作業着手準備', '失注'] as const
 export const REFERRAL_STATUSES = ['紹介のみ'] as const
 export const MANAGEMENT_STATUSES = ['対応中', '業務完了申請中', '完了', '納品完了'] as const
 
 // 案件作成・面談情報タブで選択可能なステータス（相談案件＋個別管理案件）。
 // 対応中・完了はオーダーシート作成／管理フロー経由でのみ遷移するため、ここでは選べない。
-export const MEETING_SELECTABLE_STATUSES = [...CONSULT_STATUSES, ...REFERRAL_STATUSES] as const
+// 作業着手準備は受注後の管理フロー（前受金入金・ファイル化）で自動的に入る段階なので、
+// 面談情報タブから手で選ばせない。
+export const MEETING_SELECTABLE_STATUSES = [
+  ...CONSULT_STATUSES.filter(s => s !== '作業着手準備'), ...REFERRAL_STATUSES,
+] as const
 
 // === 面談分類（旧「面談内容」。相談案件登録の選択式・既定「新規面談」） ===
 export const MEETING_CATEGORIES = ['新規面談', '既存面談', '見積もり対応', '過去客面談'] as const
