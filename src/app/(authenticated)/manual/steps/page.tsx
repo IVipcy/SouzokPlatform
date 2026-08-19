@@ -2,11 +2,12 @@ import { Suspense } from 'react'
 import { ListOrdered } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/server'
+import ManualNav from '@/components/features/manual/ManualNav'
 import ManualStepsClient from '@/components/features/manual/ManualStepsClient'
 import type { ManualChapterRow, ManualStepRow } from '@/lib/manualStep'
 
 // 操作ステップ（画面キャプチャ＋赤枠＋操作方法）。章タブで切り替え、その章は上から通しで読める。
-// 読み物（考え方・ルール）は content/manual/*.md のまま。
+// 考え方・ルールは「業務運用ルール」（/manual/rules）に置く。
 export default async function ManualStepsPage() {
   const supabase = await createClient()
   const [{ data: chaptersRaw }, { data: stepsRaw }] = await Promise.all([
@@ -24,6 +25,7 @@ export default async function ManualStepsPage() {
         icon={ListOrdered}
         description="画面キャプチャに赤枠と番号を振り、右に操作方法を書いたページです。章ごとに上から通して読めます。"
       />
+      <ManualNav active="steps" />
       <Suspense fallback={<p className="text-[12px] text-gray-400">読み込み中…</p>}>
         <ManualStepsClient chapters={chapters} steps={steps} />
       </Suspense>

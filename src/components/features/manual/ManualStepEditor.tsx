@@ -20,6 +20,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import PageHeader from '@/components/ui/PageHeader'
 import Button from '@/components/ui/Button'
+import AiAssistButton from './AiAssistButton'
 import {
   MANUAL_BUCKET, MANUAL_ROLES, newId, numberOf, markCount, syncItems, itemRangeOf, rolesOfShots,
   type ManualStepRow, type Shot, type MarkBox, type StepItem,
@@ -237,6 +238,9 @@ export default function ManualStepEditor({ step, chapters }: { step: ManualStepR
                     <div key={it.id} className={`flex gap-2.5 ${selected && numberOf(shots, selected) === gi + 1 ? 'ring-2 ring-red-300 rounded-lg p-1 -m-1' : ''}`}>
                       <span className="flex-none w-6 h-6 rounded-full bg-red-600 text-white text-[13px] font-bold flex items-center justify-center mt-0.5">{gi + 1}</span>
                       <div className="flex-1 min-w-0">
+                        <div className="flex justify-end mb-1">
+                          <AiAssistButton text={it.body} context={`ページ：${title} / 章：${chapter}`} onAdopt={v => setItem(gi, { body: v })} />
+                        </div>
                         <textarea
                           value={it.body}
                           onChange={e => setItem(gi, { body: e.target.value })}
