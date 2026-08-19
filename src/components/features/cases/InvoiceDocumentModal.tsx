@@ -31,7 +31,9 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, docTyp
   const recommendedOffice = useMemo(() => recommendInvoiceOffice(caseData.contract_type), [caseData.contract_type])
   const kubunLabel = kakutei ? '確定' : '前受金'
   const [office, setOffice] = useState<StampLaw>(recommendedOffice)
-  const [officeId, setOfficeId] = useState<string>(recommendedOffice === 'shiho' ? 'kyodo' : 'kureator')
+  // 事務所住所の既定は共同ビル。行政書士法人の本店はクレアトールだが、
+  // 請求書に載せるのは実際に業務をしている共同ビルで揃える運用にしている。
+  const [officeId, setOfficeId] = useState<string>('kyodo')
   const [kenmei, setKenmei] = useState('')
   const [amount, setAmount] = useState<number | ''>('')
   const [dueDate, setDueDate] = useState('')

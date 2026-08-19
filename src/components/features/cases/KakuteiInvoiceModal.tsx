@@ -28,7 +28,9 @@ const yen = (n: number) => `${n.toLocaleString('en-US')}円`
 export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, defaultTaskId, expenseOnly = false, onSaved }: Props) {
   const recommendedOffice = useMemo(() => recommendKakuteiOffice(caseData.contract_type), [caseData.contract_type])
   const [office, setOffice] = useState<StampLaw>(recommendedOffice)
-  const [officeId, setOfficeId] = useState<string>(recommendedOffice === 'shiho' ? 'kyodo' : 'kureator')
+  // 事務所住所の既定は共同ビル。行政書士法人の本店はクレアトールだが、
+  // 請求書に載せるのは実際に業務をしている共同ビルで揃える運用にしている。
+  const [officeId, setOfficeId] = useState<string>('kyodo')
   const [kenmei, setKenmei] = useState('')
   const [fee, setFee] = useState<number | ''>('')
   const [advance, setAdvance] = useState<number | ''>('')
