@@ -86,7 +86,7 @@ const emptyHeirForm = () => ({
   other_parent_heir_id: '',
 })
 
-export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRefresh, patchCase, orderSheetMode = false, contractDocuments = [], caseClients = [], documentReceipts = [], tasks = [] }: Props) {
+export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRefresh, patchCase, orderSheetMode = false, contractDocuments = [], caseClients = [], tasks = [] }: Props) {
   // アラート（追加戸籍請求の承認依頼）から ?sub=koseki で戸籍請求サブタブに直接遷移
   const searchParams = useSearchParams()
   const [sub, setSub] = useState<'heirs' | 'koseki'>(() => { const s = searchParams.get('sub'); return s === 'koseki' ? 'koseki' : 'heirs' })
@@ -126,6 +126,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       registered_address: '',
       phone: mainClient?.phone ?? caseData.clients?.phone ?? '',
       email: mainClient?.email ?? caseData.clients?.email ?? '',
+      is_client: true,
     })
     setHeirPostal(caseData.clients?.postal_code ?? '')
     setShowAddHeir(true)
@@ -687,10 +688,20 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
             </div>
           )}
           {!showAddHeir && (
-            <div className="mt-3">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <button type="button" onClick={startAdd} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[12.5px] font-semibold text-white bg-brand-600 hover:bg-brand-700 transition-colors">
                 <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> 相続人を追加
               </button>
+              {/* 依頼者は面談で氏名・生年月日・住所まで聞いているので、同じことを2度書かせない。
+                  押すと追加フォームに転記されるだけで、保存するかは本人が決める（依頼者＝相続人とは限らないため）。 */}
+              {mainClient?.name && !heirs.some(h => (h.name ?? '').trim() === (mainClient.name ?? '').trim()) && (
+                <button type="button" onClick={startAddFromClient}
+                  title={`依頼者「${mainClient.name}」の氏名・生年月日・住所などを入れた状態で追加フォームを開きます`}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[12.5px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50 transition-colors">
+                  <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> 依頼者から追加
+                  <span className="text-[11px] font-normal text-gray-400">{mainClient.name}</span>
+                </button>
+              )}
             </div>
           )}
         </Section>
