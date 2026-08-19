@@ -53,10 +53,11 @@ import type { TaskRow, ProgressReportRow, CaseReportStatus } from '@/types'
 type SearchParams = Promise<{ tab?: string; period?: string; as?: string }>
 type TabKey = 'meetings' | 'prep' | 'cases' | 'billing' | 'referrals' | 'progress' | 'hourensou' | 'hourensouAction' | 'complaints' | 'tasks'
 
-// 相談案件 = 面談〜検討〜失注（受注前）。依頼確定待ち/受注/戻り受注/作業着手準備 は「未着手案件」へ移管。
-const CONSULT_STATUSES = new Set(['面談設定済', '検討中', '失注'])
-// 未着手案件 = 受注が見えてから作業進行中に入るまでの準備段階
-const PREP_STATUSES = new Set(['検討中（契約書待ち）', '受注', '戻り受注', '作業着手準備'])
+// 相談案件 = 面談〜検討〜依頼確定待ち〜失注（受注前）。
+// 依頼確定待ちは契約書が返ってきていない段階なので受注前＝相談案件。案件一覧と揃えてある。
+const CONSULT_STATUSES = new Set(['面談設定済', '検討中', '検討中（契約書待ち）', '失注'])
+// 未着手案件 = 受注してから作業進行中に入るまでの準備段階
+const PREP_STATUSES = new Set(['受注', '戻り受注', '作業着手準備'])
 // 個別管理案件 = 紹介のみ
 const REFERRAL_STATUSES = new Set(['紹介のみ'])
 // 管理担当のアラート対象スコープ（KPI/アラート用。一覧分類とは別概念）
@@ -1059,7 +1060,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
             <MeetingKpi label="不動産査定" value={salesMetrics.propertyAppraisalCount} suffix="件" />
           </div>
 
-          <ConsultationCasesTable cases={consultRows} selectable statusFilters={['検討中', '失注']} />
+          <ConsultationCasesTable cases={consultRows} selectable statusFilters={['検討中', '検討中（契約書待ち）', '失注']} />
         </div>
       )}
 
@@ -1067,7 +1068,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       {activeTab === 'prep' && (isSales || isManager) && (
         <div className="space-y-4">
           <p className="text-[12px] text-gray-500">受注が見えてから作業進行中に入るまでの準備段階の案件（依頼確定待ち・受注・戻り受注・作業着手準備）。</p>
-          <ConsultationCasesTable cases={prepRows} selectable statusFilters={['検討中（契約書待ち）', '受注', '戻り受注', '作業着手準備']} />
+          <ConsultationCasesTable cases={prepRows} selectable statusFilters={['受注', '戻り受注', '作業着手準備']} />
         </div>
       )}
 
