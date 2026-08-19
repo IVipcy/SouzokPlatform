@@ -454,7 +454,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const managerPractice = tabVisRaw.visible.filter(t => TAB_GROUP[t] === 'practice')
   // 末尾に 案件情報 グループ (assignees/ownerSales/meeting) を追加。CaseTabs 側で InfoDropdown「案件情報」にまとめて表示される。
   // 到着物は管理担当も見る（受信の状況を確認する）。W-Check自体は事務管理の作業。
-  const MANAGER_TABS: TabKey[] = [...new Set<TabKey>(['orderSheet', 'progress', 'clientInfo', ...managerPractice, 'referral', 'contract', 'delivery', 'tasks', 'receipts', 'assignees', 'ownerSales', 'meeting'])]
+  // 契約手続きは案件報告の右。受注後の契約書類の回収状況は管理担当も見るため。
+  const MANAGER_TABS: TabKey[] = [...new Set<TabKey>(['orderSheet', 'progress', 'contractProc', 'clientInfo', ...managerPractice, 'referral', 'contract', 'delivery', 'tasks', 'receipts', 'assignees', 'ownerSales', 'meeting'])]
   // 面談設定済（まだ受注もしていない段階）では管理担当も通常のタブ構成で見る。
   // 請求・納品まで並ぶのは、この段階では早すぎるため。
   const managerFixedTabs = isManagerViewer && caseState.status !== '面談設定済'

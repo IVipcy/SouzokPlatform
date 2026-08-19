@@ -76,13 +76,15 @@ export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
   // 依頼確定待ち（検討中（契約書待ち））/ 受注 / 戻り受注（即受注は status=受注）：
   //   受注が見えてきた段階なので、案件詳細に「タスク」「依頼者連絡」タブを出しておく。
   if (status === '検討中（契約書待ち）' || status === '受注' || status === '戻り受注') {
-    return { visible: ['orderSheet', 'contractProc', 'contract', 'clientInfo', 'tasks', 'assignees', 'ownerSales', 'meeting', 'receipts', 'docs', 'documentCreate'], collapsed: [] }
+    // 案件報告は契約手続きの左。受注してから作業に入るまでのあいだも、
+    // 管理担当と受注担当のやりとりはここで残る。
+    return { visible: ['orderSheet', 'progress', 'contractProc', 'contract', 'clientInfo', 'tasks', 'assignees', 'ownerSales', 'meeting', 'receipts', 'docs', 'documentCreate'], collapsed: [] }
   }
 
   // 作業着手準備：受注時と同じタブ構成に合わせる（実務タブはまだ出さない）。
   // ＋ タスク出し（管理担当がタスク一括生成）のため tasks タブだけ追加する。
   if (status === '作業着手準備') {
-    return { visible: ['orderSheet', 'contractProc', 'contract', 'clientInfo', 'tasks', 'assignees', 'ownerSales', 'meeting', 'receipts', 'docs', 'documentCreate'], collapsed: [] }
+    return { visible: ['orderSheet', 'progress', 'contractProc', 'contract', 'clientInfo', 'tasks', 'assignees', 'ownerSales', 'meeting', 'receipts', 'docs', 'documentCreate'], collapsed: [] }
   }
 
   // 管理案件（対応中 / 完了）: 実務フルセット＋面談情報・契約手続きは折りたたみ
