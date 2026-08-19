@@ -48,11 +48,25 @@ const DRAFT_STYLE = `あなたは相続手続きを扱う会社の社内マニ�
 - 「なぜそうするか」を書く。画面の操作手順は書かない（それは別の「操作方法」に載せる）。
 - 全体で5〜10ブロック程度。長くしすぎない。
 
-出力は次のJSONだけを返す。前置きも説明も書かない。コードブロックの記号も付けない。
-{"blocks":[{"kind":"heading|text|list|warn","body":"..."}]}
-  heading … 章の見出し。短く
+出力は次の形だけを返す。前置きも説明も書かない。コードブロックの記号も付けない。
+1行目に種別を [] で書き、次の行から本文を書く。次の [ ] が来るまでが1ブロック。
+
+[heading]
+深刻度は4段階
+[text]
+アラートが出る場所は、種類ではなく深刻度で決まります。
+紫と赤は要注意バナー、黄は要確認バナーに入ります。
+[list]
+紫はクレーム
+赤は要注意
+黄は要確認
+[warn]
+情報共有はアラートに出ません。放置しても誰も追いかけません。
+
+種別は heading / text / list / warn の4つだけ。
+  heading … 章の見出し。短く。1行
   text    … 本文。2〜4文
-  list    … 並列に並ぶもの。1行に1つ。改行で区切る（行頭に記号は付けない）
+  list    … 並列に並ぶもの。1行に1つ（行頭に記号は付けない）
   warn    … 守らないと事故になること。多用しない`
 
 export async function POST(req: NextRequest) {
@@ -161,7 +175,10 @@ async function draftArticle(key: string, theme: string, context: string) {
       .map(c => c.text).join('').trim()
 
     const blocks = parseBlocks(raw)
-    if (blocks.length === 0) return NextResponse.json({ error: 'AIの返答を読み取れませんでした' }, { status: 502 })
+    if (blocks.length === 0) {
+      console.error('[manual-assist] 下書きを読み取れなかった返答:', raw.slice(0, 800))
+      return NextResponse.json({ error: 'AIの返答を読み取れませんでした' }, { status: 502 })
+    }
     return NextResponse.json({ blocks })
   } catch (e) {
     console.error('[manual-assist] draft failed', e)
@@ -171,23 +188,34 @@ async function draftArticle(key: string, theme: string, context: string) {
 
 const DRAFT_KINDS: ArticleBlockKind[] = ['heading', 'text', 'list', 'warn']
 
-/** AIの返答からブロック配列を取り出す。前後に余計な文字が付いても拾えるようにする。 */
+/**
+ * AIの返答からブロックを取り出す。
+ *
+ * 書式は [heading] などの行で区切るだけの素朴なもの。
+ * JSONにしていたときは、箇条書きの改行がそのまま文字列に入って壊れていた。
+ * 前後に余計な文が付いても、種別の行から拾えるので落ちない。
+ */
 function parseBlocks(raw: string): Omit<ArticleBlock, 'id'>[] {
-  const start = raw.indexOf('{')
-  const end = raw.lastIndexOf('}')
-  if (start === -1 || end === -1) return []
-  try {
-    const json = JSON.parse(raw.slice(start, end + 1)) as { blocks?: Array<{ kind?: string; body?: string }> }
-    return (json.blocks ?? [])
-      .filter(b => typeof b.body === 'string' && b.body.trim())
-      .map(b => ({
-        kind: (DRAFT_KINDS.includes(b.kind as ArticleBlockKind) ? b.kind : 'text') as ArticleBlockKind,
-        body: (b.body ?? '').trim(),
-        path: null,
-        caption: null,
-      }))
-      .slice(0, 30)
-  } catch {
-    return []
+  const out: Omit<ArticleBlock, 'id'>[] = []
+  let kind: ArticleBlockKind | null = null
+  let buf: string[] = []
+
+  const flush = () => {
+    const body = buf.join('\n').trim()
+    if (kind && body) out.push({ kind, body, path: null, caption: null })
+    buf = []
   }
+
+  for (const line of raw.split('\n')) {
+    const m = line.trim().match(/^\[(heading|text|list|warn)\]$/i)
+    if (m) {
+      flush()
+      kind = m[1].toLowerCase() as ArticleBlockKind
+      continue
+    }
+    if (kind) buf.push(line)
+  }
+  flush()
+
+  return out.filter(b => DRAFT_KINDS.includes(b.kind)).slice(0, 30)
 }
