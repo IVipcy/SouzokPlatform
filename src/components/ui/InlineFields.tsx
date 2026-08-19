@@ -933,7 +933,18 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
               )
             })}
           </div>
-          <div className="text-[12px] text-gray-400 mt-2">他の場所をクリックで閉じる</div>
+          {/* 複数選べる欄は選んでも一覧が開いたままで、名前の入った表示に切り替わらない。
+              保存できたのか分からないので、閉じるボタンを出して結果を見せる。 */}
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-[12px] text-gray-400">他の場所をクリックでも閉じます</span>
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className="ml-auto px-2.5 py-1 text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 rounded-md hover:bg-brand-50"
+            >
+              閉じる
+            </button>
+          </div>
         </div>
       ) : (
         <div onClick={() => { setQuery(''); setEditing(true) }} className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]">
