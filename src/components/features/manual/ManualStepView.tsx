@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Printer, Pencil, ArrowLeft } from 'lucide-react'
+import { Printer, Pencil, ArrowLeft, BookOpen, ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { MANUAL_BUCKET, numberOf, itemRangeOf, rolesOfShots, type ManualStepRow } from '@/lib/manualStep'
 
@@ -79,12 +79,12 @@ export default function ManualStepView({ step, embedded = false }: {
         {shots.length === 0 ? (
           <p className="text-[12px] text-gray-400 text-center py-8 border border-dashed border-gray-200 rounded">画面キャプチャがありません</p>
         ) : (
-          <div className="space-y-6">
+          <div className="divide-y divide-gray-200">
             {shots.map((s, si) => {
               const { start, count } = itemRangeOf(shots, si)
               const mine = items.slice(start, start + count)
               return (
-                <div key={s.id} className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-7 items-start print:break-inside-avoid">
+                <div key={s.id} className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-7 items-start py-6 first:pt-0 print:break-inside-avoid">
                   {/* 左：この画面。担当はページ全体ではなく画面ごとに出す（章の中で担当が混ざるため） */}
                   <div>
                     {(s.roles ?? []).length > 0 && (
@@ -94,11 +94,12 @@ export default function ManualStepView({ step, embedded = false }: {
                         ))}
                       </div>
                     )}
-                  <div className="relative border border-gray-200 rounded overflow-hidden">
+                  {/* 縦長のスマホ画像は高さで止めて中央に置く。囲みは画像にぴったり合わせる（赤枠がずれない） */}
+                  <div className="relative border border-gray-200 rounded overflow-hidden w-fit mx-auto max-w-full">
                     {urls[s.id]
                       // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={urls[s.id]} alt="" className="block w-full" />
-                      : <div className="h-40 bg-gray-50" />}
+                      ? <img src={urls[s.id]} alt="" className="block max-w-full max-h-[560px] w-auto" />
+                      : <div className="h-40 w-64 bg-gray-50" />}
                     {s.marks.map(m => (
                       <span key={m.id} className="absolute border-2 border-red-600 rounded-[3px]"
                         style={{ left: `${m.x * 100}%`, top: `${m.y * 100}%`, width: `${m.w * 100}%`, height: `${m.h * 100}%` }}>
@@ -125,6 +126,22 @@ export default function ManualStepView({ step, embedded = false }: {
                             <div className="mt-1.5 border-l-[3px] border-amber-400 bg-amber-50 px-3 py-2 rounded-r">
                               <div className="text-[10.5px] font-bold text-amber-800 tracking-wide mb-0.5">業務ルール</div>
                               <div className="text-[12px] leading-relaxed text-amber-900 whitespace-pre-wrap">{it.rule}</div>
+                            </div>
+                          )}
+                          {/* 関連ページ。考え方の詳しい説明は業務運用ルールに置き、ここからは飛ばすだけ。 */}
+                          {(it.links ?? []).length > 0 && (
+                            <div className="mt-1.5 flex flex-wrap gap-1.5 print:hidden">
+                              {(it.links ?? []).map((l, li) => l.kind === 'article' ? (
+                                <Link key={li} href={`/manual/rules/${l.id}`}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-gray-200 text-[11px] text-brand-700 hover:bg-brand-50">
+                                  <BookOpen className="w-3 h-3" strokeWidth={2} />{l.label}
+                                </Link>
+                              ) : (
+                                <a key={li} href={l.url} target="_blank" rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-gray-200 text-[11px] text-brand-700 hover:bg-brand-50">
+                                  <ExternalLink className="w-3 h-3" strokeWidth={2} />{l.label}
+                                </a>
+                              ))}
                             </div>
                           )}
                         </div>

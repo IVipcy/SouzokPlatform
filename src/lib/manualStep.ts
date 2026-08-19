@@ -34,7 +34,17 @@ export type StepItem = {
   body: string
   /** 業務ルール（任意）。必要な手順にだけ付ける */
   rule?: string | null
+  /**
+   * 関連ページ（任意）。考え方・ルールの詳しい説明は「業務運用ルール」に置き、
+   * 手順からはリンクで飛ばす。外部サイト（登記情報提供サービス等）もここに入れる。
+   */
+  links?: ManualStepLink[]
 }
+
+/** 手順から辿る先。社内の読み物か、外部のURL。 */
+export type ManualStepLink =
+  | { kind: 'article'; id: string; label: string }
+  | { kind: 'url'; url: string; label: string }
 
 export type ManualStepRow = {
   id: string

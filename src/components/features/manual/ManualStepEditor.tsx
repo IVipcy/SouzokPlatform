@@ -21,12 +21,13 @@ import { showToast } from '@/components/ui/Toast'
 import PageHeader from '@/components/ui/PageHeader'
 import Button from '@/components/ui/Button'
 import AiAssistButton from './AiAssistButton'
+import StepLinksEditor, { type ArticleChoice } from './StepLinksEditor'
 import {
   MANUAL_BUCKET, MANUAL_ROLES, newId, numberOf, markCount, syncItems, itemRangeOf, rolesOfShots,
   type ManualStepRow, type Shot, type MarkBox, type StepItem,
 } from '@/lib/manualStep'
 
-export default function ManualStepEditor({ step, chapters }: { step: ManualStepRow; chapters: string[] }) {
+export default function ManualStepEditor({ step, chapters, articles = [] }: { step: ManualStepRow; chapters: string[]; articles?: ArticleChoice[] }) {
   const supabase = createClient()
   const router = useRouter()
 
@@ -212,13 +213,14 @@ export default function ManualStepEditor({ step, chapters }: { step: ManualStepR
         </div>
       </div>
 
-      {/* 画像1枚ごとに1行。右にはその画像の枠に対応する操作方法だけを出す。 */}
-      <div className="space-y-5">
+      {/* 画像1枚ごとに1行。右にはその画像の枠に対応する操作方法だけを出す。
+          画面と画面のあいだは区切り線で切る（余白だけだと右側の操作方法が続き物に見える）。 */}
+      <div className="divide-y divide-gray-200">
         {shots.map((s, si) => {
           const { start, count } = itemRangeOf(shots, si)
           const mine = items.slice(start, start + count)
           return (
-            <div key={s.id} className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-4 items-start">
+            <div key={s.id} className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-4 items-start py-5 first:pt-0">
               <ShotEditor
                 shot={s} url={urls[s.id]} index={si} shots={shots}
                 selected={selected} onSelect={setSelected}
@@ -247,6 +249,11 @@ export default function ManualStepEditor({ step, chapters }: { step: ManualStepR
                           rows={3}
                           placeholder="例: ログインしたら、TOPのメニューの面談登録を押して、面談登録画面を開きます。"
                           className="w-full px-3 py-2 text-[12.5px] leading-relaxed bg-gray-100 border border-transparent rounded outline-none focus:border-brand-400 focus:bg-white resize-y"
+                        />
+                        <StepLinksEditor
+                          links={it.links ?? []}
+                          articles={articles}
+                          onChange={next => setItem(gi, { links: next })}
                         />
                         {it.rule == null ? (
                           <button type="button" onClick={() => setItem(gi, { rule: '' })}
@@ -375,11 +382,13 @@ function ShotEditor({ shot, url, index, shots, selected, onSelect, onAddMark, on
         onPointerMove={onMove}
         onPointerUp={onUp}
         onPointerCancel={onUp}
-        className="relative select-none touch-none cursor-crosshair bg-gray-50"
+        className="relative select-none touch-none cursor-crosshair bg-gray-50 w-fit mx-auto max-w-full"
       >
+        {/* 縦長のスマホ画像を幅いっぱいに広げると異常に高くなるので、高さで止めて中央に置く。
+            囲みは画像にぴったり合わせる（赤枠の座標は画像に対する割合なので、位置がずれない）。 */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        {url ? <img src={url} alt="" className="block w-full" draggable={false} />
-          : <div className="h-40 flex items-center justify-center text-[12px] text-gray-300">読み込み中…</div>}
+        {url ? <img src={url} alt="" className="block max-w-full max-h-[560px] w-auto" draggable={false} />
+          : <div className="h-40 w-64 flex items-center justify-center text-[12px] text-gray-300">読み込み中…</div>}
 
         {shot.marks.map(m => {
           const num = numberOf(shots, m.id)
