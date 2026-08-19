@@ -835,32 +835,44 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
   const handleSelect = async (memberId: string) => {
     setSaving(true)
     const supabase = createClient()
+    // 書き込みの失敗を握りつぶさない。以前はエラーを見ずに「保存しました」と出していたため、
+    // 実際には保存できていないのに成功したように見えていた。
+    const check = (label: string, error: { message: string } | null) => {
+      if (error) throw new Error(`${label}: ${error.message}`)
+    }
     try {
       let assignedManagerId: string | null = null
       if (!multi) {
-        await supabase.from('case_members').delete().eq('case_id', caseId).eq('role', roleKey)
+        const { error: delErr } = await supabase.from('case_members').delete().eq('case_id', caseId).eq('role', roleKey)
+        check('既存の担当を外せませんでした', delErr)
         if (memberId) {
-          await supabase.from('case_members').insert({ case_id: caseId, member_id: memberId, role: roleKey })
+          const { error } = await supabase.from('case_members').insert({ case_id: caseId, member_id: memberId, role: roleKey })
+          check('担当を登録できませんでした', error)
           assignedManagerId = memberId
         }
       } else {
         const existing = assigned.find(cm => cm.member_id === memberId)
         if (existing) {
-          await supabase.from('case_members').delete().eq('id', existing.id)
+          const { error } = await supabase.from('case_members').delete().eq('id', existing.id)
+          check('担当を外せませんでした', error)
         } else if (maxSelect && assigned.length >= maxSelect) {
           showToast(`${label}は${maxSelect}名までです。入れ替えるときは先に外してください`, 'error')
         } else {
-          await supabase.from('case_members').insert({ case_id: caseId, member_id: memberId, role: roleKey })
+          const { error } = await supabase.from('case_members').insert({ case_id: caseId, member_id: memberId, role: roleKey })
+          check('担当を登録できませんでした', error)
           assignedManagerId = memberId
         }
       }
-      // 管理担当が付いたら受注担当へ「割振り完了」を知らせる
-      if (roleKey === 'manager' && assignedManagerId) await notifyManagerAssigned(caseId, assignedManagerId)
+      // 管理担当が付いたら受注担当へ「割振り完了」を知らせる。
+      // 通知が失敗しても担当の登録は済んでいるので、ここでは止めない（前は道連れで失敗扱いになっていた）。
+      if (roleKey === 'manager' && assignedManagerId) {
+        try { await notifyManagerAssigned(caseId, assignedManagerId) } catch (e) { console.error('[割振り完了の通知に失敗]', e) }
+      }
       onRefresh?.()
       showToast('保存しました', 'success')
     } catch (e) {
-      console.error(e)
-      showToast('保存に失敗しました', 'error')
+      console.error('[担当者の保存に失敗]', e)
+      showToast(e instanceof Error ? e.message : '保存に失敗しました', 'error')
     } finally {
       setSaving(false)
       if (!multi) setEditing(false)
