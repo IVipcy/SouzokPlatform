@@ -221,6 +221,8 @@ function HeirsMini({ caseId, heirs, onRefresh, ensureCaseId }: { caseId: string;
   }
   // 同居（boolean）。相関図に「同居」バッジで出る。書類回収・連絡の起点になるため面談中に拾う。
   const saveLived = (id: string, v: boolean) => { setRows(p => p.map(r => r.id === id ? { ...r, lived_together: v } : r)); supabase.from('heirs').update({ lived_together: v }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }); onRefresh?.() }
+  // 死亡（boolean・migration 243）。数次相続・代襲の判断に使う。相関図に「故」で出る。
+  const saveDeceased = (id: string, v: boolean) => { setRows(p => p.map(r => r.id === id ? { ...r, is_deceased: v } : r)); supabase.from('heirs').update({ is_deceased: v }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }); onRefresh?.() }
   // 依頼者（boolean・migration 232）。続柄とは別軸。戸籍タスクはこの人の分から出すので面談中に押さえる。
   const saveClient = (id: string, v: boolean) => { setRows(p => p.map(r => r.id === id ? { ...r, is_client: v } : r)); supabase.from('heirs').update({ is_client: v }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }); onRefresh?.() }
   const add = async () => { const cid = ensureCaseId ? await ensureCaseId() : caseId; const { data, error } = await supabase.from('heirs').insert({ case_id: cid, name: '', sort_order: rows.length }).select('*').single(); if (error || !data) { showToast('追加に失敗', 'error'); return } setRows(p => [...p, data as HeirRow]); onRefresh?.() }
@@ -231,7 +233,7 @@ function HeirsMini({ caseId, heirs, onRefresh, ensureCaseId }: { caseId: string;
   return (
     <div>
       <div className="text-[12px] font-semibold text-gray-500 mb-1.5">相続人一覧</div>
-      {/* スマホは 氏名を1行／続柄・同居・削除を次の行 に折り返す（横に5つ並べると潰れて押せない）。
+      {/* スマホは 氏名を1行／続柄・依頼者・同居・死亡・削除を次の行 に折り返す（横に並べると潰れて押せない）。
           sm以上はこれまでどおり1行。 */}
       <div className="space-y-1.5">
         {rows.map(r => (
@@ -251,6 +253,9 @@ function HeirsMini({ caseId, heirs, onRefresh, ensureCaseId }: { caseId: string;
             </label>
             <label className={`inline-flex items-center gap-1 flex-none text-[11.5px] px-2 py-1.5 min-h-[40px] rounded border cursor-pointer whitespace-nowrap ${r.lived_together ? 'bg-amber-50 border-amber-300 text-amber-800 font-semibold' : 'bg-white border-gray-200 text-gray-400'}`} title="被相続人と同居していたか（相関図に表示されます）">
               <input type="checkbox" checked={!!r.lived_together} onChange={e => saveLived(r.id, e.target.checked)} className="w-4 h-4 accent-amber-600" />同居
+            </label>
+            <label className={`inline-flex items-center gap-1 flex-none text-[11.5px] px-2 py-1.5 min-h-[40px] rounded border cursor-pointer whitespace-nowrap ${r.is_deceased ? 'bg-gray-100 border-gray-400 text-gray-700 font-semibold' : 'bg-white border-gray-200 text-gray-400'}`} title="この相続人が既に亡くなっているか（数次相続・代襲の判断に使います。相関図に「故」で出ます）">
+              <input type="checkbox" checked={!!r.is_deceased} onChange={e => saveDeceased(r.id, e.target.checked)} className="w-4 h-4 accent-gray-600" />死亡
             </label>
             <button type="button" onClick={() => del(r.id)} className="p-2 flex-none text-gray-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
           </div>
