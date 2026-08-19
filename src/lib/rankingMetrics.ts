@@ -9,7 +9,7 @@ export type AxisKey = 'manager' | 'sales' | 'team'
 export type AxisRankings = { axis: AxisKey; label: string; rankings: Ranking[] }
 export type RankingResult = { manager: AxisRankings; sales: AxisRankings; team: AxisRankings }
 
-type CaseLite = { id: string; order_received_date: string | null; completion_date: string | null; contract_type: string | null; fee_administrative: number | null; fee_judicial: number | null; fee_total: number | null }
+type CaseLite = { id: string; status?: string | null; order_received_date: string | null; completion_date: string | null; contract_type: string | null; fee_administrative: number | null; fee_judicial: number | null; fee_total: number | null }
 type CaseMemberLite = { case_id: string; member_id: string; role: string }
 type MemberLite = { id: string; name: string; avatar_color: string | null; avatar_url: string | null; team_id: string | null }
 type TeamLite = { id: string; name: string }
@@ -72,6 +72,9 @@ export function buildRankings(cases: CaseLite[], caseMembers: CaseMemberLite[], 
   const salesAgg = new Map<string, Agg>()
 
   for (const c of cases) {
+    // 失注は数えない。受注日が入ったまま失注に戻った案件が受注件数に混ざっていた
+    // （月次ダッシュボードは失注を除いているので、同じ月の受注件数が食い違っていた）。
+    if (c.status === '失注') continue
     const cms = cmByCase.get(c.id) ?? []
     const rev = confirmedRevenue(c)
     // 業完（完了日が当月）→ 管理担当・チーム

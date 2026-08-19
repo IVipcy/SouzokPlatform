@@ -57,7 +57,7 @@ export type MyCaseRow = {
   overdueSystemTasks?: Array<{ id: string; title: string; due_date: string; over: number; severity: 'kakunin' | 'chui' | null }>
   /** 期限超過タスクあり(進捗バーを赤で表示) */
   hasOverdueTask?: boolean
-  /** 案件再オープン回数 (progress_reports.kind='case_reopen' の件数)。>0 かつ status=対応中/業務完了申請中 なら「再オープン中」バッジ */
+  /** 案件再オープン回数 (progress_reports.kind='case_reopen' の件数)。>0 かつ status=対応中 なら「再オープン中」バッジ */
   reopenCount?: number
   /** 週次報告状況 */
   weeklyStatus?: '未対応' | '依頼中' | '確認済'
@@ -101,7 +101,7 @@ const FLAG_RANK: Record<NonNullable<CaseFlag>, number> = {
 
 // ステータス絞り込みタブの定義（相談案件一覧と同じ 稼働中/業務完了/納品完了 の分類）
 const STATUS_TABS = [
-  { key: 'active', label: '作業進行中', match: (s: string) => s === '対応中' || s === '業務完了申請中' },
+  { key: 'active', label: '作業進行中', match: (s: string) => s === '対応中' },
   { key: 'workDone', label: '業務完了', match: (s: string) => s === '完了' },
   { key: 'delivered', label: '納品完了', match: (s: string) => s === '納品完了' },
 ] as const
@@ -351,7 +351,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                   <Link href={`/cases/${c.id}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[240px]">
                     {c.deal_name}
                   </Link>
-                  {(c.reopenCount ?? 0) > 0 && (c.status === '対応中' || c.status === '業務完了申請中') && (
+                  {(c.reopenCount ?? 0) > 0 && c.status === '対応中' && (
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300 whitespace-nowrap" title={`業務完了/納品完了後に再オープンされた案件（${c.reopenCount}回）`}>
                       再オープン中{(c.reopenCount ?? 0) > 1 ? ` (${c.reopenCount})` : ''}
                     </span>

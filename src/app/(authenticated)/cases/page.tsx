@@ -246,7 +246,7 @@ export default async function CasesPage() {
       reopenCount: reopenCountByCase.get(c.id) ?? 0,
       weeklyStatus: weeklyStatusOf(c.id),
       // 案件の色＝出ているアラートの一番重い色（要注意/要確認バナーと同じ判定）
-      flag: MANAGEMENT_ACTIVE.has(c.status) || c.status === '業務完了申請中' ? computeCaseFlag(c, hits) : null,
+      flag: MANAGEMENT_ACTIVE.has(c.status) ? computeCaseFlag(c, hits) : null,
       alertChips: hits.map(h => ({
         key: h.key, label: h.category, severity: h.severity,
         href: h.href ?? (h.tab ? `/cases/${c.id}?tab=${h.tab}` : `/cases/${c.id}`),
@@ -257,9 +257,8 @@ export default async function CasesPage() {
   }
 
   // 管理案件一覧（対応中 = 稼働中）／完了案件（別サブビューで閲覧・削除）
-  //   業務完了申請中 も 稼働中（承認待ちの実務案件）として管理案件一覧に出す。
   //   完了・納品完了 は「完了案件」サブビューへ（納品完了が どのビューにも出ず削除できない不具合の是正）。
-  const managerRows: MyCaseRow[] = cases.filter(c => MANAGEMENT_ACTIVE.has(c.status) || c.status === '業務完了申請中').map(toMyCaseRow)
+  const managerRows: MyCaseRow[] = cases.filter(c => MANAGEMENT_ACTIVE.has(c.status)).map(toMyCaseRow)
   const completedRows: MyCaseRow[] = cases.filter(c => c.status === '完了' || c.status === '納品完了').map(toMyCaseRow)
 
   // ConsultCase への共通マッピング（相談案件一覧・未着手案件一覧で共用）

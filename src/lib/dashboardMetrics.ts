@@ -3,6 +3,7 @@
 // 月 × スコープ（部全体 / 個人）で5指標を計算する。
 
 import { bizDaysOverdue } from '@/lib/overdue'
+import { AFTER_ORDER_STATUSES, ACTIVE_CASE_STATUSES, DONE_STATUSES } from '@/lib/constants'
 import { caseFlagFromAlerts, type CaseAlertChip } from '@/lib/alerts'
 
 export type DashCase = {
@@ -194,7 +195,10 @@ export type SalesDailyMetricsBundle = {
   propertyAppraisalCount: number // 不動産査定件数（本日新規受注の不動産で appraisal_status IN ('対応中','完了') の物件数）
 }
 
-const STATUS_AFTER_ORDER = new Set(['受注', '対応中', '完了'])
+// 受注済み／完了 の判定は constants の物差しを使う。ここに書き直すと、
+// ステータスが増えたときにダッシュボードだけ取りこぼす（作業着手準備・納品完了で実際に起きていた）。
+const STATUS_AFTER_ORDER = new Set<string>(AFTER_ORDER_STATUSES)
+const STATUS_DONE = new Set<string>(DONE_STATUSES)
 const AVG_DAYS_PER_MONTH = 30.4375
 
 export function monthRange(ym: string): { start: string; end: string } {
@@ -220,7 +224,7 @@ export function computeMetrics(cases: DashCase[], ym: string): MetricsBundle {
   ).length
 
   const completedCases = live.filter(c =>
-    c.status === '完了' &&
+    STATUS_DONE.has(c.status) &&
     c.completion_date &&
     c.completion_date >= start &&
     c.completion_date <= end,
@@ -229,7 +233,7 @@ export function computeMetrics(cases: DashCase[], ym: string): MetricsBundle {
   const managing = live.filter(c => {
     if (!c.order_received_date || c.order_received_date > end) return false
     if (!STATUS_AFTER_ORDER.has(c.status)) return false
-    if (c.status === '完了') {
+    if (STATUS_DONE.has(c.status)) {
       return !!(c.completion_date && c.completion_date > end)
     }
     return true
@@ -314,7 +318,7 @@ export function tenureLabel(joinedAt: string | null, today: Date = new Date()): 
 }
 
 // アクティブ = 受注済〜未完了（失注・受注前は除く）
-const ACTIVE_STATUSES = new Set(['受注', '作業着手準備', '対応中'])
+const ACTIVE_STATUSES = new Set<string>(ACTIVE_CASE_STATUSES)
 
 // 当月発行された請求書を集計するため、月内 issued_date を持つ行型
 export type DashInvoice = {
@@ -381,7 +385,7 @@ export function computeProgressKpis(
   const { start: cmStart, end: cmEnd } = monthRange(currentYm)
 
   const monthCompleted = scopedCases.filter(c =>
-    c.status === '完了' &&
+    STATUS_DONE.has(c.status) &&
     c.completion_date &&
     c.completion_date >= cmStart &&
     c.completion_date <= todayYmd,
@@ -389,7 +393,7 @@ export function computeProgressKpis(
 
   // サイクル = 当月完了案件の (完了−受注) 平均
   const monthCompletedCases = scopedCases.filter(c =>
-    c.status === '完了' &&
+    STATUS_DONE.has(c.status) &&
     c.completion_date &&
     c.completion_date >= cmStart &&
     c.completion_date <= cmEnd,
@@ -449,10 +453,10 @@ export function computeDailyMetrics(
     sc => sc.created_at >= todayStartTs && sc.created_at <= todayEndTs,
   )
 
-  // 本日「→受注」遷移（検討中/検討中（契約書待ち）/面談設定済 等どこからでも受注になれば新規受注）
+  // 本日「→受注」「→戻り受注」遷移（遷移元は問わない。戻り受注も受注として数える）
   const newOrderIds = new Set(
     todayChanges
-      .filter(sc => sc.new_value === '受注')
+      .filter(sc => sc.new_value === '受注' || sc.new_value === '戻り受注')
       .map(sc => sc.entity_id),
   )
 
@@ -465,7 +469,7 @@ export function computeDailyMetrics(
 
   // 本日完了 = completion_date == 当日 かつ status='完了'
   const completedToday = cases.filter(
-    c => c.status === '完了' && c.completion_date === ymd,
+    c => STATUS_DONE.has(c.status) && c.completion_date === ymd,
   )
 
   const completedAmount = completedToday.reduce(
@@ -490,7 +494,7 @@ export function computeDailyMetrics(
 
   // 月初〜本日の完了件数
   const monthCompleted = cases.filter(c =>
-    c.status === '完了' &&
+    STATUS_DONE.has(c.status) &&
     c.completion_date &&
     c.completion_date >= monthStart &&
     c.completion_date <= ymd,
@@ -527,10 +531,10 @@ export function computeSalesDailyMetrics(
   // 本日 面談数: 面談実施日が本日の案件数（実際に面談した件数）
   const meetingsCount = cases.filter(c => c.meeting_executed_date === ymd).length
 
-  // 本日 新規受注: 「→受注」遷移（遷移元は問わない）
+  // 本日 新規受注: 「→受注」「→戻り受注」遷移（遷移元は問わない）
   const newOrderCaseIds = new Set(
     todayChanges
-      .filter(sc => sc.new_value === '受注')
+      .filter(sc => sc.new_value === '受注' || sc.new_value === '戻り受注')
       .map(sc => sc.entity_id),
   )
   const newOrdersCount = newOrderCaseIds.size
@@ -606,10 +610,11 @@ export function computeSalesMetricsForRange(
     c.meeting_executed_date && c.meeting_executed_date >= start && c.meeting_executed_date <= end,
   ).length
 
-  // 新規受注: 「→受注」遷移（検討中/検討中（契約書待ち）等どこからでも受注になればカウント）
+  // 新規受注: 「→受注」「→戻り受注」の遷移（どこからでも受注になればカウント）。
+  // 戻り受注も受注なので、これを外すと失注から戻ってきた案件が受注件数から落ちる。
   const newOrderCaseIds = new Set(
     inMonthChanges
-      .filter(sc => sc.new_value === '受注')
+      .filter(sc => sc.new_value === '受注' || sc.new_value === '戻り受注')
       .map(sc => sc.entity_id),
   )
   const newOrdersCount = newOrderCaseIds.size
@@ -630,17 +635,18 @@ export function computeSalesMetricsForRange(
   // 不動産査定件数 = 当月新規受注したうち、他事業者紹介(不動産)にチェックがある案件数
   const propertyAppraisalCount = newOrderCases.filter(c => c.has_real_estate_referral).length
 
-  // 業務完了予定件数 = expected_completion_date が当月、未完了
+  // 業務完了予定件数 = expected_completion_date が当月で、まだ完了していない案件
   const expectedCompletions = cases.filter(c =>
     c.expected_completion_date &&
     c.expected_completion_date >= start &&
     c.expected_completion_date <= end &&
-    c.status !== '失注',
+    c.status !== '失注' &&
+    !STATUS_DONE.has(c.status),
   ).length
 
   // 業務完了
   const completedCases = cases.filter(c =>
-    c.status === '完了' &&
+    STATUS_DONE.has(c.status) &&
     c.completion_date &&
     c.completion_date >= start &&
     c.completion_date <= end,
@@ -783,7 +789,7 @@ export type ProcedureBreakdown = {
 export function computeProcedureBreakdown(cases: DashCase[], ym: string): ProcedureBreakdown {
   const { start, end } = monthRange(ym)
   const completed = cases.filter(c =>
-    c.status === '完了' &&
+    STATUS_DONE.has(c.status) &&
     c.completion_date &&
     c.completion_date >= start &&
     c.completion_date <= end,

@@ -30,12 +30,13 @@ export const CASE_STATUSES = [
   { key: '作業着手準備', label: '作業着手準備', color: '#F97316' },
   // 管理案件（受注後、管理担当が引き継ぎ対応）
   //   対応中 → 表示ラベル「作業進行中」
-  //   業務完了申請中 → 管理担当が申請、受注担当承認待ち（新規・migration 202 の progress_reports.kind='work_complete' と連動）
-  //   完了 → 表示ラベル「業務完了」
-  //   納品完了 → 新規（納品タブ実装は Phase 3）
-  // 内部値(DB)は対応中/完了/業務完了申請中/納品完了。cases.status に CHECK 制約なし。
+  //   完了 → 表示ラベル「業務完了」。業務完了申請の承認で 対応中 から直接ここへ来る
+  //   納品完了 → 納品タブの「納品完了」ボタン
+  // 内部値(DB)は対応中/完了/納品完了。cases.status に CHECK 制約なし。
+  //
+  // ※「業務完了申請中」は廃止した。申請の状態は progress_reports(kind='work_complete') で
+  //   持っており、案件のステータスとしては使っていなかった（どこからも書き込まれていない）。
   { key: '対応中', label: '作業進行中', color: '#7C3AED' },
-  { key: '業務完了申請中', label: '業務完了申請中', color: '#D97706' },
   { key: '完了', label: '業務完了', color: '#059669' },
   { key: '納品完了', label: '納品完了', color: '#4338CA' },
 ] as const
@@ -52,7 +53,20 @@ export const getCaseStatusLabel = (key: string | null | undefined): string =>
 // 分類に入っていなかったため getCaseCategory が null を返していた。
 export const CONSULT_STATUSES = ['面談設定済', '検討中', '検討中（契約書待ち）', '受注', '戻り受注', '作業着手準備', '失注'] as const
 export const REFERRAL_STATUSES = ['紹介のみ'] as const
-export const MANAGEMENT_STATUSES = ['対応中', '業務完了申請中', '完了', '納品完了'] as const
+export const MANAGEMENT_STATUSES = ['対応中', '完了', '納品完了'] as const
+
+// === 集計で使うステータスのまとまり ===
+// KPIごとに集合を書くとステータスが増えたときに必ずどれかを直し忘れるので、ここだけに置く。
+//   受注系   … 受注してから作業に入るまで
+//   進行中   … 作業進行中（DBの値は「対応中」）
+//   完了     … 業務完了・納品完了
+//   受注済み … 受注系＋進行中＋完了。「一度でも受注に至った案件」
+export const ORDERED_STATUSES = ['受注', '戻り受注', '作業着手準備'] as const
+export const IN_PROGRESS_STATUSES = ['対応中'] as const
+export const DONE_STATUSES = ['完了', '納品完了'] as const
+export const AFTER_ORDER_STATUSES = [...ORDERED_STATUSES, ...IN_PROGRESS_STATUSES, ...DONE_STATUSES] as const
+/** 抱えている案件（受注してから完了するまで） */
+export const ACTIVE_CASE_STATUSES = [...ORDERED_STATUSES, ...IN_PROGRESS_STATUSES] as const
 
 // 案件作成・面談情報タブで選択可能なステータス（相談案件＋個別管理案件）。
 // 対応中・完了はオーダーシート作成／管理フロー経由でのみ遷移するため、ここでは選べない。
@@ -141,9 +155,7 @@ export const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
   '失注': ['紹介のみ', '受注', '戻り受注'],
   '紹介のみ': ['受注', '戻り受注', '失注'],
   // 業務完了は管理担当がそのまま付ける（受注担当への申請・承認は廃止）。
-  // 「業務完了申請中」は過去に申請したまま残っている案件の受け皿として残し、新規には使わない。
   '対応中': ['完了'],
-  '業務完了申請中': ['対応中', '完了'],   // 旧フローの残り。承認→完了 / 差戻し→対応中
   '完了': ['対応中', '納品完了'],          // 再オープン→対応中 / 納品完了へ
   '納品完了': ['対応中'],                  // 再オープン→対応中
 }
@@ -546,9 +558,7 @@ export const ACQUISITION_ITEM_KEYS = ACQUISITION_ITEMS.map(i => i.key)
 // 案件管理番号の真ん中は受注ルートのコードで、受注した時点から請求書・封筒に出る。
 // あとからルートを変えると番号と食い違うので、受注以降はルートを変えられないようにする。
 // 受注する前（面談設定済・検討中・依頼確定待ち）は自由に変えられ、番号もルートに追随する。
-export const ROUTE_LOCKED_STATUSES = [
-  '受注', '戻り受注', '作業着手準備', '対応中', '業務完了申請中', '完了', '納品完了',
-] as const
+export const ROUTE_LOCKED_STATUSES = AFTER_ORDER_STATUSES
 export const isOrderRouteLocked = (status: string | null | undefined) =>
   !!status && (ROUTE_LOCKED_STATUSES as readonly string[]).includes(status)
 

@@ -166,7 +166,7 @@ export default function CaseViewsClient({ managerRows, completedRows, consultRow
       </div>
 
       {view === 'manage' && (() => {
-        // 作業進行中＝対応中(＋業務完了申請中)／業務完了＝完了／納品完了＝納品完了。
+        // 作業進行中＝対応中／業務完了＝完了／納品完了＝納品完了。
         const businessCompleteRows = filteredCompleted.filter(r => r.status === '完了')
         const deliveredRows = filteredCompleted.filter(r => r.status === '納品完了')
         const subTabs = [

@@ -127,7 +127,7 @@ const MILESTONE_DEFS: { statuses: string[]; label: string; historyOnly?: boolean
 ]
 
 // 受注後の稼働中案件（受注→現在→業務完了予定 の3点軸を表示する対象）
-const ACTIVE_AXIS_STATUSES = new Set(['受注', '戻り受注', '対応中', '業務完了申請中'])
+const ACTIVE_AXIS_STATUSES = new Set(['受注', '戻り受注', '作業着手準備', '対応中'])
 
 // 2日付の「Xヶ月Y日」差分（from<=to 前提。負なら 0 扱い）
 function monthDayDiff(from: Date, to: Date): { months: number; days: number; totalDays: number } {

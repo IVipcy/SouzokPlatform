@@ -42,7 +42,7 @@ type Props = {
   /** 担当者（受注/管理）をヘッダーで表示するための情報（変更は担当者タブ） */
   caseMembers?: CaseMemberRow[]
   allMembers?: MemberRow[]
-  /** 案件再オープン回数 (progress_reports.kind='case_reopen' の件数)。>0 かつ 作業進行中/業務完了申請中 なら「再オープン中」バッジを出す */
+  /** 案件再オープン回数 (progress_reports.kind='case_reopen' の件数)。>0 かつ 作業進行中 なら「再オープン中」バッジを出す */
   reopenCount?: number
 }
 
@@ -183,7 +183,7 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                     return <span className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded border ${cls}`} title={`受注の獲得区分：${winLabel}`}>{winLabel}</span>
                   })()}
                   {/* 再オープン中バッジ（過去に業務完了/納品完了 → 再オープンで対応中に戻された案件） */}
-                  {reopenCount > 0 && (caseData.status === '対応中' || caseData.status === '業務完了申請中') && (
+                  {reopenCount > 0 && caseData.status === '対応中' && (
                     <span className="inline-block text-[11px] font-bold px-2 py-0.5 rounded border bg-amber-50 text-amber-800 border-amber-300" title={`業務完了/納品完了後に再オープンされた案件（${reopenCount}回）`}>
                       再オープン中{reopenCount > 1 ? ` (${reopenCount})` : ''}
                     </span>
