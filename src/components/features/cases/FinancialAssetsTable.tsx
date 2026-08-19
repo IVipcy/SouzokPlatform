@@ -467,8 +467,10 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
             {visibleRows.length === 0 ? (
               <tr><td colSpan={colCount} className="px-3 py-6 text-center text-[13px] text-gray-400">登録されていません</td></tr>
             ) : (
+              // セルは上ぞろえ（[&>td]:align-top）。調査禁止で「指定あり」を選ぶと欄が4段に伸びるため、
+              // 中央ぞろえのままだと他のセルだけ下がって、上の行の続きに見えてしまう。
               visibleRows.map(r => { const banned = isSurveyBanned(r); const lock = banned ? 'pointer-events-none opacity-50' : ''; return (
-                <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${banned ? 'bg-gray-100/70' : progressMode && !r.freeze_confirmed ? 'bg-amber-50/30' : ''}`}>
+                <tr key={r.id} className={`border-b border-gray-200 last:border-b-0 [&>td]:align-top ${banned ? 'bg-gray-100/70' : progressMode && !r.freeze_confirmed ? 'bg-amber-50/30' : ''}`}>
                   {/* 凍結確認済フラグ（オーダーシート・事前凍結） */}
                   {showFreezeFlag && <td className="px-2 py-1.5">{renderFreezeFlagCell(r)}</td>}
                   {/* 凍結状態バッジ（左端・目視用。依頼ボタンは右側の「凍結確認」列に別途配置） */}
