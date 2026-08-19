@@ -173,6 +173,10 @@ export const getSelectableCaseStatuses = (
   initialTasksDone = true,
   contractProcDone = true,
   kentouContractReady = true,  // 検討中（契約書待ち）→受注 のゲート（契約残手続き＋全タスク完了）
+  // 受注/戻り受注 → 作業着手準備 のゲート（受注ナビの4件が全部完了）。
+  // 既定は false。ナビの完了状況を知らない画面（面談情報タブ・案件編集など）からは
+  // 作業着手準備へ進ませない。進めるのは案件詳細のナビだけにする。
+  workPrepReady = false,
 ): string[] => {
   if (!currentStatus) return [...MEETING_SELECTABLE_STATUSES]
   const isManagementNow = (MANAGEMENT_STATUSES as readonly string[]).includes(currentStatus)
@@ -183,6 +187,9 @@ export const getSelectableCaseStatuses = (
   const targets = ALLOWED_STATUS_TRANSITIONS[currentStatus] ?? [...MEETING_SELECTABLE_STATUSES]
   const filtered = targets.filter(t => {
     if ((MANAGEMENT_STATUSES as readonly string[]).includes(t)) return canManage
+    // 作業着手準備は管理案件のステータスではないため、これまでゲートが何もかかっておらず、
+    // ナビが「残り1件」でも手で進められてしまっていた。ナビと同じ条件で塞ぐ。
+    if (t === '作業着手準備') return workPrepReady
     // 検討中（契約書待ち）→受注 は、契約残手続き＋この段階の全タスク完了が条件
     if (currentStatus === '検討中（契約書待ち）' && t === '受注') return kentouContractReady
     return true

@@ -391,6 +391,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     advanceInvoiceIssued,
     skipManagerAssign: !!caseState.manager_assign_skipped,
   })
+  // 受注ナビの4件が全部完了しているか。ステータスを手で「作業着手準備」に変えられないようにする。
+  const workPrepReady = flowSteps.every(s => s.done)
   // 検討中（契約書待ち）→受託 のフロー・ナビゲーター（契約手続き完了）
   const kentouSteps = getKentouContractFlowSteps({ contractProcDone })
   // 作業着手準備 → 作業進行中 のフロー・ナビゲーター。
@@ -569,7 +571,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         caseAlerts={caseAlerts}
         tasks={tasks}
         statusHistory={statusHistory}
-        selectableStatuses={getSelectableCaseStatuses(!!caseState.order_sheet_completed_at, caseState.status, managerAssigned, true, contractProcDone, kentouContractReady)}
+        selectableStatuses={getSelectableCaseStatuses(!!caseState.order_sheet_completed_at, caseState.status, managerAssigned, true, contractProcDone, kentouContractReady, workPrepReady)}
         onStatusChange={s => patchCase({ status: s })}
         referrals={caseReferrals ?? []}
         onJumpToReferral={() => {
