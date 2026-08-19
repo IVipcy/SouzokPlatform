@@ -214,8 +214,10 @@ function HeirsMini({ caseId, heirs, onRefresh, ensureCaseId }: { caseId: string;
   const [rows, setRows] = useRowsFrom(heirs)
   const save = (id: string, field: string, v: string) => {
     setRows(p => p.map(r => r.id === id ? { ...r, [field]: v } as HeirRow : r))
-    // 続柄を「前妻/前夫」にしたら相続人フラグを落とす（離婚しているので相続人ではない）
+    // 前後の空白・改行を落として保存する（貼り付けで紛れ込むと氏名の検索・突合がずれる）
+    if (typeof v === 'string') v = v.trim()
     const patch: Record<string, unknown> = { [field]: v || null }
+    // 続柄を「前妻/前夫」にしたら相続人フラグを落とす（離婚しているので相続人ではない）
     if (field === 'relationship_type' && isFormerSpouse(v)) patch.is_legal_heir = false
     supabase.from('heirs').update(patch).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') })
   }

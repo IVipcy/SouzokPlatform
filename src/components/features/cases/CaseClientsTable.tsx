@@ -38,6 +38,9 @@ export default function CaseClientsTable({ caseId, clients, onRefresh, clientId,
   }
 
   const commit = async (id: string, field: keyof CaseClientRow, value: string) => {
+    // 前後の空白・改行を落として保存する。貼り付けで紛れ込むと、氏名の検索・入金の突合・
+    // 重複チェックが「見えない文字」でずれる。姓名のあいだのスペースには手を触れない。
+    value = value.trim()
     const { error } = await supabase.from('case_clients').update({ [field]: value === '' ? null : value }).eq('id', id)
     if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
     // メイン依頼者の氏名編集 → 案件名へ反映

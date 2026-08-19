@@ -245,13 +245,18 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       if (editingHeirId) query = query.neq('id', editingHeirId)
       await query
     }
+    // 前後の空白・改行を落として保存する（貼り付けで紛れ込むと氏名の検索・突合がずれる）。
+    // 姓名のあいだのスペースには手を触れない。
+    const trimmed = Object.fromEntries(
+      Object.entries(heirForm).map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v]),
+    ) as typeof heirForm
     const payload = {
-      ...heirForm,
-      relationship_type: heirForm.relationship || null,
-      birth_date: heirForm.birth_date || null,
-      other_parent_heir_id: heirForm.other_parent_heir_id || null,
+      ...trimmed,
+      relationship_type: trimmed.relationship || null,
+      birth_date: trimmed.birth_date || null,
+      other_parent_heir_id: trimmed.other_parent_heir_id || null,
       // 前妻・前夫は離婚しているので相続人にはならない（図に描くためだけの行）
-      is_legal_heir: isFormerSpouse(heirForm.relationship) ? false : heirForm.is_legal_heir,
+      is_legal_heir: isFormerSpouse(trimmed.relationship) ? false : trimmed.is_legal_heir,
     }
     if (editingHeirId) {
       await supabase.from('heirs').update(payload).eq('id', editingHeirId)
