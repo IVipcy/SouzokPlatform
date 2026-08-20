@@ -39,7 +39,8 @@ export default function HintTip({ text, className = '', width = 244 }: { text: s
           className="absolute top-[150%] left-1/2 -translate-x-1/2 z-50 bg-white border border-gray-200 rounded-xl px-3 py-2.5 shadow-[0_8px_24px_rgba(0,0,0,0.12)]"
         >
           <span className="block text-[10px] font-bold text-brand-600 mb-1 tracking-[0.08em]">ヒント</span>
-          <span className="block text-[12px] text-gray-700 leading-relaxed font-normal">{text}</span>
+          {/* 段落で区切った説明も入るので改行をそのまま出す */}
+          <span className="block text-[12px] text-gray-700 leading-relaxed font-normal whitespace-pre-wrap">{text}</span>
         </span>
       )}
     </span>

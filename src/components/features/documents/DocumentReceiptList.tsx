@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo, useTransition, Fragment, type Cha
 import Link from 'next/link'
 import { Check, Hand, Loader2, Play, Link2, Folder, FolderUp, Target, Trash2, X } from 'lucide-react'
 import HankoStamp from '@/components/ui/HankoStamp'
+import HintTip from '@/components/ui/HintTip'
 import { createClient } from '@/lib/supabase/client'
 import { uploadFilesToCaseFolder } from '@/lib/caseFolder'
 import { showToast } from '@/components/ui/Toast'
@@ -35,6 +36,21 @@ type Props = {
   /** 上の「到着日」で1日に絞り込んでいる状態。当日分/過去日分のタブは意味が無くなるので出さない。 */
   singleDay?: boolean
 }
+
+// 列見出しの「?」に出す説明。2つの列は役割が違うので、どちらも何をする場所か書いておく。
+//   W-Check … 物が正しいか（事務のチェック）
+//   対応     … その物で何を進めるか（業務の判断）
+const W_CHECK_HELP = [
+  '届いた物の中身が、登録した内容と合っているかを別の人が確かめる場所です。',
+  '「確認する」を押すと認印が残り、受信が確定します。確定すると各タブに受領日として反映されます（戸籍請求なら到着日、契約手続きなら「受信済」）。',
+  '確定するまで「対応」はできません。中身を確かめていない物で作業が進まないようにするためです。押し間違えたら、もう一度押して取り消せます。',
+].join('\n\n')
+
+const TAIOU_HELP = [
+  '届いた物を、どのタスクの成果物として扱うかを決める場所です。押した人の認印が残ります。',
+  '「対応」を押すと案件のタスクと結びつき、そのタスクが作業進行中になります。結ぶタスクが無ければ「タスクなしで完了」も選べます（契約書類など）。案件の着手OK判定にも反映されます。',
+  'W-Checkが済むまで押せません。取り消すとタスクの結びつけと着手OKが戻ります（タスク自体は消えません）。',
+].join('\n\n')
 
 // 「0513/001」形式の番号を生成
 function formatReceiptNumber(receivedDate: string, seq: number): string {
@@ -84,7 +100,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
         <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
           <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1520 }}>
             <colgroup>
-              <col style={{ width: 84 }} />{/* 番号 */}
+              <col style={{ width: 104 }} />{/* 番号（未開封バッジ・開封して再登録が入る） */}
               <col style={{ width: 148 }} />{/* 案件管理番号 */}
               <col style={{ width: 94 }} />{/* 〒種類 */}
               <col style={{ width: 130 }} />{/* 差出人 */}
@@ -106,8 +122,19 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                 <th className="px-2.5 py-2 text-center font-semibold">通数</th>
                 <th className="px-2.5 py-2 text-center font-semibold">ファイル<span className="text-[10px] font-normal text-gray-400 block">案件フォルダ</span></th>
                 <th className="px-2.5 py-2 text-left font-semibold">原本格納先<span className="text-[10px] font-normal text-gray-400 block">チームのBOX</span></th>
-                <th className="px-2.5 py-2 text-center font-semibold" title="ダブルチェック＝受信確定（受領日が各タブに反映）">W-Check<span className="text-[10px] font-normal text-gray-400 block">受信確定</span></th>
-                <th className="px-2.5 py-2 text-center font-semibold">対応</th>
+                <th className="px-2.5 py-2 text-center font-semibold">
+                  <span className="inline-flex items-center gap-1">
+                    W-Check
+                    <HintTip width={300} text={W_CHECK_HELP} />
+                  </span>
+                  <span className="text-[10px] font-normal text-gray-400 block">受信確定</span>
+                </th>
+                <th className="px-2.5 py-2 text-center font-semibold">
+                  <span className="inline-flex items-center gap-1">
+                    対応
+                    <HintTip width={300} text={TAIOU_HELP} />
+                  </span>
+                </th>
                 <th className="px-2.5 py-2 text-left font-semibold">紐付けタスク<span className="text-[10px] font-normal text-gray-400 block">クリックで詳細</span></th>
               </tr>
             </thead>
@@ -910,7 +937,10 @@ function ReceiptRow({
                   <div className="mt-1.5">
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">📦 未開封</span>
                     {canManage && onReRegister && (
-                      <button type="button" onClick={() => onReRegister(receipt)} className="mt-1 block w-full text-[11px] font-bold text-white bg-brand-600 hover:bg-brand-700 rounded px-2 py-1">開封して再登録</button>
+                      <button type="button" onClick={() => onReRegister(receipt)}
+                        className="mt-1 inline-flex items-center justify-center w-full h-[26px] px-1.5 text-[11px] font-bold text-white bg-brand-600 hover:bg-brand-700 rounded whitespace-nowrap">
+                        開封して再登録
+                      </button>
                     )}
                   </div>
                 )}
