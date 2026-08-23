@@ -9,13 +9,6 @@ import { showToast } from '@/components/ui/Toast'
 import { FieldGrid, InlineSelect, InlineEdit, InlineTextarea } from '@/components/ui/InlineFields'
 import { KOSEKI_REQUEST_REASONS, KOSEKI_REQUEST_TYPES, KOSEKI_PURPOSES, KOSEKI_RANGES, KOSEKI_AUTHORITIES } from '@/lib/constants'
 import HintTip from '@/components/ui/HintTip'
-
-// 職務上請求で取った分は事件簿（行政書士法・司法書士法で備え付けが要る帳簿）に載せる。
-// どの用紙をどの請求に使ったかを1枚ずつ残さないと事件簿が書けない。
-const AUTHORITY_HELP = [
-  '委任状でもらったか、職務上請求用紙を使ったかを記録します。',
-  '職務上請求を選ぶと、使った用紙の番号を入れる欄が出ます。ここで控えた番号が、書類作成の「事件簿」にそのまま並びます。',
-].join('\n\n')
 import { ACQUIRERS, acquirerLabel } from '@/lib/acquirer'
 import { kosekiOfficeFromAddress } from '@/lib/address'
 import SelectOrTextField from './SelectOrTextField'
@@ -25,6 +18,13 @@ import { relatedTasksFor, receiptFilesFor, type RelatedTask, type ReceiptFile } 
 import RelatedTaskChips from './RelatedTaskChips'
 import OpenStorageFile from '@/components/features/documents/OpenStorageFile'
 import ContractReceivedBlock from './ContractReceivedBlock'
+
+// 職務上請求で取った分は事件簿（行政書士法・司法書士法で備え付けが要る帳簿）に載せる。
+// どの用紙をどの請求に使ったかを1枚ずつ残さないと事件簿が書けない。
+const AUTHORITY_HELP = [
+  '委任状でもらったか、職務上請求用紙を使ったかを記録します。',
+  '職務上請求を選ぶと、使った用紙の番号を入れる欄が出ます。ここで控えた番号が、書類作成の「事件簿」にそのまま並びます。',
+].join('\n\n')
 
 type Props = {
   caseId: string
@@ -118,7 +118,14 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
   const pickAcquirer = async (r: KosekiRequestRow, acquirer: string) => {
     const auto = isAutoRequestTo(r.request_to, r.target_person)
     const office = r.target_person ? officeOf(r.target_person, acquirer) : null
-    await applyPatch(r, { acquirer, ...(auto && office ? { request_to: office } : {}) })
+    // 職務上請求は資格者が自分の職務として出すもの。依頼者が取得するなら成り立たないので、
+    // 依頼者取得へ変えたときは委任状に落とし、控えていた用紙番号も外す。
+    const toClient = acquirer === '依頼者' && r.acquisition_authority === '職務上請求'
+    await applyPatch(r, {
+      acquirer,
+      ...(auto && office ? { request_to: office } : {}),
+      ...(toClient ? { acquisition_authority: '委任状', authority_form_no: null } : {}),
+    })
   }
 
   // 確認依頼を出す／取り消す（発送＝request・着＝receipt）。確認簿の受信箱に上げる/下ろす。
@@ -271,8 +278,12 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
             <select value={r.acquisition_authority ?? ''} onChange={e => saveField(r.id, 'acquisition_authority', e.target.value)}
               className="w-full px-1 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
               <option value="">—</option>
-              {KOSEKI_AUTHORITIES.map(o => <option key={o} value={o}>{o}</option>)}
+              {/* 依頼者取得のときは職務上請求を出さない（資格者が出すものなので成り立たない） */}
+              {KOSEKI_AUTHORITIES.filter(o => isSelf || o !== '職務上請求').map(o => <option key={o} value={o}>{o}</option>)}
             </select>
+            {!isSelf && (
+              <span className="block mt-1 text-[10.5px] text-gray-400">依頼者取得のため委任状のみ</span>
+            )}
             {r.acquisition_authority === '職務上請求' && (
               <input
                 type="text" inputMode="numeric" defaultValue={r.authority_form_no ?? ''} placeholder="用紙番号（半角数字）"
