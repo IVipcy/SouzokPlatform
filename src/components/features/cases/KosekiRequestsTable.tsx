@@ -7,7 +7,15 @@ import { useCurrentMember } from '@/lib/useCurrentMember'
 import CheckRequestControl from './CheckRequestControl'
 import { showToast } from '@/components/ui/Toast'
 import { FieldGrid, InlineSelect, InlineEdit, InlineTextarea } from '@/components/ui/InlineFields'
-import { KOSEKI_REQUEST_REASONS, KOSEKI_REQUEST_TYPES, KOSEKI_PURPOSES, KOSEKI_RANGES } from '@/lib/constants'
+import { KOSEKI_REQUEST_REASONS, KOSEKI_REQUEST_TYPES, KOSEKI_PURPOSES, KOSEKI_RANGES, KOSEKI_AUTHORITIES } from '@/lib/constants'
+import HintTip from '@/components/ui/HintTip'
+
+// 職務上請求で取った分は事件簿（行政書士法・司法書士法で備え付けが要る帳簿）に載せる。
+// どの用紙をどの請求に使ったかを1枚ずつ残さないと事件簿が書けない。
+const AUTHORITY_HELP = [
+  '委任状でもらったか、職務上請求用紙を使ったかを記録します。',
+  '職務上請求を選ぶと、使った用紙の番号を入れる欄が出ます。ここで控えた番号が、書類作成の「事件簿」にそのまま並びます。',
+].join('\n\n')
 import { ACQUIRERS, acquirerLabel } from '@/lib/acquirer'
 import { kosekiOfficeFromAddress } from '@/lib/address'
 import SelectOrTextField from './SelectOrTextField'
@@ -150,7 +158,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
     onRefresh?.()
   }
 
-  const colCount = progressMode ? 12 : 8
+  const colCount = progressMode ? 13 : 8
 
   return (
     <div>
@@ -168,6 +176,12 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
               <th className="px-2.5 py-2 text-left font-semibold w-36">範囲</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">種別</th>
               <th className="px-2.5 py-2 text-left font-semibold">取得目的</th>
+              {progressMode && (
+                <th className="px-2.5 py-2 text-left font-semibold w-48">
+                  <span className="inline-flex items-center gap-1">取得方法<HintTip text={AUTHORITY_HELP} /></span>
+                  <span className="block text-[10px] font-normal text-gray-400">職務上請求は用紙の番号も</span>
+                </th>
+              )}
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-28">請求日</th>}
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-28">到着日</th>}
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-20">受信</th>}
@@ -251,6 +265,27 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
         <td className="px-2.5 py-1.5"><SelectOrTextField value={r.range_text} options={KOSEKI_RANGES} onSave={v => saveField(r.id, 'range_text', v)} placeholder="出生から死亡まで 等" /></td>
         <SelectCell value={r.doc_types} options={KOSEKI_REQUEST_TYPES} onSave={v => saveField(r.id, 'doc_types', v)} />
         <SelectCell value={r.purpose} options={KOSEKI_PURPOSES} onSave={v => saveField(r.id, 'purpose', v)} />
+        {/* 取得方法と、職務上請求のときだけ用紙の番号。番号は事件簿に載せるので1枚ずつ控える。 */}
+        {progressMode && (
+          <td className="px-2.5 py-1.5">
+            <select value={r.acquisition_authority ?? ''} onChange={e => saveField(r.id, 'acquisition_authority', e.target.value)}
+              className="w-full px-1 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+              <option value="">—</option>
+              {KOSEKI_AUTHORITIES.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+            {r.acquisition_authority === '職務上請求' && (
+              <input
+                type="text" inputMode="numeric" defaultValue={r.authority_form_no ?? ''} placeholder="用紙番号（半角数字）"
+                onBlur={e => {
+                  const v = e.target.value.replace(/[^0-9]/g, '')
+                  e.target.value = v
+                  if (v !== (r.authority_form_no ?? '')) commit(r.id, 'authority_form_no', v)
+                }}
+                className="w-full mt-1 px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white"
+              />
+            )}
+          </td>
+        )}
         {progressMode && (
           <DateReqCell value={r.request_date} onCommit={v => commit(r.id, 'request_date', v)}
             show={isSelf && !!r.request_date} label="発送チェックを依頼"

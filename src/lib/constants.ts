@@ -475,6 +475,10 @@ export const KOSEKI_SUBMIT_TO_DEFAULT = '依頼者に渡す'
 export const KOSEKI_PLAN_RANGES = ['出生～死亡すべて', '死亡のみ', '現在戸籍'] as const
 // 「どちらでも」＝住民票でも戸籍の附票でもよい（役所で取れる方を取る）。
 // 面談の見立ての段階では決めきれないことが多いので選べるようにしてある。
+// 戸籍の取得方法。職務上請求で取った分は事件簿（法定の帳簿）に載せる必要がある。
+// 「依頼者が取得」は取得区分（自社／依頼者）で表すので、ここには入れない。
+export const KOSEKI_AUTHORITIES = ['委任状', '職務上請求'] as const
+
 export const KOSEKI_PLAN_ADDRESS_DOCS = ['住民票', '戸籍の附票', 'どちらでも'] as const
 
 // 複数選択は「・」でつないだ1つの文字列で持つ（列を増やさないため）

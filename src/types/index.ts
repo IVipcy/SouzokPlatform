@@ -620,6 +620,8 @@ export type KosekiRequestRow = {
   id: string
   case_id: string
   request_kind: string | null         // 請求区分（通常請求/誤請求/追加請求/再請求。migration 234）
+  acquisition_authority?: string | null  // 取得方法（委任状／職務上請求。migration 254）
+  authority_form_no?: string | null      // 職務上請求用紙の番号（migration 254）
   request_to: string | null       // 請求先（市区町村/本籍地役所）
   target_person: string | null    // 対象者（誰の戸籍か。被相続人/相続人から選択）
   range_text: string | null       // 範囲（出生から死亡まで/現在戸籍 等。migration 099）
@@ -1272,4 +1274,5 @@ export type KosekiPlanRow = {
   sort_order: number
   created_at: string
   updated_at: string
+  acquisition_authority?: string | null  // 取得方法の見立て（委任状／職務上請求。migration 254）
 }

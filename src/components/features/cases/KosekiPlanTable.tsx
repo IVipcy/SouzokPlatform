@@ -12,7 +12,8 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import SelectOrTextField from './SelectOrTextField'
-import { KOSEKI_PLAN_RANGES, KOSEKI_PLAN_ADDRESS_DOCS } from '@/lib/constants'
+import { KOSEKI_PLAN_RANGES, KOSEKI_PLAN_ADDRESS_DOCS, KOSEKI_AUTHORITIES } from '@/lib/constants'
+import HintTip from '@/components/ui/HintTip'
 import type { CaseRow, HeirRow, KosekiPlanRow } from '@/types'
 
 type Props = {
@@ -22,6 +23,11 @@ type Props = {
 }
 
 const cellInp = 'w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white transition'
+
+const AUTHORITY_HELP = [
+  '委任状でもらうか、職務上請求用紙を使うかの見立てです。',
+  '職務上請求で取った分は、実務タブで用紙の番号を控えます（事件簿に載せるため）。ここは指示で、実際にどちらで取ったかは実務タブの記録が正になります。',
+].join('\n\n')
 
 export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
   const [plans, setPlans] = useState<Record<string, KosekiPlanRow>>({})
@@ -48,7 +54,7 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
   }, [caseId])
 
   // 1マス変えるたびに保存（人ごとに1行。無ければ作る）
-  const save = async (name: string, field: 'range_text' | 'address_doc' | 'note', value: string) => {
+  const save = async (name: string, field: 'range_text' | 'address_doc' | 'note' | 'acquisition_authority', value: string) => {
     const key = name.trim()
     const v = value.trim() || null
     setPlans(prev => ({ ...prev, [key]: { ...(prev[key] ?? {} as KosekiPlanRow), person_name: key, [field]: v } as KosekiPlanRow }))
@@ -65,12 +71,15 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-[12px] border-collapse" style={{ minWidth: 680 }}>
+      <table className="w-full text-[12px] border-collapse" style={{ minWidth: 820 }}>
         <thead>
           <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
             <th className="px-2 py-2 text-left font-semibold w-48">対象者</th>
             <th className="px-2 py-2 text-left font-semibold w-40">戸籍の取得範囲</th>
             <th className="px-2 py-2 text-left font-semibold w-40">住所関係書類</th>
+            <th className="px-2 py-2 text-left font-semibold w-36">
+              <span className="inline-flex items-center gap-1">取得方法<HintTip text={AUTHORITY_HELP} /></span>
+            </th>
             <th className="px-2 py-2 text-left font-semibold">備考</th>
           </tr>
         </thead>
@@ -104,6 +113,13 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
                     onSave={v => save(p.name, 'address_doc', v)}
                     placeholder="住民票 等"
                   />
+                </td>
+                <td className="px-2 py-1.5">
+                  <select value={plan?.acquisition_authority ?? ''} onChange={e => save(p.name, 'acquisition_authority', e.target.value)}
+                    className="w-full px-1 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+                    <option value="">—</option>
+                    {KOSEKI_AUTHORITIES.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
                 </td>
                 <td className="px-2 py-1.5">
                   <input defaultValue={plan?.note ?? ''} placeholder="（任意）"

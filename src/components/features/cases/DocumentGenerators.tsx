@@ -11,6 +11,7 @@ import IninjoDocumentModal from './IninjoDocumentModal'
 import KeiyakuDocumentModal from './KeiyakuDocumentModal'
 import InvoiceDocumentModal from './InvoiceDocumentModal'
 import KakuteiInvoiceModal from './KakuteiInvoiceModal'
+import { showToast } from '@/components/ui/Toast'
 // 封筒印刷は 納品タブ側 (DeliveryTab) に移設したため ここでは import しない
 
 type Props = {
@@ -45,6 +46,7 @@ const DOCUMENTS: DocumentItem[] = [
   { key: 'invoice_final', category: '請求', categoryColor: 'bg-pink-50 text-pink-700 border-pink-200', title: '請求書（確定）＋立替実費明細', description: '報酬＋立替実費－前受金。確定請求書と立替明細を1ファイル2シートで出力', status: 'ready' },
   { key: 'receipt_final', category: '領収', categoryColor: 'bg-rose-50 text-rose-700 border-rose-200', title: '領収書（確定）', description: '確定（報酬−前受金）の領収書を発行（行/司）。入金時に発行', status: 'ready' },
   { key: 'receipt', category: '領収', categoryColor: 'bg-rose-50 text-rose-700 border-rose-200', title: '領収書（前受金）', description: '前受金の領収書を発行（行/司）。基本は確定領収書を使用', status: 'ready' },
+  { key: 'jikenbo', category: '帳簿', categoryColor: 'bg-slate-50 text-slate-700 border-slate-200', title: '事件簿（業務事件簿）', description: '職務上請求用紙を使った案件の備え付け帳簿。案件情報を流し込み、経緯・経過・用紙番号は手書き用に枠だけ出力', status: 'ready' },
   // 封筒印刷は 納品タブ側 (原本受領証と並べて配置) に移設。
 ]
 
@@ -75,6 +77,38 @@ export default function DocumentGenerators({ caseData, tasks, heirs, properties,
     else if (key === 'receipt') receiptModal.open()
     else if (key === 'receipt_final') receiptFinalModal.open()
     else if (key === 'invoice_final') kakuteiModal.open()
+    else if (key === 'jikenbo') void downloadJikenbo()
+  }
+
+  // 事件簿はその場でWordを出す（入力を求める項目が無いのでモーダルを挟まない）
+  const downloadJikenbo = async () => {
+    try {
+      const res = await fetch('/api/documents/jikenbo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ caseId: caseData.id }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        showToast(j.error ?? '事件簿の作成に失敗しました', 'error'); return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `事件簿_${caseData.case_number ?? ''}_${caseData.deal_name ?? ''}.docx`
+      document.body.appendChild(a); a.click(); a.remove()
+      URL.revokeObjectURL(url)
+      const n = Number(res.headers.get('X-Authority-Form-Count') ?? '0')
+      showToast(
+        n > 0
+          ? `事件簿を作成しました。職務上請求用紙 ${n}枚ぶんの番号は帳簿に手書きしてください`
+          : '事件簿を作成しました',
+        'success',
+      )
+      onGenerated?.()
+    } catch {
+      showToast('事件簿の作成に失敗しました', 'error')
+    }
   }
 
   return (
