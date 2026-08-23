@@ -1,0 +1,7 @@
+検証環境url
+https://stg.oc-lp.com
+
+・管理者権限
+admin@example.com
+
+パスワード： Ocean5061/

@@ -5,3 +5,9 @@ https://stg.oc-lp.com
 admin@example.com
 
 パスワード： Ocean5061/
+
+
+test@example.com
+!Test0123
+
+b5876cdf-b32b-4807-85b9-6ba2c5919ec6
