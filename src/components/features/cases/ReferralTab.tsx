@@ -8,11 +8,12 @@ import type { CaseRow, CaseReferralRow, TaskRow } from '@/types'
 import {
   Section, SectionHeading, FieldGrid, InlineSelect, InlineEdit, InlineDate, InlineCurrency, InlineTextarea,
 } from '@/components/ui/InlineFields'
-import { REFERRAL_PARTNER_TYPES, REFERRAL_BILLING_STATUSES, REAL_ESTATE_REGISTRATION_OPTIONS, TAX_ADVISOR_BUSINESS_OPTIONS, TAX_FILING_OPTIONS, REAL_ESTATE_APPRAISAL_RANKS, TAX_ADVISOR_REFERRAL_REASONS, OTHER_REFERRAL_PARTNERS } from '@/lib/constants'
+import { REFERRAL_PARTNER_TYPES, REFERRAL_BILLING_STATUSES, REAL_ESTATE_REGISTRATION_OPTIONS, TAX_ADVISOR_BUSINESS_OPTIONS, TAX_FILING_OPTIONS, REAL_ESTATE_APPRAISAL_RANKS, TAX_ADVISOR_REFERRAL_REASONS, OTHER_REFERRAL_PARTNERS, TAX_ADVISOR_COMPANIES } from '@/lib/constants'
 import TabHeader from './TabHeader'
 import TabTasksSection from './TabTasksSection'
 import { WorkContentField } from './WorkContentField'
 import ProgressSummary from './ProgressSummary'
+import SelectOrTextField from './SelectOrTextField'
 
 type Props = {
   caseData: CaseRow
@@ -148,6 +149,20 @@ export default function ReferralTab({ caseData, referrals, onRefresh, tasks = []
           <FieldGrid>
             <InlineSelect label="相続税申告要否" value={caseData.tax_filing_required} options={[...TAX_FILING_OPTIONS]} onSave={saveCaseField('tax_filing_required')} width="md" />
             <InlineSelect label="紹介" value={taxRow ? 'あり' : 'なし'} options={['あり', 'なし']} onSave={async v => { await togglePartner('税理士', v === 'あり') }} width="compact" />
+            {/* 紹介先の税理士法人。面談結果登録の「紹介元（税理士経由）」と同じ一覧から選ぶ。
+                付き合いのない法人へ紹介することもあるので、一覧に無ければそのまま打てる。 */}
+            {taxRow && (
+              <div className="py-1.5 border-b border-gray-50">
+                <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide mb-1">紹介先税理士法人名</div>
+                <SelectOrTextField
+                  value={taxRow.firm_name ?? null}
+                  options={TAX_ADVISOR_COMPANIES}
+                  onSave={v => { void saveReferralField(taxRow.id, 'firm_name')(v) }}
+                  placeholder="法人名を入力"
+                  className="px-2.5 py-2 text-[13px] border border-gray-200 rounded-lg"
+                />
+              </div>
+            )}
             {taxRow && <InlineSelect label="紹介内容" value={taxRow.content} options={[...TAX_ADVISOR_REFERRAL_REASONS]} onSave={saveReferralField(taxRow.id, 'content')} fullWidth />}
             {taxRow && <InlineTextarea label="備考" value={taxRow.content_detail} onSave={saveReferralField(taxRow.id, 'content_detail')} fullWidth />}
           </FieldGrid>
