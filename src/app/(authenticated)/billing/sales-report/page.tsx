@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import SalesReportClient from '@/components/features/billing/SalesReportClient'
+import { isIkiikiContract } from '@/lib/constants'
 
 export default async function SalesReportPage() {
   const supabase = await createClient()
@@ -7,7 +8,7 @@ export default async function SalesReportPage() {
   const [invoicesResult, expensesResult, rewardsResult, teamsResult] = await Promise.all([
     supabase
       .from('invoices')
-      .select('id, case_id, invoice_type, firm_type, fee_amount, expenses_amount, amount, deduct_expense_nontax, deduct_expense_tax, bank_override, posted_date, issued_date, notes, status, payments(amount, payment_date, is_refund, bank), cases(case_number, deceased_name, billing_pattern, clients(name), case_members(role, members(name, team_id)))')
+      .select('id, case_id, invoice_type, firm_type, fee_amount, expenses_amount, amount, deduct_expense_nontax, deduct_expense_tax, bank_override, posted_date, issued_date, notes, status, payments(amount, payment_date, is_refund, bank), cases(case_number, deceased_name, billing_pattern, contract_type, clients(name), case_members(role, members(name, team_id)))')
       .in('invoice_type', ['確定請求', '前受金'])
       // 計上日 = posted_date ?? issued_date（発行日基準）で並べる。片方が空でも新しい順が崩れないよう2段ソート。
       .order('posted_date', { ascending: false, nullsFirst: false })
@@ -27,8 +28,9 @@ export default async function SalesReportPage() {
 
   return (
     <SalesReportClient
+      // いきいきライフ協会は別法人なので売上には載せない
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      invoices={(invoicesResult.data ?? []) as any}
+      invoices={((invoicesResult.data ?? []) as any[]).filter(inv => !isIkiikiContract(inv?.cases?.contract_type)) as any}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expenses={(expensesResult.data ?? []) as any}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

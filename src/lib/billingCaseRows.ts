@@ -1,3 +1,4 @@
+import { isIkiikiContract } from '@/lib/constants'
 // 請求タブ（管理担当ダッシュボード／マイページ）の案件ベース行ビルダー。
 // 当月の「受託(受注) / 当月完了予定の対応中 / 当月業務完了の完了」案件を抽出し、
 // 区分に応じた請求書（受託=前受金, 対応中/完了=確定請求）の状況を1行にまとめる。
@@ -122,6 +123,8 @@ export function buildBillingCaseRows(
 
   const rows: BillingCaseRow[] = []
   for (const c of cases) {
+    // いきいきライフ協会は別法人。オーシャンの請求管理には出さない
+    if (isIkiikiContract(c.contract_type)) continue
     let bucket: BillingBucket | null = null
     if (c.status === '受注' || c.status === '戻り受注') bucket = '受託'
     else if (c.status === '対応中' && c.expected_completion_date?.startsWith(ym)) bucket = '対応中'

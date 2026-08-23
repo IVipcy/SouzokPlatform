@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import BillingClient from '@/components/features/billing/BillingClient'
 import { getCurrentUser, canReconcilePayments, isAssistant } from '@/lib/auth'
+import { isIkiikiContract } from '@/lib/constants'
 
 export default async function BillingPage() {
   const supabase = await createClient()
@@ -31,8 +32,11 @@ export default async function BillingPage() {
       .order('requested_date', { ascending: false }),
   ])
 
+  // いきいきライフ協会は別法人なので、オーシャンの請求・入金には混ぜない
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const invoices = (invoicesResult.data ?? []) as any
+  const invoices = ((invoicesResult.data ?? []) as any[])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter(inv => !isIkiikiContract(inv?.cases?.contract_type)) as any
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const requests = ((requestsResult.data ?? []) as any[]).map(r => ({
     id: r.id, invoice_id: r.invoice_id, case_id: r.case_id, kind: r.kind, status: r.status,

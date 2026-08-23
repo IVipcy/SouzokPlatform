@@ -800,6 +800,12 @@ export const isDashboardHiddenTeam = (name: string | null | undefined): boolean 
 // 契約形態（相続案件の受任法人）。いきいきライフ協会（officeProfiles の ikiiki）も選択肢に含める。
 export const CONTRACT_TYPES = ['行・司連名', '行政書士法人単独', '司法書士法人単独', 'いきいきライフ協会'] as const
 
+// いきいきライフ協会は別法人。オーシャンの請求・入金・売上には混ぜない。
+// 請求・入金タブ／売上表／入金明細から外し、いきいき専用のレポートで見る。
+export const IKIIKI_CONTRACT = 'いきいきライフ協会'
+export const isIkiikiContract = (contractType: string | null | undefined): boolean =>
+  contractType === IKIIKI_CONTRACT
+
 // === 入金ステータス（migration 045 で4種類に統一） ===
 export const PAYMENT_STATUSES = [
   '未請求', '作成済', '入金待ち', '入金済',
