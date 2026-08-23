@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import UserAvatar from '@/components/ui/UserAvatar'
 import { tenureLabel } from '@/lib/dashboardMetrics'
+import { SALES_DIVISIONS } from '@/lib/constants'
 import type { MemberRow } from '@/types'
 
 const ROLE_LABEL: Record<string, string> = {
@@ -22,11 +23,16 @@ type Props = {
   member: MemberRow
   teamName: string | null
   isOwner: boolean
+  /** 所属事業部（相続事業部 等）と第一/第二事業部を直せるか。システム管理者のみ。 */
+  canEditOrg?: boolean
   /** 相談相手（Sister/Brother）を選ぶ候補。自分以外の在籍者。 */
   allMembers?: MemberRow[]
 }
 
-export default function ProfileClient({ member, teamName, isOwner, allMembers = [] }: Props) {
+// 所属事業部の選択肢。アカウント一覧（docs/アカウント一覧/ID.csv）の「事業部」列と同じ言葉。
+const DEPARTMENTS = ['相続事業部', 'LP事業部', '身元保証事業部', '法人営業部', 'コンサル・経営企画', '総務・経理'] as const
+
+export default function ProfileClient({ member, teamName, isOwner, canEditOrg = false, allMembers = [] }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const supabase = createClient()
@@ -91,8 +97,33 @@ export default function ProfileClient({ member, teamName, isOwner, allMembers = 
                   {role}
                 </span>
               )}
+              {member.department && (
+                <span className="text-gray-700 font-medium">{member.department}</span>
+              )}
               {teamName && (
                 <span className="text-gray-700 font-medium">{teamName}</span>
+              )}
+              {member.division && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200 text-[12px] font-semibold"
+                  title="確定売上表はこの事業部ごとにシートが分かれます">
+                  {member.division}
+                </span>
+              )}
+              {canEditOrg && (
+                <span className="inline-flex items-center gap-1.5 text-[12px] text-gray-500" title="アカウント一覧が正です。入社・異動でずれたときだけ直してください">
+                  <select value={member.department ?? ''}
+                    onChange={e => updateField('department', e.target.value || null).catch(err => { console.error(err); showToast('保存に失敗しました', 'error') })}
+                    className="px-1.5 py-0.5 text-[12px] border border-gray-200 rounded bg-white">
+                    <option value="">所属事業部 未設定</option>
+                    {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                  <select value={member.division ?? ''}
+                    onChange={e => updateField('division', e.target.value || null).catch(err => { console.error(err); showToast('保存に失敗しました', 'error') })}
+                    className="px-1.5 py-0.5 text-[12px] border border-gray-200 rounded bg-white">
+                    <option value="">第一/第二 未設定</option>
+                    {SALES_DIVISIONS.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </span>
               )}
               {isOwner && (
                 <label className="inline-flex items-center gap-1.5 text-[12px] font-medium text-gray-600 cursor-pointer select-none" title="ONにするとチームが「相続登記チーム」に自動切替されます">

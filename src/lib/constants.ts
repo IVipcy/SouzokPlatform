@@ -890,11 +890,12 @@ export const BILLING_PATTERNS: { value: BillingPattern; no: string; label: strin
 export const billingPatternOf = (v: string | null | undefined) =>
   BILLING_PATTERNS.find(p => p.value === v) ?? BILLING_PATTERNS[0]
 
-// === 確定売上表のシート＝「営業部 × 入金銀行」の組み合わせ ===
-//   営業部 … 受注担当のチームの営業部（teams.division）。マスタ（チーム→営業部）で設定。
+// === 確定売上表のシート＝「事業部 × 入金銀行」の組み合わせ ===
+//   事業部 … 受注担当の事業部（members.division）。アカウント一覧が正で、画面では設定しない。
+//            受注担当に入っていなければチーム側（teams.division）で拾う。
 //   入金銀行 … お客さんが実際に振り込んだ銀行（cases.bank）。CSV突合で自動・未入金は手動。
-//   例）第一営業部（みずほ入金）／第一営業部（きらぼし入金）／第二営業部（みずほ入金）／第二営業部（きらぼし入金）
-export const SALES_DIVISIONS = ['第一営業部', '第二営業部'] as const
+//   例）第一事業部（みずほ入金）／第一事業部（きらぼし入金）／第二事業部（みずほ入金）／第二事業部（きらぼし入金）
+export const SALES_DIVISIONS = ['第一事業部', '第二事業部'] as const
 export const DEPOSIT_BANKS = ['みずほ', 'きらぼし'] as const
 
 // === 遺言種別 ===

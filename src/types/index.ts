@@ -373,6 +373,10 @@ export type MemberRow = {
   avatar_color: string
   is_active: boolean
   team_id?: string | null
+  /** 所属事業部（相続事業部 / LP事業部 など）。アカウント一覧が正（migration 158/255） */
+  department?: string | null
+  /** 第一事業部 / 第二事業部。確定売上表のシートはこれで分かれる（migration 255） */
+  division?: string | null
   job_type?: string | null
   joined_at?: string | null
   primary_role?: 'sales' | 'manager' | 'assistant' | 'lp' | 'accounting' | 'system_manager' | null

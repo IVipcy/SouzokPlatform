@@ -3,9 +3,9 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { FileSpreadsheet, Download, ArrowLeft, CalendarClock, Building2 } from 'lucide-react'
+import { FileSpreadsheet, Download, ArrowLeft, CalendarClock } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
-import { SALES_DIVISIONS, billingPatternOf } from '@/lib/constants'
+import { billingPatternOf } from '@/lib/constants'
 import HelpHint from '@/components/ui/HelpHint'
 import {
   buildSalesReport, isSaleInvoice,
@@ -43,11 +43,10 @@ export default function SalesReportClient({ invoices, expenses, rewards, teams }
 
   const [month, setMonth] = useState<string>(() => monthOptions[0] ?? 'all')
   const [book, setBook] = useState<'gyosei' | 'shiho'>('gyosei')
-  const [showDivisionConfig, setShowDivisionConfig] = useState(false)
   // 銀行フィルタタブ：'all'(すべて) / 'みずほ' / 'きらぼし' / '__unassigned__'(未振り分け)
   const [bankFilter, setBankFilter] = useState<'all' | 'みずほ' | 'きらぼし' | '__unassigned__'>('all')
-  // 営業部フィルタタブ：'all'(すべて) / '第一営業部' / '第二営業部' / '__unassigned__'(未設定)
-  const [divisionFilter, setDivisionFilter] = useState<'all' | '第一営業部' | '第二営業部' | '__unassigned__'>('all')
+  // 事業部フィルタタブ：'all'(すべて) / '第一事業部' / '第二事業部' / '__unassigned__'(未設定)
+  const [divisionFilter, setDivisionFilter] = useState<'all' | '第一事業部' | '第二事業部' | '__unassigned__'>('all')
 
   const books = useMemo(
     () => buildSalesReport(invoices, expenses, rewards, teams, month),
@@ -94,7 +93,7 @@ export default function SalesReportClient({ invoices, expenses, rewards, teams }
         title="確定売上表"
         icon={FileSpreadsheet}
         afterTitle={<SalesReportHelp />}
-        description="請求書を発行した月＝売上を立てた月として並べた一覧です。行政書士法人／司法書士法人を切り替え、営業部と入金銀行ごとの表をExcelに出せます。"
+        description="請求書を発行した月＝売上を立てた月として並べた一覧です。行政書士法人／司法書士法人を切り替え、事業部と入金銀行ごとの表をExcelに出せます。"
         right={
           <Link href="/billing" className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
             <ArrowLeft className="w-3.5 h-3.5" /> 請求・入金へ
@@ -135,29 +134,19 @@ export default function SalesReportClient({ invoices, expenses, rewards, teams }
         </div>
 
         <button
-          onClick={() => setShowDivisionConfig(v => !v)}
-          className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
-        >
-          <Building2 className="w-3.5 h-3.5" /> 営業部設定（チーム別）
-        </button>
-        <button
           onClick={handleExport}
-          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition"
+          className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition"
         >
           <Download className="w-3.5 h-3.5" /> Excel出力
         </button>
       </div>
 
-      {showDivisionConfig && (
-        <DivisionSettingsPanel teams={teams} onClose={() => setShowDivisionConfig(false)} onSaved={() => { setShowDivisionConfig(false); router.refresh() }} />
-      )}
-
-      {/* フィルタ：営業部＋銀行 */}
+      {/* フィルタ：事業部＋銀行 */}
       <div className="flex flex-col gap-2 mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500 w-14">営業部</span>
+          <span className="text-xs text-gray-500 w-14">事業部</span>
           <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
-            {([['all','すべて'], ['第一営業部','第一営業部'], ['第二営業部','第二営業部'], ['__unassigned__','未設定']] as const).map(([k,label]) => (
+            {([['all','すべて'], ['第一事業部','第一事業部'], ['第二事業部','第二事業部'], ['__unassigned__','未設定']] as const).map(([k,label]) => (
               <button key={k} onClick={() => setDivisionFilter(k)}
                 className={`px-3 py-1.5 text-xs font-semibold transition ${divisionFilter === k ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
                 {label}
@@ -185,58 +174,13 @@ export default function SalesReportClient({ invoices, expenses, rewards, teams }
   )
 }
 
-// チーム→営業部（第一/第二）の割り当て。売上表のシートは「営業部×銀行」で分かれる。
-function DivisionSettingsPanel({ teams, onClose, onSaved }: { teams: TeamMeta[]; onClose: () => void; onSaved: () => void }) {
-  const [draft, setDraft] = useState<Record<string, string>>(() =>
-    Object.fromEntries(teams.map(t => [t.id, t.division ?? ''])))
-  const [saving, setSaving] = useState(false)
-
-  async function save() {
-    setSaving(true)
-    const supabase = createClient()
-    for (const t of teams) {
-      const v = draft[t.id] ?? ''
-      if ((t.division ?? '') === v) continue
-      await supabase.from('teams').update({ division: v || null }).eq('id', t.id)
-    }
-    setSaving(false)
-    onSaved()
-  }
-
-  return (
-    <div className="bg-white border border-blue-200 rounded-xl p-4 mb-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-      <div className="text-[13px] font-semibold text-blue-900 mb-1">チームごとの営業部を設定</div>
-      <div className="text-xs text-gray-500 mb-3">受注担当のチームの営業部で、売上表のシートが決まります（例：高橋チーム＝第一営業部）。</div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {teams.map(t => (
-          <div key={t.id} className="flex items-center gap-2">
-            <div className="flex-1 text-sm text-gray-700 truncate">{t.name}</div>
-            <select
-              value={draft[t.id] ?? ''}
-              onChange={e => setDraft(d => ({ ...d, [t.id]: e.target.value }))}
-              className="w-[150px] px-2 py-1.5 text-sm border border-gray-200 rounded-lg bg-white"
-            >
-              <option value="">未設定</option>
-              {SALES_DIVISIONS.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
-          </div>
-        ))}
-      </div>
-      <div className="flex justify-end gap-2 mt-3">
-        <button onClick={onClose} className="px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">キャンセル</button>
-        <button onClick={save} disabled={saving} className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">{saving ? '保存中…' : '保存'}</button>
-      </div>
-    </div>
-  )
-}
-
 type SheetHandlers = {
   onSaveDeduct: (invoiceId: string, field: 'deduct_expense_nontax' | 'deduct_expense_tax', value: number) => void
   onSaveBankOverride: (invoiceId: string, bank: string) => void
 }
 
-function BookView({ book, monthLabel, onSaveDeduct, onSaveBankOverride, bankFilter, divisionFilter }: { book: SalesBook; monthLabel: string; bankFilter: 'all' | 'みずほ' | 'きらぼし' | '__unassigned__'; divisionFilter: 'all' | '第一営業部' | '第二営業部' | '__unassigned__' } & SheetHandlers) {
-  // 銀行×営業部の複合フィルタ。'all' は全部、'__unassigned__' は それぞれ未設定シートのみ。
+function BookView({ book, monthLabel, onSaveDeduct, onSaveBankOverride, bankFilter, divisionFilter }: { book: SalesBook; monthLabel: string; bankFilter: 'all' | 'みずほ' | 'きらぼし' | '__unassigned__'; divisionFilter: 'all' | '第一事業部' | '第二事業部' | '__unassigned__' } & SheetHandlers) {
+  // 銀行×事業部の複合フィルタ。'all' は全部、'__unassigned__' は それぞれ未設定シートのみ。
   const filteredSheets = book.sheets.filter(s => {
     const bankOK = bankFilter === 'all' ? true : bankFilter === '__unassigned__' ? !s.bank : s.bank === bankFilter
     const divOK = divisionFilter === 'all' ? true : divisionFilter === '__unassigned__' ? !s.division : s.division === divisionFilter

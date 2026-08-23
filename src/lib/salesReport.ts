@@ -1,5 +1,5 @@
 // 確定売上表（独自Excel）のデータ構築ロジック。
-// book = 司法/行政（invoice.firm_type）、sheet = 営業部(受注担当のチーム team.division) × 入金銀行(cases.bank)。
+// book = 司法/行政（invoice.firm_type）、sheet = 事業部(受注担当 members.division) × 入金銀行(cases.bank)。
 // 列はシステムデータから導出：報酬(fee)・内税(×10/110)・立替実費(課税/非課税)・前受金・合計・差引・入金日・担当。
 
 export type SalesReportRaw = {
@@ -74,7 +74,7 @@ export type SalesSheet = {
   key: string
   division: string
   bank: string            // '' = 未振り分け（銀行未設定）
-  title: string           // 例）第一営業部（みずほ入金）
+  title: string           // 例）第一事業部（みずほ入金）
   rows: SalesRow[]
   totals: SalesTotals
 }
@@ -110,7 +110,7 @@ const BOOK_LABEL: Record<string, string> = { shiho: '司法書士法人　オー
  * 計上月（posted_date が YYYY-MM）で確定請求を絞り、book × sheet に振り分ける。
  * @param invoices 確定請求＋前受金を含む invoices（cases/payments 埋め込み）
  * @param expenses billing_expense_items（案件×司法/行政×課税で立替を集計）
- * @param teams division/bank を持つチーム一覧
+ * @param teams division/bank を持つチーム一覧（受注担当に事業部が無いときの受け皿）
  * @param month 'YYYY-MM' or 'all'
  */
 export function buildSalesReport(
@@ -164,7 +164,7 @@ export function buildSalesReport(
 
     const c = inv.cases
     const client = firstOf<{ name?: string }>(c?.clients)
-    const members = toArr<{ role?: string; members?: { name?: string; team_id?: string } }>(c?.case_members)
+    const members = toArr<{ role?: string; members?: { name?: string; team_id?: string; division?: string | null } }>(c?.case_members)
     const salesM = members.find(m => m.role === 'sales')?.members ?? null
     const managerM = members.find(m => m.role === 'manager')?.members ?? null
     const team = salesM?.team_id ? teamById.get(salesM.team_id) : undefined
@@ -173,7 +173,9 @@ export function buildSalesReport(
     // 1つの案件で違う銀行に入金されることもあるため、案件レベル/チームレベルのフォールバックはしない。
     // ユーザーは各行のドロップダウンで手動指定できる（invoice.bank_override）。
     // 原本の仕様通り、未入金の行も売上表に載せる（入金日欄が「未入金」になる）。
-    const division = team?.division || ''
+    // 事業部は受注担当本人（members.division＝アカウント一覧）が正。
+    // 入っていない人はチーム側で拾う。
+    const division = salesM?.division || team?.division || ''
     const paysAll = toArr<{ amount: number; payment_date: string; is_refund?: boolean; bank?: string | null }>(inv.payments)
       .filter(p => !p.is_refund)
       .sort((a, b) => (a.payment_date < b.payment_date ? 1 : -1))
@@ -237,7 +239,7 @@ export function buildSalesReport(
 
     const assigned = !!division && !!bank
     const sheetKey = assigned ? `${division}__${bank}` : '__unassigned'
-    const missing = [!division ? '営業部' : '', !bank ? '銀行' : ''].filter(Boolean).join('・')
+    const missing = [!division ? '事業部' : '', !bank ? '銀行' : ''].filter(Boolean).join('・')
     const map = books[bookKey]
     if (!map.has(sheetKey)) {
       map.set(sheetKey, {
@@ -252,7 +254,7 @@ export function buildSalesReport(
   const result: SalesBook[] = (['gyosei', 'shiho'] as const).map(key => {
     const sheets = [...books[key].values()]
       .map(s => ({ ...s, totals: sumTotals(s.rows) }))
-      // 未振り分け（営業部/銀行未設定）を先頭、以降は営業部→銀行名順
+      // 未振り分け（事業部/銀行未設定）を先頭、以降は事業部→銀行名順
       .sort((a, b) => {
         const au = !(a.division && a.bank), bu = !(b.division && b.bank)
         if (au && !bu) return -1

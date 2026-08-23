@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser, isSystemManager } from '@/lib/auth'
 import { notFound } from 'next/navigation'
 import ProfileClient from '@/components/features/profile/ProfileClient'
 
@@ -41,6 +41,8 @@ export default async function ProfilePage({ params }: Props) {
       member={member}
       teamName={teamName}
       isOwner={isOwner}
+      // 事業部はアカウント一覧が正。ずれたときに直せるのはシステム管理者だけ。
+      canEditOrg={isSystemManager(currentUser)}
       allMembers={members ?? []}
     />
   )

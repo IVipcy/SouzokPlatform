@@ -114,7 +114,8 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
   //   existing … 既にいる対象者の戸籍をもう1件足す（転籍先の役所など）
   const [addTarget, setAddTarget] = useState<{ mode: 'new' } | { mode: 'existing'; person: string } | null>(null)
   // 戸籍請求書を出す行。1行＝依頼書1枚なので、その行だけを入れて出力画面を開く。
-  const [docRequest, setDocRequest] = useState<KosekiRequestRow | null>(null)
+  // 戸籍請求書のモーダル。1行ぶん（表のアイコン）でも、その人の分まとめて（見出しのボタン）でも開く。
+  const [docRequests, setDocRequests] = useState<KosekiRequestRow[] | null>(null)
   const [memoByName, setMemoByName] = useState<Record<string, string>>({})  // 人ごとの進捗/結果メモ（相関図ホバー用）
   const deceasedName = caseData.deceased_name
 
@@ -488,7 +489,18 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
             <div className="bg-white border border-gray-200 rounded-lg p-3.5">
               <SectionHeading title={`${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍（役所ごと・1行=1戸籍）`}
                 hint="取得区分が「依頼者」の行は、請求日・費用・ダブルチェックが「依頼者負担」になり、入力できません。追加戸籍請求（要承認）は、管理担当が承認したあとに編集できます。どの項目も表の上で直接編集できます。"
-                right={activeHeir ? <RelationshipPicker value={activeHeir.relationship_type} onChange={v => saveRelationship(activeHeir.id, v)} /> : undefined}
+                right={
+                  <span className="flex items-center gap-2">
+                    {activeHeir && <RelationshipPicker value={activeHeir.relationship_type} onChange={v => saveRelationship(activeHeir.id, v)} />}
+                    {/* 書類作成を経由せず、この人の請求そのままで戸籍請求書を出す */}
+                    <button type="button" disabled={personRequests.length === 0}
+                      onClick={() => setDocRequests(personRequests)}
+                      title={personRequests.length === 0 ? '戸籍請求を登録すると作成できます' : `下の表の${personRequests.length}件がそのまま請求書の行になります`}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded-md hover:bg-brand-100 disabled:opacity-40 disabled:cursor-not-allowed">
+                      <FileText className="w-3.5 h-3.5" />戸籍請求書を作成
+                    </button>
+                  </span>
+                }
                 className="mb-2.5 pb-1.5 border-b border-gray-200" />
               {personRequests.length === 0 ? (
                 <div className="px-3 py-6 text-center text-[12px] text-gray-400">この対象者の戸籍請求がありません。下の「この対象者の戸籍を追加請求」から登録してください（転籍が判明したら役所を足していきます）。</div>
@@ -535,7 +547,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                           rowTasks={tasks.filter(t => t.source_rid === `koseki:${r.id}` || t.source_rid === `koseki-read:${r.id}`)}
                           onRefresh={onRefresh}
                           saveField={saveField} saveMany={saveMany}
-                          onDelete={() => delRequest(r)} onCopy={() => copyRequest(r)} onMakeDoc={() => setDocRequest(r)} />
+                          onDelete={() => delRequest(r)} onCopy={() => copyRequest(r)} onMakeDoc={() => setDocRequests([r])} />
                       ))}
                     </tbody>
                   </table>
@@ -559,14 +571,14 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
       {addTarget && <AddKosekiModal mode={addTarget.mode} person={addTarget.mode === 'existing' ? addTarget.person : ''} onClose={() => setAddTarget(null)} onSubmit={submitAdd} />}
 
       {/* 戸籍請求書。この行の内容（請求先・対象者・種別・筆頭者・範囲）がそのまま入る */}
-      {docRequest && (
+      {docRequests && (
         <KosekiRequestDocumentModal
           isOpen
-          onClose={() => setDocRequest(null)}
+          onClose={() => setDocRequests(null)}
           caseData={caseData}
           tasks={tasks}
           heirs={heirs}
-          kosekiRequests={[docRequest]}
+          kosekiRequests={docRequests}
         />
       )}
 

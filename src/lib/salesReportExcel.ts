@@ -1,5 +1,5 @@
 // 確定売上表をサンプルFMTでExcel出力する。
-// book(司法/行政) ごとに1ブック、営業部×銀行ごとに1シート。既存テンプレは壊れやすいので新規構築。
+// book(司法/行政) ごとに1ブック、事業部×銀行ごとに1シート。既存テンプレは壊れやすいので新規構築。
 import ExcelJS from 'exceljs'
 import type { SalesBook, SalesSheet } from '@/lib/salesReport'
 
