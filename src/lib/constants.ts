@@ -853,10 +853,35 @@ export const SHIGYO_COLORS: Record<'行政' | '司法', { color: string; bg: str
 export type BillingPattern = 'staged' | 'lump_expense' | 'lump_only'
 // finalInvoiceLabel … 後日の請求書ボタン名（null=③はなし）。②は前受金＝報酬なので確定請求書は実質「立替のみ」。
 // hasExpense … 立替実費セクションの要否（①②あり/③なし）。lumpNote … 一括の補足チップ（①はなし）。
-export const BILLING_PATTERNS: { value: BillingPattern; no: string; label: string; desc: string; finalInvoiceLabel: string | null; finalLegLabel: string; hasExpense: boolean; lumpNote: string | null }[] = [
-  { value: 'staged',       no: '①', label: '段階請求（通常）', desc: '前受金 → 確定請求 → 立替実費', finalInvoiceLabel: '確定請求書を作成（報酬＋立替）', finalLegLabel: '確定請求', hasExpense: true,  lumpNote: null },
-  { value: 'lump_expense', no: '②', label: '一括＋実費',       desc: '前受金で確定分も受領・立替実費は後日', finalInvoiceLabel: '立替実費の請求書を作成', finalLegLabel: '立替実費', hasExpense: true,  lumpNote: '報酬は前受金に含む（一括）' },
-  { value: 'lump_only',    no: '③', label: '一括のみ',         desc: '前受金で完結・立替実費なし', finalInvoiceLabel: null, finalLegLabel: '確定請求', hasExpense: false, lumpNote: '前受金で完結（確定請求・立替なし）' },
+// 受注担当が選ぶので、説明は請求書の出方ではなく「いつ何をもらうか」で書く。
+//   desc  … カードに出す一言
+//   money … 前受金と確定報酬の関係。金額を見れば自分で選べるようにするための決め手
+//   help  … ？を押したときに出す説明（何通の請求書になるか・向く案件）
+export const BILLING_PATTERNS: { value: BillingPattern; no: string; label: string; desc: string; money: string; help: string; finalInvoiceLabel: string | null; finalLegLabel: string; hasExpense: boolean; lumpNote: string | null }[] = [
+  {
+    value: 'staged', no: '①', label: '段階請求（通常）',
+    desc: '契約時に一部もらい、完了時に残りと実費を請求する',
+    money: '前受金 ＜ 確定報酬',
+    help: [
+      '契約時に前受金をもらい、業務完了時に「確定報酬 − 前受金」と立替実費をまとめて請求します。請求書は2通（前受金・確定請求）。報酬が大きく、着手金と残金に分ける案件向けです。',
+      '前受金と確定報酬が同じ額なら、このパターンではありません（②か③です）。',
+    ].join('\n\n'),
+    finalInvoiceLabel: '確定請求書を作成（報酬＋立替）', finalLegLabel: '確定請求', hasExpense: true, lumpNote: null,
+  },
+  {
+    value: 'lump_expense', no: '②', label: '一括＋実費',
+    desc: '契約時に報酬を全額もらい、実費だけ後から請求する',
+    money: '前受金 ＝ 確定報酬',
+    help: '契約時に報酬の全額を前受金としてもらい、あとから立替実費だけを請求します。請求書は2通（前受金・立替実費）。報酬が小さく分ける意味がないが、戸籍代などの実費が後から出る案件向けです。',
+    finalInvoiceLabel: '立替実費の請求書を作成', finalLegLabel: '立替実費', hasExpense: true, lumpNote: '報酬は前受金に含む（一括）',
+  },
+  {
+    value: 'lump_only', no: '③', label: '一括のみ',
+    desc: '契約時に全部もらい、以降の請求はなし',
+    money: '前受金 ＝ 確定報酬',
+    help: '契約時に全額もらって完結します。請求書は1通（前受金）だけ。立替実費が発生しない、または報酬に含んでいる案件向けです。',
+    finalInvoiceLabel: null, finalLegLabel: '確定請求', hasExpense: false, lumpNote: '前受金で完結（確定請求・立替なし）',
+  },
 ]
 export const billingPatternOf = (v: string | null | undefined) =>
   BILLING_PATTERNS.find(p => p.value === v) ?? BILLING_PATTERNS[0]

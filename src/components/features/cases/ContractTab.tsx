@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { ExternalLink, Receipt, Check, Save, Calculator } from 'lucide-react'
+import { ExternalLink, Receipt, Check, Save, Calculator, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { showToast } from '@/components/ui/Toast'
@@ -133,6 +133,10 @@ export default function ContractTab({ caseData, tasks, onRefresh: _onRefresh, pa
 
   // 計算値
   const feeSubtotal = (caseData.fee_administrative ?? 0) + (caseData.fee_judicial ?? 0)
+  // ①なのに 前受金＝確定報酬 になっている案件を知らせる。0円どうしは入力前なので数えない。
+  const patternMismatch =
+    caseData.billing_pattern === 'staged' && feeSubtotal > 0 && advanceTotal(caseData) === feeSubtotal
+  const [mismatchDismissed, setMismatchDismissed] = useState(false)
   const confirmedAmount = feeSubtotal + billingExpTotal - advanceTotal(caseData)
 
   // 請求完了判定：会計上、請求書発行=売掛計上=請求完了扱いとする。
@@ -218,13 +222,37 @@ export default function ContractTab({ caseData, tasks, onRefresh: _onRefresh, pa
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <span className={`w-5 h-5 rounded-full text-[11px] font-semibold inline-flex items-center justify-center ${active ? 'bg-brand-600 text-white' : 'bg-brand-50 text-brand-700'}`}>{p.no}</span>
                     <span className="text-[12.5px] font-semibold text-gray-800">{p.label}</span>
-                    {active && <Check className="w-3.5 h-3.5 text-brand-600 ml-auto" strokeWidth={2.5} />}
+                    <span className="ml-auto inline-flex items-center gap-1">
+                      {active && <Check className="w-3.5 h-3.5 text-brand-600" strokeWidth={2.5} />}
+                      <span onClick={e => e.stopPropagation()}><HintTip width={320} text={p.help} /></span>
+                    </span>
                   </div>
                   <div className="text-[11px] text-gray-500 leading-snug">{p.desc}</div>
+                  {/* 金額を見れば自分で選べるように、前受金と確定報酬の関係を書いておく */}
+                  <div className="mt-1.5 pt-1.5 border-t border-gray-100 text-[11px] font-semibold text-gray-600 tabular-nums">{p.money}</div>
                 </button>
               )
             })}
           </div>
+          {/* ①は「契約時に一部だけもらう」パターンなので、前受金と確定報酬が同じ額ならありえない。
+              入力中に何度もポップアップを出すと邪魔なので、帯で知らせてその場で直せるようにする。 */}
+          {patternMismatch && !mismatchDismissed && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 flex-none" strokeWidth={2.25} />
+              <p className="flex-1 min-w-[240px] text-[12px] text-amber-900 leading-relaxed">
+                前受金と確定報酬が同じ額です（<b className="tabular-nums">{yen(feeSubtotal)}</b>）。
+                ①段階請求は契約時に一部だけもらうパターンなので、この金額なら ②一括＋実費 か ③一括のみ が合っています。
+              </p>
+              <div className="flex items-center gap-1.5 flex-none">
+                <button type="button" onClick={() => save('billing_pattern', 'lump_expense')}
+                  className="px-2.5 py-1 rounded-md text-[11.5px] font-semibold text-white bg-amber-600 hover:bg-amber-700">②一括＋実費にする</button>
+                <button type="button" onClick={() => save('billing_pattern', 'lump_only')}
+                  className="px-2.5 py-1 rounded-md text-[11.5px] font-semibold text-amber-800 bg-white border border-amber-300 hover:bg-amber-100">③一括のみにする</button>
+                <button type="button" onClick={() => setMismatchDismissed(true)}
+                  className="px-2 py-1 text-[11.5px] font-semibold text-gray-500 hover:text-gray-700">このままでよい</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
