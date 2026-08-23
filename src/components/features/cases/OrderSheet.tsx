@@ -214,8 +214,6 @@ export default function OrderSheet({
     { title: '他事業者紹介', gate: 'referral', anchorId: 'os-referral', node: <ReferralTab caseData={caseData} referrals={referrals} onRefresh={onRefresh} orderSheetMode /> },
     { title: '遺産分割', gate: 'division', node: <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} agreementDispatches={agreementDispatches} onRefresh={onRefresh} patchCase={patchCase} mode="division" orderSheetMode /> },
     { title: '遺言', gate: 'will', node: <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} mode="will" orderSheetMode /> },
-    // 相続登記は受注時点で物件ごとの登記内容までは決まらないので、オーダーシートでは作業内容（フリー）だけにする。
-    { title: '相続登記', gate: 'registration', node: <HintNote>登記に関する作業内容を下の欄に書いてください（物件ごとの登記の管理は実務タブで行います）。</HintNote> },
     { title: '解約等（銀行・証券・自動車）', gate: 'cancellation', node: <CancellationTab financialAssets={financialAssets} onRefresh={onRefresh} receipts={receipts} orderSheetMode /> },
     ...PROCEDURE_TABS.map(p => ({
       title: p.title,

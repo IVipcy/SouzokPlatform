@@ -345,7 +345,10 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
     }
 
     setSaving(false)
-    showToast(editReceipt ? '開封して再登録しました' : '到着物の受信を登録しました', 'success')
+    showToast(
+      `${editReceipt ? '開封して再登録しました' : '到着物の受信を登録しました'}。この後 W-Check（受信確定）→ 対応 まで進めてください`,
+      'success',
+    )
     onSaved()
     handleClose()
   }
@@ -359,13 +362,31 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
       footer={
         <>
           <Button variant="secondary" onClick={handleClose} disabled={saving}>キャンセル</Button>
-          <Button variant="primary" onClick={handleSubmit} loading={saving}>
-            {saving ? '登録中...' : '登録する'}
-          </Button>
+          {/* チェックしただけでは行にならない。「◯件を追加」を押す前に登録すると
+              選んだ到着物が1件も登録されないので、押せないようにして理由を出す。 */}
+          {bulkChecked.length > 0 ? (
+            <Button variant="primary" onClick={applyBulkPick}>
+              先に {bulkChecked.length}件を追加
+            </Button>
+          ) : (
+            <Button variant="primary" onClick={handleSubmit} loading={saving}>
+              {saving ? '登録中...' : '登録する'}
+            </Button>
+          )}
         </>
       }
     >
       <div className="space-y-4">
+        {/* 登録して終わりではない。受信簿の列（W-Check→対応）まで進めないと案件は動かない。 */}
+        <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
+          <ListChecks className="w-4 h-4 text-gray-400 flex-none mt-0.5" strokeWidth={2} />
+          <p className="text-[12px] text-gray-600 leading-relaxed">
+            登録したあと、受信簿の
+            <b className="text-gray-800">W-Check（別の人が中身を確認）</b>と
+            <b className="text-gray-800">対応（タスクに結ぶ）</b>まで進めると処理完了です。
+            登録しただけでは案件は動きません。
+          </p>
+        </div>
         {error && (
           <div className="text-[13px] text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
             {error}
@@ -536,10 +557,17 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
                   </div>
                 ))}
               </div>
-              <div className="flex justify-end pt-2">
-                <Button variant="primary" size="sm" onClick={applyBulkPick} disabled={bulkChecked.length === 0}>
-                  {bulkChecked.length}件を追加
-                </Button>
+              <div className="flex items-center gap-2 pt-2">
+                {bulkChecked.length > 0 && (
+                  <span className="text-[11.5px] font-semibold text-amber-700">
+                    チェックしただけでは登録されません。「{bulkChecked.length}件を追加」を押してください。
+                  </span>
+                )}
+                <div className="ml-auto">
+                  <Button variant="primary" size="sm" onClick={applyBulkPick} disabled={bulkChecked.length === 0}>
+                    {bulkChecked.length}件を追加
+                  </Button>
+                </div>
               </div>
             </div>
           )}
