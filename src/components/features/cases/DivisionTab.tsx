@@ -11,9 +11,7 @@ import {
   WILL_STORAGE_OPTIONS,
   WILL_EXECUTION_OPTIONS,
   DIVISION_POLICIES,
-  PRESENCE_OPTIONS,
   AGREEMENT_DISPATCH_METHODS,
-  AGREEMENT_SIGNING_METHODS,
   WILL_CONTENT_OPTIONS,
   WILL_BEQUEST_HANDLER_OPTIONS,
 } from '@/lib/constants'
@@ -23,18 +21,6 @@ import TabHeader from './TabHeader'
 import TabTasksSection from './TabTasksSection'
 import { WorkContentField } from './WorkContentField'
 import ProgressSummary from './ProgressSummary'
-
-// 署名方法は送付・調印に連動（矛盾する組合せを出さない）
-// ・オーシャンで調印＝対面そのもの → 対面固定（欄は出さない）
-// ・OCから各相続人へ＝郵送前提 → 一斉郵送／持ち回り のみ
-// ・依頼者から各相続人へ＝手配は依頼者 → 持ち回り／一斉郵送／対面
-const SIGNING_BY_DISPATCH: Record<string, string[]> = {
-  'オーシャンで調印': ['対面'],
-  'OCから各相続人へ': ['一斉郵送', '持ち回り'],
-  '依頼者から各相続人へ': ['持ち回り', '一斉郵送', '対面'],
-}
-const signingOptionsFor = (dispatch: string | null | undefined): string[] =>
-  (dispatch && SIGNING_BY_DISPATCH[dispatch]) ? SIGNING_BY_DISPATCH[dispatch] : [...AGREEMENT_SIGNING_METHODS]
 
 type Props = {
   caseData: CaseRow
@@ -101,9 +87,9 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, assetInv
       )}
       {mode === 'division' && !orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="division" title="進捗/結果（遺産分割）" />}
       {mode === 'division' && (() => {
-        const isOfficeSign = caseData.agreement_dispatch_method === 'オーシャンで調印'
-        // 郵送管理が要るのは「OCから各相続人へ＋一斉郵送」のときだけ（オーダーシートでは非表示）
-        const showMail = !orderSheetMode && caseData.agreement_dispatch_method === 'OCから各相続人へ' && caseData.agreement_signing_method === '一斉郵送'
+        // 郵送管理が要るのは「OCから各相続人へ」のときだけ（オーダーシートでは非表示）。
+        // 以前は署名方法＝一斉郵送も条件にしていたが、署名方法の欄は廃止した。
+        const showMail = !orderSheetMode && caseData.agreement_dispatch_method === 'OCから各相続人へ'
         const activeSub = showMail ? divSub : 'plan'
 
         const planContent = (
@@ -114,23 +100,16 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, assetInv
             <Section title="分割方針" icon="⚖️" collapsible={orderSheetMode} defaultOpen={!orderSheetMode}>
               <FieldGrid>
                 <InlineSelect label="分割方針" value={caseData.division_policy} options={[...DIVISION_POLICIES]} onSave={v => saveCaseField('division_policy', v)} />
-                <InlineSelect label="分配方針の提案" value={caseData.division_proposal_presence} options={[...PRESENCE_OPTIONS]} onSave={v => saveCaseField('division_proposal_presence', v)} />
                 <InlineSelect
                   label="協議書の送付・調印"
                   value={caseData.agreement_dispatch_method}
                   options={[...AGREEMENT_DISPATCH_METHODS]}
-                  onSave={async v => {
-                    const allowed = signingOptionsFor(v)
-                    const patch: Partial<CaseRow> = { agreement_dispatch_method: v || null }
-                    // 連動: 調印=対面固定／現在の署名方法が新ルートで矛盾するならクリア
-                    if (v === 'オーシャンで調印') patch.agreement_signing_method = '対面'
-                    else if (caseData.agreement_signing_method && !allowed.includes(caseData.agreement_signing_method)) patch.agreement_signing_method = null
-                    await patchCase(patch)
-                  }}
+                  onSave={v => saveCaseField('agreement_dispatch_method', v)}
                 />
-                {/* 署名方法：送付・調印に連動。オーシャンで調印＝対面固定のため欄を出さない */}
-                {!isOfficeSign && (
-                  <InlineSelect label="署名方法" value={caseData.agreement_signing_method} options={signingOptionsFor(caseData.agreement_dispatch_method)} onSave={v => saveCaseField('agreement_signing_method', v)} />
+                {/* 決まっているときだけ中身を書く。誰が何を取るかは選択肢に落とせないのでフリー入力。 */}
+                {caseData.division_policy === '決定' && (
+                  <InlineTextarea label="分割の内容" value={caseData.division_proposal} onSave={v => saveCaseField('division_proposal', v)} fullWidth
+                    placeholder="例）自宅は長男、預貯金は法定相続分どおりに分ける" />
                 )}
               </FieldGrid>
             </Section>

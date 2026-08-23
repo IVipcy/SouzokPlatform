@@ -981,8 +981,10 @@ export const NAMEYOSE_TARGETS = [
 export const PROPERTY_RANKS = ['S', 'A', 'B', 'C', '確認中'] as const
 
 // === 遺産分割方針（オーダーシート準拠の3択） ===
+// 分割方針。面談時点では「決まったか、決まっていないか」しか分からないことが多い。
+// 中身（誰が何を取るか）は決定のときだけフリー入力（cases.division_proposal）で書く。
 export const DIVISION_POLICIES = [
-  '法定相続分', '2次相続を踏まえて', 'その他',
+  '決定', '未定', '申告書に合わせて作成',
 ] as const
 
 // 不動産の評価方法（財産目録）
