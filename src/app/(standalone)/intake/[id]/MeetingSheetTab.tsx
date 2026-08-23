@@ -5,7 +5,7 @@
 // 手書きは「白紙モード」(WhiteboardTab)に一本化した（原本が2か所に散らばるのを防ぐため）。
 // 構造化できる所は「AIで項目に反映」（createRunExtract を白紙モードと共通利用）。
 import { useState, useEffect, useMemo } from 'react'
-import { Sparkles, Trash2, Plus, ChevronDown } from 'lucide-react'
+import { Sparkles, Trash2, Plus, ChevronDown, Lightbulb } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { FieldGrid, InlineEdit } from '@/components/ui/InlineFields'
@@ -505,6 +505,14 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
 
   return (
     <div className="space-y-3">
+      {/* 全部を埋めなくてよいことを最初に伝える。面談中に全項目を追いかけると
+          お客様との会話が止まるため、写真だけでも先に残してもらう運用にしている。 */}
+      <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-lg bg-brand-50/70 border border-brand-100">
+        <Lightbulb className="w-4 h-4 text-brand-600 flex-none mt-0.5" strokeWidth={2} />
+        <p className="text-[12.5px] text-brand-900 leading-relaxed">
+          全部を埋めなくても大丈夫です。面談A3パンフレットの写真添付だけでも構いません。
+        </p>
+      </div>
       {sec('clientInfo', '依頼者情報', null, (
         <div className="space-y-3">
           <CaseClientsTable caseId={caseData.id} clients={caseClients} onRefresh={onRefresh} clientId={caseData.client_id} ensureCaseId={ensureCaseId} />
