@@ -173,6 +173,7 @@ export default function CaseClientsTable({ caseId, clients, onRefresh, clientId,
 const PREF_CONTACTS: { key: string; label: string }[] = [
   { key: '自宅TEL', label: '自宅' },
   { key: '携帯TEL', label: '携帯' },
+  { key: 'メール', label: 'メール' },
   { key: 'LINE', label: 'LINE' },
 ]
 function PrefContactCell({ value, onChange }: { value: string[] | null; onChange: (v: string[]) => void }) {

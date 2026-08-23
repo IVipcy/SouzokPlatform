@@ -348,8 +348,8 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       {(orderSheetMode || sub === 'heirs') && (
       <div>
       <div className="space-y-3.5">
-          {/* 4. 被相続人情報。最初に一度入れたら見返す頻度が低いので、既定は閉じておく。 */}
-          <Section title="被相続人情報" icon="🏛️" collapsible defaultOpen={false}>
+          {/* 4. 被相続人情報。面談中に埋める項目なので既定で開いておく（閉じていると入れ忘れる）。 */}
+          <Section title="被相続人情報" icon="🏛️" collapsible defaultOpen>
             <FieldGrid>
               <InlineEdit label="被相続人氏名" value={caseData.deceased_name} onSave={v => saveCaseField('deceased_name', v)} />
               <InlineEdit label="被相続人ふりがな" value={caseData.deceased_furigana} onSave={v => saveCaseField('deceased_furigana', v)} />
@@ -369,13 +369,8 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                     : <span className="text-gray-300 italic text-xs">生年月日と死亡日から自動計算</span>}
                 </div>
               </div>
-              <InlineEdit
-                label="被相続人郵便番号"
-                hint="郵便番号7桁を入れて「住所を取得」を押すと住所が入ります（番地・建物は自分で足してください）"
-                value={caseData.deceased_postal_code}
-                onSave={v => saveCaseField('deceased_postal_code', v.replace(/[^0-9]/g, ''))}
-                action={(zip) => <PostalLookupButton zip={zip} onResolved={addr => saveCaseField('deceased_address', addr)} className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-brand-600 hover:text-brand-700 px-2 py-1 rounded-md border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed" />}
-              />
+              {/* 被相続人の郵便番号は廃止。住所は戸籍・住民票から転記するので、
+                  郵便番号から引く場面が無く、欄だけが残っていた（列は残すので既存の値は消えない）。 */}
               <InlineEdit label="被相続人住所" value={caseData.deceased_address} onSave={v => saveCaseField('deceased_address', v)} fullWidth address />
               <InlineEdit
                 label="被相続人本籍"
@@ -411,7 +406,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                 <thead>
                   <tr>
                     {/* オーダーシート（受注担当ざっくり）では詳細列(生年月日/住所/本籍)を隠し、実務タブ（管理担当詳細化）で表示。エクセルR42-44 */}
-                    {['氏名', '依頼者', '同居', '存命/死亡', ...(orderSheetMode ? [] : ['生年月日', '住所', '本籍']), ''].map((h, hi) => (
+                    {['氏名', '依頼者', '同居', '死亡', ...(orderSheetMode ? [] : ['生年月日', '住所', '本籍']), ''].map((h, hi) => (
                       <th key={hi} className="text-left px-3 py-2 text-[11px] font-medium text-brand-700 tracking-[0.04em] bg-brand-50/60 border-b border-brand-100">{h}</th>
                     ))}
                   </tr>
@@ -455,7 +450,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                       <td className="px-3 py-2.5">
                         <label className="inline-flex items-center gap-1.5 text-[12px] cursor-pointer" title="この相続人が既に亡くなっているか（数次相続・代襲の判断に使います）">
                           <input type="checkbox" checked={heir.is_deceased} onChange={e => saveHeirField(heir.id, 'is_deceased', e.target.checked)} className="w-4 h-4 accent-gray-600 rounded" />
-                          <span className={heir.is_deceased ? 'text-gray-700 font-semibold' : 'text-gray-400'}>{heir.is_deceased ? '死亡' : '存命'}</span>
+                          <span className={heir.is_deceased ? 'text-gray-700 font-semibold' : 'text-gray-400'}>死亡</span>
                         </label>
                       </td>
                       {!orderSheetMode && (
@@ -539,7 +534,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input type="checkbox" checked={heir.is_deceased} onChange={e => saveHeirField(heir.id, 'is_deceased', e.target.checked)} className="w-4 h-4 accent-gray-600 rounded" />
-                        <span className={heir.is_deceased ? 'text-gray-700 font-semibold' : 'text-gray-400'}>{heir.is_deceased ? '死亡' : '存命'}</span>
+                        <span className={heir.is_deceased ? 'text-gray-700 font-semibold' : 'text-gray-400'}>死亡</span>
                       </label>
                     </div>
                     {!orderSheetMode && (

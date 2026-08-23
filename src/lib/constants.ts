@@ -473,7 +473,9 @@ export const KOSEKI_SUBMIT_TO_DEFAULT = '依頼者に渡す'
 
 // オーダーシートの見立て（1行＝1人）
 export const KOSEKI_PLAN_RANGES = ['出生～死亡すべて', '死亡のみ', '現在戸籍'] as const
-export const KOSEKI_PLAN_ADDRESS_DOCS = ['住民票', '戸籍の附票'] as const
+// 「どちらでも」＝住民票でも戸籍の附票でもよい（役所で取れる方を取る）。
+// 面談の見立ての段階では決めきれないことが多いので選べるようにしてある。
+export const KOSEKI_PLAN_ADDRESS_DOCS = ['住民票', '戸籍の附票', 'どちらでも'] as const
 
 // 複数選択は「・」でつないだ1つの文字列で持つ（列を増やさないため）
 export const splitMulti = (v: string | null | undefined): string[] =>
