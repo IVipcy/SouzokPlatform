@@ -11,6 +11,7 @@ import IninjoDocumentModal from './IninjoDocumentModal'
 import KeiyakuDocumentModal from './KeiyakuDocumentModal'
 import InvoiceDocumentModal from './InvoiceDocumentModal'
 import KakuteiInvoiceModal from './KakuteiInvoiceModal'
+import GenponAzukariModal from './GenponAzukariModal'
 import { showToast } from '@/components/ui/Toast'
 // 封筒印刷は 納品タブ側 (DeliveryTab) に移設したため ここでは import しない
 
@@ -46,6 +47,7 @@ const DOCUMENTS: DocumentItem[] = [
   { key: 'invoice_final', category: '請求', categoryColor: 'bg-pink-50 text-pink-700 border-pink-200', title: '請求書（確定）＋立替実費明細', description: '報酬＋立替実費－前受金。確定請求書と立替明細を1ファイル2シートで出力', status: 'ready' },
   { key: 'receipt_final', category: '領収', categoryColor: 'bg-rose-50 text-rose-700 border-rose-200', title: '領収書（確定）', description: '確定（報酬−前受金）の領収書を発行（行/司）。入金時に発行', status: 'ready' },
   { key: 'receipt', category: '領収', categoryColor: 'bg-rose-50 text-rose-700 border-rose-200', title: '領収書（前受金）', description: '前受金の領収書を発行（行/司）。基本は確定領収書を使用', status: 'ready' },
+  { key: 'genpon_azukari', category: '預かり', categoryColor: 'bg-amber-50 text-amber-700 border-amber-200', title: '原本預かり証', description: 'お客様から原本（印鑑証明書・本人確認書類など）をお預かりしたときにお渡しする控え。契約手続きの受領書類から自動で候補が出ます', status: 'ready' },
   { key: 'jikenbo', category: '帳簿', categoryColor: 'bg-slate-50 text-slate-700 border-slate-200', title: '事件簿（業務事件簿）', description: '職務上請求用紙を使った案件の備え付け帳簿。案件情報を流し込み、経緯・経過・用紙番号は手書き用に枠だけ出力', status: 'ready' },
   // 封筒印刷は 納品タブ側 (原本受領証と並べて配置) に移設。
 ]
@@ -65,6 +67,7 @@ export default function DocumentGenerators({ caseData, tasks, heirs, properties,
   const receiptModal = useModal()
   const receiptFinalModal = useModal()
   const kakuteiModal = useModal()
+  const azukariModal = useModal()
 
   const openDocument = (key: string) => {
     setSelectedKey(key)
@@ -77,6 +80,7 @@ export default function DocumentGenerators({ caseData, tasks, heirs, properties,
     else if (key === 'receipt') receiptModal.open()
     else if (key === 'receipt_final') receiptFinalModal.open()
     else if (key === 'invoice_final') kakuteiModal.open()
+    else if (key === 'genpon_azukari') azukariModal.open()
     else if (key === 'jikenbo') void downloadJikenbo()
   }
 
@@ -244,6 +248,15 @@ export default function DocumentGenerators({ caseData, tasks, heirs, properties,
         onClose={() => { kakuteiModal.close(); setSelectedKey(null) }}
         caseData={caseData}
         tasks={tasks}
+        defaultTaskId={defaultTaskId}
+        onSaved={onGenerated}
+      />
+      <GenponAzukariModal
+        isOpen={azukariModal.isOpen}
+        onClose={() => { azukariModal.close(); setSelectedKey(null) }}
+        caseData={caseData}
+        contractDocuments={contractDocuments}
+        heirs={heirs}
         defaultTaskId={defaultTaskId}
         onSaved={onGenerated}
       />
