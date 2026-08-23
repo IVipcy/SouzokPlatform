@@ -517,7 +517,7 @@ export default function CaseTimeline({ caseData, tasks, properties = [], statusH
 
       {allEmpty && (
         <div className={`${showMilestones ? 'mt-5' : ''} bg-gray-50 border border-gray-200 rounded-lg p-5 text-center text-[13px] text-gray-500`}>
-          タスク・書類がまだありません。タスク一括生成や書類受信簿への登録で、ここに実績が表示されます。
+          タスク・書類がまだありません。タスクの作成や書類受信簿への登録で、ここに実績が表示されます。
         </div>
       )}
       </>)}

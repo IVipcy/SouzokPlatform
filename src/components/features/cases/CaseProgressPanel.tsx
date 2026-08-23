@@ -89,7 +89,7 @@ export default function CaseProgressPanel({ tasks, properties }: Props) {
   if (orderedPhases.length === 0 && visibleProperties.length === 0) {
     return (
       <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 text-center">
-        <p className="text-[13px] text-gray-500">タスクや不動産が登録されていません。タスク一括生成や財産タブから登録してください。</p>
+        <p className="text-[13px] text-gray-500">タスクや不動産が登録されていません。タスクタブの「タスク追加」や財産タブから登録してください。</p>
       </div>
     )
   }

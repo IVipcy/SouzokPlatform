@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import TaskKeywordNudge from '@/components/features/tasks/TaskKeywordNudge'
-import { gyomuForCategories, GYOMU_ALL } from '@/lib/serviceMaster'
+import { gyomuForCategories, GYOMU_ALL, tasksForCategories, categoriesOf } from '@/lib/serviceMaster'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { koteiOf } from '@/lib/kotei'
 import { partsForCase, activePartKeys } from '@/lib/serviceParts'
@@ -29,6 +29,8 @@ type Props = {
   onSaved: () => void
   /** 調査タブ等から開く際の初期業務（例: 戸籍 / 金融資産）。 */
   defaultPhase?: string
+  /** 「この案件の候補」タブの中身。渡すとタブが出る（案件詳細から開いたときだけ）。 */
+  candidates?: React.ReactNode
 }
 
 const PRIORITIES = [
@@ -45,7 +47,7 @@ const READY_OPTIONS = [
 ] as const
 type ReadyKey = typeof READY_OPTIONS[number]['key']
 
-export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, defaultPhase }: Props) {
+export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, defaultPhase, candidates }: Props) {
   const currentMemberId = useCurrentMember(null)
   const [form, setForm] = useState({
     title: '',
@@ -58,7 +60,13 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
     readyNote: '',
     work: '',
   })
+  // 候補を渡されたときだけ2タブ。既定は候補タブ（まずはここから選んでほしいので）。
+  const [tab, setTab] = useState<'candidate' | 'manual'>(candidates ? 'candidate' : 'manual')
+  // 閉じたら候補タブに戻す（次に開いたとき手入力から始まらないように）
+  const close = () => { setTab(candidates ? 'candidate' : 'manual'); onClose() }
   const [gyomuOptions, setGyomuOptions] = useState<string[]>([])
+  // 受注区分。選択中の業務のタスク名候補を出すのに使う。
+  const [cats, setCats] = useState<string[]>([])
   // 工程の選択肢（この案件の業務から導出）／選択中工程の業務
   // 選べる業務区分＝この案件の実施業務 ＋ 常に選べる「納品」「その他」。
   // その他＝どの業務にも属さない任意タスクの置き場（事務管理タスク一覧の「その他」タブに出る）。
@@ -74,7 +82,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  // 開いたら案件の受注区分から「業務」リストを用意（一括生成と同じ。役割分担の業務を優先）。
+  // 開いたら案件の受注区分から「業務」リストを用意（候補一覧と同じ。役割分担の業務を優先）。
   useEffect(() => {
     if (!isOpen) return
     let active = true
@@ -87,11 +95,20 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
       let gyomus = [...new Set(roles.map(r => r.gyomu).filter((g): g is string => !!g && GYOMU_ALL.includes(g)))]
       if (gyomus.length === 0) gyomus = gyomuForCategories(activePartKeys(partsForCase(data)))
       setGyomuOptions(gyomus)
+      const parts = activePartKeys(partsForCase(data))
+      setCats(parts.length ? parts : categoriesOf(data.service_category, data.service_category_2))
       const g0 = (defaultPhase && gyomus.includes(defaultPhase)) ? defaultPhase : (gyomus[0] ?? '')
       setForm(p => ({ ...p, gyomu: p.roleKind === 'assistant' ? g0 : 'その他', kotei: koteiOf(g0) }))
     })()
     return () => { active = false }
   }, [isOpen, caseId, defaultPhase])
+
+  // 選択中の業務でよく使うタスク名（受注区分マスタの作業名）。押すとタスク名に入る。
+  // 候補タブに出てこない作業を手で作るときの下敷き。無ければ何も出さない。
+  const nameHints = useMemo(() => {
+    if (!form.gyomu || form.gyomu === 'その他') return []
+    return [...new Set(tasksForCategories(cats, form.gyomu).map(r => r.task))].slice(0, 8)
+  }, [cats, form.gyomu])
 
   const handleSubmit = async () => {
     if (!form.title.trim()) {
@@ -172,24 +189,45 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
     setSaving(false)
     setForm({ title: '', roleKind: 'assistant', kotei: koteiOf(gyomuOptions[0] ?? ''), gyomu: gyomuOptions[0] ?? '', dueDate: '', priority: '通常', ready: 'none', readyNote: '', work: '' })
     onSaved()
-    onClose()
+    close()
   }
 
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={close}
       title="＋ タスク追加"
+      maxWidth="max-w-2xl"
       footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>キャンセル</Button>
-          <Button variant="primary" onClick={handleSubmit} loading={saving}>
-            {saving ? '追加中...' : '追加する'}
-          </Button>
-        </>
+        tab === 'candidate' ? (
+          <>
+            <span className="text-[12px] text-gray-400 mr-auto">押すたびに1件ずつ追加されます</span>
+            <Button variant="secondary" onClick={close}>閉じる</Button>
+          </>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={close}>キャンセル</Button>
+            <Button variant="primary" onClick={handleSubmit} loading={saving}>
+              {saving ? '追加中...' : '追加する'}
+            </Button>
+          </>
+        )
       }
     >
-      <div className="space-y-3">
+      {candidates && (
+        <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden mb-3.5">
+          {([['candidate', 'この案件の候補'], ['manual', '自分で入力']] as const).map(([k, label]) => (
+            <button key={k} type="button" onClick={() => setTab(k)}
+              className={`px-3.5 py-1.5 text-[13px] font-semibold transition ${tab === k ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {tab === 'candidate' && candidates}
+
+      <div className={`space-y-3 ${tab === 'candidate' ? 'hidden' : ''}`}>
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">{error}</div>
         )}
@@ -254,6 +292,17 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
             placeholder="例：相続人へ電話連絡、督促 など"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
           />
+          {nameHints.length > 0 && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] text-gray-400">よく使う名前：</span>
+              {nameHints.map(n => (
+                <button key={n} type="button" onClick={() => setForm(p => ({ ...p, title: n }))}
+                  className="px-2 py-0.5 text-[12px] text-gray-600 bg-gray-50 border border-gray-200 rounded hover:bg-brand-50 hover:border-brand-200 hover:text-brand-700">
+                  {n}
+                </button>
+              ))}
+            </div>
+          )}
           <TaskKeywordNudge title={form.title} caseId={caseId} />
         </div>
 

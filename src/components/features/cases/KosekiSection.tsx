@@ -301,7 +301,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
   // 承認待ちの追加戸籍請求（案件全体）。戸籍請求タブ上部にパネルで出し、横スクロール無しで承認できる。
   const pendingApprovals = requests.filter(r => r.is_additional && !r.additional_approved_at)
 
-  // 請求先未入力で一括生成された「粗い戸籍請求」タスク（役所ごとに割れていない）。役所を入れた後に展開し直せる。
+  // 請求先未入力のまま作られた「粗い戸籍請求」タスク（役所ごとに割れていない）。役所を入れた後に展開し直せる。
   const [expanding, setExpanding] = useState(false)
   const coarseKoseki = tasks.find(t => normalizeTaskStatus(t.status) !== '完了' && t.title === '戸籍請求' && !(t.source_rid ?? '').startsWith('koseki'))
   const expandCoarseKoseki = async () => {

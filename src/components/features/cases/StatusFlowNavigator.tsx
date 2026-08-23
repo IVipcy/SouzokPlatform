@@ -60,7 +60,7 @@ export function getKentouContractFlowSteps(args: {
   ]
 }
 
-// 作業進行中（対応中）で開いたときの単一ゲート：初期タスク出し（管理担当が一括生成）。
+// 作業進行中で開いたときの単一ゲート：初期タスク出し（タスクタブから候補を足していく）。
 // ステータスを進めるものではないので、advanceボタンは出さない（hideAdvance）。
 export function getInitialTasksFlowSteps(args: {
   tasksGenerated: boolean          // 案件タスク(task_kind=case)を1件以上出したら完了

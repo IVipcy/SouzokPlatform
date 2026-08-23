@@ -36,7 +36,7 @@ const customToRoles = (list: CustomEntry[]): RoleRow[] =>
  * 受注内容タブ。
  *   受注区分（3行・複数選択・並行進行）→ 遺言/信託/検認等は選ぶと管理担当業務が自動で有効。
  *   実施業務（受注区分に依存せず全表示・初期未選択）→ 選んだ業務だけ実務タブ・記入欄が出る。
- *   その他（自由入力）→ 名もなき作業をここで定義。一括生成の候補に出る（業務名＝タスク名／内容＝作業内容）。
+ *   その他（自由入力）→ 名もなき作業をここで定義。タスク追加の候補に出る（業務名＝タスク名／内容＝作業内容）。
  *   業務・作業は intake_roles(JSONB)、区分は service_parts(JSONB) に保持。
  */
 export default function OrderContentTab({ caseData, patchCase, orderSheetMode = false, meetingSheetMode = false, hideOrderMemo = false }: Props) {
@@ -185,7 +185,7 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
           )}
         </div>
 
-        {/* その他（自由入力）＝一括生成の候補に出る。業務名＝タスク名、内容＝作業内容。 */}
+        {/* その他（自由入力）＝タスク追加の候補に出る。業務名＝タスク名、内容＝作業内容。 */}
         {!isReferralOnly && (
           <div className="mb-4">
             <div className="text-[13px] text-gray-600 mb-2">その他</div>

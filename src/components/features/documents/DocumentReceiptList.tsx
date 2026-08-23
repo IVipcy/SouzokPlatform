@@ -406,7 +406,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
     it.linked_kind === 'contract_doc' && !contractGyomuFor(it)
 
   // 到着物の「対応読込タスク」の source_rid を推定（筆頭候補の特定用）。
-  // タスク一括生成が読込タスクに埋めた source_rid と同じキーを組み立てる:
+  // 読込タスクに入っている source_rid と同じキーを組み立てる:
   //   戸籍  → koseki-read:{請求ID}（linked_idが請求IDそのもの・確実）
   //   金融  → fin-read:{金融機関名}
   //   不動産 → re-read:{市区町村}（物件→市区町村を推定・ベストエフォート）

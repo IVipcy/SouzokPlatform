@@ -84,7 +84,7 @@ export function getCaseTabVisibility(state: CaseTabState): TabVisibility {
   }
 
   // 作業着手準備：受注時と同じタブ構成に合わせる（実務タブはまだ出さない）。
-  // ＋ タスク出し（管理担当がタスク一括生成）のため tasks タブだけ追加する。
+  // ＋ タスク出し（管理担当がタスクタブから候補を足す）のため tasks タブだけ追加する。
   if (status === '作業着手準備') {
     return { visible: ['orderSheet', 'progress', 'contractProc', 'contract', 'clientInfo', 'tasks', 'assignees', 'ownerSales', 'meeting', 'receipts', 'docs', 'documentCreate'], collapsed: [] }
   }

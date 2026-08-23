@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ClipboardList, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { SubTabs } from '@/components/ui/SubTabs'
 import { Section } from '@/components/ui/InlineFields'
@@ -19,7 +19,6 @@ type Props = {
   tasks: TaskRow[]
   allMembers: MemberRow[]
   currentMemberId: string | null
-  onBulkGenerate: () => void
   onAddTask: () => void
   documentReceipts?: TimelineReceipt[]
   /** 案件ステータス。対応中以降は事務管理タスクを先頭・既定にする */
@@ -38,7 +37,7 @@ const normalizeStatus = (status: string) => {
   return status
 }
 
-export default function TasksTab({ tasks, allMembers, currentMemberId: serverMemberId, onBulkGenerate, onAddTask, documentReceipts, caseStatus, financeAssets = [], hideCaseTasks = false }: Props) {
+export default function TasksTab({ tasks, allMembers, currentMemberId: serverMemberId, onAddTask, documentReceipts, caseStatus, financeAssets = [], hideCaseTasks = false }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const currentMemberId = useCurrentMember(serverMemberId)
@@ -78,9 +77,6 @@ export default function TasksTab({ tasks, allMembers, currentMemberId: serverMem
         description="この案件のタスク（事務管理・受注／管理担当）の進み具合を見ます。"
         right={
           <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" leftIcon={<ClipboardList className="w-3.5 h-3.5" strokeWidth={2} />} onClick={onBulkGenerate}>
-              一括生成
-            </Button>
             <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={onAddTask}>
               タスク追加
             </Button>
@@ -115,8 +111,8 @@ export default function TasksTab({ tasks, allMembers, currentMemberId: serverMem
       {!hasAnyTask ? (
         <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
           <p className="text-gray-400 text-sm mb-3">タスクがありません</p>
-          <button onClick={onBulkGenerate} className="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors">
-            テンプレートからタスクを一括生成
+          <button onClick={onAddTask} className="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors">
+            タスクを作成する
           </button>
         </div>
       ) : (

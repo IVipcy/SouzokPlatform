@@ -99,7 +99,7 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
     onRefresh()
   }
 
-  // 優先度は一覧の上で直接変える（一括生成は全部「通常」で作り、ここで調整する運用）。
+  // 優先度は一覧の上で直接変える（候補からの追加は全部「通常」で作り、ここで調整する運用）。
   const setPriority = async (t: TaskRow, priority: string) => {
     const supabase = createClient()
     const { error } = await supabase.from('tasks').update({ priority }).eq('id', t.id)

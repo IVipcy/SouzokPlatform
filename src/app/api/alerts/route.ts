@@ -157,7 +157,7 @@ export async function GET() {
     if (t.priority === '超急ぎ' && t.status === '未着手') {
       push({ id: `urgent-${t.id}`, severity: 'high', category: '至急タスク', title: t.title, body: '超急ぎのタスクです。至急対応してください', href: `/tasks/${t.id}` })
     }
-    // 自分宛てタスクあり：受注/管理担当タスク(system)で未着手のもの（一括生成の事務管理タスクは対象外）
+    // 自分宛てタスクあり：受注/管理担当タスク(system)で未着手のもの（事務管理タスクは対象外）
     else if (t.task_kind === 'system' && t.status === '未着手') {
       push({ id: `newtask-${t.id}`, severity: 'info', category: '自分宛てタスク', title: t.title, body: '自分宛てのタスクがあります', href: `/tasks/${t.id}` })
     }

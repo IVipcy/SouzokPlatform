@@ -1,9 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Check, ChevronDown } from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
+import { Check, ChevronDown, Loader2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import Modal from '@/components/ui/Modal'
 import {
   categoriesOf, gyomuForCategories, CROSS_GYOMU,
 } from '@/lib/serviceMaster'
@@ -14,8 +13,6 @@ import type { TaskRow, TaskTemplateRow, CaseReferralRow, KosekiRequestRow, RealE
 import type { RoleRow } from './ProcedureIntakeSection'
 
 type Props = {
-  isOpen: boolean
-  onClose: () => void
   caseId: string
   // 実施タスク（役割分担）。kind=task の作業がタスク生成の候補。
   intakeRoles: RoleRow[]
@@ -90,7 +87,7 @@ const MANAGER_CHECK_TASKS: Record<string, { title: string; rid: string }> = {
   '協議書':   { title: '協議書の最終確認',             rid: 'div-check' },
 }
 
-// 一括生成でのタスク名の読み替え。
+// 候補に出すときのタスク名の読み替え。
 // 相関図は「一次作成（事務管理）」と「最終チェック（管理担当）」に分かれるので、
 // 実施業務の名前のままだと どちらを指すのか分からなくなる。
 const TITLE_REWRITE: Record<string, string> = { '相関図作成': '相関図一次作成' }
@@ -103,14 +100,19 @@ const CASE_WIDE_TASKS = ['証券保管振替機構照会', '保険照会', '年�
 const CANCEL_NON_UNIT_TASKS = ['自動車名義変更', '保険金請求']
 
 /**
- * タスク一括生成。生成元は実施タスク（intake_roles の kind=task）＋経理/相続税。
- * 生成タスクは source_rid で実施タスク行に1対1リンク（手続き系タブ等の進捗表示と共通）。
- * 手順(procedure_text)は既存テンプレ本文を作業名→キー対応で流用（あるものだけ）。
+ * タスクの候補一覧（「タスク追加」モーダルの「この案件の候補」タブ）。
+ *
+ * 候補の作り方は実施タスク（intake_roles の kind=task）＋経理/相続税で、
+ * 戸籍は請求先ごと、不動産は市区町村ごと、金融は機関ごとに展開する。
+ * 押した1件だけを追加し、source_rid で実務タブの行に1対1リンクさせる
+ * （このリンクがあるから、戸籍表や金融表の行に関連タスクが出る）。
+ *
+ * 以前は「◯件生成」でまとめて作っていたが、一度に大量に出るのをやめて1件ずつにした。
  */
-export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeRoles, serviceCategory, serviceCategory2, existingTasks, caseReferrals = [], kosekiRequests = [], properties = [], financialAssets = [], deceasedName = null, heirs = [], caseClients = [], onSaved }: Props) {
+export default function TaskCandidatePanel({ caseId, intakeRoles, serviceCategory, serviceCategory2, existingTasks, caseReferrals = [], kosekiRequests = [], properties = [], financialAssets = [], deceasedName = null, heirs = [], caseClients = [], onSaved }: Props) {
   // viewerRole は担当区分フィルタ撤廃により未使用（Props には残し、呼び出し側の互換を保つ）。
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [saving, setSaving] = useState(false)
+  // 追加処理中の候補キー（押した行だけスピナーにする）
+  const [busyKey, setBusyKey] = useState<string | null>(null)
   const [error, setError] = useState('')
   // 全部生成済みの業務は畳んでおき、開いたものだけ中身を表示する（⑤）
   const [doneExpanded, setDoneExpanded] = useState<Set<string>>(new Set())
@@ -279,14 +281,14 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
       if (!activeGyomus.has(gyomu)) continue
       out.push({ key: t.rid, gyomu, title: t.title, rid: t.rid })
     }
-    // 経理タスクは一括生成の対象外（今後アラートで対応）。
+    // 経理タスクは候補に出さない（今後アラートで対応）。
     // 他事業者紹介で登録した業者への「依頼／引継ぎ」タスク
     for (const r of caseReferrals) {
       const title = REFERRAL_TASK_LABEL[r.partner_type] ?? `${r.partner_type}依頼`
       out.push({ key: `referral:${r.id}`, gyomu: '他事業者紹介', title, rid: `referral:${r.id}` })
     }
-    // 担当区分での絞り込みは撤廃：どのアカウントが一括生成しても全区分の候補を出す。
-    // どのみち全タスクを生成する必要があるため、区分はバッジで判別できれば十分（ガチガチ制御しない）。
+    // 担当区分での絞り込みは撤廃：どのアカウントで開いても全区分の候補を出す。
+    // どのみち全タスクが要るため、区分はバッジで判別できれば十分（ガチガチ制御しない）。
     return out
   }, [intakeRoles, caseReferrals, kosekiRequests, properties, financialAssets, roleOfPerson, isFirstKosekiPerson])
 
@@ -303,15 +305,9 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
     properties.length === 0 && intakeRoles.some(r => (r.gyomu === '不動産' || r.gyomu === '登記') && (r.sagyou ?? '').trim() && r.owner !== '不要'),
     [intakeRoles, properties])
 
-  const isGenerated = (c: Candidate) => !!c.rid && generatedRids.has(c.rid)
-  const selectable = candidates.filter(c => !isGenerated(c))
-
-  // ① 開いた瞬間、未生成の候補をチェック済みにする（外したいものだけ外す運用）。
-  //    ただし offByDefault（＝依頼者・被相続人以外の戸籍）は外しておく。
-  useEffect(() => {
-    if (isOpen) setSelected(new Set(candidates.filter(c => !isGenerated(c) && !c.offByDefault).map(c => c.key)))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen])
+  // このパネルで足したぶん。親の再取得を待たずに「追加済」へ変わるように持っておく。
+  const [addedKeys, setAddedKeys] = useState<Set<string>>(new Set())
+  const isGenerated = (c: Candidate) => addedKeys.has(c.key) || (!!c.rid && generatedRids.has(c.rid))
 
   const groups = useMemo(() => {
     const order = [...gyomuForCategories(cats), ...CROSS_GYOMU]
@@ -329,186 +325,158 @@ export default function BulkTaskGenerateModal({ isOpen, onClose, caseId, intakeR
     return [...m.entries()].sort((a, b) => koteiRank(a[0]) - koteiRank(b[0]))
   }, [groups])
 
-  const toggle = (key: string) => setSelected(prev => {
-    const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); return next
-  })
-  const toggleAll = () => setSelected(prev => prev.size === selectable.length ? new Set() : new Set(selectable.map(c => c.key)))
-  const toggleGyomu = (gyomu: string) => {
-    const items = selectable.filter(c => c.gyomu === gyomu)
-    const allOn = items.every(c => selected.has(c.key))
-    setSelected(prev => { const next = new Set(prev); items.forEach(c => allOn ? next.delete(c.key) : next.add(c.key)); return next })
-  }
 
-  const handleGenerate = async () => {
-    if (selected.size === 0) return
-    setSaving(true); setError('')
+  /** 候補を1件だけタスクにする。押した行だけが増える。 */
+  const addOne = async (c: Candidate) => {
+    if (isGenerated(c) || busyKey) return
+    setBusyKey(c.key); setError('')
     const supabase = createClient()
-    const picked = candidates.filter(c => selected.has(c.key))
 
     // 1. 実施タスク行に rid を採番（未採番のみ）→ intake_roles を更新
-    const roles = [...intakeRoles]
-    let rolesChanged = false
-    const ridByKey: Record<string, string> = {}
-    for (const c of picked) {
-      if (c.roleIdx != null) {
-        let rid = roles[c.roleIdx]?.rid
-        if (!rid) { rid = crypto.randomUUID(); roles[c.roleIdx] = { ...roles[c.roleIdx], rid }; rolesChanged = true }
-        ridByKey[c.key] = rid
-      } else if (c.rid) {
-        ridByKey[c.key] = c.rid
+    let rid = c.rid ?? null
+    if (c.roleIdx != null) {
+      rid = intakeRoles[c.roleIdx]?.rid ?? null
+      if (!rid) {
+        rid = crypto.randomUUID()
+        const roles = [...intakeRoles]
+        roles[c.roleIdx] = { ...roles[c.roleIdx], rid }
+        const { error: e } = await supabase.from('cases').update({ intake_roles: roles }).eq('id', caseId)
+        if (e) { setBusyKey(null); setError(`実施タスクの更新に失敗しました: ${e.message}`); return }
       }
     }
-    if (rolesChanged) {
-      const { error: e } = await supabase.from('cases').update({ intake_roles: roles }).eq('id', caseId)
-      if (e) { setSaving(false); setError(`実施タスクの更新に失敗しました: ${e.message}`); return }
-    }
 
-    // 2. タスク生成（source_rid リンク・手順は対応テンプレから流用）
+    // 2. タスクを1件だけ作る（source_rid リンク付き）。
     // 管理業務(MANAGER_GYOMU)＝管理担当タスク(system)、それ以外＝事務管理タスク(case)。
     // どちらも phase=業務名を持たせ、実務タブ／進捗ボードに業務単位で集約される。
-    const rows = picked.map((c, i) => {
-      const isTouki = TOUKI_TEAM_TASK_TITLES.has(c.title)
-      const isManager = !isTouki && (c.custom || MANAGER_GYOMU.has(c.gyomu) || MANAGER_TASK_TITLES.has(c.title))
-      const kind: 'case' | 'system' | 'touki_team' = isTouki ? 'touki_team' : isManager ? 'system' : 'case'
-      return {
-        case_id: caseId,
-        task_kind: kind,
-        title: c.title,
-        // その他は業務名を phase に（業務バッジ表示用）、通常は業務名。
-        phase: c.custom ? c.title : c.gyomu,
-        // 管理担当タスクはカテゴリ列を持たせず、業務は phase バッジで表す（名もなきタスクと混在するため）。
-        category: isManager ? null : c.gyomu,
-        status: '着手前',
-        priority: '通常',
-        source_rid: ridByKey[c.key] ?? null,
-        work_role: isTouki ? 'assistant' : isManager ? 'manager' : 'assistant',
-        assign_role: isManager ? 'manager' : null,
-        // その他は入力した内容を作業内容(procedure_text)に。それ以外はテンプレ流し込みなし。
-        procedure_text: c.custom ? (c.work?.trim() || null) : null,
-        // 請求(起点)＝着手OK／読込等＝受領次第OK。それ以外は無し。
-        ext_data: c.ready ? { ready: true, ready_reason: '起点タスク（前提なし・すぐ着手可）' }
-          : c.readyOnReceipt ? { ready_on_receipt: true }
-          : null,
-        sort_order: i,
-      }
+    const isTouki = TOUKI_TEAM_TASK_TITLES.has(c.title)
+    const isManager = !isTouki && (c.custom || MANAGER_GYOMU.has(c.gyomu) || MANAGER_TASK_TITLES.has(c.title))
+    const kind: 'case' | 'system' | 'touki_team' = isTouki ? 'touki_team' : isManager ? 'system' : 'case'
+    const { error: e2 } = await supabase.from('tasks').insert({
+      case_id: caseId,
+      task_kind: kind,
+      title: c.title,
+      // その他は業務名を phase に（業務バッジ表示用）、通常は業務名。
+      phase: c.custom ? c.title : c.gyomu,
+      // 管理担当タスクはカテゴリ列を持たせず、業務は phase バッジで表す（名もなきタスクと混在するため）。
+      category: isManager ? null : c.gyomu,
+      status: '着手前',
+      priority: '通常',
+      source_rid: rid,
+      work_role: isTouki ? 'assistant' : isManager ? 'manager' : 'assistant',
+      assign_role: isManager ? 'manager' : null,
+      // その他は入力した内容を作業内容(procedure_text)に。それ以外はテンプレ流し込みなし。
+      procedure_text: c.custom ? (c.work?.trim() || null) : null,
+      // 請求(起点)＝着手OK／読込等＝受領次第OK。それ以外は無し。
+      ext_data: c.ready ? { ready: true, ready_reason: '起点タスク（前提なし・すぐ着手可）' }
+        : c.readyOnReceipt ? { ready_on_receipt: true }
+        : null,
+      sort_order: existingTasks.length,
     })
-    const { error: e2 } = await supabase.from('tasks').insert(rows)
-    if (e2) { setSaving(false); setError(`生成に失敗しました: ${e2.message}`); return }
+    if (e2) { setBusyKey(null); setError(`追加に失敗しました: ${e2.message}`); return }
 
-    setSaving(false); setSelected(new Set()); onSaved(); onClose()
+    setAddedKeys(prev => new Set(prev).add(c.key))
+    setBusyKey(null)
+    onSaved()
   }
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="タスク一括生成"
-      maxWidth="max-w-2xl"
-      footer={
-        <>
-          <span className="text-sm text-gray-500 mr-auto">{selected.size} 件選択</span>
-          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">キャンセル</button>
-          <button onClick={handleGenerate} disabled={saving || selected.size === 0} className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50">
-            {saving ? '生成中...' : `${selected.size} 件生成`}
-          </button>
-        </>
-      }
-    >
+    <div>
       {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 mb-4">{error}</div>}
 
       {kosekiCoarse && (
         <div className="bg-amber-50 border border-amber-200 text-amber-800 text-[12.5px] rounded-lg p-3 mb-4">
           <span className="font-semibold">戸籍の請求先（役所）が未入力です。</span>
-          先に実務タブ＞戸籍表へ役所を入れてから生成すると、<span className="font-semibold">役所ごと</span>に請求・読込タスクが分かれます。
-          このまま生成すると粗い「戸籍請求」1件になります（あとから戸籍表で「役所ごとに展開」も可能）。
+          先に実務タブ＞戸籍表へ役所を入れると、<span className="font-semibold">役所ごと</span>に請求・読込の候補が分かれます。
+          このままだと粗い「戸籍請求」1件になります。
         </div>
       )}
       {finCoarse && (
         <div className="bg-amber-50 border border-amber-200 text-amber-800 text-[12.5px] rounded-lg p-3 mb-4">
           <span className="font-semibold">金融機関が未入力です。</span>
-          先に財産調査＞金融の表へ金融機関を入れてから生成すると、<span className="font-semibold">銀行ごと</span>に資料請求・読込タスクが分かれます。
+          先に財産調査＞金融の表へ金融機関を入れると、<span className="font-semibold">銀行ごと</span>に資料請求・読込の候補が分かれます。
         </div>
       )}
       {reCoarse && (
         <div className="bg-amber-50 border border-amber-200 text-amber-800 text-[12.5px] rounded-lg p-3 mb-4">
           <span className="font-semibold">物件が未入力です。</span>
-          先に財産調査＞不動産の表へ物件を入れてから生成すると、<span className="font-semibold">市区町村ごと</span>に請求・読込タスクが分かれます。
-        </div>
-      )}
-      {candidates.some(c => c.offByDefault && !isGenerated(c)) && (
-        <div className="bg-brand-50 border border-brand-200 text-brand-800 text-[12.5px] rounded-lg p-3 mb-4">
-          <span className="font-semibold">戸籍は 依頼者の分だけチェックしています。</span>
-          他の人の戸籍は、依頼者の戸籍を読んで請求先が決まってからで足りるため外してあります（今すぐ出したい分はチェックしてください）。
-          {!heirs.some(h => h.is_client) && <><br /><span className="text-[11.5px]">※ 相続人一覧で「依頼者」にチェックを入れておくと、ここが正しく絞り込まれます。</span></>}
+          先に財産調査＞不動産の表へ物件を入れると、<span className="font-semibold">市区町村ごと</span>に請求・読込の候補が分かれます。
         </div>
       )}
 
       {candidates.length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-8">
-          生成できる実施タスクがありません。<br />
-          先に「受注内容」タブで受注区分・役割分担（実施タスク）を設定してください。
+          この案件の候補がありません。<br />
+          「受注内容」タブで受注区分・役割分担（実施タスク）を設定すると、ここに出ます。<br />
+          <span className="text-[12px]">候補に無い作業は「自分で入力」から作れます。</span>
         </p>
       ) : (
         <>
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-gray-500">実施タスク（役割分担）からタスクを生成します</p>
-            <button onClick={toggleAll} className="text-xs text-brand-600 font-medium hover:underline">
-              {selected.size === selectable.length ? '全解除' : '全選択'}
-            </button>
-          </div>
+          <p className="text-[12px] text-gray-500 mb-3">
+            受注内容の役割分担・戸籍・財産から出した候補です。押した1件だけが追加されます。
+          </p>
           <div className="space-y-4">
             {koteiGrouped.map(([kotei, gyomuGroups]) => (
-            <div key={kotei} className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="inline-block w-[3px] h-3.5 bg-brand-500 rounded-[1px]" />
-                <span className="text-[13px] font-bold text-brand-800">{kotei}</span>
-              </div>
-              {gyomuGroups.map(group => {
-              const sel = group.items.filter(c => !isGenerated(c))
-              const selectedInGyomu = sel.filter(c => selected.has(c.key)).length
-              // ⑤ 全部生成済みの業務は畳んで薄く表示（開いたら中身を見せる）。
-              const allDone = sel.length === 0 && group.items.length > 0
-              if (allDone && !doneExpanded.has(group.gyomu)) {
-                return (
-                  <button key={group.gyomu} onClick={() => setDoneExpanded(prev => new Set(prev).add(group.gyomu))}
-                    className="w-full border border-gray-200 rounded-lg px-4 py-2.5 flex items-center gap-2.5 bg-gray-50/60 opacity-70 hover:opacity-100 transition-opacity">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" strokeWidth={2.25} />
-                    <span className="text-sm font-medium text-gray-600 flex-1 text-left">{group.gyomu}</span>
-                    <span className="text-xs text-gray-400">すべて生成済み（{group.items.length}）</span>
-                    <ChevronDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                  </button>
-                )
-              }
-              return (
-                <div key={group.gyomu} className="border border-gray-200 rounded-lg overflow-hidden">
-                  <button onClick={() => toggleGyomu(group.gyomu)} className="w-full px-4 py-2.5 flex items-center gap-3 bg-gray-50 hover:bg-gray-100 transition-colors">
-                    <span className="w-2 h-2 rounded-full flex-shrink-0 bg-brand-500" />
-                    <span className="text-sm font-semibold text-gray-900 flex-1 text-left">{group.gyomu}</span>
-                    <span className="text-xs text-gray-400">{selectedInGyomu}/{sel.length}</span>
-                  </button>
-                  <div className="divide-y divide-gray-50">
-                    {group.items.map(c => {
-                      const gen = isGenerated(c)
-                      return (
-                        <label key={c.key} className={`flex items-center gap-3 px-4 py-2 text-sm ${gen ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'}`}>
-                          <input type="checkbox" checked={selected.has(c.key)} disabled={gen} onChange={() => toggle(c.key)} className="accent-brand-600 w-3.5 h-3.5" />
-                          <span className="flex-1 text-gray-700">{c.title}</span>
-                          <TantoKubunBadge task={{ task_kind: kindOfCandidate(c), assign_role: 'manager' }} size="xs" />
-                          {gen && (
-                            <span className="text-[12px] text-green-600 font-medium bg-green-50 px-1.5 py-0.5 rounded">生成済</span>
-                          )}
-                        </label>
-                      )
-                    })}
-                  </div>
+              <div key={kotei} className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="inline-block w-[3px] h-3.5 bg-brand-500 rounded-[1px]" />
+                  <span className="text-[13px] font-bold text-brand-800">{kotei}</span>
                 </div>
-              )
-              })}
-            </div>
+                {gyomuGroups.map(group => {
+                  const rest = group.items.filter(c => !isGenerated(c))
+                  // 全部追加済みの業務は畳んで薄く表示（開いたら中身を見せる）
+                  const allDone = rest.length === 0 && group.items.length > 0
+                  if (allDone && !doneExpanded.has(group.gyomu)) {
+                    return (
+                      <button key={group.gyomu} onClick={() => setDoneExpanded(prev => new Set(prev).add(group.gyomu))}
+                        className="w-full border border-gray-200 rounded-lg px-4 py-2.5 flex items-center gap-2.5 bg-gray-50/60 opacity-70 hover:opacity-100 transition-opacity">
+                        <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" strokeWidth={2.25} />
+                        <span className="text-sm font-medium text-gray-600 flex-1 text-left">{group.gyomu}</span>
+                        <span className="text-xs text-gray-400">すべて追加済（{group.items.length}）</span>
+                        <ChevronDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                      </button>
+                    )
+                  }
+                  return (
+                    <div key={group.gyomu} className="border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="px-4 py-2.5 flex items-center gap-3 bg-gray-50">
+                        <span className="w-2 h-2 rounded-full flex-shrink-0 bg-brand-500" />
+                        <span className="text-sm font-semibold text-gray-900 flex-1">{group.gyomu}</span>
+                        <span className="text-xs text-gray-400">未追加 {rest.length} / {group.items.length}</span>
+                      </div>
+                      <div className="divide-y divide-gray-50">
+                        {group.items.map(c => {
+                          const done = isGenerated(c)
+                          return (
+                            <div key={c.key} className={`flex items-center gap-2 px-4 py-2 text-sm ${done ? 'opacity-50' : ''}`}>
+                              <span className="flex-1 text-gray-700">{c.title}</span>
+                              <TantoKubunBadge task={{ task_kind: kindOfCandidate(c), assign_role: 'manager' }} size="xs" />
+                              {c.ready && !done && (
+                                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded"
+                                  title="前提が無いのですぐ取りかかれるタスクです">着手OK</span>
+                              )}
+                              {done ? (
+                                <span className="inline-flex items-center gap-1 text-[12px] text-emerald-700 font-medium bg-emerald-50 px-1.5 py-0.5 rounded">
+                                  <Check className="w-3 h-3" strokeWidth={2.5} />追加済
+                                </span>
+                              ) : (
+                                <button type="button" onClick={() => addOne(c)} disabled={!!busyKey}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-semibold text-brand-700 border border-brand-200 bg-brand-50 rounded-md hover:bg-brand-100 disabled:opacity-40 whitespace-nowrap">
+                                  {busyKey === c.key ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" strokeWidth={2.5} />}
+                                  追加
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             ))}
           </div>
         </>
       )}
-    </Modal>
+    </div>
   )
 }

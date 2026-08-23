@@ -273,7 +273,7 @@ export const expenseItemTaxable = (label: string): boolean | undefined => {
 // === 他事業者紹介 ===
 // 「他事業者紹介」タブの業者サブタブ（case_referrals.partner_type）。
 export const REFERRAL_PARTNER_TYPES = ['税理士', '弁護士', '不動産', '遺品整理', '生命保険'] as const
-// 紹介先ごとの「依頼／引継ぎ」タスク名（タスク一括生成で使用）。不動産のみ社内事業部への引継ぎ。
+// 紹介先ごとの「依頼／引継ぎ」タスク名（タスク追加の候補で使用）。不動産のみ社内事業部への引継ぎ。
 export const REFERRAL_TASK_LABEL: Record<string, string> = {
   '税理士': '税理士依頼',
   '不動産': '不動産事業部引継ぎ',

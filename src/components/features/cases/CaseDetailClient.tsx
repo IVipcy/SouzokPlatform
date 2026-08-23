@@ -48,7 +48,7 @@ import CaseComposeProvider from './CaseComposeProvider'
 import { buildProgressBoard } from '@/lib/caseProgressBoard'
 import { buildProgressDetail } from '@/lib/caseProgressDetail'
 import { systemTaskGroup } from '@/lib/systemTaskGroup'
-import BulkTaskGenerateModal from './BulkTaskGenerateModal'
+import TaskCandidatePanel from './TaskCandidatePanel'
 
 import AddTaskModal from './AddTaskModal'
 import StatusFlowNavigator, { getJutakuFlowSteps, getKentouContractFlowSteps, getWorkPrepFlowSteps, getInitialTasksFlowSteps } from './StatusFlowNavigator'
@@ -181,7 +181,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     router.replace(`?${params.toString()}`, { scroll: false })
   }
 
-  const bulkTaskModal = useModal()
 
   const addTaskModal = useModal()
 
@@ -401,7 +400,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     advancePaid,
     filed: caseState.filing_status === '済',
   })
-  // 作業進行中（対応中）で開いたとき：初期タスク出しの単一ゲート（タスク一括生成を促す。出したら消える）。
+  // 作業進行中（作業進行中）で開いたとき：初期タスク出しの単一ゲート（タスク作成を促す。1件でも作れば消える）。
   const initialTasksGenerated = tasks.some(t => t.task_kind === 'case')
   const initialTasksSteps = getInitialTasksFlowSteps({ tasksGenerated: initialTasksGenerated })
   const jutakuNavVisible = (caseState.status === '受注' || caseState.status === '戻り受注') && !navDismissed
@@ -711,7 +710,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
             onAdvance={() => {}}
             onDismiss={() => setNavDismissed(true)}
             incompleteTitle="作業を始める前に：初期タスク出し"
-            incompleteSub="点滅している「タスク」タブを開いて、案件の初期タスクを一括生成してください。"
+            incompleteSub="点滅している「タスク」タブを開いて、案件のタスクを作成してください。"
             completeTitle="初期タスクを出しました"
             completeSub="タスクタブから作業を進めてください。"
           />
@@ -847,7 +846,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <ClientInfoTab caseData={caseState} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={handleSaved} caseClients={caseClients ?? []} allMembers={allMembers} currentMemberId={currentMemberId} salesMemberId={salesMemberId} />
       )}
       {effectiveTab === 'tasks' && (
-        <TasksTab tasks={tasks} allMembers={allMembers} currentMemberId={currentMemberId} onBulkGenerate={bulkTaskModal.open} onAddTask={addTaskModal.open} documentReceipts={documentReceipts} caseStatus={caseState.status} financeAssets={financialAssets} hideCaseTasks={isManagerViewer && caseState.status !== '作業着手準備'} />
+        <TasksTab tasks={tasks} allMembers={allMembers} currentMemberId={currentMemberId} onAddTask={addTaskModal.open} documentReceipts={documentReceipts} caseStatus={caseState.status} financeAssets={financialAssets} hideCaseTasks={isManagerViewer && caseState.status !== '作業着手準備'} />
       )}
       {effectiveTab === 'deceased' && (
         <DeceasedTab caseData={caseState} heirs={heirs} kosekiRequests={kosekiRequests} onRefresh={handleSaved} patchCase={patchCase} contractDocuments={contractDocuments} caseClients={caseClients} documentReceipts={documentReceipts} tasks={tasks} />
@@ -1010,26 +1009,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         )}
       </Modal>
 
-      <BulkTaskGenerateModal
-        isOpen={bulkTaskModal.isOpen}
-        onClose={bulkTaskModal.close}
-        caseId={caseState.id}
-        deceasedName={caseState.deceased_name}
-        intakeRoles={(caseState.intake_roles ?? []) as RoleRow[]}
-        serviceCategory={caseState.service_category}
-        serviceCategory2={caseState.service_category_2}
-        taskTemplates={taskTemplates}
-        existingTasks={tasks}
-        caseReferrals={caseReferrals ?? []}
-        kosekiRequests={kosekiRequests}
-        properties={properties}
-        financialAssets={financialAssets}
-        heirs={heirs}
-        caseClients={caseClients ?? []}
-        viewerRole={viewerRole}
-        onSaved={handleSaved}
-      />
-
       {handoffOpen && (
         <HandoffModal
           isOpen
@@ -1052,12 +1031,32 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         onSkip={() => { setCaseState(c => ({ ...c, manager_assign_skipped: true })); handleSaved() }}
       />
 
+      {/* タスク追加。左タブ＝この案件の候補（実務タブの行と紐づく）／右タブ＝自分で入力。 */}
       <AddTaskModal
         isOpen={addTaskModal.isOpen}
         onClose={addTaskModal.close}
         caseId={caseState.id}
         allMembers={allMembers}
         onSaved={handleSaved}
+        candidates={
+          <TaskCandidatePanel
+            caseId={caseState.id}
+            deceasedName={caseState.deceased_name}
+            intakeRoles={(caseState.intake_roles ?? []) as RoleRow[]}
+            serviceCategory={caseState.service_category}
+            serviceCategory2={caseState.service_category_2}
+            taskTemplates={taskTemplates}
+            existingTasks={tasks}
+            caseReferrals={caseReferrals ?? []}
+            kosekiRequests={kosekiRequests}
+            properties={properties}
+            financialAssets={financialAssets}
+            heirs={heirs}
+            caseClients={caseClients ?? []}
+            viewerRole={viewerRole}
+            onSaved={handleSaved}
+          />
+        }
       />
 
     </div>
