@@ -7,7 +7,12 @@ import { showToast } from '@/components/ui/Toast'
 import {
   FIXED_ASSET_VARIANT_PRESETS,
   defaultFixedAssetVariant,
+  OFFICE_BRANCH_OPTIONS,
+  divisionsOf,
+  findBranch,
+  IKIIKI_DEFAULT_BRANCH,
   type FixedAssetVariant,
+  type OfficeBranchId,
 } from '@/lib/officeProfiles'
 import type { CaseRow, RealEstatePropertyRow } from '@/types'
 
@@ -49,6 +54,10 @@ function toLandAddr(p: RealEstatePropertyRow): string {
 export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseData, properties, defaultTaskId }: Props) {
   const [variant, setVariant] = useState<FixedAssetVariant>(defaultFixedAssetVariant(caseData.contract_type))
   const [requestDate, setRequestDate] = useState<string>(new Date().toISOString().slice(0, 10))
+  // 差出人の連絡先は 拠点＋事業部 で決まる（同じ拠点でも事業部で電話が変わる）
+  const [officeId, setOfficeId] = useState<OfficeBranchId>(IKIIKI_DEFAULT_BRANCH.office)
+  const [division, setDivision] = useState<string>(IKIIKI_DEFAULT_BRANCH.division)
+  const branch = findBranch(officeId, division)
   const [municipality, setMunicipality] = useState('')
   const [nendo, setNendo] = useState('令和7年度分')
   const [copyCount, setCopyCount] = useState<number>(1)
@@ -128,6 +137,8 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
           caseId: caseData.id,
           variant,
           requestDate,
+          officeId,
+          division,
           municipality: municipality.trim(),
           nendo: nendo.trim(),
           copyCount,
@@ -212,6 +223,36 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
               ))}
             </select>
             <p className="text-[12px] text-gray-400 mt-1">契約形態：{caseData.contract_type ?? '未設定'}</p>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">拠点</label>
+            <select
+              value={officeId}
+              onChange={e => {
+                const next = e.target.value as OfficeBranchId
+                setOfficeId(next)
+                setDivision(divisionsOf(next)[0] ?? '')
+              }}
+              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400"
+            >
+              {OFFICE_BRANCH_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">事業部</label>
+            <select
+              value={division}
+              onChange={e => setDivision(e.target.value)}
+              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400"
+            >
+              {divisionsOf(officeId).map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+            {branch && (
+              <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">
+                〒{branch.postalCode} {branch.line1} {branch.line2}<br />
+                TEL {branch.tel} ／ FAX {branch.fax}
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">請求日</label>

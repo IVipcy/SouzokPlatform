@@ -10,7 +10,7 @@ import { createClient } from '@/lib/supabase/server'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import ExcelJS from 'exceljs'
-import { FIXED_ASSET_VARIANT_PRESETS, type FixedAssetVariant } from '@/lib/officeProfiles'
+import { FIXED_ASSET_VARIANT_PRESETS, findBranch, type FixedAssetVariant, type OfficeBranchId } from '@/lib/officeProfiles'
 
 type PropertyRow = {
   landAddress: string          // 土地の所在（登記簿上の地番）
@@ -23,6 +23,8 @@ type Body = {
   caseId: string
   variant: FixedAssetVariant
   requestDate: string
+  officeId?: OfficeBranchId    // 差出人の拠点
+  division?: string            // 事業部（同じ拠点でも電話が変わる）
   municipality: string         // 提出先市区町村名
   nendo: string                // 年度（例: 令和7年度）
   copyCount: number            // 部数
@@ -103,6 +105,16 @@ export async function POST(request: NextRequest) {
     const ws = wb.getWorksheet('fixed_asset') ?? wb.worksheets[0]
     if (!ws) {
       return NextResponse.json({ error: 'テンプレートのシートが見つかりません' }, { status: 500 })
+    }
+
+    // 差出人の所在地・電話（拠点＋事業部）。未指定はテンプレの既定のまま。
+    if (body.officeId) {
+      const branch = findBranch(body.officeId, body.division)
+      if (branch) {
+        ws.getCell('F7').value = branch.line1
+        ws.getCell('F8').value = branch.line2
+        ws.getCell('F11').value = `ＴＥＬ　${branch.tel}`
+      }
     }
 
     const client = caseData.clients as { name?: string; address?: string } | null

@@ -12,7 +12,7 @@ import { createClient } from '@/lib/supabase/server'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import ExcelJS from 'exceljs'
-import { KOSEKI_VARIANT_PRESETS, KOSEKI_AGENT_OFFICES, type KosekiVariant, type KosekiAgentOfficeId } from '@/lib/officeProfiles'
+import { KOSEKI_VARIANT_PRESETS, findBranch, type KosekiVariant, type KosekiAgentOfficeId } from '@/lib/officeProfiles'
 
 type RequestRow = {
   municipality: string
@@ -33,7 +33,8 @@ type Body = {
   rows: RequestRow[]
   rowIndex?: number  // どの請求先を出力するか（省略時は全件まとめて別xlsx化→未対応、0番で1件）
   taskId?: string | null  // 紐づける作成タスク（タスク詳細から作成時）
-  agentOffice?: KosekiAgentOfficeId  // 上記代理人の請求者所在地（拠点選択）。省略時はテンプレ既定（共同ビル）
+  agentOffice?: KosekiAgentOfficeId  // 上記代理人の所在地（拠点）。省略時はテンプレ既定（共同ビル）
+  division?: string                  // 事業部（第一/第二など）。同じ拠点でも電話が変わるため
 }
 
 /**
@@ -94,6 +95,24 @@ const CELL_MAP: Record<KosekiVariant, {
     deceasedName: 'D27',
     kogawaseAmount: 'G34',
     notesStart: 'C28',
+  },
+  // いきいきは代表社員の住所・生年月日の欄が無いぶん、行政より4行ぶん上に詰まっている。
+  ikiiki: {
+    municipality: 'A3',
+    requestDate: ['G3'],
+    requesterAddress: 'F5',
+    requesterName: 'F6',
+    typeCell: 'C14',
+    tohonCell: 'F14',
+    copyCount: 'H14',
+    honseki: 'C16',
+    hittousha: 'C17',
+    targetName: 'C19',
+    purpose: 'C23',
+    submitTo: null,
+    deceasedName: 'D24',
+    kogawaseAmount: 'G32',
+    notesStart: 'C25',
   },
 }
 
@@ -205,12 +224,16 @@ export async function POST(request: NextRequest) {
     if (map.requesterAddress) setCell(ws, map.requesterAddress, clientAddress)
     if (map.requesterName) setCell(ws, map.requesterName, clientName)
 
-    // 上記代理人の請求者所在地（拠点選択）。選択時は F8/F9 を上書き（未選択はテンプレ既定）。
+    // 上記代理人の所在地（拠点＋事業部）。選択時は住所と電話を上書き（未選択はテンプレ既定）。
+    // 同じ拠点でも事業部で電話が変わるので、電話まで差し替える。
     if (body.agentOffice) {
-      const office = KOSEKI_AGENT_OFFICES.find(o => o.id === body.agentOffice)
-      if (office) {
-        ws.getCell('F8').value = office.line1
-        ws.getCell('F9').value = office.line2
+      const branch = findBranch(body.agentOffice, body.division)
+      if (branch) {
+        ws.getCell('F8').value = branch.line1
+        ws.getCell('F9').value = branch.line2
+        // 電話はテンプレ側が数式（F12）で法人名から引いている行があるため、
+        // いきいきのように数式で拾えないものだけ直接入れる。
+        if (variant === 'ikiiki') ws.getCell('F12').value = `ＴＥＬ　${branch.tel}`
       }
     }
 

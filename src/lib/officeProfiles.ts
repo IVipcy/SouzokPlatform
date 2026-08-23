@@ -124,21 +124,57 @@ export function officesForContractType(contractType: string | null | undefined):
 }
 
 /**
+ * 拠点マスタ（拠点 × 事業部）。書類の差出人欄に出す連絡先はここで決まる。
+ *
+ * 同じ拠点でも事業部で電話が変わる（共同ビルの第一／第二）ので、
+ * 拠点だけでは連絡先が決まらない。書類を出す前に 拠点 → 事業部 の順で選ぶ。
+ * 出典：docs/AI書類作成/拠点情報.xlsx
+ */
+export const OFFICE_BRANCHES = [
+  { office: 'kyodo',    officeLabel: '共同ビル',     division: '第一',   tel: '045-548-9172', fax: '045-548-9173', postalCode: '220-0011', line1: '横浜市西区高島２－１３－２',       line2: '横浜駅前共同ビル', note: '司法書士法人本店／いきいきライフ協会本社' },
+  { office: 'kyodo',    officeLabel: '共同ビル',     division: '第二',   tel: '045-628-9990', fax: '045-548-9173', postalCode: '220-0011', line1: '横浜市西区高島２－１３－２',       line2: '横浜駅前共同ビル', note: '' },
+  { office: 'kureator', officeLabel: 'クレアトール', division: '第一',   tel: '045-548-3041', fax: '045-548-3081', postalCode: '220-0011', line1: '横浜市西区高島２－１４－１７',     line2: 'クレアトール横浜ビル５階', note: '行政書士法人本店' },
+  { office: 'fujisawa', officeLabel: '藤沢',         division: '第一',   tel: '046-653-7992', fax: '0466-53-7993', postalCode: '251-0025', line1: '藤沢市鵠沼石上１丁目１番１号',     line2: '江ノ電第2ビル 4階', note: '' },
+  { office: 'shibuya',  officeLabel: '渋谷',         division: '（未定）', tel: '03-6419-7304', fax: '03-6419-7354', postalCode: '150-0002', line1: '東京都渋谷区渋谷１丁目7-5',       line2: '青山セブンハイツ5階 505号室', note: '' },
+] as const
+
+export type OfficeBranchId = typeof OFFICE_BRANCHES[number]['office']
+export type OfficeBranch = typeof OFFICE_BRANCHES[number]
+
+/** 拠点の一覧（重複を除いた並び。プルダウンはこの順） */
+export const OFFICE_BRANCH_OPTIONS: { id: OfficeBranchId; label: string }[] =
+  OFFICE_BRANCHES.reduce<{ id: OfficeBranchId; label: string }[]>((acc, b) => {
+    if (!acc.some(x => x.id === b.office)) acc.push({ id: b.office, label: b.officeLabel })
+    return acc
+  }, [])
+
+/** その拠点にある事業部 */
+export const divisionsOf = (office: OfficeBranchId): string[] =>
+  OFFICE_BRANCHES.filter(b => b.office === office).map(b => b.division)
+
+/** 拠点＋事業部から連絡先を引く。事業部の指定が無ければその拠点の先頭。 */
+export const findBranch = (office: OfficeBranchId, division?: string | null): OfficeBranch | undefined =>
+  OFFICE_BRANCHES.find(b => b.office === office && (!division || b.division === division))
+    ?? OFFICE_BRANCHES.find(b => b.office === office)
+
+/** いきいきライフ協会の既定（拠点情報の3行目＝共同ビル・第一） */
+export const IKIIKI_DEFAULT_BRANCH = { office: 'kyodo' as OfficeBranchId, division: '第一' }
+
+/**
  * 戸籍請求書「上記代理人」の請求者所在地（事業所）。出力前に選択する。
  * line1/line2 は請求書の代理人住所欄（F8/F9）にそのまま流し込む。
+ * 拠点マスタから作るので、拠点を足せばここにも出る。
  */
-// 並びは使う頻度の順（共同ビル → クレアトール → 藤沢）。プルダウンにこの順で出る。
-export const KOSEKI_AGENT_OFFICES = [
-  { id: 'kyodo',    label: '共同ビル',     line1: '横浜市西区高島２－１３－２', line2: '横浜駅前共同ビル' },
-  { id: 'kureator', label: 'クレアトール', line1: '横浜市西区高島２－１４－１７', line2: 'クレアトール横浜ビル５階' },
-  { id: 'fujisawa', label: '藤沢',         line1: '神奈川県藤沢市鵠沼石上１丁目１−１', line2: '江ノ電第2ビル 4階' },
-] as const
-export type KosekiAgentOfficeId = typeof KOSEKI_AGENT_OFFICES[number]['id']
+export const KOSEKI_AGENT_OFFICES = OFFICE_BRANCH_OPTIONS.map(o => {
+  const b = findBranch(o.id)!
+  return { id: o.id, label: o.label, line1: b.line1, line2: b.line2 }
+})
+export type KosekiAgentOfficeId = OfficeBranchId
 
 /**
  * 戸籍請求書の用途バリエーション（行政／司法の2通り。いきいきは廃止）
  */
-export type KosekiVariant = 'gyosei' | 'shiho'
+export type KosekiVariant = 'gyosei' | 'shiho' | 'ikiiki'
 
 /**
  * 戸籍請求書の使用目的（選択肢）。戸籍請求一覧の取得目的と共通（lib/constants）。
@@ -175,6 +211,17 @@ export const KOSEKI_VARIANT_PRESETS: Record<KosekiVariant, {
     showRepresentativeDetails: true,
     excludeIninjou: false,
   },
+  // いきいきライフ協会は遺言執行の案件で使う。請求者＝遺言者、代理人＝遺言執行者。
+  // 代表社員の住所・生年月日の欄はテンプレートに無い。
+  ikiiki: {
+    label: 'いきいきライフ協会（遺言執行）',
+    office: 'ikiiki',
+    requesterLabel: '遺言者',
+    agentLabel: '上記遺言執行者',
+    purpose: '遺言執行業務の為',
+    showRepresentativeDetails: false,
+    excludeIninjou: false,
+  },
 }
 
 /**
@@ -183,6 +230,8 @@ export const KOSEKI_VARIANT_PRESETS: Record<KosekiVariant, {
  */
 export function defaultKosekiVariant(contractType: string | null | undefined): KosekiVariant {
   switch (contractType) {
+    case 'いきいきライフ協会':
+      return 'ikiiki'
     case '司法書士法人単独':
       return 'shiho'
     case '行政書士法人単独':
@@ -194,9 +243,9 @@ export function defaultKosekiVariant(contractType: string | null | undefined): K
 
 /**
  * 固定資産証明等申請書（名寄帳・評価証明）のバリエーション
- * 行政 = 相続財産調査 / 司法 = 相続登記（いきいきは廃止）
+ * 行政 = 相続財産調査 / 司法 = 相続登記 / いきいき = 遺言執行
  */
-export type FixedAssetVariant = 'gyosei' | 'shiho'
+export type FixedAssetVariant = 'gyosei' | 'shiho' | 'ikiiki'
 
 export const FIXED_ASSET_VARIANT_PRESETS: Record<FixedAssetVariant, {
   label: string
@@ -219,6 +268,13 @@ export const FIXED_ASSET_VARIANT_PRESETS: Record<FixedAssetVariant, {
     agentLabel: '上記代理人',
     purpose: '相続財産調査',
   },
+  ikiiki: {
+    label: 'いきいきライフ協会（遺言執行）',
+    office: 'ikiiki',
+    requesterLabel: '遺言者',
+    agentLabel: '遺言執行者',
+    purpose: '遺言執行業務の為',
+  },
 }
 
 /**
@@ -227,6 +283,8 @@ export const FIXED_ASSET_VARIANT_PRESETS: Record<FixedAssetVariant, {
  */
 export function defaultFixedAssetVariant(contractType: string | null | undefined): FixedAssetVariant {
   switch (contractType) {
+    case 'いきいきライフ協会':
+      return 'ikiiki'
     case '司法書士法人単独':
       return 'shiho'
     case '行政書士法人単独':

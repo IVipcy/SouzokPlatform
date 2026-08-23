@@ -7,7 +7,10 @@ import { showToast } from '@/components/ui/Toast'
 import {
   KOSEKI_VARIANT_PRESETS,
   KOSEKI_PURPOSES,
-  KOSEKI_AGENT_OFFICES,
+  OFFICE_BRANCH_OPTIONS,
+  divisionsOf,
+  findBranch,
+  IKIIKI_DEFAULT_BRANCH,
   defaultKosekiVariant,
   type KosekiVariant,
   type KosekiAgentOfficeId,
@@ -75,6 +78,9 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
   const [requestDate, setRequestDate] = useState<string>(new Date().toISOString().slice(0, 10))
   const [purpose, setPurpose] = useState<string>(KOSEKI_PURPOSES[0])  // 使用目的
   const [agentOffice, setAgentOffice] = useState<KosekiAgentOfficeId>('kyodo')  // 上記代理人の所在地（拠点）
+  // 事業部。同じ拠点でも事業部で電話が変わる（共同ビルの第一／第二）ため、拠点とセットで選ぶ。
+  const [division, setDivision] = useState<string>(IKIIKI_DEFAULT_BRANCH.division)
+  const branch = findBranch(agentOffice, division)
   const [rows, setRows] = useState<RequestRow[]>([])
   const [generating, setGenerating] = useState(false)
 
@@ -219,6 +225,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
             rowIndex: i,
             taskId: defaultTaskId ?? null,
             agentOffice,
+            division,
           }),
         })
 
@@ -313,14 +320,35 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">請求者所在地（上記代理人）</label>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">拠点</label>
             <select
               value={agentOffice}
-              onChange={e => setAgentOffice(e.target.value as KosekiAgentOfficeId)}
+              onChange={e => {
+                const next = e.target.value as KosekiAgentOfficeId
+                setAgentOffice(next)
+                // 拠点を変えたら、その拠点にある事業部の先頭に寄せる（無い事業部が残らないように）
+                setDivision(divisionsOf(next)[0] ?? '')
+              }}
               className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400"
             >
-              {KOSEKI_AGENT_OFFICES.map(o => <option key={o.id} value={o.id}>{o.label}（{o.line1} {o.line2}）</option>)}
+              {OFFICE_BRANCH_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
             </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">事業部</label>
+            <select
+              value={division}
+              onChange={e => setDivision(e.target.value)}
+              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400"
+            >
+              {divisionsOf(agentOffice).map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+            {branch && (
+              <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">
+                〒{branch.postalCode} {branch.line1} {branch.line2}<br />
+                TEL {branch.tel} ／ FAX {branch.fax}
+              </p>
+            )}
           </div>
         </section>
 
