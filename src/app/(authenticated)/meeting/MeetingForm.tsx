@@ -209,6 +209,8 @@ function SectionHeader({ Icon, title, sub }: { Icon: LucideIcon; title: string; 
 // ブラウザの戻る・タブを閉じる・端末のスリープで入力が消えていた。
 // 案件ごとにブラウザへ持たせ、開き直したら自動で戻す。登録できたら捨てる。
 // （面談シート①・オーダーシート③は入力のたびにDBへ入るので、この仕組みは②だけ）
+// 案件がある場合はDB（cases.meeting_form_draft）に控える。端末をまたいで続きが書ける。
+// 案件がまだ無い（id='new'）ときだけ、置き場所が無いのでこの端末に控える。
 const draftKey = (caseId: string) => `meetingForm:draft:${caseId}`
 const readDraft = (caseId: string): Partial<FormData> | null => {
   if (typeof window === 'undefined') return null
@@ -224,6 +226,32 @@ const writeDraft = (caseId: string, data: FormData) => {
 const clearDraft = (caseId: string) => {
   if (typeof window === 'undefined') return
   try { window.localStorage.removeItem(draftKey(caseId)) } catch { /* noop */ }
+}
+
+/** 案件に控えてある下書きを読む。案件がまだ無いときは null。 */
+async function readDbDraft(caseId: string): Promise<{ data: Partial<FormData>; at: string | null } | null> {
+  if (!caseId || caseId === 'new') return null
+  const { data, error } = await createClient()
+    .from('cases').select('meeting_form_draft, meeting_form_draft_at').eq('id', caseId).single()
+  if (error || !data) return null
+  const row = data as { meeting_form_draft: Partial<FormData> | null; meeting_form_draft_at: string | null }
+  return row.meeting_form_draft ? { data: row.meeting_form_draft, at: row.meeting_form_draft_at } : null
+}
+
+/** 案件に下書きを控える。失敗しても入力は続けられるので黙って諦める（端末側の控えが残る）。 */
+async function writeDbDraft(caseId: string, data: FormData) {
+  if (!caseId || caseId === 'new') return
+  await createClient().from('cases')
+    .update({ meeting_form_draft: data, meeting_form_draft_at: new Date().toISOString() })
+    .eq('id', caseId)
+}
+
+/** 登録できたら控えを消す（残すと次に開いたとき古い値が戻る）。 */
+async function clearDbDraft(caseId: string) {
+  if (!caseId || caseId === 'new') return
+  await createClient().from('cases')
+    .update({ meeting_form_draft: null, meeting_form_draft_at: null })
+    .eq('id', caseId)
 }
 
 export default function MeetingForm({ selectedCase, currentMemberId, standalone = false, onBack, onDirtyChange, onSaved, lpLinked }: Props) {
@@ -292,6 +320,26 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
   })
   // 復元したことを画面で知らせる（黙って戻すと「入れた覚えのない値」に見えるため）
   const [restored, setRestored] = useState(() => !!readDraft(selectedCase.id))
+  const [restoredAt, setRestoredAt] = useState<string | null>(null)
+  // 触ったかどうか（イベントや後から届く復元の中から見るので ref で持つ）
+  const dirtyRef = useRef(false)
+
+  // 案件に控えてある下書きを取りに行く（別の端末で書いた続きを拾う）。
+  // 触り始めたあとに上書きすると入力中の値が消えるので、まだ触っていないときだけ戻す。
+  const dbDraftLoaded = useRef(false)
+  useEffect(() => {
+    if (dbDraftLoaded.current) return
+    dbDraftLoaded.current = true
+    let alive = true
+    void (async () => {
+      const found = await readDbDraft(selectedCase.id)
+      if (!alive || !found || dirtyRef.current) return
+      setData(prev => ({ ...prev, ...found.data }))
+      setRestored(true)
+      setRestoredAt(found.at)
+    })()
+    return () => { alive = false }
+  }, [selectedCase.id])
 
   // 「登録する」を押す前にタブを閉じる・再読み込みしようとしたら引き止める。
   // 下書きは残るので消えはしないが、案件には反映されていないことに気づいてもらう。
@@ -306,14 +354,14 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
     window.addEventListener('beforeunload', onBeforeUnload)
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
   }, [savedOnce])
-  // 触ったかどうか（イベントの中から見るので ref で持つ）
-  const dirtyRef = useRef(false)
-
   // 入力が止まって0.6秒で下書きを書く。1文字ごとに書くと重いので少し待つ。
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
     if (draftTimer.current) clearTimeout(draftTimer.current)
-    draftTimer.current = setTimeout(() => writeDraft(selectedCase.id, data), 600)
+    draftTimer.current = setTimeout(() => {
+      writeDraft(selectedCase.id, data)          // 端末側（案件が無い段階でも効く）
+      void writeDbDraft(selectedCase.id, data)   // 案件側（端末をまたいで続きが書ける）
+    }, 600)
     return () => { if (draftTimer.current) clearTimeout(draftTimer.current) }
   }, [data, selectedCase.id])
 
@@ -735,6 +783,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
       if (caseId) {
         // DBに入ったので下書きは要らない。残すと次に開いたとき古い値が復元される。
         clearDraft(selectedCase.id)
+        void clearDbDraft(selectedCase.id)
         setRestored(false)
         dirtyRef.current = false
         setSavedOnce(true)
@@ -1324,11 +1373,12 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         <div className="mb-3 flex items-start gap-2 px-3.5 py-2.5 rounded-lg bg-brand-50/70 border border-brand-100">
           <RotateCcw className="w-4 h-4 text-brand-600 flex-none mt-0.5" strokeWidth={2} />
           <p className="flex-1 text-[12.5px] text-brand-900 leading-relaxed">
-            前回の入力途中を戻しました。内容を確認して「登録する」を押してください。
+            前回の入力途中を戻しました{restoredAt ? `（${new Date(restoredAt).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}）` : ''}。
+            内容を確認して「登録する」を押してください。
           </p>
           <button
             type="button"
-            onClick={() => { clearDraft(selectedCase.id); setRestored(false); window.location.reload() }}
+            onClick={() => { clearDraft(selectedCase.id); void clearDbDraft(selectedCase.id); setRestored(false); window.location.reload() }}
             className="flex-none text-[11.5px] font-semibold text-gray-500 hover:text-red-600 underline underline-offset-2"
           >
             破棄してやり直す
