@@ -109,6 +109,8 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
   const [sheetMode, setSheetMode] = useState<SheetMode>('fields')
   // 白紙メモの原本ビューア（保存済み画像をいつでも開けるようにする）
   const [memoViewerOpen, setMemoViewerOpen] = useState(false)
+  // ②で何か入力したか（タブを離れるときの引き止めに使う）
+  const [resultDirty, setResultDirty] = useState(false)
   const [resultDone, setResultDone] = useState(false)
   const [caseState, setCaseState] = useState<CaseRow>(caseData)
   // router.refresh() で fetch した最新 caseData を state に流し込む。
@@ -245,6 +247,16 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
 
   // ①→②→③ の順次遷移のみ許可。戻るのは自由、飛び越しは不可（②は下書き案件確定、③は面談結果登録の完了が前提）。
   const goTab = async (t: Tab) => {
+    // ②面談結果登録から離れるとき、まだ「登録する」を押していなければ引き止める。
+    // 入力はこの端末に控えてあるので消えはしないが、案件には反映されていない。
+    if (tab === 'result' && t !== 'result' && resultDirty && !resultDone) {
+      const ok = window.confirm([
+        '②面談結果登録がまだ登録されていません。',
+        '入力はこの端末に残りますが、案件には反映されていません。',
+        'このまま移動しますか。',
+      ].join('\n'))
+      if (!ok) return
+    }
     if (t === 'result' && tab === 'sheet') {
       try { await ensureCase() } catch (e) { showToast(e instanceof Error ? e.message : '案件の作成に失敗しました', 'error'); return }
     }
@@ -373,6 +385,7 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
           selectedCase={toSelectedCase(caseState, rest.caseClients)}
           currentMemberId={currentMemberId}
           lpLinked={!!caseState.lp_case_number}
+          onDirtyChange={setResultDirty}
           onSaved={async (caseId) => {
             await graduateFromDraft()
             setResultDone(true)

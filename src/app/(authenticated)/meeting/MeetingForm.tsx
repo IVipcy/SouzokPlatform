@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { User, FileText, CheckCircle2, ChevronDown, type LucideIcon } from 'lucide-react'
+import { User, FileText, CheckCircle2, ChevronDown, RotateCcw, type LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { applyRouteToCaseNumber } from '@/lib/caseNumber'
 import { seedRewardItemsFromProposal } from '@/lib/rewardFromProposal'
@@ -205,6 +205,27 @@ function SectionHeader({ Icon, title, sub }: { Icon: LucideIcon; title: string; 
   )
 }
 
+// 入力途中の下書き。面談結果登録は「登録する」を押すまでDBに何も入らないため、
+// ブラウザの戻る・タブを閉じる・端末のスリープで入力が消えていた。
+// 案件ごとにブラウザへ持たせ、開き直したら自動で戻す。登録できたら捨てる。
+// （面談シート①・オーダーシート③は入力のたびにDBへ入るので、この仕組みは②だけ）
+const draftKey = (caseId: string) => `meetingForm:draft:${caseId}`
+const readDraft = (caseId: string): Partial<FormData> | null => {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(draftKey(caseId))
+    return raw ? (JSON.parse(raw) as Partial<FormData>) : null
+  } catch { return null }
+}
+const writeDraft = (caseId: string, data: FormData) => {
+  if (typeof window === 'undefined') return
+  try { window.localStorage.setItem(draftKey(caseId), JSON.stringify(data)) } catch { /* 容量超過などは黙って諦める */ }
+}
+const clearDraft = (caseId: string) => {
+  if (typeof window === 'undefined') return
+  try { window.localStorage.removeItem(draftKey(caseId)) } catch { /* noop */ }
+}
+
 export default function MeetingForm({ selectedCase, currentMemberId, standalone = false, onBack, onDirtyChange, onSaved, lpLinked }: Props) {
   const router = useRouter()
   // LP連携案件は面談ルートを固定。統合入力アプリのOCドラフトはID≠'new'でもLPではないので lpLinked を明示的に見る。
@@ -265,11 +286,40 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         init.intakeRoles = selectedCase.intakeRoles as any
       }
     }
-    return init
+    // 前回の入力途中があれば、初期値の上に重ねる（連携で来た値より本人の入力を優先）
+    const draft = readDraft(selectedCase.id)
+    return draft ? { ...init, ...draft } : init
   })
+  // 復元したことを画面で知らせる（黙って戻すと「入れた覚えのない値」に見えるため）
+  const [restored, setRestored] = useState(() => !!readDraft(selectedCase.id))
+
+  // 「登録する」を押す前にタブを閉じる・再読み込みしようとしたら引き止める。
+  // 下書きは残るので消えはしないが、案件には反映されていないことに気づいてもらう。
+  const [savedOnce, setSavedOnce] = useState(false)
+  useEffect(() => {
+    if (savedOnce) return
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!dirtyRef.current) return
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [savedOnce])
+  // 触ったかどうか（イベントの中から見るので ref で持つ）
+  const dirtyRef = useRef(false)
+
+  // 入力が止まって0.6秒で下書きを書く。1文字ごとに書くと重いので少し待つ。
+  const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    if (draftTimer.current) clearTimeout(draftTimer.current)
+    draftTimer.current = setTimeout(() => writeDraft(selectedCase.id, data), 600)
+    return () => { if (draftTimer.current) clearTimeout(draftTimer.current) }
+  }, [data, selectedCase.id])
 
   const update = useCallback(<K extends keyof FormData>(key: K, value: FormData[K]) => {
     setData(prev => ({ ...prev, [key]: value }))
+    dirtyRef.current = true
     onDirtyChange?.(true)
   }, [onDirtyChange])
 
@@ -683,6 +733,11 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
     } else {
       const caseId = await saveToDatabase(data)
       if (caseId) {
+        // DBに入ったので下書きは要らない。残すと次に開いたとき古い値が復元される。
+        clearDraft(selectedCase.id)
+        setRestored(false)
+        dirtyRef.current = false
+        setSavedOnce(true)
         showToast('案件を保存しました', 'success')
         if (onSaved) {
           // 統合入力アプリ：完了画面/遷移はせず、呼び出し元（③オーダーシートへ進む）に委ねる
@@ -697,7 +752,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         }
       }
     }
-  }, [step, data, saveToDatabase, router, standalone, onSaved])
+  }, [step, data, saveToDatabase, router, standalone, onSaved, selectedCase.id])
 
   const prevStep = useCallback(() => {
     if (step > 0) {
@@ -1264,6 +1319,23 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
 
   return (
     <div>
+      {/* 前回の入力を戻したことを知らせる。黙って戻すと「入れた覚えのない値」に見えるため。 */}
+      {restored && (
+        <div className="mb-3 flex items-start gap-2 px-3.5 py-2.5 rounded-lg bg-brand-50/70 border border-brand-100">
+          <RotateCcw className="w-4 h-4 text-brand-600 flex-none mt-0.5" strokeWidth={2} />
+          <p className="flex-1 text-[12.5px] text-brand-900 leading-relaxed">
+            前回の入力途中を戻しました。内容を確認して「登録する」を押してください。
+          </p>
+          <button
+            type="button"
+            onClick={() => { clearDraft(selectedCase.id); setRestored(false); window.location.reload() }}
+            className="flex-none text-[11.5px] font-semibold text-gray-500 hover:text-red-600 underline underline-offset-2"
+          >
+            破棄してやり直す
+          </button>
+        </div>
+      )}
+
       {/* 1ページ構成（ステップバー・プログレスは廃止） */}
       {renderStep()}
 
@@ -1284,7 +1356,9 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
           </button>
         </div>
         {step === STEPS.length - 1 && (
-          <p className="text-[11px] text-gray-400">入力内容は 各項目のフォーカスが外れた時点で 自動保存されています</p>
+          <p className="text-[11px] text-gray-400">
+            入力内容はこの端末に自動で控えています。「登録する」を押すまでは案件に反映されません。
+          </p>
         )}
       </div>
     </div>
