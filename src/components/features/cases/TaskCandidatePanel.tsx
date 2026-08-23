@@ -111,8 +111,9 @@ const CANCEL_NON_UNIT_TASKS = ['自動車名義変更', '保険金請求']
  */
 export default function TaskCandidatePanel({ caseId, intakeRoles, serviceCategory, serviceCategory2, existingTasks, caseReferrals = [], kosekiRequests = [], properties = [], financialAssets = [], deceasedName = null, heirs = [], caseClients = [], onSaved }: Props) {
   // viewerRole は担当区分フィルタ撤廃により未使用（Props には残し、呼び出し側の互換を保つ）。
-  // 追加処理中の候補キー（押した行だけスピナーにする）
-  const [busyKey, setBusyKey] = useState<string | null>(null)
+  // チェックした候補（既定は全部オフ。要るものだけ選ぶ）
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   // 全部生成済みの業務は畳んでおき、開いたものだけ中身を表示する（⑤）
   const [doneExpanded, setDoneExpanded] = useState<Set<string>>(new Set())
@@ -326,57 +327,81 @@ export default function TaskCandidatePanel({ caseId, intakeRoles, serviceCategor
   }, [groups])
 
 
-  /** 候補を1件だけタスクにする。押した行だけが増える。 */
-  const addOne = async (c: Candidate) => {
-    if (isGenerated(c) || busyKey) return
-    setBusyKey(c.key); setError('')
+  /** チェックした候補をタスクにする。チェックが1件なら1件だけ増える。 */
+  const addPicked = async () => {
+    const picked = candidates.filter(c => selected.has(c.key) && !isGenerated(c))
+    if (picked.length === 0 || busy) return
+    setBusy(true); setError('')
     const supabase = createClient()
 
-    // 1. 実施タスク行に rid を採番（未採番のみ）→ intake_roles を更新
-    let rid = c.rid ?? null
-    if (c.roleIdx != null) {
-      rid = intakeRoles[c.roleIdx]?.rid ?? null
-      if (!rid) {
-        rid = crypto.randomUUID()
-        const roles = [...intakeRoles]
-        roles[c.roleIdx] = { ...roles[c.roleIdx], rid }
-        const { error: e } = await supabase.from('cases').update({ intake_roles: roles }).eq('id', caseId)
-        if (e) { setBusyKey(null); setError(`実施タスクの更新に失敗しました: ${e.message}`); return }
+    // 1. 実施タスク行に rid を採番（未採番のみ）→ intake_roles をまとめて更新
+    const roles = [...intakeRoles]
+    let rolesChanged = false
+    const ridByKey: Record<string, string> = {}
+    for (const c of picked) {
+      if (c.roleIdx != null) {
+        let rid = roles[c.roleIdx]?.rid
+        if (!rid) { rid = crypto.randomUUID(); roles[c.roleIdx] = { ...roles[c.roleIdx], rid }; rolesChanged = true }
+        ridByKey[c.key] = rid
+      } else if (c.rid) {
+        ridByKey[c.key] = c.rid
       }
     }
+    if (rolesChanged) {
+      const { error: e } = await supabase.from('cases').update({ intake_roles: roles }).eq('id', caseId)
+      if (e) { setBusy(false); setError(`実施タスクの更新に失敗しました: ${e.message}`); return }
+    }
 
-    // 2. タスクを1件だけ作る（source_rid リンク付き）。
+    // 2. タスクを作る（source_rid リンク付き）。
     // 管理業務(MANAGER_GYOMU)＝管理担当タスク(system)、それ以外＝事務管理タスク(case)。
     // どちらも phase=業務名を持たせ、実務タブ／進捗ボードに業務単位で集約される。
-    const isTouki = TOUKI_TEAM_TASK_TITLES.has(c.title)
-    const isManager = !isTouki && (c.custom || MANAGER_GYOMU.has(c.gyomu) || MANAGER_TASK_TITLES.has(c.title))
-    const kind: 'case' | 'system' | 'touki_team' = isTouki ? 'touki_team' : isManager ? 'system' : 'case'
-    const { error: e2 } = await supabase.from('tasks').insert({
-      case_id: caseId,
-      task_kind: kind,
-      title: c.title,
-      // その他は業務名を phase に（業務バッジ表示用）、通常は業務名。
-      phase: c.custom ? c.title : c.gyomu,
-      // 管理担当タスクはカテゴリ列を持たせず、業務は phase バッジで表す（名もなきタスクと混在するため）。
-      category: isManager ? null : c.gyomu,
-      status: '着手前',
-      priority: '通常',
-      source_rid: rid,
-      work_role: isTouki ? 'assistant' : isManager ? 'manager' : 'assistant',
-      assign_role: isManager ? 'manager' : null,
-      // その他は入力した内容を作業内容(procedure_text)に。それ以外はテンプレ流し込みなし。
-      procedure_text: c.custom ? (c.work?.trim() || null) : null,
-      // 請求(起点)＝着手OK／読込等＝受領次第OK。それ以外は無し。
-      ext_data: c.ready ? { ready: true, ready_reason: '起点タスク（前提なし・すぐ着手可）' }
-        : c.readyOnReceipt ? { ready_on_receipt: true }
-        : null,
-      sort_order: existingTasks.length,
+    const rows = picked.map((c, i) => {
+      const isTouki = TOUKI_TEAM_TASK_TITLES.has(c.title)
+      const isManager = !isTouki && (c.custom || MANAGER_GYOMU.has(c.gyomu) || MANAGER_TASK_TITLES.has(c.title))
+      const kind: 'case' | 'system' | 'touki_team' = isTouki ? 'touki_team' : isManager ? 'system' : 'case'
+      return {
+        case_id: caseId,
+        task_kind: kind,
+        title: c.title,
+        // その他は業務名を phase に（業務バッジ表示用）、通常は業務名。
+        phase: c.custom ? c.title : c.gyomu,
+        // 管理担当タスクはカテゴリ列を持たせず、業務は phase バッジで表す（名もなきタスクと混在するため）。
+        category: isManager ? null : c.gyomu,
+        status: '着手前',
+        priority: '通常',
+        source_rid: ridByKey[c.key] ?? null,
+        work_role: isTouki ? 'assistant' : isManager ? 'manager' : 'assistant',
+        assign_role: isManager ? 'manager' : null,
+        // その他は入力した内容を作業内容(procedure_text)に。それ以外はテンプレ流し込みなし。
+        procedure_text: c.custom ? (c.work?.trim() || null) : null,
+        // 請求(起点)＝着手OK／読込等＝受領次第OK。それ以外は無し。
+        ext_data: c.ready ? { ready: true, ready_reason: '起点タスク（前提なし・すぐ着手可）' }
+          : c.readyOnReceipt ? { ready_on_receipt: true }
+          : null,
+        sort_order: existingTasks.length + i,
+      }
     })
-    if (e2) { setBusyKey(null); setError(`追加に失敗しました: ${e2.message}`); return }
+    const { error: e2 } = await supabase.from('tasks').insert(rows)
+    if (e2) { setBusy(false); setError(`追加に失敗しました: ${e2.message}`); return }
 
-    setAddedKeys(prev => new Set(prev).add(c.key))
-    setBusyKey(null)
+    setAddedKeys(prev => { const next = new Set(prev); picked.forEach(c => next.add(c.key)); return next })
+    setSelected(new Set())
+    setBusy(false)
     onSaved()
+  }
+
+  const toggle = (key: string) => setSelected(prev => {
+    const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); return next
+  })
+  /** 業務まるごと。全部入っていれば全解除、そうでなければ全選択。 */
+  const toggleGyomu = (items: Candidate[]) => {
+    const rest = items.filter(c => !isGenerated(c))
+    const allOn = rest.length > 0 && rest.every(c => selected.has(c.key))
+    setSelected(prev => {
+      const next = new Set(prev)
+      rest.forEach(c => allOn ? next.delete(c.key) : next.add(c.key))
+      return next
+    })
   }
 
   return (
@@ -412,7 +437,7 @@ export default function TaskCandidatePanel({ caseId, intakeRoles, serviceCategor
       ) : (
         <>
           <p className="text-[12px] text-gray-500 mb-3">
-            受注内容の役割分担・戸籍・財産から出した候補です。押した1件だけが追加されます。
+            受注内容の役割分担・戸籍・財産から出した候補です。要るものにチェックを入れて追加してください（最初は全部オフです）。
           </p>
           <div className="space-y-4">
             {koteiGrouped.map(([kotei, gyomuGroups]) => (
@@ -439,6 +464,11 @@ export default function TaskCandidatePanel({ caseId, intakeRoles, serviceCategor
                   return (
                     <div key={group.gyomu} className="border border-gray-200 rounded-lg overflow-hidden">
                       <div className="px-4 py-2.5 flex items-center gap-3 bg-gray-50">
+                        <input type="checkbox" className="accent-brand-600 w-3.5 h-3.5"
+                          checked={rest.length > 0 && rest.every(c => selected.has(c.key))}
+                          disabled={rest.length === 0}
+                          onChange={() => toggleGyomu(group.items)}
+                          title={`${group.gyomu}の未追加ぶんをまとめて選ぶ`} />
                         <span className="w-2 h-2 rounded-full flex-shrink-0 bg-brand-500" />
                         <span className="text-sm font-semibold text-gray-900 flex-1">{group.gyomu}</span>
                         <span className="text-xs text-gray-400">未追加 {rest.length} / {group.items.length}</span>
@@ -447,25 +477,21 @@ export default function TaskCandidatePanel({ caseId, intakeRoles, serviceCategor
                         {group.items.map(c => {
                           const done = isGenerated(c)
                           return (
-                            <div key={c.key} className={`flex items-center gap-2 px-4 py-2 text-sm ${done ? 'opacity-50' : ''}`}>
+                            <label key={c.key} className={`flex items-center gap-2 px-4 py-2 text-sm ${done ? 'opacity-50' : 'cursor-pointer hover:bg-gray-50'}`}>
+                              <input type="checkbox" className="accent-brand-600 w-3.5 h-3.5"
+                                checked={selected.has(c.key)} disabled={done} onChange={() => toggle(c.key)} />
                               <span className="flex-1 text-gray-700">{c.title}</span>
                               <TantoKubunBadge task={{ task_kind: kindOfCandidate(c), assign_role: 'manager' }} size="xs" />
                               {c.ready && !done && (
                                 <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded"
                                   title="前提が無いのですぐ取りかかれるタスクです">着手OK</span>
                               )}
-                              {done ? (
+                              {done && (
                                 <span className="inline-flex items-center gap-1 text-[12px] text-emerald-700 font-medium bg-emerald-50 px-1.5 py-0.5 rounded">
                                   <Check className="w-3 h-3" strokeWidth={2.5} />追加済
                                 </span>
-                              ) : (
-                                <button type="button" onClick={() => addOne(c)} disabled={!!busyKey}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-semibold text-brand-700 border border-brand-200 bg-brand-50 rounded-md hover:bg-brand-100 disabled:opacity-40 whitespace-nowrap">
-                                  {busyKey === c.key ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" strokeWidth={2.5} />}
-                                  追加
-                                </button>
                               )}
-                            </div>
+                            </label>
                           )
                         })}
                       </div>
@@ -474,6 +500,24 @@ export default function TaskCandidatePanel({ caseId, intakeRoles, serviceCategor
                 })}
               </div>
             ))}
+          </div>
+
+          {/* 操作バー。チェックしたぶんをまとめて追加する。 */}
+          <div className="sticky bottom-0 mt-3 -mx-1 px-1 pt-2.5 pb-0.5 bg-white border-t border-gray-200 flex items-center gap-2">
+            <span className="text-[12px] text-gray-500 flex-1">
+              {selected.size > 0 ? `${selected.size} 件を選択中` : '追加するものにチェックを入れてください'}
+            </span>
+            {selected.size > 0 && (
+              <button type="button" onClick={() => setSelected(new Set())}
+                className="px-2.5 py-1.5 text-[12px] font-semibold text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50">
+                選択を解除
+              </button>
+            )}
+            <button type="button" onClick={addPicked} disabled={busy || selected.size === 0}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-[12.5px] font-semibold text-white bg-brand-600 rounded-md hover:bg-brand-700 disabled:opacity-40 whitespace-nowrap">
+              {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />}
+              {busy ? '追加中…' : `${selected.size || ''} 件を追加`.trim()}
+            </button>
           </div>
         </>
       )}

@@ -201,7 +201,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
       footer={
         tab === 'candidate' ? (
           <>
-            <span className="text-[12px] text-gray-400 mr-auto">押すたびに1件ずつ追加されます</span>
+            <span className="text-[12px] text-gray-400 mr-auto">チェックしたものが追加されます</span>
             <Button variant="secondary" onClick={close}>閉じる</Button>
           </>
         ) : (
