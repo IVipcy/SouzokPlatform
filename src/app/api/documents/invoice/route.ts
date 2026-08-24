@@ -88,6 +88,12 @@ export async function POST(request: NextRequest) {
     if (!ws) {
       return NextResponse.json({ error: 'テンプレートのシートが見つかりません' }, { status: 500 })
     }
+    // 元の大きなブックから1シート抜いたひな型なので、参照先を失った名前付き範囲
+    //（'検索元'!$A$1・INDIRECT(#REF!) など）と、存在しないシート番号を指したブックの表示位置
+    //（firstSheet=10・画面外の座標）が残っている。どちらも Excel が「修復しました」と言い、
+    // シートが白紙で開く原因になるので、書き出す前に直す。
+    wb.definedNames.model = []
+    wb.views = [{ x: 0, y: 0, width: 28000, height: 16000, firstSheet: 0, activeTab: 0, visibility: 'visible' }]
 
     const F = INVOICE_FIELDS
 
