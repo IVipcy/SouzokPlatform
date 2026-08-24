@@ -43,7 +43,7 @@ const ACQUIRERS = ['自社', '依頼者']
 const effConfirmed = (r: KosekiRequestRow) => (r.cost_budget != null ? r.cost_budget - (r.cost_refund ?? 0) : null)
 const reqLabel = (r: KosekiRequestRow) => [r.request_to, r.target_person].filter(Boolean).join('・') || '新規請求'
 
-export default function KosekiSection({ caseId, caseData, requests, heirs = [], tasks = [], onRefresh }: {
+export default function KosekiSection({ caseId, caseData, requests: rawRequests, heirs = [], tasks = [], onRefresh }: {
   caseId: string
   caseData: CaseRow
   requests: KosekiRequestRow[]
@@ -53,6 +53,12 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
 }) {
   const supabase = createClient()
   const isManager = useIsManager()
+  // 保存できた値をサーバー再取得が返るまで重ねておく（入力してから反映されるまでのラグ対策）。
+  // サーバーの値が変わったら上書きは剥がす（他の人の編集が消えないように）。
+  const [localEdits, setLocalEdits] = useState<Record<string, Partial<KosekiRequestRow>>>({})
+  const [seenRaw, setSeenRaw] = useState(rawRequests)
+  if (seenRaw !== rawRequests) { setSeenRaw(rawRequests); setLocalEdits({}) }
+  const requests = rawRequests.map(r => (localEdits[r.id] ? { ...r, ...localEdits[r.id] } : r))
   // 戸籍画像は取得状況の表（行＝対象者）から開く。
   // 以前は TOPの右上パネル・相関図のサムネイル・対象者タブ の3か所にあり、
   // どこから開いたかで見え方が変わっていたので、表の行に一本化した。
@@ -136,11 +142,20 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
     return () => { alive = false }
   }, [caseId, supabase, requests.length])
 
+  // 保存したぶんを画面へ即反映する。DBに書いたあと onRefresh?.()（サーバー再取得）を待つと
+  // 一拍おいて値が変わる／選び直したものが元に戻る、という見え方になっていた。
+  // ここで持つのは「保存できた値」だけ。再取得が返ってきたら、そちらが新しいので上書きは剥がす。
+  const applyLocal = (id: string, patch: Partial<KosekiRequestRow>) => {
+    setLocalEdits(prev => ({ ...prev, [id]: { ...prev[id], ...patch } }))
+  }
   const saveField = async (id: string, field: keyof KosekiRequestRow, value: unknown) => {
-    const { error } = await supabase.from('koseki_requests').update({ [field]: value === '' ? null : value }).eq('id', id)
+    const v = value === '' ? null : value
+    applyLocal(id, { [field]: v } as Partial<KosekiRequestRow>)
+    const { error } = await supabase.from('koseki_requests').update({ [field]: v }).eq('id', id)
     if (error) showToast(`保存に失敗: ${error.message}`, 'error'); else onRefresh?.()
   }
   const saveMany = async (id: string, patch: Partial<KosekiRequestRow>) => {
+    applyLocal(id, patch)
     const { error } = await supabase.from('koseki_requests').update(patch).eq('id', id)
     if (error) showToast(`保存に失敗: ${error.message}`, 'error'); else onRefresh?.()
   }
@@ -295,12 +310,6 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
   const relOf = (name: string) => {
     const h = heirByName.get(name.trim())
     return (h?.relationship_type || h?.relationship || '').trim()
-  }
-  const activeHeir = sub !== 'top' && sub !== '__unset__' ? heirByName.get(activePerson.trim()) : undefined
-  const saveRelationship = async (heirId: string, v: string) => {
-    const { error } = await supabase.from('heirs').update({ relationship_type: v || null }).eq('id', heirId)
-    if (error) { showToast(`続柄の保存に失敗: ${error.message}`, 'error'); return }
-    onRefresh?.()
   }
   const personRequests = requests.filter(r => personKey(r) === activePerson)
   // 承認待ちの追加戸籍請求（案件全体）。戸籍請求タブ上部にパネルで出し、横スクロール無しで承認できる。
@@ -498,7 +507,6 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                 hint="取得区分が「依頼者」の行は、請求日・費用・ダブルチェックが「依頼者負担」になり、入力できません。追加戸籍請求（要承認）は、管理担当が承認したあとに編集できます。どの項目も表の上で直接編集できます。"
                 right={
                   <span className="flex items-center gap-2">
-                    {activeHeir && <RelationshipPicker value={activeHeir.relationship_type || activeHeir.relationship || null} onChange={v => saveRelationship(activeHeir.id, v)} />}
                     {/* 書類作成を経由せず、この人の請求そのままで戸籍請求書を出す */}
                     <button type="button" disabled={personRequests.length === 0}
                       onClick={() => setDocRequests(personRequests)}
@@ -533,7 +541,12 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                         <th className="px-2 py-2 text-left font-semibold w-32">筆頭者／世帯主</th>
                         <th className="px-2 py-2 text-left font-semibold w-64">基礎証明外事項<span className="block text-[10px] font-normal text-gray-400">住民票のとき</span></th>
                         <th className="px-2 py-2 text-left font-semibold w-32">請求範囲</th>
-                        <th className="px-2 py-2 text-left font-semibold w-32">提出先</th>
+                        <th className="px-2 py-2 text-left font-semibold w-32">
+                          <span className="inline-flex items-center gap-1">提出先<HintTip text={`取り寄せた戸籍を、最後にどこへ出すか（＝この戸籍の行き先）です。
+
+既定は「${KOSEKI_SUBMIT_TO_DEFAULT}」。法務局・金融機関・家庭裁判所など、原本を提出する先が決まっているときに書き換えてください。
+請求先（役所）＝取りに行く先とは別です。`} /></span>
+                        </th>
                         <th className="px-2 py-2 text-left font-semibold w-36">戸籍請求理由</th>
                         <th className="px-2 py-2 text-left font-semibold w-28">請求日</th>
                         <th className="px-2 py-2 text-left font-semibold w-28">到着日</th>
@@ -812,22 +825,3 @@ function KosekiRow({ r, i, meId, highlight = false, saveField, saveMany, onDelet
   )
 }
 
-// 人ごとの見出しの右に置く続柄。戸籍は「1行=1戸籍」なので表の列には入れない
-// （同じ値がその人の行すべてに並び、1つ直すと他も変わって見えるため）。
-function RelationshipPicker({ value, onChange }: { value: string | null; onChange: (v: string) => void }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className="text-[11px] text-gray-500">続柄</span>
-      <select
-        value={value ?? ''}
-        onChange={e => onChange(e.target.value)}
-        title="この人の被相続人との続柄。相続人一覧・相関図と同じ値です"
-        className={`border rounded-md px-2 py-1 text-[12px] outline-none focus:border-brand-400 ${
-          value ? 'border-gray-300 bg-white text-gray-700' : 'border-amber-300 bg-amber-50 text-amber-800'}`}
-      >
-        <option value="">未設定</option>
-        {HEIR_RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
-      </select>
-    </span>
-  )
-}
