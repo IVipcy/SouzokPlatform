@@ -364,7 +364,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                         key={a.key}
                         href={a.href}
                         title="クリックで該当箇所へ"
-                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold border transition ${ALERT_SEVERITY_STYLE[a.severity].chip}`}
+                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold border transition whitespace-nowrap ${ALERT_SEVERITY_STYLE[a.severity].chip}`}
                       >
                         <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />{a.label}
                       </Link>

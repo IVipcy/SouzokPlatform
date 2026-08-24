@@ -4,7 +4,7 @@
 // バナーをクリックすると /my/overdue?sev=xxx へ遷移し、そこで詳細を確認する（同ページ内展開は廃止）。
 import { useState } from 'react'
 import Link from 'next/link'
-import { HelpCircle } from 'lucide-react'
+import { HelpCircle, AlertTriangle, AlertOctagon } from 'lucide-react'
 import AlertDefinitionModal from './AlertDefinitionModal'
 import type { TaskRow } from '@/types'
 import type { OverdueSeverity } from '@/lib/overdue'
@@ -15,6 +15,29 @@ export type OverdueBill = {
   amount: number; dueDate: string; over: number; severity: OverdueSeverity
 }
 export type OverdueTaskItem = { task: TaskRow; severity: OverdueSeverity; over: number }
+
+// 要対応バナー1つ。1件以上で点灯し、クリックで一覧へ。
+//   要確認＝黄（気にかける）／要注意＝赤（急いで手を打つ）。
+//   アラートの重大度色（mid=黄／high=赤）とそろえ、色を見ただけで重さが分かるようにする。
+function Banner({ s, label, count, tone, hrefBase }: {
+  s: OverdueSeverity; label: string; count: number; hrefBase: string
+  tone: { bg: string; text: string; icon: typeof AlertTriangle; bubbleBg: string; bubbleText: string }
+}) {
+  const active = count > 0
+  const Icon = tone.icon
+  const inner = (
+    <>
+      <Icon className="w-4 h-4 flex-none" strokeWidth={2.25} style={{ color: active ? tone.text : '#9a978f' }} />
+      <span className="text-[13.5px] font-bold leading-none" style={{ color: active ? tone.text : '#9a978f' }}>{label}</span>
+      <span className="w-7 h-7 rounded-full flex items-center justify-center text-[13.5px] font-bold flex-none"
+        style={{ background: active ? tone.bubbleBg : '#CFCCC4', color: active ? tone.bubbleText : '#fff' }}>{count}</span>
+    </>
+  )
+  const cls = 'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-left transition min-w-[150px]'
+  if (!active) return <span className={`${cls} cursor-default`} style={{ background: '#ECEAE4' }}>{inner}</span>
+  const sep = hrefBase.includes('?') ? '&' : '?'
+  return <Link href={`${hrefBase}${sep}sev=${s}`} className={`${cls} hover:opacity-90`} style={{ background: tone.bg }}>{inner}</Link>
+}
 
 export default function OverdueAttention({ bills, tasks, caseAlerts = [], hrefBase = '/my/overdue' }: {
   bills: OverdueBill[]; tasks: OverdueTaskItem[]; currentMemberId: string
@@ -31,25 +54,12 @@ export default function OverdueAttention({ bills, tasks, caseAlerts = [], hrefBa
   const nKakunin = cnt('kakunin'), nChui = cnt('chui')
   const hasAny = nKakunin + nChui > 0
 
-  // バナー（1件以上で点灯＋赤丸件数・リンクで /my/overdue?sev=xxx へ遷移）
-  const Banner = ({ s, label, count, activeBg }: { s: OverdueSeverity; label: string; count: number; activeBg: string }) => {
-    const active = count > 0
-    const inner = (
-      <>
-        <span className={`text-[13.5px] font-bold leading-none ${active ? 'text-[#3a2600]' : 'text-[#9a978f]'}`}>{label}</span>
-        <span className="w-7 h-7 rounded-full text-white flex items-center justify-center text-[13.5px] font-bold flex-none" style={{ background: active ? '#E23B3B' : '#CFCCC4' }}>{count}</span>
-      </>
-    )
-    const cls = 'inline-flex items-center justify-between gap-3 rounded-lg px-4 py-2 text-left transition min-w-[150px]'
-    if (!active) return <span className={`${cls} cursor-default`} style={{ background: '#ECEAE4' }}>{inner}</span>
-    const sep = hrefBase.includes('?') ? '&' : '?'
-    return <Link href={`${hrefBase}${sep}sev=${s}`} className={`${cls} hover:opacity-90`} style={{ background: activeBg }}>{inner}</Link>
-  }
-
   return (
     <div className="flex gap-2 flex-wrap items-center">
-      <Banner s="kakunin" label="要確認案件" count={nKakunin} activeBg="#F7B733" />
-      <Banner s="chui" label="要注意案件" count={nChui} activeBg="#F5842A" />
+      <Banner s="kakunin" label="要確認案件" count={nKakunin} hrefBase={hrefBase}
+        tone={{ bg: '#EAB308', text: '#3B2A05', icon: AlertTriangle, bubbleBg: 'rgba(0,0,0,0.16)', bubbleText: '#3B2A05' }} />
+      <Banner s="chui" label="要注意案件" count={nChui} hrefBase={hrefBase}
+        tone={{ bg: '#DC2626', text: '#ffffff', icon: AlertOctagon, bubbleBg: 'rgba(255,255,255,0.28)', bubbleText: '#ffffff' }} />
       {!hasAny && <span className="text-[11px] text-gray-400">期日超過はありません</span>}
       <button
         type="button"
