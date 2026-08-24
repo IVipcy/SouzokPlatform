@@ -225,6 +225,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
     setHeirPostal('')
     setEditingHeirId(null)
     setHeirForm(emptyHeirForm())
+    setAutoSavedAt(null)
   }
 
   // 一覧の上で相続人の1項目だけ直す（住所など。編集フォームを開かずに埋められるように）
@@ -234,6 +235,38 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
     const { error } = await supabase.from('heirs').update({ [field]: v }).eq('id', heirId)
     if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
     onRefresh()
+  }
+
+  // 編集中は入力するそばから保存する（「更新」を押し忘れて消える事故をなくす）。
+  // 追加のときはまだ行が無いので、従来どおり「追加」ボタンで作る。
+  const [autoSavedAt, setAutoSavedAt] = useState<string | null>(null)
+  const autoSaveHeir = async (patch: Partial<typeof heirForm>) => {
+    if (!editingHeirId) return
+    const supabase = createClient()
+    // 申出人は1案件1名。オンにしたら他を落とす。
+    if (patch.is_applicant === true) {
+      await supabase.from('heirs').update({ is_applicant: false }).eq('case_id', caseData.id).neq('id', editingHeirId)
+    }
+    const next = { ...heirForm, ...patch }
+    const body: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(patch)) body[k] = typeof v === 'string' ? v.trim() : v
+    // 続柄は新項目にも同じ値を入れる（一覧・相関図・戸籍タブが見るのはこちら）
+    if ('relationship' in patch) {
+      body.relationship_type = (next.relationship || '').trim() || null
+      // 前妻・前夫は離婚しているので相続人にはならない（図に描くためだけの行）
+      if (isFormerSpouse(next.relationship)) body.is_legal_heir = false
+    }
+    if ('birth_date' in patch) body.birth_date = (next.birth_date || '').trim() || null
+    if ('other_parent_heir_id' in patch) body.other_parent_heir_id = (next.other_parent_heir_id || '').trim() || null
+    const { error } = await supabase.from('heirs').update(body).eq('id', editingHeirId)
+    if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
+    setAutoSavedAt(new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }))
+    onRefresh()
+  }
+  /** 入力を画面に反映しつつ、編集中なら保存もする */
+  const setAndSave = (patch: Partial<typeof heirForm>) => {
+    setHeirForm(f => ({ ...f, ...patch }))
+    void autoSaveHeir(patch)
   }
 
   const handleSaveHeir = async () => {
@@ -563,7 +596,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                     type="text"
                     value={heirForm.name}
                     onChange={e => setHeirForm(f => ({ ...f, name: e.target.value }))}
-                    onBlur={e => setHeirForm(f => ({ ...f, name: normalizePersonName(e.target.value) }))}
+                    onBlur={e => setAndSave({ name: normalizePersonName(e.target.value) })}
                     placeholder="山田　太郎"
                     className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
                   />
@@ -572,7 +605,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                 <FormField label="被相続人との続柄">
                   <select
                     value={heirForm.relationship}
-                    onChange={e => setHeirForm(f => ({ ...f, relationship: e.target.value as RelType | '' }))}
+                    onChange={e => setAndSave({ relationship: e.target.value as RelType | '' })}
                     className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
                   >
                     <option value="">選択してください</option>
@@ -587,7 +620,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                   <FormField label="誰との子か（相関図の線）">
                     <select
                       value={heirForm.other_parent_heir_id}
-                      onChange={e => setHeirForm(f => ({ ...f, other_parent_heir_id: e.target.value }))}
+                      onChange={e => setAndSave({ other_parent_heir_id: e.target.value })}
                       className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
                     >
                       <option value="">現在の配偶者との子</option>
@@ -603,30 +636,30 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                     <FormField label="生年月日">
                       <BirthdayPicker
                         value={heirForm.birth_date}
-                        onChange={v => setHeirForm(f => ({ ...f, birth_date: v }))}
+                        onChange={v => setAndSave({ birth_date: v })}
                       />
                     </FormField>
                     <div>
                       <label className="text-[12px] font-semibold text-gray-500 block mb-1">フラグ</label>
                       <div className="flex flex-col gap-1">
                         <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
-                          <input type="checkbox" checked={heirForm.is_legal_heir} onChange={e => setHeirForm(f => ({ ...f, is_legal_heir: e.target.checked }))} className="rounded" />
+                          <input type="checkbox" checked={heirForm.is_legal_heir} onChange={e => setAndSave({ is_legal_heir: e.target.checked })} className="rounded" />
                           法定相続人
                         </label>
                         <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
-                          <input type="checkbox" checked={heirForm.is_applicant} onChange={e => setHeirForm(f => ({ ...f, is_applicant: e.target.checked }))} className="rounded" />
+                          <input type="checkbox" checked={heirForm.is_applicant} onChange={e => setAndSave({ is_applicant: e.target.checked })} className="rounded" />
                           申出人（法定相続情報一覧図）
                         </label>
                         <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer" title="この案件を依頼した相続人。戸籍タスクは この人の分から出します">
-                          <input type="checkbox" checked={heirForm.is_client} onChange={e => setHeirForm(f => ({ ...f, is_client: e.target.checked }))} className="rounded" />
+                          <input type="checkbox" checked={heirForm.is_client} onChange={e => setAndSave({ is_client: e.target.checked })} className="rounded" />
                           依頼者
                         </label>
                         <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer" title="相続関係図に「同居」バッジで表示されます">
-                          <input type="checkbox" checked={heirForm.lived_together} onChange={e => setHeirForm(f => ({ ...f, lived_together: e.target.checked }))} className="rounded" />
+                          <input type="checkbox" checked={heirForm.lived_together} onChange={e => setAndSave({ lived_together: e.target.checked })} className="rounded" />
                           被相続人と同居
                         </label>
                         <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer" title="数次相続・代襲の判断に使います。相続関係図に「故」で表示されます">
-                          <input type="checkbox" checked={heirForm.is_deceased} onChange={e => setHeirForm(f => ({ ...f, is_deceased: e.target.checked }))} className="rounded" />
+                          <input type="checkbox" checked={heirForm.is_deceased} onChange={e => setAndSave({ is_deceased: e.target.checked })} className="rounded" />
                           死亡している
                         </label>
                       </div>
@@ -646,7 +679,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                       placeholder="1234567"
                       className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
                     />
-                    <PostalLookupButton zip={heirPostal} onResolved={addr => setHeirForm(f => ({ ...f, address: addr }))} className="flex-none inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 px-2.5 py-1.5 rounded-md border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed" />
+                    <PostalLookupButton zip={heirPostal} onResolved={addr => setAndSave({ address: addr })} className="flex-none inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 px-2.5 py-1.5 rounded-md border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed" />
                   </div>
                 </FormField>
                 <FormField label="住所">
@@ -654,7 +687,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                     type="text"
                     value={heirForm.address}
                     onChange={e => setHeirForm(f => ({ ...f, address: e.target.value }))}
-                    onBlur={e => setHeirForm(f => ({ ...f, address: normalizeAddress(e.target.value) }))}
+                    onBlur={e => setAndSave({ address: normalizeAddress(e.target.value) })}
                     placeholder="埼玉県さいたま市大宮区1-4-1"
                     className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
                   />
@@ -666,25 +699,44 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                       type="text"
                       value={heirForm.registered_address}
                       onChange={e => setHeirForm(f => ({ ...f, registered_address: e.target.value }))}
-                      onBlur={e => setHeirForm(f => ({ ...f, registered_address: normalizeAddress(e.target.value) }))}
+                      onBlur={e => setAndSave({ registered_address: normalizeAddress(e.target.value) })}
                       placeholder="埼玉県さいたま市大宮区1-4-1"
                       className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
                     />
                     <button
                       type="button"
                       disabled={!heirForm.address.trim()}
-                      onClick={() => setHeirForm(f => ({ ...f, registered_address: f.address }))}
+                      onClick={() => setAndSave({ registered_address: heirForm.address })}
                       className="flex-none inline-flex items-center text-[12px] font-semibold text-brand-600 hover:text-brand-700 px-2.5 py-1.5 rounded-md border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed"
                     >住所と同じ</button>
                   </div>
                 </FormField>
               </div>
               )}
-              <div className="flex gap-2 justify-end">
-                <button onClick={cancelEdit} className="px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-md hover:bg-gray-50">キャンセル</button>
-                <button onClick={handleSaveHeir} className="px-3 py-1.5 text-xs text-white bg-brand-600 rounded-md hover:bg-brand-700">
-                  {editingHeirId ? '更新' : '追加'}
-                </button>
+              {/* 編集中は入力するそばから保存済み。追加のときだけ「追加」を押してもらう。 */}
+              <div className="flex items-center gap-3 justify-end border-t border-gray-100 pt-3">
+                {editingHeirId ? (
+                  <>
+                    <span className="mr-auto text-[12px] text-emerald-700 font-semibold">
+                      {autoSavedAt ? `✓ 自動保存しました（${autoSavedAt}）` : '入力するとその場で保存されます'}
+                    </span>
+                    <button onClick={cancelEdit}
+                      className="px-6 py-2.5 text-[14px] font-bold text-white bg-brand-600 rounded-lg hover:bg-brand-700">
+                      閉じる
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={cancelEdit}
+                      className="px-5 py-2.5 text-[14px] font-semibold text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+                      キャンセル
+                    </button>
+                    <button onClick={handleSaveHeir}
+                      className="px-6 py-2.5 text-[14px] font-bold text-white bg-brand-600 rounded-lg hover:bg-brand-700">
+                      追加
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           )}
