@@ -6,6 +6,7 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import NewTaskFields, { emptyNewTask, type NewTaskValue } from '@/components/features/tasks/NewTaskFields'
 import { useCurrentMember } from '@/lib/useCurrentMember'
+import { showToast } from '@/components/ui/Toast'
 import type { MemberRow } from '@/types'
 
 type Props = {
@@ -41,7 +42,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
   const patch = (p: Partial<NewTaskValue>) => setForm(prev => ({ ...prev, ...p }))
   const close = () => { setTab('manual'); onClose() }
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (keepOpen = false) => {
     if (!form.title.trim()) {
       setError('タスク名は必須です')
       return
@@ -122,11 +123,19 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
     }
 
     setSaving(false)
-    setForm(emptyNewTask())
-    setReady('none')
-    setReadyNote('')
     onSaved()
-    close()
+    if (keepOpen) {
+      // 続けて同じ業務のタスクを足すことが多いので、業務区分・担当区分は残す
+      showToast('タスクを追加しました', 'success')
+      setForm({ ...emptyNewTask(), roleKind: form.roleKind, gyomu: form.gyomu })
+      setReady('none')
+      setReadyNote('')
+    } else {
+      setForm(emptyNewTask())
+      setReady('none')
+      setReadyNote('')
+      close()
+    }
   }
 
   return (
@@ -144,7 +153,10 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
         ) : (
           <>
             <Button variant="secondary" onClick={close}>キャンセル</Button>
-            <Button variant="primary" onClick={handleSubmit} loading={saving}>
+            <Button variant="secondary" onClick={() => handleSubmit(true)} loading={saving}>
+              追加して続ける
+            </Button>
+            <Button variant="primary" onClick={() => handleSubmit(false)} loading={saving}>
               {saving ? '追加中...' : '追加する'}
             </Button>
           </>
