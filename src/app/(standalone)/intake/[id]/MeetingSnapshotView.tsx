@@ -31,7 +31,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function List({ rows, cols }: { rows: Record<string, unknown>[]; cols: { key: string; label: string; money?: boolean }[] }) {
+function List({ rows, cols }: { rows: Record<string, unknown>[]; cols: { key: string; label: string; money?: boolean; fmt?: (v: unknown) => string | null }[] }) {
   if (rows.length === 0) return <p className="text-[12px] text-gray-400">なし</p>
   return (
     <div className="overflow-x-auto">
@@ -44,7 +44,7 @@ function List({ rows, cols }: { rows: Record<string, unknown>[]; cols: { key: st
         <tbody>
           {rows.map((r, i) => (
             <tr key={i} className="border-b border-gray-100 last:border-b-0">
-              {cols.map(c => <td key={c.key} className="px-2 py-1.5 text-gray-800">{(c.money ? yen(r[c.key]) : S(r[c.key])) ?? <span className="text-gray-300">—</span>}</td>)}
+              {cols.map(c => <td key={c.key} className="px-2 py-1.5 text-gray-800">{(c.fmt ? c.fmt(r[c.key]) : c.money ? yen(r[c.key]) : S(r[c.key])) ?? <span className="text-gray-300">—</span>}</td>)}
             </tr>
           ))}
         </tbody>
@@ -80,7 +80,7 @@ export default function MeetingSnapshotView({ snapshot, onEditLatest }: {
 
       <Section title="依頼者情報">
         <List rows={snapshot.caseClients} cols={[
-          { key: 'priority', label: '区分' }, { key: 'name', label: '氏名' }, { key: 'furigana', label: 'ふりがな' },
+          { key: 'priority', label: '区分', fmt: v => v === 'main' ? 'メイン依頼人' : v === 'companion' ? '同行者' : (v ? String(v) : null) }, { key: 'name', label: '氏名' }, { key: 'furigana', label: 'ふりがな' },
           { key: 'relationship', label: '続柄' }, { key: 'mobile_phone', label: '携帯' }, { key: 'phone', label: '固定' }, { key: 'email', label: 'メール' },
         ]} />
         <div className="mt-2">
