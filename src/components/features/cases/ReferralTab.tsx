@@ -30,6 +30,24 @@ type Props = {
  * サブタブは「紹介あり（case_referrals 行が存在する）業者」だけ表示し、「＋業者追加」で増やせる（B-1）。
  * 各業者: 紹介先法人名 / 紹介日付 / 紹介内容 / 見込み報酬 / 報酬請求状態。
  */
+// 紹介先の法人名。付き合いのある法人の一覧から選べて、無ければそのまま打てる。
+// オーダーシートと案件詳細の両方で同じ見た目にする。
+// ※ 親の中で定義すると再レンダーのたびに別部品になり、入力中にフォーカスが外れるのでモジュール直下に置く。
+function FirmNameField({ label, value, onSave }: { label: string; value: string | null; onSave: (v: string) => void }) {
+  return (
+    <div className="py-1.5 border-b border-gray-50">
+      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide mb-1">{label}</div>
+      <SelectOrTextField
+        value={value ?? null}
+        options={TAX_ADVISOR_COMPANIES}
+        onSave={onSave}
+        placeholder="法人名を入力"
+        className="px-2.5 py-2 text-[13px] border border-gray-200 rounded-lg"
+      />
+    </div>
+  )
+}
+
 export default function ReferralTab({ caseData, referrals, onRefresh, tasks = [], orderSheetMode = false }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<CaseReferralRow[]>(referrals)
@@ -110,22 +128,28 @@ export default function ReferralTab({ caseData, referrals, onRefresh, tasks = []
           <Trash2 className="w-3.5 h-3.5" /> この業者を削除
         </button>
       </div>
+      {/* 並びは 依頼内容 → 相続税申告要否 → 紹介先法人名 → 見込み報酬 → 報酬請求状態 → 紹介日付 → 詳細内容。
+          何を頼んだかが先で、日付や請求まわりは後ろ。 */}
       <FieldGrid>
-        <InlineDate label="紹介日付" value={row.referred_date} onSave={saveReferralField(row.id, 'referred_date')} />
-        {!orderSheetMode && (
-          <InlineSelect label="報酬請求状態" value={row.billing_status} options={[...REFERRAL_BILLING_STATUSES]} onSave={saveReferralField(row.id, 'billing_status')} />
-        )}
-        {row.partner_type !== '弁護士' && (
-          <InlineCurrency label="見込み報酬" value={row.estimated_fee} onSave={saveReferralField(row.id, 'estimated_fee')} />
-        )}
         {row.partner_type === '税理士' && (
           <>
-            <InlineSelect label="相続税申告要否" value={caseData.tax_filing_required} options={[...TAX_FILING_OPTIONS]} onSave={saveCaseField('tax_filing_required')} />
             <InlineSelect label="依頼内容" value={row.content} options={[...TAX_ADVISOR_BUSINESS_OPTIONS]} onSave={saveReferralField(row.id, 'content')} fullWidth />
+            <InlineSelect label="相続税申告要否" value={caseData.tax_filing_required} options={[...TAX_FILING_OPTIONS]} onSave={saveCaseField('tax_filing_required')} />
+            <FirmNameField label="紹介先税理士法人名" value={row.firm_name} onSave={v => { void saveReferralField(row.id, 'firm_name')(v) }} />
           </>
         )}
         {row.partner_type === '不動産' && (
           <InlineSelect label="依頼内容" value={row.content} options={[...REAL_ESTATE_REGISTRATION_OPTIONS]} onSave={saveReferralField(row.id, 'content')} fullWidth />
+        )}
+        {row.partner_type !== '弁護士' && (
+          <InlineCurrency label="見込み報酬" value={row.estimated_fee} onSave={saveReferralField(row.id, 'estimated_fee')} />
+        )}
+        {!orderSheetMode && (
+          <InlineSelect label="報酬請求状態" value={row.billing_status} options={[...REFERRAL_BILLING_STATUSES]} onSave={saveReferralField(row.id, 'billing_status')} />
+        )}
+        <InlineDate label="紹介日付" value={row.referred_date} onSave={saveReferralField(row.id, 'referred_date')} />
+        {row.partner_type === '税理士' && (
+          <InlineSelect label="紹介理由" value={row.referral_reason} options={[...TAX_ADVISOR_REFERRAL_REASONS]} onSave={saveReferralField(row.id, 'referral_reason')} fullWidth />
         )}
         <InlineTextarea label="詳細内容" value={row.content_detail} onSave={saveReferralField(row.id, 'content_detail')} fullWidth placeholder="詳細の依頼内容や、紹介先はお客様から指定がある場合はこちらに記載してください。" />
       </FieldGrid>
@@ -151,19 +175,10 @@ export default function ReferralTab({ caseData, referrals, onRefresh, tasks = []
             <InlineSelect label="紹介" value={taxRow ? 'あり' : 'なし'} options={['あり', 'なし']} onSave={async v => { await togglePartner('税理士', v === 'あり') }} width="compact" />
             {/* 紹介先の税理士法人。面談結果登録の「紹介元（税理士経由）」と同じ一覧から選ぶ。
                 付き合いのない法人へ紹介することもあるので、一覧に無ければそのまま打てる。 */}
-            {taxRow && (
-              <div className="py-1.5 border-b border-gray-50">
-                <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide mb-1">紹介先税理士法人名</div>
-                <SelectOrTextField
-                  value={taxRow.firm_name ?? null}
-                  options={TAX_ADVISOR_COMPANIES}
-                  onSave={v => { void saveReferralField(taxRow.id, 'firm_name')(v) }}
-                  placeholder="法人名を入力"
-                  className="px-2.5 py-2 text-[13px] border border-gray-200 rounded-lg"
-                />
-              </div>
-            )}
-            {taxRow && <InlineSelect label="紹介内容" value={taxRow.content} options={[...TAX_ADVISOR_REFERRAL_REASONS]} onSave={saveReferralField(taxRow.id, 'content')} fullWidth />}
+            {taxRow && <FirmNameField label="紹介先税理士法人名" value={taxRow.firm_name} onSave={v => { void saveReferralField(taxRow.id, 'firm_name')(v) }} />}
+            {/* 依頼内容は面談結果登録・実務タブと同じ選択肢。紹介理由は別項目（同じ列に入れると依頼内容が化ける）。 */}
+            {taxRow && <InlineSelect label="依頼内容" value={taxRow.content} options={[...TAX_ADVISOR_BUSINESS_OPTIONS]} onSave={saveReferralField(taxRow.id, 'content')} fullWidth />}
+            {taxRow && <InlineSelect label="紹介理由" value={taxRow.referral_reason} options={[...TAX_ADVISOR_REFERRAL_REASONS]} onSave={saveReferralField(taxRow.id, 'referral_reason')} fullWidth />}
             {taxRow && <InlineTextarea label="備考" value={taxRow.content_detail} onSave={saveReferralField(taxRow.id, 'content_detail')} fullWidth />}
           </FieldGrid>
         </Section>
