@@ -88,7 +88,7 @@ export default async function DashboardTopPage() {
       },
     ],
   }
-  // 事務管理ダッシュボード（作業着手待ち案件一覧）
+  // 事務管理ダッシュボード（ファイル化待ち・作業着手待ち）
   const officeSection: CardSection = {
     title: '事務管理',
     description: '作業着手準備の案件を管理。契約書類受領・前受金入金・ファイル化を確認して着手OK（対応中）にする。',
@@ -96,7 +96,7 @@ export default async function DashboardTopPage() {
       {
         href: '/dashboard/office',
         title: '事務管理ダッシュボード',
-        description: '作業着手待ち案件一覧（作業着手準備）。契約書類受領／前受金入金／ファイル化が揃えば着手OK→対応中。',
+        description: 'ファイル化待ち（先にやれる）と作業着手待ち（前受金の入金待ち）に分けて並べます。前受金が入れば着手OK→作業進行中。',
         Icon: ClipboardList,
         tone: 'amber',
       },

@@ -19,13 +19,17 @@ export type OfficeRow = {
   filingStatus: '未' | '済'      // ファイル化（プルダウンで変更）
 }
 
-// 事務管理担当ダッシュボードの「作業着手待ち」タブ。
-// 作業着手準備の案件を並べ、前受金入金・ファイル化が全部『済』になったら着手OK→作業進行中にする。
-export default function OfficeManagerDashboard({ rows, currentMemberId, currentMemberName }: {
+// 事務管理担当ダッシュボードの「ファイル化待ち」「作業着手待ち」タブ。
+// どちらも作業着手準備の案件だが、見る目的が違うので分けている。
+//   filing … ファイル化がまだ。前受金の入金は関係ない。ここでやるのはファイル化だけ
+//   start  … ファイル化は済んだ。前受金が入れば着手OK→作業進行中にする
+export default function OfficeManagerDashboard({ mode = 'start', rows, currentMemberId, currentMemberName }: {
+  mode?: 'filing' | 'start'
   rows: OfficeRow[]
   currentMemberId: string | null
   currentMemberName: string | null
 }) {
+  const isFiling = mode === 'filing'
   const router = useRouter()
   const [busyId, setBusyId] = useState<string | null>(null)
 
@@ -55,9 +59,19 @@ export default function OfficeManagerDashboard({ rows, currentMemberId, currentM
   return (
     <div>
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-gray-200 text-[14px] font-bold text-gray-900">作業着手待ち案件一覧 <span className="text-[12px] font-normal text-gray-400 ml-1">{rows.length}件</span></div>
+        <div className="px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 flex-wrap">
+          <span className="text-[14px] font-bold text-gray-900">{isFiling ? 'ファイル化待ち案件一覧' : '作業着手待ち案件一覧'}</span>
+          <span className="text-[12px] font-normal text-gray-400">{rows.length}件</span>
+          <span className="text-[11.5px] text-gray-400 ml-1">
+            {isFiling
+              ? 'ファイル化がまだの案件です。前受金の入金は関係なく、先にファイル化して構いません。'
+              : 'ファイル化は済んだ案件です。前受金が入金されたら着手できます。'}
+          </span>
+        </div>
         {rows.length === 0 ? (
-          <div className="px-4 py-12 text-center text-[13px] text-gray-400">作業着手準備の案件はありません</div>
+          <div className="px-4 py-12 text-center text-[13px] text-gray-400">
+            {isFiling ? 'ファイル化待ちの案件はありません' : '作業着手待ちの案件はありません'}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: 920 }}>
@@ -71,14 +85,15 @@ export default function OfficeManagerDashboard({ rows, currentMemberId, currentM
                   <th className={TH}>管理担当</th>
                   <th className={`${TH} text-center`}>前受金入金<span className="block text-[10px] font-normal text-gray-400">system</span></th>
                   <th className={`${TH} text-center`}>ファイル化</th>
-                  <th className={`${TH} text-center w-28`}>着手</th>
+                  {!isFiling && <th className={`${TH} text-center w-28`}>着手</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {rows.map(r => {
                   const canStart = r.advancePaid && r.filingStatus === '済'
                   return (
-                    <tr key={r.caseId} className="hover:bg-gray-50/60">
+                    // 着手できる行は緑で目立たせる（作業着手待ちタブでは上に寄せてある）
+                    <tr key={r.caseId} className={canStart && !isFiling ? 'bg-emerald-50/50 hover:bg-emerald-50' : 'hover:bg-gray-50/60'}>
                       <td className="px-2.5 py-2 font-mono text-gray-600">{r.osUpdatedAt ?? '—'}</td>
                       <td className="px-2.5 py-2 font-mono text-gray-500">{r.caseNumber}</td>
                       <td className="px-2.5 py-2"><Link href={`/cases/${r.caseId}`} className="font-semibold text-gray-800 hover:text-brand-600 hover:underline">{r.dealName}</Link></td>
@@ -92,15 +107,17 @@ export default function OfficeManagerDashboard({ rows, currentMemberId, currentM
                           <option value="済">済</option>
                         </select>
                       </td>
+                      {!isFiling && (
                       <td className="px-2.5 py-2 text-center">
                         {canStart ? (
                           <button type="button" onClick={() => startOk(r)} disabled={busyId === r.caseId} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-[12px] font-bold text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-50">
                             {busyId === r.caseId ? '着手中…' : '着手OK'}
                           </button>
                         ) : (
-                          <span className="inline-flex items-center px-3 py-1.5 rounded-md text-[12px] font-semibold text-gray-500 bg-gray-100 border border-gray-200">着手不可</span>
+                          <span className="inline-flex items-center px-3 py-1.5 rounded-md text-[12px] font-semibold text-gray-500 bg-gray-100 border border-gray-200" title="前受金の入金待ちです">前受金待ち</span>
                         )}
                       </td>
+                      )}
                     </tr>
                   )
                 })}

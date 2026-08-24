@@ -4,7 +4,8 @@
 //
 // 事務管理は「朝いちで何から手を付けるか」を決めるのにいくつも画面を回る必要があった。
 // そこで一日の入口をこの画面にまとめ、4つのタブに分けている。
-//   ① 作業着手待ち … 作業着手準備の案件（前受金入金・ファイル化が済めば着手OK）
+//   ①-a ファイル化待ち … ファイル化がまだの案件（前受金の入金は関係ない。事務が今すぐやれる仕事）
+//   ①-b 作業着手待ち  … ファイル化は済んだ案件（前受金の入金待ち、または着手できる状態）
 //   ② タスク     … 事務管理タスク一覧（既定。朝いちで一番見る画面なので最初に出す）
 //   ③ 郵便       … 前営業日と本日に届いて、まだ対応していない到着物（受信簿と同じ中身）
 //   ④ 報連相     … 自分が出した報告・連絡・相談と、その確認状況
@@ -17,7 +18,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ClipboardList, Mail, MessageSquare, PlayCircle, ListChecks, AlertTriangle, AlertCircle, ArrowRight } from 'lucide-react'
+import { ClipboardList, Mail, MessageSquare, PlayCircle, FolderPlus, ListChecks, AlertTriangle, AlertCircle, ArrowRight } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import HelpHint from '@/components/ui/HelpHint'
 import { SeverityLegend } from '@/components/ui/TaskSeverityHelp'
@@ -61,7 +62,7 @@ export type HourenSouRow = {
   confirmedDate: string | null
 }
 
-type TabKey = 'start' | 'tasks' | 'hourensou' | 'hourensouAction'
+type TabKey = 'filing' | 'start' | 'tasks' | 'hourensou' | 'hourensouAction'
 
 const normalizeStatus = (s: string) => {
   if (s === '未着手') return '着手前'
@@ -120,12 +121,21 @@ export default function OfficeDashboardTabs({
   const searchParams = useSearchParams()
   // タブはURLに残す。リロード・戻るで同じタブに戻れるようにする。既定はタスク。
   const urlTab = searchParams.get('tab')
-  const tabFromUrl = (['start', 'tasks', 'mail', 'hourensou'] as string[]).includes(urlTab ?? '') ? (urlTab as TabKey) : 'tasks'
+  const tabFromUrl = (['filing', 'start', 'tasks', 'mail', 'hourensou'] as string[]).includes(urlTab ?? '') ? (urlTab as TabKey) : 'tasks'
   const [tab, setTab] = useState<TabKey>(tabFromUrl)
   const selectTab = (t: TabKey) => {
     setTab(t)
     router.replace(t === 'tasks' ? '/dashboard/office' : `/dashboard/office?tab=${t}`, { scroll: false })
   }
+
+  // 作業着手準備の案件を2つに割る。
+  //   ファイル化待ち … ファイル化がまだ。前受金が入っていようがいまいが関係なく、事務が今すぐやれる仕事
+  //   作業着手待ち   … ファイル化は済んだ。あとは前受金の入金を待つだけか、もう着手できる
+  const filingRows = startRows.filter(r => r.filingStatus !== '済')
+  const filedRows = startRows.filter(r => r.filingStatus === '済')
+  // 着手できるものを上に寄せる（タブの件数もこの数）
+  const canStartRows = filedRows.filter(r => r.advancePaid)
+  const startTabRows = [...canStartRows, ...filedRows.filter(r => !r.advancePaid)]
 
   // 要注意／要確認バナー。タスクタブに出ているもの（着手OK・対応中）だけを見る。
   // タブと同じ4段階で判定する。
@@ -178,7 +188,7 @@ export default function OfficeDashboardTabs({
         eyebrow="Dashboard"
         title="事務管理担当ダッシュボード"
         icon={ClipboardList}
-        description="作業着手待ち・タスク（郵便を含む）・報連相をここにまとめています。"
+        description="ファイル化待ち・作業着手待ち・タスク（郵便を含む）・報連相をここにまとめています。"
       />
 
       {/* 要注意／要確認バナー（自分の持ち場のタスクだけ） */}
@@ -196,14 +206,19 @@ export default function OfficeDashboardTabs({
       )}
 
       <div className="flex items-center gap-1 border-b border-gray-200 mb-4 flex-wrap">
-        <TabBtn v="start" label="作業着手待ち" icon={PlayCircle} count={startRows.length} current={tab} onSelect={selectTab} />
+        <TabBtn v="filing" label="ファイル化待ち" icon={FolderPlus} count={filingRows.length} current={tab} onSelect={selectTab} />
+        <TabBtn v="start" label="作業着手待ち" icon={PlayCircle} count={canStartRows.length} current={tab} onSelect={selectTab} />
         <TabBtn v="tasks" label="タスク" icon={ListChecks} count={readyCount} current={tab} onSelect={selectTab} sev={taskSev} />
         <TabBtn v="hourensou" label="報連相（情報共有）" icon={MessageSquare} count={pendingHourenSou} current={tab} onSelect={selectTab} />
         <TabBtn v="hourensouAction" label="報連相（要対応）" icon={MessageSquare} count={pendingAction} current={tab} onSelect={selectTab} />
       </div>
 
+      {tab === 'filing' && (
+        <OfficeManagerDashboard mode="filing" rows={filingRows} currentMemberId={currentMemberId} currentMemberName={currentMemberName} />
+      )}
+
       {tab === 'start' && (
-        <OfficeManagerDashboard rows={startRows} currentMemberId={currentMemberId} currentMemberName={currentMemberName} />
+        <OfficeManagerDashboard mode="start" rows={startTabRows} currentMemberId={currentMemberId} currentMemberName={currentMemberName} />
       )}
 
       {tab === 'tasks' && (

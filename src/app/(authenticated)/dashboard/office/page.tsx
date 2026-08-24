@@ -5,7 +5,7 @@ import OfficeDashboardTabs, { type MailRow, type HourenSouRow } from '@/componen
 import type { OfficeRow } from '@/components/features/dashboard/OfficeManagerDashboard'
 
 // 事務管理担当ダッシュボード。
-//   ① 作業着手待ち … status=作業着手準備 の案件（前受金入金＋ファイル化で着手OK）
+//   ① ファイル化待ち／作業着手待ち … status=作業着手準備 の案件を、ファイル化の済／未で2タブに割る
 //   ② 郵便       … 前営業日と本日に届いて、まだ対応していない到着物
 //   ③ タスク     … 事務管理タスク一覧（既定タブ）
 //   ④ 報連相     … 自分が出した報告・連絡・相談
