@@ -604,26 +604,10 @@ export const REAL_ESTATE_REGISTRATION_OPTIONS = [
   '登記申請あり(その他)',
 ] as const
 
-// 税理士業務の発生有無（LP案件一覧・他事業者紹介(税理士)の依頼内容として共有）
-export const TAX_ADVISOR_BUSINESS_OPTIONS = [
-  '相続税申告あり',
-  '相続税申告・財産調査次第',
-  '相続税申告・準確定申告あり',
-  '相続税申告あり・その他申告あり',
-  '準確定申告あり',
-  'その他申告あり',
-] as const
+// 税理士の「依頼内容」は廃止した。相続税申告要否（cases.tax_filing_required）と
+// 同じことを言っていて欄が2つあったため、税理士は紹介理由（TAX_ADVISOR_REFERRAL_REASONS）に一本化。
+// 既に入っている case_referrals.content の値は消していない（戻したくなったときのため）。
 
-// 相続税申告の発生有無を他事業者紹介から判定する。
-// 「あり」＝税理士の紹介行があり、その依頼内容が「相続税申告」を含む選択肢
-//（相続税申告あり / 相続税申告・財産調査次第 / 相続税申告・準確定申告あり / 相続税申告あり・その他申告あり）。
-export function hasInheritanceTaxFiling(
-  referrals: { partner_type: string; content: string | null }[] | null | undefined
-): boolean {
-  return (referrals ?? []).some(
-    r => r.partner_type === '税理士' && !!r.content && r.content.includes('相続税申告')
-  )
-}
 
 // 案件番号の経路コード（YYMM + コード + 当日連番4桁）
 export const ORDER_ROUTE_CODES: Record<string, string> = {

@@ -59,7 +59,7 @@ type CaseRowRaw = {
   clients: { id: string; name: string } | null
   case_members: Array<{ role: string; members: { id: string; name: string; team_id: string | null } | null }>
   // 他事業者紹介の依頼内容（partner_type='税理士'/'不動産' の content）
-  case_referrals?: Array<{ partner_type: string; content: string | null }>
+  case_referrals?: Array<{ partner_type: string; content: string | null; referral_reason: string | null }>
 }
 
 // 確定売上金額: 契約形態に応じて 行政単独=行政報酬 / 司法単独=司法報酬 / 連名=合計
@@ -85,7 +85,7 @@ export default async function CasesPage() {
   const [{ data: casesRaw }, { data: tasksRaw }, { data: reportsRaw }, { data: commsRaw }, { data: teamsRaw }] = await Promise.all([
     supabase
       .from('cases')
-      .select('*, clients(id,name,furigana,phone,mobile_phone), case_members(role, members(id,name,team_id)), case_referrals(partner_type, content)')
+      .select('*, clients(id,name,furigana,phone,mobile_phone), case_members(role, members(id,name,team_id)), case_referrals(partner_type, content, referral_reason)')
       .eq('intake_draft', false)  // 面談シート入力途中の下書きは一覧に出さない（migration 194）
       .order('created_at', { ascending: false }),
     supabase.from('tasks').select('id,case_id,title,status,sort_order,task_kind,due_date'),
@@ -291,7 +291,8 @@ export default async function CasesPage() {
 
   // LP案件一覧（受注ルート = LP経由）
   const lpRows: LpCaseRow[] = cases.filter(c => LP_ROUTES.has(c.order_route ?? '')).map(c => {
-    const refMap = new Map<string, string | null>((c.case_referrals ?? []).map(r => [r.partner_type, r.content]))
+    // 税理士は依頼内容を廃止したので紹介理由を出す。不動産は依頼内容（登記申請あり 等）のまま。
+    const refMap = new Map<string, string | null>((c.case_referrals ?? []).map(r => [r.partner_type, r.partner_type === '税理士' ? r.referral_reason : r.content]))
     return {
       id: c.id,
       case_number: c.case_number,

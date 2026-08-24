@@ -47,7 +47,7 @@ export type LpCaseRow = {
   confirmed_revenue: number | null
   /** 完了予定日 */
   expected_completion_date: string | null
-  /** 税理士業務（依頼内容、case_referrals(partner_type='税理士').content） */
+  /** 税理士の紹介理由（case_referrals(partner_type='税理士').referral_reason） */
   tax_advisor_business: string | null
   /** 不動産登記（依頼内容、case_referrals(partner_type='不動産').content） */
   real_estate_registration: string | null
@@ -100,7 +100,7 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
         '行・司・連名', '案件管理番号', 'LP案件管理番号', '送客元', '依頼者氏名',
         '案件ステータス', '検討中・失注理由', 'その他理由詳細', 'お客様回答予定日',
         '検討期間', '見込み度合い', '残り日数', '受注担当', '管理担当', '前受金額', '確定売上金額',
-        '完了予定日', '税理士業務', '不動産登記', '面談内容詳細', '最終更新日',
+        '完了予定日', '税理士紹介理由', '不動産登記', '面談内容詳細', '最終更新日',
       ]
       const flagLabel = (ct: string | null) => ct === '行政書士法人単独' ? '行' : ct === '司法書士法人単独' ? '司' : ct === '行・司連名' ? '連' : ''
       const fmtYen = (n: number | null) => n && n > 0 ? n : ''
@@ -206,7 +206,7 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
                 <th className="px-3 py-2 text-right font-bold">前受金額</th>
                 <th className="px-3 py-2 text-right font-bold">確定売上金額</th>
                 <th className="px-3 py-2 text-left font-bold">完了予定日</th>
-                <th className="px-3 py-2 text-left font-bold">税理士業務</th>
+                <th className="px-3 py-2 text-left font-bold">税理士紹介理由</th>
                 <th className="px-3 py-2 text-left font-bold">不動産登記</th>
                 <th className="px-3 py-2 text-left font-bold">その他申し送り事項</th>
                 <th className="px-3 py-2 text-left font-bold">最終更新日</th>

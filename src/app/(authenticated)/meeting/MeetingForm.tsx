@@ -20,7 +20,7 @@ import {
   MEETING_CATEGORIES, MEETING_RESULT_OPTIONS, getMeetingResultOption,
   NO_MEETING_ROUTES, NO_MEETING_RESULT_VALUES,
   REFERRAL_PARTNER_TYPES, MAILING_DESTINATIONS, CONTRACT_TYPES, HEIR_RELATIONSHIPS,
-  REAL_ESTATE_REGISTRATION_OPTIONS, TAX_ADVISOR_BUSINESS_OPTIONS,
+  REAL_ESTATE_REGISTRATION_OPTIONS,
   TAX_ADVISOR_REFERRAL_REASONS, REAL_ESTATE_APPRAISAL_RANKS, OTHER_REFERRAL_PARTNERS,
   CONSIDERATION_DECLINE_REASONS,
   ORDER_ROUTES, ORDER_ROUTE_CODES, PAST_CLIENT_ROUTE, isOrderRouteLocked,
@@ -725,7 +725,6 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         const rows = formData.referralPartners.map(p => {
           const row: { case_id: string; partner_type: string; content?: string | null; content_detail?: string | null; referral_reason?: string | null; appraisal_rank?: string | null } = { case_id: caseId, partner_type: p }
           if (p === '税理士') {
-            row.content = formData.taxAdvisorBusinessType || null
             const reason = formData.taxAdvisorReferralReason
             row.referral_reason = reason || null
             // 備考(content_detail)は「その他」自由入力のときだけ。選択値の重複保存はしない。
@@ -1272,14 +1271,8 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
               {!data.serviceCategories.includes(REFERRAL_ONLY_CATEGORY) && (
                 <Card label="他事業者紹介要否"><Pills value={data.referralPartners} options={[...REFERRAL_PARTNER_TYPES]} onChange={v => update('referralPartners', v as string[])} multi /></Card>
               )}
-              {/* 税理士／不動産が選ばれた場合、依頼内容（リスト選択）を入力。
-                  この値は LP案件一覧の「税理士業務」「不動産登記」列にも反映される（同一データ）。 */}
-              {data.referralPartners.includes('税理士') && (
-                <Card label="税理士業務（依頼内容）">
-                  <Pills value={data.taxAdvisorBusinessType} options={[...TAX_ADVISOR_BUSINESS_OPTIONS]} onChange={v => update('taxAdvisorBusinessType', v as string)} />
-                  <p className="mt-1 text-[11px] text-gray-400">LP案件一覧の「税理士業務」列にもこの値が表示されます。</p>
-                </Card>
-              )}
+              {/* 税理士の依頼内容は廃止（相続税申告要否と同じことを言っていたため）。
+                  税理士は上の「税理士紹介」の紹介理由だけ。不動産は登記の依頼内容をここで選ぶ。 */}
               {data.referralPartners.includes('不動産') && (
                 <Card label="不動産登記（依頼内容）">
                   <Pills value={data.realEstateRegistrationType} options={[...REAL_ESTATE_REGISTRATION_OPTIONS]} onChange={v => update('realEstateRegistrationType', v as string)} />
