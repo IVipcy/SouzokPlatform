@@ -392,7 +392,10 @@ export function createRunExtract(deps: {
           const seen = new Set(existingRows.map(r => norm(r[g.dedupeKey!])).filter(Boolean))
           fresh = rows.filter(r => {
             const k = norm(r[g.dedupeKey!])
-            if (!k || seen.has(k)) return false
+            // キーが空の行（例：所在地なしの「土地 5000万円」）は重複判定できない。
+            // 「登録済み」ではないので落とさず、新規として入れる（旧実装は全部スキップ扱いにしていた）。
+            if (!k) return true
+            if (seen.has(k)) return false
             seen.add(k)   // 同じ応答内での重複も弾く
             return true
           })
