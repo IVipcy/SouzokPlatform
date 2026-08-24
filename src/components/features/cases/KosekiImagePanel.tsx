@@ -79,7 +79,11 @@ export default function KosekiImagePanel({ caseId, targetPerson, requests = [], 
     const created: KosekiImageRow[] = []
     for (const file of Array.from(files)) {
       if (!file.type.startsWith('image/')) { showToast(`${file.name} は画像ではありません`, 'error'); continue }
-      const path = `${caseId}/${crypto.randomUUID()}_${file.name}`
+      // 保存先のキーは英数字だけにする。ファイル名をそのまま使うと
+      // 「戸籍.png」のような日本語で Invalid key になりアップロードできない。
+      // 元のファイル名は koseki_images.file_name に持つので画面表示は変わらない。
+      const ext = (file.name.match(/\.[A-Za-z0-9]+$/)?.[0] ?? '').toLowerCase()
+      const path = `${caseId}/${crypto.randomUUID()}${ext}`
       const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type, upsert: false })
       if (upErr) { showToast(`アップロードに失敗: ${upErr.message}`, 'error'); continue }
       const { data, error } = await supabase.from('koseki_images').insert({
