@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2, ListChecks, PackageCheck, Package, Compass, HelpCircle, ChevronDown, ChevronsUpDown } from 'lucide-react'
+import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2, ListChecks, PackageCheck, Package, Compass, HelpCircle, ChevronDown, ChevronsUpDown, SlidersHorizontal } from 'lucide-react'
 import { HELP_TYPE_LABEL, type HelpType } from '@/lib/managerReviewTask'
 import PageHeader from '@/components/ui/PageHeader'
 import HelpHint from '@/components/ui/HelpHint'
@@ -584,47 +584,21 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         />
         )}
 
-        {/* Toolbar: status pills + 受注区分/業務区分 + 自分のタスクトグル */}
-        <div className={`flex items-center gap-2 flex-wrap ${onExtraTab ? 'hidden' : ''}`}>
-          <span className="text-[11.5px] font-semibold text-gray-400">ステータス</span>
+        {/* Toolbar: 大きいステータス（毎日押す）＋ 絞り込み（遅れ・優先度をたたむ）＋ 自分のタスク */}
+        <div className={`flex items-center gap-2.5 flex-wrap ${onExtraTab ? 'hidden' : ''}`}>
+          {/* ステータス：よく見る「対応中・着手OK」を左に寄せ、押しやすいよう少し大きく。 */}
           <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
-            <FilterTab label="すべて"   count={kpis.total}    active={statusFilter === 'all'}    onClick={() => setStatusFilter('all')} />
+            <FilterTab label="対応中"   count={kpis.doing}    active={statusFilter === '対応中'} onClick={() => setStatusFilter('対応中')} big />
+            <FilterTab label="着手OK"   count={kpis.todo}     active={statusFilter === '着手前'} onClick={() => setStatusFilter('着手前')} big />
             {caseScope && (
-              <FilterTab label="未着手" count={kpis.notReady} active={statusFilter === 'notReady'} onClick={() => setStatusFilter('notReady')} />
+              <FilterTab label="未着手" count={kpis.notReady} active={statusFilter === 'notReady'} onClick={() => setStatusFilter('notReady')} big />
             )}
-            <FilterTab label="着手OK"   count={kpis.todo}     active={statusFilter === '着手前'} onClick={() => setStatusFilter('着手前')} />
-            <FilterTab label="対応中"   count={kpis.doing}    active={statusFilter === '対応中'} onClick={() => setStatusFilter('対応中')} />
-            <FilterTab label="完了"     count={kpis.done}     active={statusFilter === '完了'}   onClick={() => setStatusFilter('完了')} />
+            <FilterTab label="完了"     count={kpis.done}     active={statusFilter === '完了'}   onClick={() => setStatusFilter('完了')} big />
+            <FilterTab label="すべて"   count={kpis.total}    active={statusFilter === 'all'}    onClick={() => setStatusFilter('all')} big />
           </div>
 
-          <span className="w-px h-6 bg-gray-200" />
-
-          {/* 遅れ・優先度の絞り込み。業務タブを切り替えても外れない。 */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[11.5px] font-semibold text-gray-400">遅れ</span>
-            {SEV_CHIPS.map(s => (
-              <SevChip key={s} sev={s} on={sevFilter === s}
-                onClick={() => setSevFilter(v => (v === s ? 'all' : s))} />
-            ))}
-            <span className="text-[11.5px] font-semibold text-gray-400 ml-1.5">優先度</span>
-            {TASK_PRIORITIES.map(p => (
-              <Chip key={p.key} label={p.label}
-                tone={p.key === '超急ぎ' ? 'red' : p.key === '急ぎ' ? 'amber' : 'gray'}
-                on={priFilter.has(p.key)}
-                onClick={() => setPriFilter(prev => {
-                  const next = new Set(prev)
-                  if (next.has(p.key)) next.delete(p.key); else next.add(p.key)
-                  return next
-                })} />
-            ))}
-            {(sevFilter !== 'all' || priFilter.size > 0) && (
-              <button type="button"
-                onClick={() => { setSevFilter('all'); setPriFilter(new Set()) }}
-                className="inline-flex items-center gap-0.5 text-[11.5px] font-semibold text-gray-500 hover:text-gray-800 ml-0.5">
-                <X className="w-3 h-3" strokeWidth={2.5} />解除
-              </button>
-            )}
-          </div>
+          {/* 遅れ・優先度は普段たたんでおく。絞っている数はボタンの青バッジで見える。 */}
+          <FilterMenu sevFilter={sevFilter} setSevFilter={setSevFilter} priFilter={priFilter} setPriFilter={setPriFilter} />
 
           <div className="ml-auto flex items-center gap-2">
             <button
@@ -1230,7 +1204,7 @@ function BulkActionBar({ count, busy, onClear, onStatus, onDelete }: {
 }
 
 // ─── Sub components ───
-function FilterTab({ label, active, onClick, count, accent }: { label: string; active: boolean; onClick: () => void; count?: number; accent?: 'danger' }) {
+function FilterTab({ label, active, onClick, count, accent, big }: { label: string; active: boolean; onClick: () => void; count?: number; accent?: 'danger'; big?: boolean }) {
   const activeCls = accent === 'danger'
     ? 'bg-red-600 text-white font-semibold shadow-sm'
     : 'bg-brand-600 text-white font-semibold shadow-sm'
@@ -1240,12 +1214,73 @@ function FilterTab({ label, active, onClick, count, accent }: { label: string; a
   return (
     <button
       onClick={onClick}
-      className={`px-2.5 py-1 rounded-md text-[12px] font-semibold transition-colors whitespace-nowrap ${active ? activeCls : inactiveCls}`}
+      className={`rounded-md font-semibold transition-colors whitespace-nowrap ${big ? 'px-3.5 py-1.5 text-[13px]' : 'px-2.5 py-1 text-[12px]'} ${active ? activeCls : inactiveCls}`}
     >
       {label}
       {count !== undefined && count > 0 && (
-        <span className={`ml-1 text-[11px] font-mono ${active ? 'opacity-80' : 'opacity-60'}`}>{count}</span>
+        <span className={`ml-1 font-mono ${big ? 'text-[12px]' : 'text-[11px]'} ${active ? 'opacity-80' : 'opacity-60'}`}>{count}</span>
       )}
     </button>
+  )
+}
+
+// 遅れ・優先度の絞り込み。普段はたたんでおき、「絞り込み ▼」で開く。
+// 毎日押すステータスの邪魔をしないためにまとめた。絞っている数はボタンの青バッジで見える。
+function FilterMenu({ sevFilter, setSevFilter, priFilter, setPriFilter }: {
+  sevFilter: SevFilter
+  setSevFilter: (updater: (v: SevFilter) => SevFilter) => void
+  priFilter: Set<string>
+  setPriFilter: (updater: (prev: Set<string>) => Set<string>) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const activeCount = (sevFilter !== 'all' ? 1 : 0) + priFilter.size
+  return (
+    <div className="relative">
+      <button type="button" onClick={() => setOpen(o => !o)}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold border transition-colors ${
+          activeCount > 0 ? 'bg-white border-brand-300 text-brand-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+        <SlidersHorizontal className="w-3.5 h-3.5" strokeWidth={2} />
+        絞り込み
+        {activeCount > 0 && (
+          <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-brand-600 text-white text-[11px] font-bold">{activeCount}</span>
+        )}
+        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
+      </button>
+      {open && (
+        <>
+          {/* 外側クリックで閉じる */}
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full mt-1.5 z-20 w-[320px] bg-white border border-gray-200 rounded-xl shadow-lg p-3.5">
+            <div className="text-[11.5px] font-semibold text-gray-500 mb-2">遅れ</div>
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {SEV_CHIPS.map(s => (
+                <SevChip key={s} sev={s} on={sevFilter === s}
+                  onClick={() => setSevFilter(v => (v === s ? 'all' : s))} />
+              ))}
+            </div>
+            <div className="text-[11.5px] font-semibold text-gray-500 mb-2">優先度</div>
+            <div className="flex flex-wrap gap-1.5">
+              {TASK_PRIORITIES.map(p => (
+                <Chip key={p.key} label={p.label}
+                  tone={p.key === '超急ぎ' ? 'red' : p.key === '急ぎ' ? 'amber' : 'gray'}
+                  on={priFilter.has(p.key)}
+                  onClick={() => setPriFilter(prev => {
+                    const next = new Set(prev)
+                    if (next.has(p.key)) next.delete(p.key); else next.add(p.key)
+                    return next
+                  })} />
+              ))}
+            </div>
+            <div className="flex items-center justify-between border-t border-gray-100 mt-3 pt-2.5">
+              <span className="text-[11.5px] text-gray-400">{activeCount > 0 ? `${activeCount}件を選択中` : '絞り込みなし'}</span>
+              {activeCount > 0 && (
+                <button type="button" onClick={() => { setSevFilter(() => 'all'); setPriFilter(() => new Set()) }}
+                  className="text-[12px] font-semibold text-brand-600 hover:text-brand-700">すべて解除</button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   )
 }

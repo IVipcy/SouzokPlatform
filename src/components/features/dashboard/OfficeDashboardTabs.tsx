@@ -276,7 +276,7 @@ function MailTab({ rows, today }: { rows: MailRow[]; today: string }) {
         <div className="px-4 py-12 text-center text-[13px] text-gray-400">未対応の郵便はありません</div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: 900 }}>
+          <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: 980 }}>
             <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
               <tr>
                 <th className={TH}>番号</th>
@@ -287,11 +287,16 @@ function MailTab({ rows, today }: { rows: MailRow[]; today: string }) {
                 <th className={TH}>差出人</th>
                 <th className={TH}>到着物</th>
                 <th className={`${TH} text-center`}>通数</th>
+                <th className={`${TH} text-center`}>放置<span className="block text-[10px] font-normal text-gray-400">対応するまでの日数</span></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {rows.map(r => (
-                <tr key={r.id} className={`hover:bg-gray-50/60 ${r.isParcel && !r.opened ? 'bg-amber-50/60' : ''}`}>
+              {rows.map(r => {
+                // 対応（受信の確定）を押さずに何営業日ほったらかしか。タスクの「◯日超過」と同じ見た目。
+                const left = r.receivedDate ? bizDaysOverdue(r.receivedDate, today) : 0
+                const rowRed = left >= 3
+                return (
+                <tr key={r.id} className={`${rowRed ? 'bg-red-50/60 hover:bg-red-50' : r.isParcel && !r.opened ? 'bg-amber-50/60 hover:bg-amber-50' : 'hover:bg-gray-50/60'}`}>
                   <td className="px-2.5 py-2 font-mono text-gray-600 whitespace-nowrap">
                     {r.numberText}
                     {r.receivedDate !== today && (
@@ -319,8 +324,18 @@ function MailTab({ rows, today }: { rows: MailRow[]; today: string }) {
                       ? `${r.items.reduce((s, i) => s + (i.quantity ?? 0), 0)}通`
                       : <span className="text-gray-300">—</span>}
                   </td>
+                  <td className="px-2.5 py-2 text-center whitespace-nowrap">
+                    {left <= 0
+                      ? <span className="text-[13px] text-gray-400">本日</span>
+                      : (
+                        <span className={`inline-flex items-baseline gap-0.5 ${left >= 3 ? 'text-red-600' : 'text-amber-700'}`}>
+                          <span className="text-[19px] font-bold leading-none tabular-nums">{left}</span>
+                          <span className="text-[11px] font-bold">営業日{left >= 3 ? '放置' : ''}</span>
+                        </span>
+                      )}
+                  </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         </div>
