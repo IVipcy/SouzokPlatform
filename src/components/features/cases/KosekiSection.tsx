@@ -289,7 +289,13 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
   const activePerson = sub === '__unset__' ? '' : sub
   // 左レール・見出しで使う続柄。被相続人は続柄を持たないので出さない。
   const heirByName = new Map(heirs.map(h => [(h.name ?? '').trim(), h]))
-  const relOf = (name: string) => heirByName.get(name.trim())?.relationship_type ?? ''
+  // 続柄は新項目(relationship_type)が正だが、古い案件は旧項目(relationship)にしか入っていない。
+  // 相続人一覧のバッジは両方を見ているので、ここだけ新項目だけ見ると
+  // 一覧には「配偶者」と出ているのにレールは「続柄 未設定」になってしまう。
+  const relOf = (name: string) => {
+    const h = heirByName.get(name.trim())
+    return (h?.relationship_type || h?.relationship || '').trim()
+  }
   const activeHeir = sub !== 'top' && sub !== '__unset__' ? heirByName.get(activePerson.trim()) : undefined
   const saveRelationship = async (heirId: string, v: string) => {
     const { error } = await supabase.from('heirs').update({ relationship_type: v || null }).eq('id', heirId)
@@ -379,7 +385,9 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                 {isTop ? <Table2 className="w-3.5 h-3.5 flex-none" /> : pending ? <Lock className="w-3 h-3 flex-none text-amber-500" /> : <span className="w-3.5 h-3.5 flex-none" />}
                 <span className="flex-1 break-words leading-tight">
                   {t.label}
-                  {!isTop && t.id !== '__unset__' && (
+                  {/* 続柄は相続人だけ。被相続人は続柄を持たないので出さない
+                      （相続人一覧に居ない＝被相続人か自由入力の対象者。未設定とは違う） */}
+                  {!isTop && t.id !== '__unset__' && heirByName.has(t.id.trim()) && (
                     <span className={`block text-[10px] font-normal leading-tight ${relOf(t.id) ? 'text-gray-400' : 'text-amber-600'}`}>
                       {relOf(t.id) || '続柄 未設定'}
                     </span>
@@ -490,7 +498,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                 hint="取得区分が「依頼者」の行は、請求日・費用・ダブルチェックが「依頼者負担」になり、入力できません。追加戸籍請求（要承認）は、管理担当が承認したあとに編集できます。どの項目も表の上で直接編集できます。"
                 right={
                   <span className="flex items-center gap-2">
-                    {activeHeir && <RelationshipPicker value={activeHeir.relationship_type} onChange={v => saveRelationship(activeHeir.id, v)} />}
+                    {activeHeir && <RelationshipPicker value={activeHeir.relationship_type || activeHeir.relationship || null} onChange={v => saveRelationship(activeHeir.id, v)} />}
                     {/* 書類作成を経由せず、この人の請求そのままで戸籍請求書を出す */}
                     <button type="button" disabled={personRequests.length === 0}
                       onClick={() => setDocRequests(personRequests)}
