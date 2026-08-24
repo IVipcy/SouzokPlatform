@@ -61,7 +61,8 @@ export default async function CaseDetailPage({ params }: Props) {
     supabase
       .from('financial_assets')
       .select('*')
-      .eq('case_id', id),
+      .eq('case_id', id)
+      .order('created_at'),
     supabase
       .from('division_details')
       .select('*')
