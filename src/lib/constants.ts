@@ -470,6 +470,20 @@ export const JUMINHYO_EXTRA_ITEMS = [
 ] as const
 // 提出先の既定
 export const KOSEKI_SUBMIT_TO_DEFAULT = '依頼者に渡す'
+// 取り寄せた戸籍を最後にどこへ出すか（＝この戸籍の行き先）。請求先（取りに行く役所）とは別。
+// 一覧に無い提出先（特定の信託銀行名など）は自由入力に切り替えて書く。
+export const KOSEKI_SUBMIT_TO_OPTIONS = [
+  '依頼者に渡す',
+  '法務局（相続登記）',
+  '法務局（法定相続情報一覧図）',
+  '金融機関',
+  '証券会社',
+  '家庭裁判所',
+  '年金事務所',
+  '市区町村役場',
+  '税務署（相続税申告）',
+  '自社保管',
+] as const
 
 // オーダーシートの見立て（1行＝1人）
 export const KOSEKI_PLAN_RANGES = ['出生～死亡すべて', '死亡のみ', '現在戸籍'] as const

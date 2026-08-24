@@ -15,7 +15,7 @@ import { SectionHeading } from '@/components/ui/InlineFields'
 import HintTip from '@/components/ui/HintTip'
 import {
   KOSEKI_REQUEST_TYPES, KOSEKI_RANGES, KOSEKI_REQUEST_REASONS,
-  KOSEKI_DOC_FORMS, KOSEKI_FIRMS, JUMINHYO_EXTRA_ITEMS, KOSEKI_SUBMIT_TO_DEFAULT,
+  KOSEKI_DOC_FORMS, KOSEKI_FIRMS, JUMINHYO_EXTRA_ITEMS, KOSEKI_SUBMIT_TO_DEFAULT, KOSEKI_SUBMIT_TO_OPTIONS,
   mixesKosekiAndJuminhyo, includesKoseki, includesJuminhyo,
   KOSEKI_REQUEST_KINDS, REQUEST_KIND_HELP, isMistakenRequest,
   HEIR_RELATIONSHIPS,
@@ -26,6 +26,7 @@ const KIND_HINT = KOSEKI_REQUEST_KINDS.map(k => `${k}：${REQUEST_KIND_HELP[k]}`
 import ProgressSummary from './ProgressSummary'
 import KosekiImagePanel from './KosekiImagePanel'
 import { TxtCell, SelCell, MultiCell, DateCell, MoneyCell } from './PracticeTableCells'
+import SelectOrTextField from './SelectOrTextField'
 import KosekiRequestDocumentModal from './KosekiRequestDocumentModal'
 import CheckRequestControl from './CheckRequestControl'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
@@ -311,6 +312,8 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
     const h = heirByName.get(name.trim())
     return (h?.relationship_type || h?.relationship || '').trim()
   }
+  // 筆頭者／世帯主の候補。被相続人＋相続人の氏名（一覧に無い人は自由入力へ切り替える）
+  const personNames = [...new Set(peopleRows.map(p => p.name.trim()).filter(Boolean))]
   const personRequests = requests.filter(r => personKey(r) === activePerson)
   // 承認待ちの追加戸籍請求（案件全体）。戸籍請求タブ上部にパネルで出し、横スクロール無しで承認できる。
   const pendingApprovals = requests.filter(r => r.is_additional && !r.additional_approved_at)
@@ -521,10 +524,6 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                 <div className="px-3 py-6 text-center text-[12px] text-gray-400">この対象者の戸籍請求がありません。下の「この対象者の戸籍を追加請求」から登録してください（転籍が判明したら役所を足していきます）。</div>
               ) : (
                 <div className="overflow-x-auto">
-                  {/* 請求範囲の入力候補（オーダーシートの見立てと同じ言葉を使えるように） */}
-                  <datalist id="koseki-range-list">
-                    {KOSEKI_RANGES.map(o => <option key={o} value={o} />)}
-                  </datalist>
                   <table className="text-[12px] border-collapse" style={{ minWidth: 2200, width: 'max-content' }}>
                     <thead>
                       <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
@@ -563,6 +562,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                       {personRequests.map((r, i) => (
                         <KosekiRow key={r.id} r={r} i={i} meId={memberId}
                           highlight={r.id === focusId}
+                          personNames={personNames}
                           saveField={saveField} saveMany={saveMany}
                           onDelete={() => delRequest(r)} onCopy={() => copyRequest(r)} onMakeDoc={() => setDocRequests([r])} />
                       ))}
@@ -722,11 +722,13 @@ function AddKosekiModal({ mode, person, onClose, onSubmit }: {
 }
 
 // 戸籍1件＝1行。全項目をインライン編集（横スクロール）。要承認は行を帯にして承認ボタンを出す。
-function KosekiRow({ r, i, meId, highlight = false, saveField, saveMany, onDelete, onCopy, onMakeDoc }: {
+function KosekiRow({ r, i, meId, highlight = false, personNames = [], saveField, saveMany, onDelete, onCopy, onMakeDoc }: {
   r: KosekiRequestRow
   i: number
   meId: string | null
   highlight?: boolean
+  /** 筆頭者／世帯主の候補（被相続人＋相続人）。一覧に無ければ自由入力に切り替える */
+  personNames?: string[]
   saveField: (id: string, field: keyof KosekiRequestRow, value: unknown) => Promise<void>
   saveMany: (id: string, patch: Partial<KosekiRequestRow>) => Promise<void>
   onDelete: () => void
@@ -771,14 +773,14 @@ function KosekiRow({ r, i, meId, highlight = false, saveField, saveMany, onDelet
           ? <MultiCell value={r.doc_form} options={[...KOSEKI_DOC_FORMS]} onChange={v => saveField(r.id, 'doc_form', v)} />
           : <span className="text-gray-300 text-[11px]">—</span>}
       </td>
-      <td className="px-2 py-1.5"><TxtCell value={r.head_person} onCommit={v => saveField(r.id, 'head_person', v)} placeholder="筆頭者/世帯主" /></td>
+      <td className="px-2 py-1.5"><SelectOrTextField value={r.head_person} options={personNames} onSave={v => saveField(r.id, 'head_person', v)} placeholder="筆頭者/世帯主" /></td>
       <td className="px-2 py-1.5">
         {includesJuminhyo(r.doc_types)
           ? <MultiCell value={r.juminhyo_items} options={[...JUMINHYO_EXTRA_ITEMS]} onChange={v => saveField(r.id, 'juminhyo_items', v)} />
           : <span className="text-gray-300 text-[11px]">—</span>}
       </td>
-      <td className="px-2 py-1.5"><TxtCell value={r.range_text} onCommit={v => saveField(r.id, 'range_text', v)} placeholder="出生～死亡 等" list="koseki-range-list" /></td>
-      <td className="px-2 py-1.5"><TxtCell value={r.submit_to} onCommit={v => saveField(r.id, 'submit_to', v)} placeholder={KOSEKI_SUBMIT_TO_DEFAULT} /></td>
+      <td className="px-2 py-1.5"><SelectOrTextField value={r.range_text} options={KOSEKI_RANGES} onSave={v => saveField(r.id, 'range_text', v)} placeholder="出生～死亡 等" /></td>
+      <td className="px-2 py-1.5"><SelectOrTextField value={r.submit_to} options={KOSEKI_SUBMIT_TO_OPTIONS} onSave={v => saveField(r.id, 'submit_to', v)} placeholder={KOSEKI_SUBMIT_TO_DEFAULT} /></td>
       <td className="px-2 py-1.5"><SelCell value={r.request_reason} options={[...KOSEKI_REQUEST_REASONS]} onChange={v => saveField(r.id, 'request_reason', v)} /></td>
       <td className="px-2 py-1.5">{isClient ? <span className="text-[11px] text-gray-400">依頼者取得</span> : <DateCell value={r.request_date} onCommit={v => saveMany(r.id, { request_date: v || null, ...(v && !r.request_done_by ? { request_done_by: meId } : {}) })} />}</td>
       <td className="px-2 py-1.5"><DateCell value={r.arrival_date} onCommit={v => saveMany(r.id, { arrival_date: v || null, ...(v && !r.receipt_done_by ? { receipt_done_by: meId } : {}) })} /></td>
