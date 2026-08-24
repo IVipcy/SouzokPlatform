@@ -78,7 +78,7 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, assetInv
         />
       )}
       {!orderSheetMode && (
-        <TabTasksSection gyomus={mode === 'will' ? ['遺言作成'] : ['協議書', '目録']} tasks={tasks} />
+        <TabTasksSection gyomus={mode === 'will' ? ['遺言作成'] : ['協議書', '目録']} tasks={tasks} onRefresh={onRefresh} />
       )}
       {!orderSheetMode && (
         <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-3">

@@ -190,6 +190,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
       )}
       {!orderSheetMode && (
         <TabTasksSection
+          onRefresh={onRefresh}
           gyomus={['金融資産', '不動産', '目録']}
           tasks={tasks}
         />

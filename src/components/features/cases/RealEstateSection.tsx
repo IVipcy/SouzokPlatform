@@ -20,7 +20,6 @@ import { shareText } from '@/lib/constants'
 import RealEstateTable from './RealEstateTable'
 import RealEstateAcquisitionsTable from './RealEstateAcquisitionsTable'
 import EvalCertTable from './EvalCertTable'
-import RowTaskChip from '@/components/features/tasks/RowTaskChip'
 import type { RealEstatePropertyRow, RealEstateAcquisitionRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
@@ -421,10 +420,6 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
             {/* ① 名寄帳・評価証明（役所へ請求）。各表は枠付きカードで区切る。 */}
             <div ref={isFocusCard('muni') ? focusCardRef : undefined} className={`bg-white border border-gray-200 rounded-lg p-3.5${flashCls('muni')}`}>
               <SectionHeading title="① 市区町村役場へ請求（名寄帳・評価証明）" hint="不動産調査の出発点です。名寄帳でこの市区町村にある物件を洗い出します（私道・持分も拾えます）。評価証明・名寄帳は市区町村役場へ請求します（市区町村ごと）。小為替の費用（予算／返金／確定）もここで記録します。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-              {(() => {
-                const ts = tasks.filter(x => ['re-muni', 're-muni-read', 're', 're-read'].some(p => ridHits(x.source_rid, p, muniKey)))
-                return ts.length > 0 ? <div className="flex items-center gap-2 flex-wrap mb-2.5"><span className="text-[11px] font-semibold text-brand-700">関連タスク</span>{ts.map(x => <RowTaskChip key={x.id} task={x} onRefresh={onRefresh} />)}</div> : null
-              })()}
               <RealEstateAcquisitionsTable caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="municipality" municipalityFilter={muniKey} additionsNeedApproval={additionsNeedApproval} onAdditionalPending={() => notifyManagersAdditional('不動産の追加請求の承認依頼', `${muniKey}で取得資料が追加されました。承認するとタスクを生成します。`)} onAfterAddRow={() => promptIfMissing(muniKey, 'muni')} />
             </div>
             {/* 評価証明（物件ごと・別表）：名寄帳とは分ける。家屋番号・近傍宅地価格・年度を物件単位で管理（エクセルR69）。 */}
@@ -434,10 +429,6 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
             </div>
             <div ref={isFocusCard('houmu') ? focusCardRef : undefined} className={`bg-white border border-gray-200 rounded-lg p-3.5${flashCls('houmu')}`}>
               <SectionHeading title="② 法務局へ請求（登記情報・所有者事項・公図・地積測量図・路線価）" hint="流れ：①の名寄帳で物件を洗い出す→物件一覧に登録→ここ（法務局）で各物件の登記・公図・地積を取ります。登記情報などは法務局へまとめて請求します（請求・読込とも市区町村ごと1件。資料ごとの到着日は下の表に入れます）。路線価は見るだけ（請求も日付もありません）。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-              {(() => {
-                const ts = tasks.filter(x => ['re-houmu', 're-houmu-read'].some(p => ridHits(x.source_rid, p, muniKey)))
-                return ts.length > 0 ? <div className="flex items-center gap-2 flex-wrap mb-2.5"><span className="text-[11px] font-semibold text-brand-700">関連タスク</span>{ts.map(x => <RowTaskChip key={x.id} task={x} onRefresh={onRefresh} />)}</div> : null
-              })()}
               <div className="mb-2.5 flex items-center gap-2 flex-wrap text-[12px]">
                 <span className="text-gray-500 font-medium">管轄法務局</span>
                 <input key={houmuOfMuni(muniKey)} type="text" defaultValue={houmuOfMuni(muniKey)} onBlur={e => { const v = e.target.value.trim(); if (v !== houmuOfMuni(muniKey)) setHoumuOfMuni(muniKey, v) }} placeholder="例: 東京法務局 城東出張所" className="w-64 px-2 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" />

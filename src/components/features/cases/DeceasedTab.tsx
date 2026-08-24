@@ -327,6 +327,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       {!orderSheetMode && (
         <div className="mb-3.5">
           <TabTasksSection
+            onRefresh={onRefresh}
             gyomus={['戸籍', '相関図']}
             tasks={tasks}
           />

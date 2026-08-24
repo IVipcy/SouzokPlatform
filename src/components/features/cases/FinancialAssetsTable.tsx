@@ -13,8 +13,7 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import type { FinancialAssetRow, CaseRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
-import { relatedTasksFor, receiptFilesFor } from '@/lib/relatedTasks'
-import RelatedTaskChips from './RelatedTaskChips'
+import { receiptFilesFor } from '@/lib/relatedTasks'
 import OpenStorageFile from '@/components/features/documents/OpenStorageFile'
 import ContractReceivedBlock from './ContractReceivedBlock'
 
@@ -461,7 +460,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
               <th className="px-2 py-2 text-left font-bold text-amber-700 w-56">調査禁止</th>
               <th className="px-2 py-2 text-left font-semibold">備考</th>
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-56">備考・結果</th>}
-              {progressMode && <th className="px-2 py-2 text-left font-semibold w-36">関連タスク</th>}
+              {progressMode && <th className="px-2 py-2 text-left font-semibold w-36">受領ファイル</th>}
               <th className="px-2 py-2 w-8" />
             </tr>
           </thead>
@@ -554,7 +553,6 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                   {progressMode && (
                     <td className="px-2 py-1.5">
                       <div className="flex flex-col gap-1 items-start">
-                        <RelatedTaskChips tasks={relatedTasksFor(receipts, 'financial_asset', r.id)} />
                         {receiptFilesFor(receipts, 'financial_asset', r.id).map((f, i) => (
                           <OpenStorageFile key={i} bucket={f.bucket} path={f.path} name={f.name} label="受領ファイル" />
                         ))}

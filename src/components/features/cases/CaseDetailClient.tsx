@@ -852,7 +852,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <DeceasedTab caseData={caseState} heirs={heirs} kosekiRequests={kosekiRequests} onRefresh={handleSaved} patchCase={patchCase} contractDocuments={contractDocuments} caseClients={caseClients} documentReceipts={documentReceipts} tasks={tasks} />
       )}
       {effectiveTab === 'legalInfo' && (
-        <LegalInfoTab caseData={caseState} patchCase={patchCase} tasks={tasks} documentReceipts={documentReceipts} />
+        <LegalInfoTab caseData={caseState} patchCase={patchCase} tasks={tasks} documentReceipts={documentReceipts} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'contract' && (
         <ContractTab caseData={caseState} expenses={expenses} tasks={tasks} onRefresh={handleSaved} patchCase={patchCase} referrals={caseReferrals ?? []} />

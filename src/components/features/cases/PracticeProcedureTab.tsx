@@ -78,6 +78,7 @@ export default function PracticeProcedureTab({ caseData, patchCase, gyomu, title
         <WorkContentField caseData={caseData} gyomu={GYOMU_TAB[gyomu] ?? gyomu} patchCase={patchCase} label="作業内容（フリー・オーダーシートと共有）" collapsible />
       </div>
       <TabTasksSection
+        onRefresh={onRefresh}
         gyomus={[gyomu]}
         tasks={tasks ?? []}
       />

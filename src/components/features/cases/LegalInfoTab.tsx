@@ -15,9 +15,11 @@ type Props = {
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
   tasks?: TaskRow[]
   documentReceipts?: TimelineReceipt[]
+  /** タスクの着手・完了のあとに一覧を取り直す */
+  onRefresh?: () => void
 }
 
-export default function LegalInfoTab({ caseData, patchCase, tasks = [], documentReceipts = [] }: Props) {
+export default function LegalInfoTab({ caseData, patchCase, tasks = [], documentReceipts = [], onRefresh }: Props) {
   const saveCaseField = async (field: string, value: string | number | null) => {
     await patchCase({ [field]: value === '' ? null : value } as Partial<CaseRow>)
   }
@@ -32,6 +34,7 @@ export default function LegalInfoTab({ caseData, patchCase, tasks = [], document
 
       <div className="mb-3.5">
         <TabTasksSection
+          onRefresh={onRefresh}
           gyomus={['法定相続情報取得']}
           tasks={tasks}
         />

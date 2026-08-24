@@ -9,9 +9,6 @@ import { Lock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { SectionHeading } from '@/components/ui/InlineFields'
-import { relatedTasksFor } from '@/lib/relatedTasks'
-import RelatedTaskChips from './RelatedTaskChips'
-import RowTaskChip from '@/components/features/tasks/RowTaskChip'
 import ProgressSummary from './ProgressSummary'
 import { LeftRail } from './LeftRail'
 import type { FinancialAssetRow, TaskRow } from '@/types'
@@ -20,7 +17,7 @@ import type { TimelineReceipt } from './CaseTimeline'
 const CANCEL = ['有', '無', '確認中']
 const collator = new Intl.Collator('ja')
 
-export default function CancellationSection({ caseId, financialAssets, onRefresh, receipts = [], tasks = [], focus }: {
+export default function CancellationSection({ caseId, financialAssets, onRefresh, focus }: {
   caseId: string
   financialAssets: FinancialAssetRow[]
   onRefresh?: () => void
@@ -95,17 +92,6 @@ export default function CancellationSection({ caseId, financialAssets, onRefresh
           </div>
         ) : (
           <div className="space-y-3.5">
-            {/* 関連タスク（この機関の解約タスク cancel:{機関名}）。他タブと体裁を揃える。 */}
-            {(() => {
-              const instTasks = tasks.filter(x => x.source_rid === `cancel:${activeInst}`)
-              if (instTasks.length === 0) return null
-              return (
-                <div className="flex items-center gap-2 flex-wrap bg-brand-50/60 border border-brand-100 rounded-lg px-3 py-2">
-                  <span className="text-[11.5px] font-semibold text-brand-700">関連タスク（{sub === '__unset__' ? '機関名 未設定' : activeInst}）</span>
-                  {instTasks.map(x => <RowTaskChip key={x.id} task={x} onRefresh={onRefresh} />)}
-                </div>
-              )
-            })()}
             <ProgressSummary caseId={caseId} scopeKey={`cancellation_${activeInst}`} title={`進捗/結果（${sub === '__unset__' ? '機関名 未設定' : activeInst}）`} />
             {instRows(activeInst).length === 0 ? (
               <div className="rounded-md border border-gray-200 px-4 py-8 text-center text-[12px] text-gray-400">この金融機関の口座がありません。</div>
@@ -121,7 +107,6 @@ export default function CancellationSection({ caseId, financialAssets, onRefresh
                         <th className="px-2.5 py-2 text-left font-semibold w-28">解約書類</th>
                         <th className="px-2.5 py-2 text-left font-semibold w-36">解約完了日<span className="block text-[10px] font-normal text-gray-400">日付を入れると完了</span></th>
                         <th className="px-2.5 py-2 text-left font-semibold">備考</th>
-                        <th className="px-2.5 py-2 text-left font-semibold w-36">関連タスク</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -146,7 +131,6 @@ export default function CancellationSection({ caseId, financialAssets, onRefresh
                           <td className={`px-2.5 py-1.5 ${lock}`}>
                             <input type="text" defaultValue={r.cancellation_restrictions ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_restrictions ?? '')) save(r.id, 'cancellation_restrictions', e.target.value || null) }} placeholder="特記事項・備考（例：相続人全員の同意が必要 等）" className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white" />
                           </td>
-                          <td className="px-2.5 py-1.5"><RelatedTaskChips tasks={relatedTasksFor(receipts, 'financial_asset', r.id, 'cancellation_arrival_date')} /></td>
                         </tr>
                       ) })}
                     </tbody>

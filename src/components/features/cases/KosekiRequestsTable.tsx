@@ -14,8 +14,7 @@ import { kosekiOfficeFromAddress } from '@/lib/address'
 import SelectOrTextField from './SelectOrTextField'
 import type { KosekiRequestRow, CaseRow, HeirRow, TaskRow, ContractDocumentRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
-import { relatedTasksFor, receiptFilesFor, type RelatedTask, type ReceiptFile } from '@/lib/relatedTasks'
-import RelatedTaskChips from './RelatedTaskChips'
+import { receiptFilesFor, type ReceiptFile } from '@/lib/relatedTasks'
 import OpenStorageFile from '@/components/features/documents/OpenStorageFile'
 import ContractReceivedBlock from './ContractReceivedBlock'
 
@@ -192,7 +191,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-28">請求日</th>}
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-28">到着日</th>}
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-20">受信</th>}
-              {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-36">関連タスク</th>}
+              {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-36">受領ファイル</th>}
               <th className="px-2.5 py-2 w-8" />
             </tr>
           </thead>
@@ -204,7 +203,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
                   onToggle={() => setExpanded(expanded === r.id ? null : r.id)}
                   setLocal={setLocal} commit={commit} saveField={saveField} onPickTarget={v => pickTarget(r, v)} onPickAcquirer={v => pickAcquirer(r, v)}
                   onReqCheck={kind => reqCheck(r, kind)} onCancelCheck={kind => cancelCheck(r, kind)}
-                  onDelete={() => delRow(r)} colCount={colCount} targetOptions={targetOptions} relatedTasks={relatedTasksFor(receipts, 'koseki', r.id)} receiptFiles={receiptFilesFor(receipts, 'koseki', r.id)} />
+                  onDelete={() => delRow(r)} colCount={colCount} targetOptions={targetOptions} receiptFiles={receiptFilesFor(receipts, 'koseki', r.id)} />
               ))
             ) : (
               <tr><td colSpan={colCount} className="px-3 py-6 text-center text-[13px] text-gray-400">戸籍請求が登録されていません</td></tr>
@@ -237,7 +236,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
   )
 }
 
-function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField, onPickTarget, onPickAcquirer, onReqCheck, onCancelCheck, onDelete, colCount, targetOptions, relatedTasks, receiptFiles }: {
+function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField, onPickTarget, onPickAcquirer, onReqCheck, onCancelCheck, onDelete, colCount, targetOptions, receiptFiles }: {
   r: KosekiRequestRow
   odd: boolean
   progressMode: boolean
@@ -253,7 +252,6 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
   onDelete: () => void
   colCount: number
   targetOptions: string[]
-  relatedTasks: RelatedTask[]
   receiptFiles: ReceiptFile[]
 }) {
   // 依頼者取得は自社のW-checkが無い（確認簿にも上げない）ので依頼ボタンも出さない。
@@ -313,7 +311,6 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
         {progressMode && (
           <td className="px-2.5 py-1.5">
             <div className="flex flex-col gap-1 items-start">
-              <RelatedTaskChips tasks={relatedTasks} />
               {receiptFiles.map((f, i) => <OpenStorageFile key={i} bucket={f.bucket} path={f.path} name={f.name} label="受領ファイル" />)}
             </div>
           </td>

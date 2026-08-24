@@ -35,7 +35,6 @@ import ImageAnnotator from './ImageAnnotator'
 import { useKosekiImages } from '@/lib/useKosekiImages'
 import type { Anno } from '@/lib/imageAnnotations'
 import Modal from '@/components/ui/Modal'
-import RowTaskChip from '@/components/features/tasks/RowTaskChip'
 import type { KosekiRequestRow, HeirRow, CaseRow, TaskRow } from '@/types'
 
 const yen = (n: number | null) => (n == null ? '—' : `¥${Math.round(n).toLocaleString('ja-JP')}`)
@@ -536,7 +535,6 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                         <th className="px-2 py-2 text-left font-semibold w-32">発送チェック<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>
                         <th className="px-2 py-2 text-left font-semibold w-32">到着チェック<span className="block text-[10px] font-normal text-gray-400">確認簿で確認</span></th>
                         <th className="px-2 py-2 text-left font-semibold w-36">特記</th>
-                        <th className="px-2 py-2 text-left font-semibold w-40">関連タスク</th>
                         <th className="px-2 py-2 w-8" />
                       </tr>
                     </thead>
@@ -544,8 +542,6 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
                       {personRequests.map((r, i) => (
                         <KosekiRow key={r.id} r={r} i={i} meId={memberId}
                           highlight={r.id === focusId}
-                          rowTasks={tasks.filter(t => t.source_rid === `koseki:${r.id}` || t.source_rid === `koseki-read:${r.id}`)}
-                          onRefresh={onRefresh}
                           saveField={saveField} saveMany={saveMany}
                           onDelete={() => delRequest(r)} onCopy={() => copyRequest(r)} onMakeDoc={() => setDocRequests([r])} />
                       ))}
@@ -705,13 +701,11 @@ function AddKosekiModal({ mode, person, onClose, onSubmit }: {
 }
 
 // 戸籍1件＝1行。全項目をインライン編集（横スクロール）。要承認は行を帯にして承認ボタンを出す。
-function KosekiRow({ r, i, meId, highlight = false, rowTasks = [], onRefresh, saveField, saveMany, onDelete, onCopy, onMakeDoc }: {
+function KosekiRow({ r, i, meId, highlight = false, saveField, saveMany, onDelete, onCopy, onMakeDoc }: {
   r: KosekiRequestRow
   i: number
   meId: string | null
   highlight?: boolean
-  rowTasks?: TaskRow[]
-  onRefresh?: () => void
   saveField: (id: string, field: keyof KosekiRequestRow, value: unknown) => Promise<void>
   saveMany: (id: string, patch: Partial<KosekiRequestRow>) => Promise<void>
   onDelete: () => void
@@ -799,11 +793,6 @@ function KosekiRow({ r, i, meId, highlight = false, rowTasks = [], onRefresh, sa
         </>
       )}
       <td className="px-2 py-1.5"><TxtCell value={r.notes} onCommit={v => saveField(r.id, 'notes', v)} placeholder="特記" /></td>
-      <td className="px-2 py-1.5">
-        {rowTasks.length > 0
-          ? <div className="flex flex-col gap-1 items-start">{rowTasks.map(t => <RowTaskChip key={t.id} task={t} onRefresh={onRefresh} />)}</div>
-          : <span className="text-[11px] text-gray-300">—</span>}
-      </td>
       <td className="px-2 py-1.5 text-center whitespace-nowrap">
         <button type="button" onClick={onMakeDoc} title="この行の内容で戸籍請求書を作る"
           className="text-gray-400 hover:text-brand-600 mr-1.5"><FileText className="w-3.5 h-3.5" /></button>
