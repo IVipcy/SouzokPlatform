@@ -14,16 +14,16 @@ export function LeftRail({ items, active, onChange, extra, onDelete }: {
   extra?: ReactNode
   onDelete?: (key: string) => void  // 指定時、TOP以外の各グループにホバーで削除ボタンを表示
 }) {
-  // タブの地色がレールまで回り込まないよう白で敷く（サブタブは中身の一部という見え方にする）
+  // 案件の色（アラートの色）が透けないよう、白いカードに載せる。
   return (
-    <div className="flex-none w-40 flex flex-col gap-0.5 border-r border-gray-200 pr-2 bg-white">
+    <div className="flex-none w-40 flex flex-col gap-0.5 bg-white border border-gray-200 rounded-lg p-1.5 self-start">
       {items.map(it => {
         const isItem = it.key !== 'top'
         const dim = isItem && it.received === false  // 受信判定がある項目で未受信なら控えめ
         return (
           <div key={it.key} className="group/rail relative flex items-center">
             <button type="button" onClick={() => onChange(it.key)}
-              className={`flex-1 min-w-0 text-left text-[12px] px-2.5 py-1.5 rounded-md flex items-center gap-1.5 ${active === it.key ? 'bg-brand-50 text-brand-700 font-semibold' : `text-gray-600 hover:bg-gray-50 ${dim ? 'opacity-70' : ''}`}`}>
+              className={`flex-1 min-w-0 text-left text-[12px] px-2.5 py-1.5 rounded-md flex items-center gap-1.5 ${active === it.key ? 'bg-brand-50 text-brand-700 font-semibold shadow-[inset_2px_0_0_var(--color-brand-600)]' : `text-gray-600 hover:bg-gray-50 ${dim ? 'opacity-70' : ''}`}`}>
               {it.key === 'top'
                 ? <Table2 className="w-3.5 h-3.5 flex-none" />
                 : <span className={`w-1.5 h-1.5 rounded-full flex-none border ${summaryStatusClass(it.status)}`} />}

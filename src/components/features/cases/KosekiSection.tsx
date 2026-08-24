@@ -364,8 +364,8 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
       )}
 
     <div className="flex gap-3 items-start">
-      {/* 左レール（対象者＝人ごと） */}
-      <div className="flex-none w-52 flex flex-col gap-0.5 border-r border-gray-200 pr-2">
+      {/* 左レール（対象者＝人ごと）。案件の色が透けないよう白いカードに載せる。 */}
+      <div className="flex-none w-52 flex flex-col gap-0.5 bg-white border border-gray-200 rounded-lg p-1.5 self-start">
         {railTabs.map(t => {
           const isTop = t.id === 'top'
           const person = t.id === '__unset__' ? '' : t.id
@@ -375,7 +375,7 @@ export default function KosekiSection({ caseId, caseData, requests, heirs = [], 
           return (
             <div key={t.id} className="group/rail relative flex items-center">
               <button type="button" onClick={() => setSub(t.id)}
-                className={`flex-1 min-w-0 text-left text-[12px] px-2.5 py-1.5 rounded-md flex items-center gap-1.5 ${sub === t.id ? 'bg-brand-50 text-brand-700 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}>
+                className={`flex-1 min-w-0 text-left text-[12px] px-2.5 py-1.5 rounded-md flex items-center gap-1.5 ${sub === t.id ? 'bg-brand-50 text-brand-700 font-semibold shadow-[inset_2px_0_0_var(--color-brand-600)]' : 'text-gray-600 hover:bg-gray-50'}`}>
                 {isTop ? <Table2 className="w-3.5 h-3.5 flex-none" /> : pending ? <Lock className="w-3 h-3 flex-none text-amber-500" /> : <span className="w-3.5 h-3.5 flex-none" />}
                 <span className="flex-1 break-words leading-tight">
                   {t.label}
