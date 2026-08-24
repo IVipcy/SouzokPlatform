@@ -25,7 +25,7 @@ type Props = {
 const LAW_LABEL: Record<string, string> = { gyosei: '行政書士法人オーシャン（乙）', shiho: '司法書士法人オーシャン（丙）' }
 const GROUP_ORDER: KeiyakuVariant['group'][] = ['連名', '行政単独', 'その他']
 
-export default function KeiyakuDocumentModal({ isOpen, onClose, caseData, tasks, defaultTaskId, onSaved }: Props) {
+export default function KeiyakuDocumentModal({ isOpen, onClose, caseData, defaultTaskId, onSaved }: Props) {
   const recommended = useMemo(
     () => recommendKeiyakuVariant(caseData.contract_type, caseData.service_category),
     [caseData.contract_type, caseData.service_category],
@@ -169,21 +169,6 @@ export default function KeiyakuDocumentModal({ isOpen, onClose, caseData, tasks,
               {variant?.stamps.map(s => LAW_LABEL[s.law]).join(' ・ ') || '（なし）'}
             </span>
           </div>
-        </section>
-
-        {/* 作成タスク紐付け（任意） */}
-        <section>
-          <label className="block text-xs font-semibold text-gray-700 mb-1">作成タスク（任意）</label>
-          <select
-            value={taskId}
-            onChange={e => setTaskId(e.target.value)}
-            className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400"
-          >
-            <option value="">案件全体（タスク未指定）</option>
-            {tasks.map(t => (
-              <option key={t.id} value={t.id}>{t.title}</option>
-            ))}
-          </select>
         </section>
 
         <p className="text-[12px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-2">

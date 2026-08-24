@@ -31,7 +31,7 @@ type RecipientOption = {
   isFallback: boolean  // heirs 未登録時の 依頼者フォールバック
 }
 
-export default function EnvelopeDocumentModal({ isOpen, onClose, caseData, tasks, defaultTaskId, onSaved, heirs = [] }: Props) {
+export default function EnvelopeDocumentModal({ isOpen, onClose, caseData, defaultTaskId, onSaved, heirs = [] }: Props) {
   const [variantKey, setVariantKey] = useState<string>('naga3_white')
   const [taskId, setTaskId] = useState('')
   const [generating, setGenerating] = useState(false)
@@ -172,14 +172,6 @@ export default function EnvelopeDocumentModal({ isOpen, onClose, caseData, tasks
               </button>
             ))}
           </div>
-        </section>
-
-        <section>
-          <label className="block text-xs font-semibold text-gray-700 mb-1">作成タスク（任意）</label>
-          <select value={taskId} onChange={e => setTaskId(e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400">
-            <option value="">案件全体（タスク未指定）</option>
-            {tasks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
-          </select>
         </section>
 
         <p className="text-[12px] text-gray-400">差出人（オーシャン）はテンプレートに既設です。郵便番号・住所・宛名を選択した宛先から流し込みます。</p>
