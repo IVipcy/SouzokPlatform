@@ -432,7 +432,7 @@ export default function TaskCandidatePanel({ caseId, intakeRoles, serviceCategor
         <p className="text-sm text-gray-400 text-center py-8">
           この案件の候補がありません。<br />
           「受注内容」タブで受注区分・役割分担（実施タスク）を設定すると、ここに出ます。<br />
-          <span className="text-[12px]">候補に無い作業は「自分で入力」から作れます。</span>
+          <span className="text-[12px]">候補に無い作業は「新規作成」から作れます。</span>
         </p>
       ) : (
         <>

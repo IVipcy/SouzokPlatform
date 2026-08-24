@@ -5,15 +5,15 @@
 //   2) 次に着手できるタスクを指定（無ければ「該当なし」）。各タスクは経路を選ぶ:
 //        ・今すぐ着手OK   → ext_data.ready_reason（着手OK理由）
 //        ・受領次第OK     → ext_data.ready_on_receipt=true + ready_wait_note（何の受領待ちか）
-//      候補に無ければその場で新規タスクを追加（区分=事務/管理 も選ぶ）。
+//      候補に無ければその場で新規タスクを追加（入力欄はタスク追加モーダルと同じ）。
 //   3) 次が判断できないときは「管理担当に確認」→ 管理担当確認タスクを起票し通知。
 //   いずれの次タスクにも ext_data.ready_from_task_id（このタスク）を記録し前段表示に使う。
 
 import { useEffect, useMemo, useState } from 'react'
-import { Loader2, CheckCircle2, ArrowRight, Plus, HelpCircle, Compass, Puzzle, Package } from 'lucide-react'
+import { Loader2, CheckCircle2, ArrowRight, Plus, HelpCircle, Package } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
-import TaskKeywordNudge from '@/components/features/tasks/TaskKeywordNudge'
+import NewTaskFields, { emptyNewTask, type NewTaskValue } from '@/components/features/tasks/NewTaskFields'
 import { showToast } from '@/components/ui/Toast'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrentMember } from '@/lib/useCurrentMember'
@@ -74,11 +74,11 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
   const [noNext, setNoNext] = useState(false)
   const [showOthers, setShowOthers] = useState(false)
 
-  // 新規追加タスク
-  const [newTitle, setNewTitle] = useState('')
-  const [newRole, setNewRole] = useState<'assistant' | 'manager'>('assistant')
+  // 新規追加タスク。入力欄は「タスク追加」モーダルの新規作成タブと同じ部品を使う。
+  const [newTask, setNewTask] = useState<NewTaskValue>(emptyNewTask)
   const [newMode, setNewMode] = useState<Mode>('now')
   const [newNote, setNewNote] = useState('')
+  const newTitle = newTask.title
 
   // 管理担当ヘルプ（完了時は①次を教えて／②巻き取り）
   // 相談は報連相で送る（ヘルプタスクの起票はやめた）
@@ -181,17 +181,34 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
     }
 
     // 3) 新規タスクを追加して着手OK / 受領次第OK
+    //    区分によって作り分ける（タスク追加モーダルと同じ扱い）：
+    //      事務管理 → task_kind='case'（業務にひもづく通常タスク）
+    //      管理担当/受注担当 → task_kind='system' で、その担当へ割当・通知
     if (newTitle.trim()) {
       const newExt = extForMode({}, newMode, newNote, task.id)
+      const isAssistant = newTask.roleKind === 'assistant'
+      const gyomu = newTask.gyomu || task.phase || 'その他'
       const { data: created } = await supabase.from('tasks').insert({
-        case_id: task.case_id, title: newTitle.trim(), task_kind: 'case', work_role: newRole,
-        phase: task.phase ?? '', category: task.phase ?? '', status: '着手前', priority: '通常',
-        ext_data: newExt, sort_order: 99,
+        case_id: task.case_id,
+        title: newTitle.trim(),
+        task_kind: isAssistant ? 'case' : 'system',
+        work_role: newTask.roleKind,
+        assign_role: isAssistant ? null : newTask.roleKind,
+        phase: gyomu,
+        category: isAssistant ? gyomu : '',
+        status: '着手前',
+        priority: newTask.priority,
+        due_date: newTask.dueDate || null,
+        procedure_text: newTask.work.trim() || null,
+        ext_data: newExt,
+        sort_order: 99,
       }).select('id').single()
       if (created) {
         readied.push({
           id: (created as { id: string }).id, title: newTitle.trim(), case_id: task.case_id,
-          task_kind: 'case', assign_role: null, work_role: newRole,
+          task_kind: isAssistant ? 'case' : 'system',
+          assign_role: isAssistant ? null : newTask.roleKind,
+          work_role: newTask.roleKind,
           mode: newMode, note: newNote,
         })
       }
@@ -365,27 +382,22 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
             <span className="text-[11px] text-gray-400">宛先を選んで送れます。完了はそのまま進められます。</span>
           </div>
 
-          {/* 候補に無い → 新規追加（区分＋経路）。使用頻度が低いので一番下。 */}
-          <div className="mt-2 rounded-lg border border-dashed border-gray-300 px-2.5 py-2 space-y-2">
-            <div className="text-[11.5px] text-gray-500 inline-flex items-center gap-1"><Plus className="w-3.5 h-3.5" />候補に無い → タスクを追加</div>
-            <input
-              type="text"
-              value={newTitle}
-              onChange={e => setNewTitle(e.target.value)}
-              placeholder="追加するタスク名（任意）"
-              className="w-full px-2.5 py-1.5 text-[12.5px] border border-gray-200 rounded-lg outline-none focus:border-brand-400"
-            />
-            <TaskKeywordNudge title={newTitle} caseId={task.case_id} />
-            {newTitle.trim() && (
-              <>
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-gray-500">区分</span>
-                  <button type="button" onClick={() => setNewRole('manager')} className={`inline-flex items-center gap-1 text-[11.5px] px-2 py-0.5 rounded-md border ${newRole === 'manager' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-500 border-gray-200'}`}><Compass className="w-3 h-3" />管理担当</button>
-                  <button type="button" onClick={() => setNewRole('assistant')} className={`inline-flex items-center gap-1 text-[11.5px] px-2 py-0.5 rounded-md border ${newRole === 'assistant' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-200'}`}><Puzzle className="w-3 h-3" />事務管理</button>
+          {/* 候補に無い → 新規追加。入力欄は「タスク追加」モーダルの新規作成タブと同じ。 */}
+          <div className="mt-2 rounded-lg border border-dashed border-gray-300 px-2.5 py-2.5">
+            <div className="text-[11.5px] text-gray-500 inline-flex items-center gap-1 mb-2"><Plus className="w-3.5 h-3.5" />候補に無い → タスクを追加</div>
+            <NewTaskFields
+              caseId={task.case_id}
+              value={newTask}
+              onChange={p => setNewTask(prev => ({ ...prev, ...p }))}
+              defaultGyomu={task.phase ?? undefined}
+              compact
+              readySlot={newTitle.trim() ? (
+                <div>
+                  <label className="block text-[11.5px] font-semibold text-gray-500 mb-1">着手</label>
+                  {renderModePicker({ value: newMode, onChange: setNewMode, note: newNote, onNote: setNewNote, idKey: 'new' })}
                 </div>
-                {renderModePicker({ value: newMode, onChange: setNewMode, note: newNote, onNote: setNewNote, idKey: 'new' })}
-              </>
-            )}
+              ) : null}
+            />
           </div>
         </div>
       </div>
