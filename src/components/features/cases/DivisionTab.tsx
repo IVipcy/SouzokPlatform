@@ -97,7 +97,7 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, assetInv
             {/* 遺産分割。
                 オーダーシートでは畳んでおく。方針そのものは上のフリー欄に書くことが多く、
                 ここの4つは面談時点で埋まらないことも多いため（開けば今までどおり入力できる）。 */}
-            <Section title="分割方針" icon="⚖️" collapsible={orderSheetMode} defaultOpen={!orderSheetMode}>
+            <Section title="分割方針" icon="⚖️" collapsible={orderSheetMode} defaultOpen>
               <FieldGrid>
                 <InlineSelect label="分割方針" value={caseData.division_policy} options={[...DIVISION_POLICIES]} onSave={v => saveCaseField('division_policy', v)} />
                 <InlineSelect
