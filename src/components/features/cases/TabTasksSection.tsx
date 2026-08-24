@@ -35,6 +35,7 @@ const fmtDateTime = (iso: string): string => {
 
 export default function TabTasksSection({ gyomus, tasks, title = '完了した作業' }: Props) {
   const [open, setOpen] = useState(false)
+  const [activeOpen, setActiveOpen] = useState(false)
   const inGyomu = (t: TaskRow) => gyomus.some(g => (t.phase ?? '') === g)
 
   // 進行中（未完了）。対応中を先に、そのあと着手前。
@@ -66,11 +67,15 @@ export default function TabTasksSection({ gyomus, tasks, title = '完了した�
       {/* 進行中：表の行に紐づいていないタスクもここに出る */}
       {active.length > 0 && (
         <div className="rounded-lg border border-gray-200 bg-white px-3 py-2">
-          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[12px] font-semibold text-gray-600">進行中の作業</span>
             <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">{active.length}</span>
+            <button type="button" onClick={() => setActiveOpen(o => !o)} className="ml-auto inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
+              {activeOpen ? '閉じる' : '一覧'} {activeOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
           </div>
-          <div className="flex flex-col gap-1">
+          {activeOpen && (
+          <div className="flex flex-col gap-1 border-t border-gray-100 pt-2 mt-2">
             {active.map(t => {
               const doing = normalizeTaskStatus(t.status) === '対応中'
               const ready = getStartSignal(t).ready
@@ -93,7 +98,11 @@ export default function TabTasksSection({ gyomus, tasks, title = '完了した�
                 </Link>
               )
             })}
+            <button type="button" onClick={() => setActiveOpen(false)} className="w-full mt-1 inline-flex items-center justify-center gap-1 text-[11px] text-gray-400 hover:text-gray-600">
+              閉じる <ChevronUp className="w-3.5 h-3.5" />
+            </button>
           </div>
+          )}
         </div>
       )}
 
