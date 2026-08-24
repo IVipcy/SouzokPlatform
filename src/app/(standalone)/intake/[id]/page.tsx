@@ -39,11 +39,11 @@ export default async function IntakeCasePage({ params }: Props) {
 
   const [caseR, heirsR, kosekiR, propsR, acqR, finR, divR, agrR, expR, tasksR, commsR, refR, clientsR, contractR, sagyoR, receiptsR, memosR, otherR] = await Promise.all([
     supabase.from('cases').select('*, clients(*)').eq('id', id).single(),
-    supabase.from('heirs').select('*').eq('case_id', id).order('sort_order').order('created_at'),
+    supabase.from('heirs').select('*').eq('case_id', id).order('sort_order').order('created_at').order('id'),
     supabase.from('koseki_requests').select('*').eq('case_id', id).order('sort_order').order('created_at'),
-    supabase.from('real_estate_properties').select('*').eq('case_id', id).order('created_at', { ascending: true }),
+    supabase.from('real_estate_properties').select('*').eq('case_id', id).order('created_at', { ascending: true }).order('id'),
     supabase.from('real_estate_acquisitions').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
-    supabase.from('financial_assets').select('*').eq('case_id', id).order('created_at', { ascending: true }),
+    supabase.from('financial_assets').select('*').eq('case_id', id).order('created_at', { ascending: true }).order('id'),
     supabase.from('division_details').select('*').eq('case_id', id),
     supabase.from('agreement_dispatches').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
     supabase.from('expenses').select('*').eq('case_id', id).order('expense_date'),

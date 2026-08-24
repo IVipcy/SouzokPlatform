@@ -46,7 +46,7 @@ export default async function CaseDetailPage({ params }: Props) {
       .from('heirs')
       .select('*')
       .eq('case_id', id)
-      .order('sort_order').order('created_at'),
+      .order('sort_order').order('created_at').order('id'),
     // 戸籍請求（請求単位）。migration 074 未適用環境では error → 空配列で degrade。
     supabase
       .from('koseki_requests')
@@ -57,12 +57,12 @@ export default async function CaseDetailPage({ params }: Props) {
       .from('real_estate_properties')
       .select('*')
       .eq('case_id', id)
-      .order('created_at'),
+      .order('created_at').order('id'),
     supabase
       .from('financial_assets')
       .select('*')
       .eq('case_id', id)
-      .order('created_at'),
+      .order('created_at').order('id'),
     supabase
       .from('division_details')
       .select('*')
