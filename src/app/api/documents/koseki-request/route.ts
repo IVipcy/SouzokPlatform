@@ -116,10 +116,25 @@ const CELL_MAP: Record<KosekiVariant, {
   },
 }
 
+// ひな型の日付欄は書式が付いていないものがあり、日付をそのまま入れると
+// シリアル値（46258 のような数字）で印字される。書式が既定のままなら和暦を当てる。
+const WAREKI = '[$-411]ggge"年"m"月"d"日"'
+
+/**
+ * ひな型のセルに値を入れる。
+ *
+ * 値が無いときは「書かない」のではなく空にする。ひな型には
+ * ●●市 / ●●市△△区××町二丁目～～ / 横浜　太郎 のような記入例が入っており、
+ * 書かずに残すとその記入例がそのまま役所へ出る紙に載ってしまう。
+ */
 function setCell(ws: ExcelJS.Worksheet, addr: string, value: string | number | Date | null) {
-  if (value === null || value === undefined || value === '') return
   const cell = ws.getCell(addr)
+  if (value === null || value === undefined || value === '') {
+    cell.value = null
+    return
+  }
   cell.value = value
+  if (value instanceof Date && (!cell.numFmt || cell.numFmt === 'General')) cell.numFmt = WAREKI
 }
 
 /**
@@ -204,6 +219,9 @@ export async function POST(request: NextRequest) {
     if (!ws) {
       return NextResponse.json({ error: 'テンプレートのシートが見つかりません' }, { status: 500 })
     }
+    // 元の大きなブックから1シート抜いたひな型には、参照先を失った名前付き範囲が残っている。
+    // そのまま書き出すと Excel が「修復しました」と言ってくるので落とす。
+    wb.definedNames.model = []
 
     const map = CELL_MAP[variant]
     const client = caseData.clients as { name?: string; address?: string } | null
