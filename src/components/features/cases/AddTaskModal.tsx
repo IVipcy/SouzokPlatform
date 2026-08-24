@@ -46,6 +46,10 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
       setError('タスク名は必須です')
       return
     }
+    if (!form.work.trim()) {
+      setError('作業内容は必須です')
+      return
+    }
 
     setSaving(true)
     setError('')
@@ -170,6 +174,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
           value={form}
           onChange={patch}
           defaultGyomu={defaultPhase}
+          workRequired
           readySlot={
             <div>
               <label className="block text-[13px] font-semibold text-gray-500 mb-1">着手</label>
@@ -198,12 +203,6 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
             </div>
           }
         />
-
-        {form.roleKind === 'assistant' && (
-          <div className="mt-3 text-[13px] text-gray-400 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
-            💡 タスクの担当は事前に割り振りません。パートタイマーが出勤時にタスク一覧から「着手する」で開始します。
-          </div>
-        )}
       </div>
     </Modal>
   )

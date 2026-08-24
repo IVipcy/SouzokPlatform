@@ -7,11 +7,11 @@
 // 前は完了モーダル側だけ項目が少なく（区分2つとタスク名だけ）、
 // あとから業務や期限を入れ直す手間になっていた。
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import TaskKeywordNudge from '@/components/features/tasks/TaskKeywordNudge'
-import { gyomuForCategories, GYOMU_ALL, tasksForCategories, categoriesOf } from '@/lib/serviceMaster'
+import { gyomuForCategories, GYOMU_ALL } from '@/lib/serviceMaster'
 import { partsForCase, activePartKeys } from '@/lib/serviceParts'
 import { isHiddenForAssistant } from '@/lib/assistantTaskTabs'
 import { koteiOf } from '@/lib/kotei'
@@ -56,26 +56,25 @@ type Props = {
   /** 開いたときに初期値として入れたい業務（実務タブ等から開いたとき） */
   defaultGyomu?: string
   compact?: boolean
+  /** 作業内容を必須にするか（タスク追加は必須／完了モーダルの候補追加は任意） */
+  workRequired?: boolean
 }
 
-export default function NewTaskFields({ caseId, value, onChange, readySlot, defaultGyomu, compact = false }: Props) {
+export default function NewTaskFields({ caseId, value, onChange, readySlot, defaultGyomu, compact = false, workRequired = false }: Props) {
   const [gyomuOptions, setGyomuOptions] = useState<string[]>([])
-  const [cats, setCats] = useState<string[]>([])
 
   // 案件の受注区分・役割分担から「業務」の選択肢を用意する
   useEffect(() => {
     let active = true
     ;(async () => {
       const { data } = await createClient()
-        .from('cases').select('service_category, service_category_2, service_parts, intake_roles').eq('id', caseId).single()
+        .from('cases').select('service_parts, intake_roles').eq('id', caseId).single()
       if (!active || !data) return
       const roles = (data.intake_roles ?? []) as Array<{ gyomu?: string | null }>
       // 実施業務の「その他（自由入力）」は業務名が自由文なので、選択肢には入れない。
       let gyomus = [...new Set(roles.map(r => r.gyomu).filter((g): g is string => !!g && GYOMU_ALL.includes(g)))]
       if (gyomus.length === 0) gyomus = gyomuForCategories(activePartKeys(partsForCase(data)))
       setGyomuOptions(gyomus)
-      const parts = activePartKeys(partsForCase(data))
-      setCats(parts.length ? parts : categoriesOf(data.service_category, data.service_category_2))
       if (!value.gyomu) {
         const g0 = (defaultGyomu && gyomus.includes(defaultGyomu)) ? defaultGyomu : (gyomus[0] ?? 'その他')
         onChange({ gyomu: value.roleKind === 'assistant' ? g0 : 'その他' })
@@ -93,12 +92,6 @@ export default function NewTaskFields({ caseId, value, onChange, readySlot, defa
   // 管理担当/受注担当タスクは、案件の実施業務にかかわらず全業務から選べる。
   const managerGyomuChoices = [...GYOMU_ALL.filter(g => g !== 'その他'), 'その他']
   const choices = value.roleKind === 'assistant' ? gyomuChoices : managerGyomuChoices
-
-  // 選択中の業務でよく使うタスク名（受注区分マスタの作業名）。押すとタスク名に入る。
-  const nameHints = useMemo(() => {
-    if (!value.gyomu || value.gyomu === 'その他') return []
-    return [...new Set(tasksForCategories(cats, value.gyomu).map(r => r.task))].slice(0, 8)
-  }, [cats, value.gyomu])
 
   const label = `block ${compact ? 'text-[11.5px]' : 'text-[13px]'} font-semibold text-gray-500 mb-1`
   const inp = `w-full px-3 py-2 border border-gray-300 rounded-lg ${compact ? 'text-[12.5px]' : 'text-sm'} focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none`
@@ -160,28 +153,17 @@ export default function NewTaskFields({ caseId, value, onChange, readySlot, defa
           placeholder="例：相続人へ電話連絡、督促 など"
           className={inp}
         />
-        {nameHints.length > 0 && (
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] text-gray-400">よく使う名前：</span>
-            {nameHints.map(n => (
-              <button key={n} type="button" onClick={() => onChange({ title: n })}
-                className="px-2 py-0.5 text-[12px] text-gray-600 bg-gray-50 border border-gray-200 rounded hover:bg-brand-50 hover:border-brand-200 hover:text-brand-700">
-                {n}
-              </button>
-            ))}
-          </div>
-        )}
         <TaskKeywordNudge title={value.title} caseId={caseId} />
       </div>
 
       {/* 作業内容 */}
       <div>
-        <label className={label}>作業内容</label>
+        <label className={label}>作業内容{workRequired && ' *'}</label>
         <textarea
           value={value.work}
           onChange={e => onChange({ work: e.target.value })}
           rows={compact ? 2 : 3}
-          placeholder="何をするか・気をつけることを書いておく（任意）"
+          placeholder={workRequired ? '何をするか・気をつけることを書く' : '何をするか・気をつけることを書いておく（任意）'}
           className={`${inp} resize-y`}
         />
       </div>
