@@ -307,7 +307,12 @@ function FinMini({ caseId, kind, cols, addLabel, assets, onRefresh, ensureCaseId
   // 種別で絞った配列は毎回作ると別物になるので、識別子を固定してから渡す
   const ofKind = useMemo(() => assets.filter(a => a.asset_type === kind), [assets, kind])
   const [rows, setRows] = useRowsFrom(ofKind)
-  const save = (id: string, field: string, v: string) => { setRows(p => p.map(r => r.id === id ? { ...r, [field]: v } as FinancialAssetRow : r)); supabase.from('financial_assets').update({ [field]: v || null }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }) }
+  const save = (id: string, field: string, v: string) => {
+    setRows(p => p.map(r => r.id === id ? { ...r, [field]: v } as FinancialAssetRow : r))
+    // institution_name は NOT NULL。空にしたら null ではなく空文字で保存する（追加時も '' で入れている）。
+    const val = field === 'institution_name' ? v : (v || null)
+    supabase.from('financial_assets').update({ [field]: val }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') })
+  }
   const saveNum = (id: string, v: string) => { supabase.from('financial_assets').update({ balance_amount: v ? Number(v) : null }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }) }
   const add = async () => { const cid = ensureCaseId ? await ensureCaseId() : caseId; const { data, error } = await supabase.from('financial_assets').insert({ case_id: cid, asset_type: kind, institution_name: '', acquirer: '自社' }).select('*').single(); if (error || !data) { showToast('追加に失敗', 'error'); return } setRows(p => [...p, data as FinancialAssetRow]); onRefresh?.() }
   const del = async (id: string) => { await supabase.from('financial_assets').delete().eq('id', id); setRows(p => p.filter(r => r.id !== id)); onRefresh?.() }

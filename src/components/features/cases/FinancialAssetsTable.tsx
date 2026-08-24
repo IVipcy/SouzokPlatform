@@ -203,7 +203,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
     const key = `${id}:${String(field)}`
     clearTimeout(timersRef.current[key])
     delete timersRef.current[key]
-    const v = value === '' ? null : value
+    // institution_name は NOT NULL。空にしたら null ではなく空文字で保存する。
+    const v = value === '' ? (field === 'institution_name' ? '' : null) : value
     applyLocal(id, field, v)
     pendingRef.current[id] = { ...pendingRef.current[id], [field]: v }
     const { error } = await supabase.from('financial_assets').update({ [field]: v }).eq('id', id)
