@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import ExcelJS from 'exceljs'
+import { repairXlsx } from '@/lib/xlsxRepair'
 import { OFFICE_PROFILES, officesForContractType } from '@/lib/officeProfiles'
 
 type Body = {
@@ -260,7 +261,9 @@ export async function POST(request: NextRequest) {
     ws.pageSetup.printArea = `A1:X${lastRow}`
 
     const outBuffer = await wb.xlsx.writeBuffer()
-    const uploadBuffer = Buffer.from(outBuffer as ArrayBuffer)
+    // ExcelJS は <sheetPr> の子要素を規格と違う順に書き出すバグがあり、
+    // そのままだと Excel がシートを丸ごと捨てて白紙で開く。書き出し後に直す。
+    const uploadBuffer = repairXlsx(Buffer.from(outBuffer as ArrayBuffer))
     const storagePath = `${caseId}/${Date.now()}_${crypto.randomUUID()}.xlsx`
     const { error: uploadErr } = await supabase.storage
       .from('documents')

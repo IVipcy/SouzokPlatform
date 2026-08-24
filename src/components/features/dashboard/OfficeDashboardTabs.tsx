@@ -72,9 +72,11 @@ const normalizeStatus = (s: string) => {
 }
 
 // sev を渡すと、タスクタブと同じ4色の点が付く（他のタブは点なし）。
-function TabBtn({ v, label, icon: Icon, count, current, onSelect, sev }: {
+function TabBtn({ v, label, icon: Icon, count, current, onSelect, sev, alwaysCount }: {
   v: TabKey; label: string; icon: typeof Mail; count?: number; current: TabKey
   onSelect: (t: TabKey) => void; sev?: TaskSeverity
+  /** true なら 0 件でも件数バッジを出す（自分の仕事量を常に見せたいタブ用） */
+  alwaysCount?: boolean
 }) {
   const on = current === v
   const c = sev ? SEVERITY_TAB[sev] : null
@@ -92,7 +94,7 @@ function TabBtn({ v, label, icon: Icon, count, current, onSelect, sev }: {
       <Icon className="w-4 h-4" strokeWidth={2} />
       {c && <span className={`w-1.5 h-1.5 rounded-full flex-none ${c.dot}`} />}
       {label}
-      {count != null && count > 0 && (
+      {count != null && (count > 0 || alwaysCount) && (
         <span className={`font-mono text-[11.5px] px-1.5 py-0.5 rounded-full ${
           colored ? c.badge : on ? 'bg-brand-100 text-brand-700' : 'bg-gray-100 text-gray-500'}`}>{count}</span>
       )}
@@ -206,8 +208,8 @@ export default function OfficeDashboardTabs({
       )}
 
       <div className="flex items-center gap-1 border-b border-gray-200 mb-4 flex-wrap">
-        <TabBtn v="filing" label="ファイル化待ち" icon={FolderPlus} count={filingRows.length} current={tab} onSelect={selectTab} />
-        <TabBtn v="start" label="作業着手待ち" icon={PlayCircle} count={canStartRows.length} current={tab} onSelect={selectTab} />
+        <TabBtn v="filing" label="ファイル化待ち" icon={FolderPlus} count={filingRows.length} current={tab} onSelect={selectTab} alwaysCount />
+        <TabBtn v="start" label="作業着手待ち" icon={PlayCircle} count={canStartRows.length} current={tab} onSelect={selectTab} alwaysCount />
         <TabBtn v="tasks" label="タスク" icon={ListChecks} count={readyCount} current={tab} onSelect={selectTab} sev={taskSev} />
         <TabBtn v="hourensou" label="報連相（情報共有）" icon={MessageSquare} count={pendingHourenSou} current={tab} onSelect={selectTab} />
         <TabBtn v="hourensouAction" label="報連相（要対応）" icon={MessageSquare} count={pendingAction} current={tab} onSelect={selectTab} />

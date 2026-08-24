@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import path from 'path'
 import { readFile } from 'fs/promises'
 import ExcelJS from 'exceljs'
+import { repairXlsx } from '@/lib/xlsxRepair'
 import { createClient } from '@/lib/supabase/server'
 import { OFFICE_PROFILES, type OfficeKind } from '@/lib/officeProfiles'
 
@@ -121,7 +122,9 @@ export async function POST(req: NextRequest) {
   if (notes[1]) ws.getCell('F36').value = notes[1]
 
   const out = await wb.xlsx.writeBuffer()
-  const buf = Buffer.from(out as ArrayBuffer)
+  // ExcelJS は <sheetPr> の子要素を規格と違う順に書き出すバグがあり、
+  // そのままだと Excel がシートを丸ごと捨てて白紙で開く。書き出し後に直す。
+  const buf = repairXlsx(Buffer.from(out as ArrayBuffer))
   const downloadFilename = `原本預かり証_${caseData.case_number ?? caseId}_${receivedDate}.xlsx`
 
   // 案件の書類として残す（アップロードに失敗してもダウンロードは続ける）

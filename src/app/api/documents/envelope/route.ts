@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/server'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import ExcelJS from 'exceljs'
+import { repairXlsx } from '@/lib/xlsxRepair'
 import { getEnvelopeVariant, splitPostal } from '@/lib/envelopeVariants'
 
 type Body = {
@@ -93,7 +94,9 @@ export async function POST(request: NextRequest) {
     const outBuffer = await wb.xlsx.writeBuffer()
     const downloadFilename = `封筒_${def.label}_${caseData.case_number ?? caseId}.xlsx`
     const storagePath = `${caseId}/${Date.now()}_${crypto.randomUUID()}.xlsx`
-    const uploadBuffer = Buffer.from(outBuffer as ArrayBuffer)
+    // ExcelJS は <sheetPr> の子要素を規格と違う順に書き出すバグがあり、
+    // そのままだと Excel がシートを丸ごと捨てて白紙で開く。書き出し後に直す。
+    const uploadBuffer = repairXlsx(Buffer.from(outBuffer as ArrayBuffer))
     const { error: uploadErr } = await supabase.storage
       .from('documents')
       .upload(storagePath, uploadBuffer, {
