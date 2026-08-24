@@ -719,20 +719,23 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
       await saveMeetingSnapshot(supabase, caseId)
 
       // 4. 他事業者紹介要否 → case_referrals（チェック分をupsert。未チェックの削除はタブ側で実施）
-      //    税理士/不動産は依頼内容(content)も同時に保存（LP案件一覧の該当列のソースとなる）
+      //    依頼内容(content)・紹介理由(referral_reason)・査定ランク(appraisal_rank)は別の列。
+      //    以前はどれも content に入れていたため、画面ごとに違うものが出ていた（migration 256/257）。
       if (formData.referralPartners.length > 0) {
         const rows = formData.referralPartners.map(p => {
-          const row: { case_id: string; partner_type: string; content?: string | null; content_detail?: string | null } = { case_id: caseId, partner_type: p }
+          const row: { case_id: string; partner_type: string; content?: string | null; content_detail?: string | null; referral_reason?: string | null; appraisal_rank?: string | null } = { case_id: caseId, partner_type: p }
           if (p === '税理士') {
-            const sel = formData.taxAdvisorBusinessType
-            row.content = sel || null
+            row.content = formData.taxAdvisorBusinessType || null
+            const reason = formData.taxAdvisorReferralReason
+            row.referral_reason = reason || null
             // 備考(content_detail)は「その他」自由入力のときだけ。選択値の重複保存はしない。
-            row.content_detail = sel.startsWith('その他') ? (formData.taxAdvisorReferralNote || null) : null
+            row.content_detail = reason.startsWith('その他') ? (formData.taxAdvisorReferralNote || null) : null
           } else if (p === '不動産') {
-            const sel = formData.realEstateRegistrationType
-            row.content = sel || null
+            row.content = formData.realEstateRegistrationType || null
+            const rank = formData.realEstateAppraisalRank
+            row.appraisal_rank = rank || null
             // 備考(content_detail)は「その他」自由入力のときだけ。選択値（査定ランク）の重複保存はしない。
-            row.content_detail = sel.startsWith('その他') ? (formData.realEstateAppraisalNote || null) : null
+            row.content_detail = rank.startsWith('その他') ? (formData.realEstateAppraisalNote || null) : null
           } else {
             const note = formData.otherReferralNotes[p]
             row.content = note || null
@@ -962,8 +965,8 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
               <div className="w-24 flex-none"><Select value={data.referralPartners.includes('不動産') ? 'あり' : 'なし'} options={['あり', 'なし']} noEmpty onChange={v => toggleReferral('不動産', v === 'あり')} /></div>
               {data.referralPartners.includes('不動産') && (
                 <div className="flex-1">
-                  <Select value={data.realEstateRegistrationType} options={[...REAL_ESTATE_APPRAISAL_RANKS]} onChange={v => update('realEstateRegistrationType', v)} placeholder="査定ランクを選択" />
-                  {data.realEstateRegistrationType.startsWith('その他') && (
+                  <Select value={data.realEstateAppraisalRank} options={[...REAL_ESTATE_APPRAISAL_RANKS]} onChange={v => update('realEstateAppraisalRank', v)} placeholder="査定ランクを選択" />
+                  {data.realEstateAppraisalRank.startsWith('その他') && (
                     <div className="mt-2"><Input value={data.realEstateAppraisalNote} onChange={v => update('realEstateAppraisalNote', v)} placeholder="自由入力" /></div>
                   )}
                 </div>
@@ -975,8 +978,8 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
               <div className="w-24 flex-none"><Select value={data.referralPartners.includes('税理士') ? 'あり' : 'なし'} options={['あり', 'なし']} noEmpty onChange={v => toggleReferral('税理士', v === 'あり')} /></div>
               {data.referralPartners.includes('税理士') && (
                 <div className="flex-1">
-                  <Select value={data.taxAdvisorBusinessType} options={[...TAX_ADVISOR_REFERRAL_REASONS]} onChange={v => update('taxAdvisorBusinessType', v)} placeholder="紹介内容を選択" />
-                  {data.taxAdvisorBusinessType.startsWith('その他') && (
+                  <Select value={data.taxAdvisorReferralReason} options={[...TAX_ADVISOR_REFERRAL_REASONS]} onChange={v => update('taxAdvisorReferralReason', v)} placeholder="紹介理由を選択" />
+                  {data.taxAdvisorReferralReason.startsWith('その他') && (
                     <div className="mt-2"><Input value={data.taxAdvisorReferralNote} onChange={v => update('taxAdvisorReferralNote', v)} placeholder="自由入力" /></div>
                   )}
                 </div>

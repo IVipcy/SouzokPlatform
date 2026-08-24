@@ -139,7 +139,10 @@ export default function ReferralTab({ caseData, referrals, onRefresh, tasks = []
           </>
         )}
         {row.partner_type === '不動産' && (
-          <InlineSelect label="依頼内容" value={row.content} options={[...REAL_ESTATE_REGISTRATION_OPTIONS]} onSave={saveReferralField(row.id, 'content')} fullWidth />
+          <>
+            <InlineSelect label="依頼内容" value={row.content} options={[...REAL_ESTATE_REGISTRATION_OPTIONS]} onSave={saveReferralField(row.id, 'content')} fullWidth />
+            <InlineSelect label="査定ランク" value={row.appraisal_rank} options={[...REAL_ESTATE_APPRAISAL_RANKS]} onSave={saveReferralField(row.id, 'appraisal_rank')} fullWidth />
+          </>
         )}
         {row.partner_type !== '弁護士' && (
           <InlineCurrency label="見込み報酬" value={row.estimated_fee} onSave={saveReferralField(row.id, 'estimated_fee')} />
@@ -165,7 +168,9 @@ export default function ReferralTab({ caseData, referrals, onRefresh, tasks = []
         <Section title="不動産査定">
           <FieldGrid>
             <InlineSelect label="紹介" value={reRow ? 'あり' : 'なし'} options={['あり', 'なし']} onSave={async v => { await togglePartner('不動産', v === 'あり') }} width="compact" />
-            {reRow && <InlineSelect label="査定ランク" value={reRow.content} options={[...REAL_ESTATE_APPRAISAL_RANKS]} onSave={saveReferralField(reRow.id, 'content')} width="md" />}
+            {/* 依頼内容は面談結果登録・実務タブと同じ選択肢。査定ランクは別項目（同じ列に入れると依頼内容が化ける）。 */}
+            {reRow && <InlineSelect label="依頼内容" value={reRow.content} options={[...REAL_ESTATE_REGISTRATION_OPTIONS]} onSave={saveReferralField(reRow.id, 'content')} fullWidth />}
+            {reRow && <InlineSelect label="査定ランク" value={reRow.appraisal_rank} options={[...REAL_ESTATE_APPRAISAL_RANKS]} onSave={saveReferralField(reRow.id, 'appraisal_rank')} width="md" />}
             {reRow && <InlineTextarea label="備考" value={reRow.content_detail} onSave={saveReferralField(reRow.id, 'content_detail')} fullWidth />}
           </FieldGrid>
         </Section>

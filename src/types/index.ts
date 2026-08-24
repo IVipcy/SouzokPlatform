@@ -309,6 +309,7 @@ export type CaseReferralRow = {
   referred_date: string | null    // 紹介日付（YYYY-MM-DD）
   content: string | null          // 依頼内容（税理士/不動産は選択肢、他はフリー）
   referral_reason: string | null  // 紹介理由（通常紹介/相見積もり有り 等。migration 256）
+  appraisal_rank: string | null   // 不動産の査定ランク（S/A/B/C。migration 257）
   content_detail: string | null   // 依頼内容詳細（フリーテキスト。migration 130）
   estimated_fee: number | null    // 見込み報酬
   billing_status: string | null   // 報酬請求状態

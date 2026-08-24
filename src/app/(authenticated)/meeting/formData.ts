@@ -40,9 +40,11 @@ export type FormData = {
   prospectLevel: string          // 見込み度合い（高/中/低/不明。検討中のとき入力）
   followUpCallNeeded: string  // 追い電話の必要性（不要/要。検討中のとき入力）
   // 他事業者紹介：依頼内容
-  taxAdvisorBusinessType: string  // 税理士紹介の理由（選択） — case_referrals(partner_type='税理士').content と連動
+  taxAdvisorBusinessType: string  // 税理士の依頼内容（選択） — case_referrals(partner_type='税理士').content
+  taxAdvisorReferralReason: string  // 税理士の紹介理由（選択） — case_referrals.referral_reason（migration 256）
   taxAdvisorReferralNote: string  // 税理士紹介「その他」自由入力 — content_detail
-  realEstateRegistrationType: string  // 不動産査定のランク（選択） — case_referrals(partner_type='不動産').content と連動
+  realEstateRegistrationType: string  // 不動産登記の依頼内容（選択） — case_referrals(partner_type='不動産').content
+  realEstateAppraisalRank: string  // 不動産の査定ランク（選択） — case_referrals.appraisal_rank（migration 257）
   realEstateAppraisalNote: string  // 不動産査定「その他」自由入力 — content_detail
   otherReferralNotes: Record<string, string>  // その他紹介の備考（partner_type→備考。弁護士/遺品整理/解体/自動車/鑑定/特殊清掃）
   // 依頼者（複数人）
@@ -102,8 +104,10 @@ export const INITIAL_DATA: FormData = {
   prospectLevel: '',
   followUpCallNeeded: '',
   taxAdvisorBusinessType: '',
+  taxAdvisorReferralReason: '',
   taxAdvisorReferralNote: '',
   realEstateRegistrationType: '',
+  realEstateAppraisalRank: '',
   realEstateAppraisalNote: '',
   otherReferralNotes: {},
   clients: [{ priority: 'main', name: '', kana: '', birthday: '', relationship: '', phone: '', mobilePhone: '', email: '' }],
