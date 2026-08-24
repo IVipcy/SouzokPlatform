@@ -6,7 +6,7 @@ import { showToast } from '@/components/ui/Toast'
 import { createClient } from '@/lib/supabase/client'
 import { recommendKakuteiOffice, computeKakutei, type ExpenseItem } from '@/lib/kakuteiVariants'
 import { type StampLaw } from '@/lib/ininjoVariants'
-import { KOSEKI_AGENT_OFFICES } from '@/lib/officeProfiles'
+import { KOSEKI_AGENT_OFFICES, divisionsOf, findBranch, type OfficeBranchId } from '@/lib/officeProfiles'
 import type { CaseRow, TaskRow } from '@/types'
 
 type Props = {
@@ -31,6 +31,9 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, default
   // 事務所住所の既定は共同ビル。行政書士法人の本店はクレアトールだが、
   // 請求書に載せるのは実際に業務をしている共同ビルで揃える運用にしている。
   const [officeId, setOfficeId] = useState<string>('kyodo')
+  const [division, setDivision] = useState<string>(() => divisionsOf('kyodo')[0] ?? '')
+  const divisions = divisionsOf(officeId as OfficeBranchId)
+  const branch = findBranch(officeId as OfficeBranchId, division)
   const [kenmei, setKenmei] = useState('')
   const [fee, setFee] = useState<number | ''>('')
   const [advance, setAdvance] = useState<number | ''>('')
@@ -97,6 +100,7 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, default
           taskId: taskId || null,
           dueDate: dueDate || null,
           officeId,
+          division,
         }),
       })
       if (!res.ok) {
@@ -163,11 +167,21 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, default
         {/* 事務所住所（拠点） */}
         <section>
           <label className="block text-xs font-semibold text-gray-700 mb-1">事務所住所（拠点）</label>
-          <select value={officeId} onChange={e => setOfficeId(e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400">
+          <select value={officeId} onChange={e => { setOfficeId(e.target.value); setDivision(divisionsOf(e.target.value as OfficeBranchId)[0] ?? '') }} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400">
             {KOSEKI_AGENT_OFFICES.map(o => (
               <option key={o.id} value={o.id}>{o.label}（{o.line1}）</option>
             ))}
           </select>
+          {divisions.length > 1 && (
+            <div className="mt-2">
+              <label className="block text-xs font-semibold text-gray-700 mb-1">事業部</label>
+              <select value={division} onChange={e => setDivision(e.target.value)}
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400">
+                {divisions.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+          )}
+          {branch && <p className="mt-1 text-[12px] text-gray-500">TEL {branch.tel} ／ FAX {branch.fax}</p>}
         </section>
 
         {/* 件名 */}

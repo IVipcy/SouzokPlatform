@@ -13,7 +13,7 @@ import path from 'node:path'
 import ExcelJS from 'exceljs'
 import { getInvoiceVariant, INVOICE_FIELDS } from '@/lib/invoiceVariants'
 import { STAMP_FILES } from '@/lib/ininjoVariants'
-import { KOSEKI_AGENT_OFFICES } from '@/lib/officeProfiles'
+import { KOSEKI_AGENT_OFFICES, findBranch, type OfficeBranchId } from '@/lib/officeProfiles'
 
 type Body = {
   caseId: string
@@ -25,6 +25,7 @@ type Body = {
   invoiceId?: string | null   // メイン請求モーダル経由＝既に invoices 行があるので二重作成しない
   kubun?: string              // 区分セル（請求書=前受金、領収書=前受金/確定請求 等）。既定は前受金
   officeId?: string           // 事務所住所（kureator/kyodo/fujisawa）。未指定はテンプレ既定
+  division?: string           // 事業部（第一/第二 等）。同じ拠点でも電話・FAXが変わるため
 }
 
 function setCell(ws: ExcelJS.Worksheet, addr: string | undefined, value: string | number | null) {
@@ -111,11 +112,17 @@ export async function POST(request: NextRequest) {
     for (const c of F.kenmei) setCell(ws, c, kenmei || '')
     setCell(ws, F.kubun, body.kubun || '前受金')
 
-    // 事務所住所（選択された拠点で上書き。未指定はテンプレ既定のまま）
+    // 事務所住所・電話・FAX（拠点＋事業部で上書き。未指定はテンプレ既定のまま）。
+    // 同じ拠点でも事業部で電話・FAXが変わる（共同ビルの第一／第二）ため、branch から引く。
     const office = KOSEKI_AGENT_OFFICES.find(o => o.id === body.officeId)
     if (office) {
       setCell(ws, F.address1, office.line1)
       setCell(ws, F.address2, office.line2)
+      const branch = body.officeId ? findBranch(body.officeId as OfficeBranchId, body.division) : undefined
+      if (branch) {
+        setCell(ws, F.tel, branch.tel)
+        setCell(ws, F.fax, branch.fax)
+      }
     }
 
     // 金額（前受金は消費税対象外＝合計も同額）

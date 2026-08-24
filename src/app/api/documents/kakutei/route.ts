@@ -13,7 +13,7 @@ import path from 'node:path'
 import ExcelJS from 'exceljs'
 import { getKakuteiVariant, KAKUTEI_FIELDS, computeKakutei, type ExpenseItem } from '@/lib/kakuteiVariants'
 import { STAMP_FILES } from '@/lib/ininjoVariants'
-import { KOSEKI_AGENT_OFFICES, OFFICE_PROFILES } from '@/lib/officeProfiles'
+import { KOSEKI_AGENT_OFFICES, OFFICE_PROFILES, findBranch, type OfficeBranchId } from '@/lib/officeProfiles'
 
 type Body = {
   caseId: string
@@ -26,6 +26,7 @@ type Body = {
   dueDate?: string | null      // 入金期日（任意）。invoices.due_date に保存。
   invoiceId?: string | null   // メイン請求モーダル経由＝既に invoices 行があるので二重作成しない
   officeId?: string           // 事務所住所（拠点: kureator/kyodo/fujisawa）
+  division?: string           // 事業部（第一/第二 等）。同じ拠点でも電話・FAXが変わる
 }
 
 function setCell(ws: ExcelJS.Worksheet, addr: string | undefined, value: string | number | null) {
@@ -121,7 +122,12 @@ export async function POST(request: NextRequest) {
     setCell(kak, K.amountTop, c.billAmount)
     // 事務所住所（選択した拠点で上書き）＋担当者（代表社員 氏名）
     const office = KOSEKI_AGENT_OFFICES.find(o => o.id === body.officeId)
-    if (office) { setCell(kak, K.address1, office.line1); setCell(kak, K.address2, office.line2) }
+    if (office) {
+      setCell(kak, K.address1, office.line1); setCell(kak, K.address2, office.line2)
+      // 電話・FAXは拠点＋事業部で（共同ビルの第一／第二で変わる）
+      const branch = body.officeId ? findBranch(body.officeId as OfficeBranchId, body.division) : undefined
+      if (branch) { setCell(kak, K.tel, branch.tel); setCell(kak, K.fax, branch.fax) }
+    }
     const prof = OFFICE_PROFILES[def.office]
     if (prof) setCell(kak, K.repName, `${prof.representativeTitle}　${prof.representativeName}`)
 

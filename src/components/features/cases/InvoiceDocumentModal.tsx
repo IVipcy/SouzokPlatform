@@ -9,7 +9,7 @@ import {
   type InvoiceVariant,
 } from '@/lib/invoiceVariants'
 import { type StampLaw } from '@/lib/ininjoVariants'
-import { KOSEKI_AGENT_OFFICES } from '@/lib/officeProfiles'
+import { KOSEKI_AGENT_OFFICES, divisionsOf, findBranch, type OfficeBranchId } from '@/lib/officeProfiles'
 import { advanceForFirm } from '@/lib/advancePayment'
 import { billingPatternOf } from '@/lib/constants'
 import type { CaseRow, TaskRow } from '@/types'
@@ -34,6 +34,10 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, docTyp
   // 事務所住所の既定は共同ビル。行政書士法人の本店はクレアトールだが、
   // 請求書に載せるのは実際に業務をしている共同ビルで揃える運用にしている。
   const [officeId, setOfficeId] = useState<string>('kyodo')
+  // 事業部。同じ拠点でも事業部で電話・FAXが変わる（共同ビルの第一／第二）ため、拠点とセットで選ぶ。
+  const [division, setDivision] = useState<string>(() => divisionsOf('kyodo')[0] ?? '')
+  const divisions = divisionsOf(officeId as OfficeBranchId)
+  const branch = findBranch(officeId as OfficeBranchId, division)
   const [kenmei, setKenmei] = useState('')
   const [amount, setAmount] = useState<number | ''>('')
   const [dueDate, setDueDate] = useState('')
@@ -90,7 +94,7 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, docTyp
       const res = await fetch('/api/documents/invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ caseId: caseData.id, variant, kenmei: kenmei.trim(), amount: Number(amount), taskId: taskId || null, dueDate: dueDate || null, kubun: kakutei ? '確定請求' : '前受金', officeId }),
+        body: JSON.stringify({ caseId: caseData.id, variant, kenmei: kenmei.trim(), amount: Number(amount), taskId: taskId || null, dueDate: dueDate || null, kubun: kakutei ? '確定請求' : '前受金', officeId, division }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: '生成に失敗しました' }))
@@ -179,13 +183,27 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, docTyp
           <label className="block text-xs font-semibold text-gray-700 mb-1">事務所住所</label>
           <select
             value={officeId}
-            onChange={e => setOfficeId(e.target.value)}
+            onChange={e => { setOfficeId(e.target.value); setDivision(divisionsOf(e.target.value as OfficeBranchId)[0] ?? '') }}
             className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400"
           >
             {KOSEKI_AGENT_OFFICES.map(o => (
               <option key={o.id} value={o.id}>{o.label}（{o.line1}）</option>
             ))}
           </select>
+          {divisions.length > 1 && (
+            <div className="mt-2">
+              <label className="block text-xs font-semibold text-gray-700 mb-1">事業部</label>
+              <select value={division} onChange={e => setDivision(e.target.value)}
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400">
+                {divisions.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+          )}
+          {branch && (
+            <p className="mt-1 text-[12px] text-gray-500">
+              TEL {branch.tel} ／ FAX {branch.fax}
+            </p>
+          )}
         </section>
 
         {/* 件名 */}

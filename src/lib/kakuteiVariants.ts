@@ -28,6 +28,8 @@ export const KAKUTEI_FIELDS = {
   address1: 'Q11',            // 事務所住所1（選択した拠点で上書き）
   address2: 'Q12',            // 事務所住所2
   repName: 'Q13',             // 担当者（代表社員 氏名）
+  tel: 'Q14',                 // 電話（拠点＋事業部で上書き）
+  fax: 'Q15',                 // FAX（拠点＋事業部で上書き）
   sealCell: 'T10',            // 社印（法人名の行に重ねる）
 }
 
