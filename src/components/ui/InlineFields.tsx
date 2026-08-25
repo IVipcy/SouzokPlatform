@@ -110,15 +110,70 @@ export function SectionHeading({ title, right, hint, className = '' }: { title: 
 // ─── FieldGrid ───
 // 2項目/行を基本にした、テーブル風の見た目で統一（白セル＋薄いグリッド線）。
 // 各タブで共通利用するため、ここを変えると全タブのフィールド表示が揃う。
+// 項目の並べ方。stack=項目名の下に内容（旧）／table=項目名を左・内容を右（既定）。
+export const FieldLayoutCtx = createContext<'stack' | 'table'>('table')
+
 export function FieldGrid({ children, cols = 2 }: { children: React.ReactNode; cols?: number }) {
-  // 1項目=1行はスマホのみ。PC(sm以上)は2列で見やすく。
-  // cols={1} を明示したときだけ常に1列。
+  // 「項目名 | 内容」を1組として、PC(sm以上)は2組・広い画面(lg)も2組で並べる。
+  // 項目名の列は固定幅にして、左右の組で端がそろうようにする（内容は残りを等分）。
+  // スマホは1組ずつ縦に積む。cols={1} を明示したときは常に1組。
   const oneCol = cols === 1
+  const grid = oneCol
+    ? 'grid-cols-[minmax(0,1fr)] sm:grid-cols-[9.5rem_minmax(0,1fr)]'
+    : 'grid-cols-[minmax(0,1fr)] sm:grid-cols-[9.5rem_minmax(0,1fr)] lg:grid-cols-[9.5rem_minmax(0,1fr)_9.5rem_minmax(0,1fr)]'
   return (
-    <div
-      className={`grid ${oneCol ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-px bg-gray-100 rounded-lg overflow-hidden border border-gray-100 [&>*]:bg-white [&>*]:px-3`}
-    >
-      {children}
+    <FieldLayoutCtx.Provider value="table">
+      <div className={`grid ${grid} gap-px bg-gray-100 rounded-lg overflow-hidden border border-gray-100`}>
+        {children}
+      </div>
+    </FieldLayoutCtx.Provider>
+  )
+}
+
+/**
+ * 1項目ぶんの器。表レイアウトでは「項目名のセル」と「内容のセル」の2マスに分かれ、
+ * グリッドの列に直接乗る（display:contents）。スマホでは今までどおり縦積み。
+ */
+export function FieldShell({ label, children, fullWidth, labelExtra, containerRef, bare }: {
+  label?: React.ReactNode
+  children: React.ReactNode
+  fullWidth?: boolean
+  /** 項目名の右に置くもの（住所コピー等の小さなボタン） */
+  labelExtra?: React.ReactNode
+  containerRef?: React.Ref<HTMLDivElement>
+  /** 見出しと重複するのでラベルのマスを作らず、内容だけを横いっぱいに置く */
+  bare?: boolean
+}) {
+  const layout = useContext(FieldLayoutCtx)
+  if (bare) {
+    return (
+      <div ref={containerRef} className="bg-white px-3 py-2 col-span-full">{children}</div>
+    )
+  }
+  if (layout !== 'table') {
+    return (
+      <div ref={containerRef} className={`bg-white px-3 py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
+        {label != null && (
+          <div className="flex items-center gap-2">
+            <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">{label}</div>
+            {labelExtra}
+          </div>
+        )}
+        {children}
+      </div>
+    )
+  }
+  // display:contents なので、この div 自身には列幅が効かない。
+  // 幅は中の2つのマス（項目名／内容）の col-span で決める。
+  return (
+    <div ref={containerRef} className="contents">
+      <div className={`bg-gray-50/70 px-3 py-2.5 text-[12.5px] font-semibold text-gray-600 tracking-wide flex items-center gap-1.5 ${fullWidth ? 'sm:col-span-1' : ''}`}>
+        <span className="min-w-0">{label}</span>
+        {labelExtra}
+      </div>
+      <div className={`bg-white px-3 py-2 flex flex-col justify-center min-h-[42px] ${fullWidth ? 'sm:col-span-1 lg:col-span-3' : ''}`}>
+        {children}
+      </div>
     </div>
   )
 }
@@ -126,12 +181,11 @@ export function FieldGrid({ children, cols = 2 }: { children: React.ReactNode; c
 // ─── Field (read-only) ───
 export function Field({ label, value, mono }: { label: string; value?: string | null; mono?: boolean }) {
   return (
-    <div className="py-1.5 border-b border-gray-50">
-      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">{label}</div>
+    <FieldShell label={label}>
       <div className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
         {value ?? '未設定'}
       </div>
-    </div>
+    </FieldShell>
   )
 }
 
@@ -224,13 +278,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
   }
 
   return (
-    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-      <div className="flex items-center gap-2">
-        <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">
-          {label}
-        </div>
-        {renderAction(editing ? draft : (value ?? ''))}
-      </div>
+    <FieldShell label={<>{label}{required && <span className="text-red-500 ml-0.5">*</span>}</>} fullWidth={fullWidth} labelExtra={renderAction(editing ? draft : (value ?? ''))}>
       {editing ? (
         <input
           ref={inputRef}
@@ -257,7 +305,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
         </div>
       )}
       {hint && <p className="mt-0.5 text-[11px] text-gray-400">{hint}</p>}
-    </div>
+    </FieldShell>
   )
 }
 
@@ -300,10 +348,7 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
   }
 
   return (
-    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">
-        {label}
-      </div>
+    <FieldShell label={<>{label}{required && <span className="text-red-500 ml-0.5">*</span>}</>} fullWidth={fullWidth}>
       {editing ? (
         <select
           value={value ?? ''}
@@ -332,7 +377,7 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
           <span className="text-gray-400 group-hover:text-brand-500 text-[12px]">▼</span>
         </div>
       )}
-    </div>
+    </FieldShell>
   )
 }
 
@@ -380,10 +425,7 @@ export function InlineMultiSelect({ label, value, options, onSave, fullWidth, re
   }, [editing, draft])
 
   return (
-    <div ref={containerRef} className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">
-        {label}
-      </div>
+    <FieldShell label={<>{label}{required && <span className="text-red-500 ml-0.5">*</span>}</>} fullWidth={fullWidth} containerRef={containerRef}>
       {editing ? (
         <div className="mt-1 p-2 border border-brand-400 rounded bg-brand-50/30">
           <div className="flex flex-wrap gap-1.5">
@@ -421,7 +463,7 @@ export function InlineMultiSelect({ label, value, options, onSave, fullWidth, re
           <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px] flex-shrink-0">✏️</span>
         </div>
       )}
-    </div>
+    </FieldShell>
   )
 }
 
@@ -478,10 +520,7 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
   }
 
   return (
-    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">
-        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
-      </div>
+    <FieldShell label={<>{label}{required && <span className="text-red-500 ml-0.5">*</span>}</>} fullWidth={fullWidth}>
       {editing ? (
         <input
           ref={inputRef}
@@ -515,7 +554,7 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
         <div className="mt-0.5 text-[11px] text-gray-500">和暦：{toWareki(value)}</div>
       )}
       {hint && <p className="mt-0.5 text-[11px] text-gray-400">{hint}</p>}
-    </div>
+    </FieldShell>
   )
 }
 
@@ -545,8 +584,7 @@ export function InlineNumber({ label, value, onSave, fullWidth, suffix }: {
   }
 
   return (
-    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">{label}</div>
+    <FieldShell label={label} fullWidth={fullWidth}>
       {editing ? (
         <input
           ref={inputRef}
@@ -566,7 +604,7 @@ export function InlineNumber({ label, value, onSave, fullWidth, suffix }: {
           <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
         </div>
       )}
-    </div>
+    </FieldShell>
   )
 }
 
@@ -611,8 +649,7 @@ export function InlineCurrency({ label, value, onSave, fullWidth }: {
   }
 
   return (
-    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">{label}</div>
+    <FieldShell label={label} fullWidth={fullWidth}>
       {editing ? (
         <div className="flex items-center gap-1">
           <span className="text-[13px] text-gray-500">¥</span>
@@ -636,7 +673,7 @@ export function InlineCurrency({ label, value, onSave, fullWidth }: {
           <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
         </div>
       )}
-    </div>
+    </FieldShell>
   )
 }
 
@@ -669,8 +706,7 @@ export function InlineCheckbox({ label, value, onSave, fullWidth }: {
   }
 
   return (
-    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">{label}</div>
+    <FieldShell label={label} fullWidth={fullWidth}>
       <div className="flex items-center gap-2 min-h-[24px]">
         <button
           type="button"
@@ -685,7 +721,7 @@ export function InlineCheckbox({ label, value, onSave, fullWidth }: {
           {shown ? 'あり' : 'なし'}
         </span>
       </div>
-    </div>
+    </FieldShell>
   )
 }
 
@@ -759,8 +795,7 @@ export function InlineTextarea({ label, value, onSave, fullWidth, placeholder, h
   }
 
   return (
-    <div ref={containerRef} className={`py-1.5 ${hideLabel ? '' : 'border-b border-gray-50'} ${fullWidth ? 'sm:col-span-2' : ''}`}>
-      {!hideLabel && <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">{label}</div>}
+    <FieldShell containerRef={containerRef} label={hideLabel ? undefined : label} fullWidth={fullWidth} bare={hideLabel}>
       {editing ? (
         <div>
           <textarea
@@ -787,7 +822,7 @@ export function InlineTextarea({ label, value, onSave, fullWidth, placeholder, h
           <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px] flex-shrink-0 mt-0.5">✏️</span>
         </div>
       )}
-    </div>
+    </FieldShell>
   )
 }
 
@@ -880,11 +915,7 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
   }
 
   return (
-    <div ref={containerRef} className="py-1.5 border-b border-gray-50">
-      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">
-        {label}
-        {multi && maxSelect && <span className="ml-1.5 font-normal text-[11px] text-gray-400">{maxSelect}名まで（{assigned.length}/{maxSelect}）</span>}
-      </div>
+    <FieldShell containerRef={containerRef} label={<>{label}{multi && maxSelect && <span className="ml-1.5 font-normal text-[11px] text-gray-400">{maxSelect}名まで（{assigned.length}/{maxSelect}）</span>}</>}>
       {editing ? (
         <div className="mt-1 p-2 border border-brand-400 rounded bg-brand-50/30">
           {searchable && (
@@ -980,7 +1011,7 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
           <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
         </div>
       )}
-    </div>
+    </FieldShell>
   )
 }
 
