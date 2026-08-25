@@ -116,9 +116,44 @@ export function FieldGrid({ children, cols = 2 }: { children: React.ReactNode; c
   const oneCol = cols === 1
   return (
     <div
-      className={`grid ${oneCol ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-px bg-gray-100 rounded-lg overflow-hidden border border-gray-100 [&>*]:bg-white [&>*]:px-3`}
+      className={`grid ${oneCol ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-px bg-gray-100 rounded-lg overflow-hidden border border-gray-100 [&>*]:bg-white`}
     >
       {children}
+    </div>
+  )
+}
+
+// ─── FieldRow ───
+// 1項目ぶんの器。項目名を左のマス、内容を右のマスに置いて、表のように読ませる。
+//
+// 項目名の下に内容を積む形だと、どこまでが1項目か分からず、内容の幅もばらばらだった。
+// 左右に割ると項目名の右端がそろうので、項目が多い画面（オーダーシート等）でも目で追える。
+//
+// グリッドの列送りには一切手を出さない（1項目=1マスのまま）。
+// 左右の余白は FieldGrid ではなくこの行が持つ。左のマスをマスの端まで届かせるため。
+export function FieldRow({ label, children, fullWidth, labelNote, containerRef, bare }: {
+  label?: React.ReactNode
+  children: React.ReactNode
+  fullWidth?: boolean
+  /** 項目名の下に置く小さな注記（「2名まで」など） */
+  labelNote?: React.ReactNode
+  containerRef?: React.Ref<HTMLDivElement>
+  /** 見出しと内容が重複する欄。項目名のマスを作らず、内容だけを横いっぱいに置く */
+  bare?: boolean
+}) {
+  const span = fullWidth ? 'sm:col-span-2' : ''
+  if (bare) {
+    return <div ref={containerRef} className={`px-3 py-2 ${span}`}>{children}</div>
+  }
+  return (
+    <div ref={containerRef} className={`flex items-stretch ${span}`}>
+      <div className="w-[6.5rem] sm:w-[8.5rem] flex-shrink-0 bg-gray-50/80 border-r border-gray-100 px-3 py-2 flex flex-col justify-center text-[12.5px] font-semibold text-gray-600 tracking-wide leading-snug">
+        <span className="break-words">{label}</span>
+        {labelNote}
+      </div>
+      <div className="flex-1 min-w-0 px-3 py-2 flex flex-col justify-center gap-1 min-h-[42px]">
+        {children}
+      </div>
     </div>
   )
 }
@@ -126,12 +161,11 @@ export function FieldGrid({ children, cols = 2 }: { children: React.ReactNode; c
 // ─── Field (read-only) ───
 export function Field({ label, value, mono }: { label: string; value?: string | null; mono?: boolean }) {
   return (
-    <div className="py-1.5 border-b border-gray-50">
-      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">{label}</div>
+    <FieldRow label={label}>
       <div className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
         {value ?? '未設定'}
       </div>
-    </div>
+    </FieldRow>
   )
 }
 
@@ -202,62 +236,58 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
 
   if (alwaysEdit) {
     return (
-      <div className={`py-1.5 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-        <div className="flex items-center gap-2 mb-1">
-          <div className="text-[13px] font-medium text-slate-600">{label}</div>
+      <FieldRow label={label} fullWidth={fullWidth}>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            onCompositionStart={() => { composingRef.current = true }}
+            onCompositionEnd={() => { composingRef.current = false }}
+            onBlur={() => { if (!composingRef.current) { const t = draft.trim(); if (t !== (value ?? '')) withToast(() => onSave(t)) } }}
+            placeholder="入力"
+            className={`flex-1 min-w-0 h-9 px-2.5 text-[13px] bg-white border border-gray-200 rounded-md outline-none focus:border-brand-400 ${mono ? 'font-mono' : ''} ${ai ? 'text-blue-600' : ''}`}
+          />
           {renderAction(draft)}
         </div>
-        <input
-          type="text"
-          value={draft}
-          onChange={e => setDraft(e.target.value)}
-          onCompositionStart={() => { composingRef.current = true }}
-          onCompositionEnd={() => { composingRef.current = false }}
-          onBlur={() => { if (!composingRef.current) { const t = draft.trim(); if (t !== (value ?? '')) withToast(() => onSave(t)) } }}
-          placeholder="入力"
-          className={`w-full h-10 px-3 text-[13px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400 ${mono ? 'font-mono' : ''} ${ai ? 'text-blue-600' : ''}`}
-        />
         {address && <AddressHint value={draft} />}
-        {hint && <p className="mt-0.5 text-[11px] text-gray-400">{hint}</p>}
-      </div>
+        {hint && <p className="text-[11px] text-gray-400">{hint}</p>}
+      </FieldRow>
     )
   }
 
   return (
-    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
+    <FieldRow label={<>{label}{required && <span className="text-red-500 ml-0.5">*</span>}</>} fullWidth={fullWidth}>
       <div className="flex items-center gap-2">
-        <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">
-          {label}
-        </div>
+        {editing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            onCompositionStart={() => { composingRef.current = true }}
+            onCompositionEnd={() => { composingRef.current = false }}
+            onBlur={() => { if (!composingRef.current) handleSave() }}
+            onKeyDown={handleKeyDown}
+            disabled={saving}
+            className={`flex-1 min-w-0 px-2 py-1 text-[13px] border border-brand-400 rounded outline-none bg-brand-50/30 ${mono ? 'font-mono' : ''} ${saving ? 'opacity-50' : ''}`}
+          />
+        ) : (
+          <div
+            onClick={handleStartEdit}
+            className="group cursor-pointer flex flex-1 min-w-0 items-center gap-1.5 min-h-[24px] px-1 -mx-1 rounded hover:bg-brand-50 transition-colors"
+            title="クリックして編集"
+          >
+            <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? `${ai ? 'text-blue-600' : 'text-gray-700'} font-medium border-b border-dashed border-gray-200 group-hover:border-brand-400` : 'text-gray-300 italic text-xs border-b border-dashed border-gray-200 group-hover:border-brand-400'}`}>
+              {value ?? 'クリックして入力'}
+            </span>
+            <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
+          </div>
+        )}
         {renderAction(editing ? draft : (value ?? ''))}
       </div>
-      {editing ? (
-        <input
-          ref={inputRef}
-          type="text"
-          value={draft}
-          onChange={e => setDraft(e.target.value)}
-          onCompositionStart={() => { composingRef.current = true }}
-          onCompositionEnd={() => { composingRef.current = false }}
-          onBlur={() => { if (!composingRef.current) handleSave() }}
-          onKeyDown={handleKeyDown}
-          disabled={saving}
-          className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] border border-brand-400 rounded outline-none bg-brand-50/30 ${mono ? 'font-mono' : ''} ${saving ? 'opacity-50' : ''}`}
-        />
-      ) : (
-        <div
-          onClick={handleStartEdit}
-          className="group cursor-pointer flex items-center gap-1.5 min-h-[24px] -ml-1 pl-1 pr-1 rounded hover:bg-brand-50 transition-colors"
-          title="クリックして編集"
-        >
-          <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? `${ai ? 'text-blue-600' : 'text-gray-700'} font-medium border-b border-dashed border-gray-200 group-hover:border-brand-400` : 'text-gray-300 italic text-xs border-b border-dashed border-gray-200 group-hover:border-brand-400'}`}>
-            {value ?? 'クリックして入力'}
-          </span>
-          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
-        </div>
-      )}
-      {hint && <p className="mt-0.5 text-[11px] text-gray-400">{hint}</p>}
-    </div>
+      {hint && <p className="text-[11px] text-gray-400">{hint}</p>}
+    </FieldRow>
   )
 }
 
@@ -289,21 +319,17 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
   if (alwaysEdit) {
     const selCls = width === 'compact' ? 'w-[110px]' : width === 'md' ? 'w-full sm:w-[240px]' : 'w-full'
     return (
-      <div className={`py-1.5 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-        <div className="text-[13px] font-medium text-slate-600 mb-1">{label}</div>
-        <select value={value ?? ''} onChange={e => handleChange(e.target.value)} disabled={saving} className={`${selCls} h-10 px-3 text-[13px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400`}>
+      <FieldRow label={label} fullWidth={fullWidth}>
+        <select value={value ?? ''} onChange={e => handleChange(e.target.value)} disabled={saving} className={`${selCls} h-9 px-2.5 text-[13px] bg-white border border-gray-200 rounded-md outline-none focus:border-brand-400`}>
           <option value="">（未設定）</option>
           {options.map(opt => <option key={opt} value={opt}>{optionLabel ? optionLabel(opt) : opt}</option>)}
         </select>
-      </div>
+      </FieldRow>
     )
   }
 
   return (
-    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">
-        {label}
-      </div>
+    <FieldRow label={<>{label}{required && <span className="text-red-500 ml-0.5">*</span>}</>} fullWidth={fullWidth}>
       {editing ? (
         <select
           value={value ?? ''}
@@ -311,7 +337,7 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
           onBlur={() => setEditing(false)}
           autoFocus
           disabled={saving}
-          className={`w-full px-1 py-0.5 -ml-1 text-[13px] border border-brand-400 rounded outline-none bg-brand-50/30 ${saving ? 'opacity-50' : ''}`}
+          className={`w-full px-2 py-1 text-[13px] border border-brand-400 rounded outline-none bg-brand-50/30 ${saving ? 'opacity-50' : ''}`}
         >
           <option value="">（未設定）</option>
           {options.map(opt => (
@@ -321,7 +347,7 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
       ) : (
         <div
           onClick={() => setEditing(true)}
-          className="group cursor-pointer flex items-center gap-1.5 min-h-[24px] -ml-1 pl-1 pr-1 rounded hover:bg-brand-50 transition-colors"
+          className="group cursor-pointer flex items-center gap-1.5 min-h-[24px] px-1 -mx-1 rounded hover:bg-brand-50 transition-colors"
           title="クリックして選択"
         >
           {value ? (
@@ -332,7 +358,7 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
           <span className="text-gray-400 group-hover:text-brand-500 text-[12px]">▼</span>
         </div>
       )}
-    </div>
+    </FieldRow>
   )
 }
 
@@ -380,12 +406,13 @@ export function InlineMultiSelect({ label, value, options, onSave, fullWidth, re
   }, [editing, draft])
 
   return (
-    <div ref={containerRef} className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">
-        {label}
-      </div>
+    <FieldRow
+      containerRef={containerRef}
+      label={<>{label}{required && <span className="text-red-500 ml-0.5">*</span>}</>}
+      fullWidth={fullWidth}
+    >
       {editing ? (
-        <div className="mt-1 p-2 border border-brand-400 rounded bg-brand-50/30">
+        <div className="p-2 border border-brand-400 rounded bg-brand-50/30">
           <div className="flex flex-wrap gap-1.5">
             {options.map(opt => (
               <button
@@ -421,7 +448,7 @@ export function InlineMultiSelect({ label, value, options, onSave, fullWidth, re
           <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px] flex-shrink-0">✏️</span>
         </div>
       )}
-    </div>
+    </FieldRow>
   )
 }
 
@@ -468,20 +495,16 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
 
   if (alwaysEdit) {
     return (
-      <div className={`py-1.5 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-        <div className="text-[13px] font-medium text-slate-600 mb-1">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</div>
-        <input type="date" max={max} value={draft} onChange={e => { setDraft(e.target.value); if (e.target.value !== (value ?? '')) withToast(() => onSave(e.target.value)) }} className={`w-full h-10 px-3 text-[13px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400 ${ai ? 'text-blue-600' : ''}`} />
-        {wareki && value && toWareki(value) && <div className="mt-0.5 text-[11px] text-gray-500">和暦：{toWareki(value)}</div>}
-        {hint && <p className="mt-0.5 text-[11px] text-gray-400">{hint}</p>}
-      </div>
+      <FieldRow label={<>{label}{required && <span className="text-red-500 ml-0.5">*</span>}</>} fullWidth={fullWidth}>
+        <input type="date" max={max} value={draft} onChange={e => { setDraft(e.target.value); if (e.target.value !== (value ?? '')) withToast(() => onSave(e.target.value)) }} className={`w-full sm:w-[170px] h-9 px-2.5 text-[13px] bg-white border border-gray-200 rounded-md outline-none focus:border-brand-400 ${ai ? 'text-blue-600' : ''}`} />
+        {wareki && value && toWareki(value) && <div className="text-[11px] text-gray-500">和暦：{toWareki(value)}</div>}
+        {hint && <p className="text-[11px] text-gray-400">{hint}</p>}
+      </FieldRow>
     )
   }
 
   return (
-    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">
-        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
-      </div>
+    <FieldRow label={<>{label}{required && <span className="text-red-500 ml-0.5">*</span>}</>} fullWidth={fullWidth}>
       {editing ? (
         <input
           ref={inputRef}
@@ -494,12 +517,12 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
           onBlur={handleSave}
           onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }}
           disabled={saving}
-          className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] font-mono border border-brand-400 rounded outline-none bg-brand-50/30 cursor-pointer ${saving ? 'opacity-50' : ''}`}
+          className={`w-full sm:w-[170px] px-2 py-1 text-[13px] font-mono border border-brand-400 rounded outline-none bg-brand-50/30 cursor-pointer ${saving ? 'opacity-50' : ''}`}
         />
       ) : (
         <div
           onClick={() => { setDraft(value ?? ''); setEditing(true) }}
-          className={`group cursor-pointer flex items-center gap-1.5 min-h-[24px] -ml-1 pl-1 pr-1 rounded transition-colors ${missing ? 'hover:bg-red-50' : 'hover:bg-brand-50'}`}
+          className={`group cursor-pointer flex items-center gap-1.5 min-h-[24px] px-1 -mx-1 rounded transition-colors ${missing ? 'hover:bg-red-50' : 'hover:bg-brand-50'}`}
           title="クリックして日付を選択"
         >
           <span className={`text-[13px] font-mono border-b border-dashed group-hover:border-brand-400 ${
@@ -512,10 +535,10 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
         </div>
       )}
       {wareki && value && toWareki(value) && (
-        <div className="mt-0.5 text-[11px] text-gray-500">和暦：{toWareki(value)}</div>
+        <div className="text-[11px] text-gray-500">和暦：{toWareki(value)}</div>
       )}
-      {hint && <p className="mt-0.5 text-[11px] text-gray-400">{hint}</p>}
-    </div>
+      {hint && <p className="text-[11px] text-gray-400">{hint}</p>}
+    </FieldRow>
   )
 }
 
@@ -545,8 +568,7 @@ export function InlineNumber({ label, value, onSave, fullWidth, suffix }: {
   }
 
   return (
-    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">{label}</div>
+    <FieldRow label={label} fullWidth={fullWidth}>
       {editing ? (
         <input
           ref={inputRef}
@@ -556,7 +578,7 @@ export function InlineNumber({ label, value, onSave, fullWidth, suffix }: {
           onBlur={handleSave}
           onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') { setDraft(value?.toString() ?? ''); setEditing(false) } }}
           disabled={saving}
-          className={`w-full px-1.5 py-0.5 -ml-1.5 text-[13px] font-mono border border-brand-400 rounded outline-none bg-brand-50/30 ${saving ? 'opacity-50' : ''}`}
+          className={`w-full sm:w-[160px] px-2 py-1 text-[13px] font-mono border border-brand-400 rounded outline-none bg-brand-50/30 ${saving ? 'opacity-50' : ''}`}
         />
       ) : (
         <div onClick={() => { setDraft(value?.toString() ?? ''); setEditing(true) }} className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]">
@@ -566,7 +588,7 @@ export function InlineNumber({ label, value, onSave, fullWidth, suffix }: {
           <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
         </div>
       )}
-    </div>
+    </FieldRow>
   )
 }
 
@@ -600,19 +622,17 @@ export function InlineCurrency({ label, value, onSave, fullWidth }: {
 
   if (alwaysEdit) {
     return (
-      <div className={`py-1.5 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-        <div className="text-[13px] font-medium text-slate-600 mb-1">{label}</div>
+      <FieldRow label={label} fullWidth={fullWidth}>
         <div className="flex items-center gap-1.5">
           <span className="text-[13px] text-gray-500">¥</span>
-          <input type="text" inputMode="numeric" value={draft} onChange={e => setDraft(e.target.value.replace(/[^0-9]/g, ''))} onBlur={() => { const parsed = draft.trim() === '' ? null : Number(draft.replace(/,/g, '')); if (parsed !== value) withToast(() => onSave(parsed)) }} className="w-full h-10 px-3 text-[13px] font-mono bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400" />
+          <input type="text" inputMode="numeric" value={draft} onChange={e => setDraft(e.target.value.replace(/[^0-9]/g, ''))} onBlur={() => { const parsed = draft.trim() === '' ? null : Number(draft.replace(/,/g, '')); if (parsed !== value) withToast(() => onSave(parsed)) }} className="w-full sm:w-[170px] h-9 px-2.5 text-[13px] font-mono bg-white border border-gray-200 rounded-md outline-none focus:border-brand-400" />
         </div>
-      </div>
+      </FieldRow>
     )
   }
 
   return (
-    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">{label}</div>
+    <FieldRow label={label} fullWidth={fullWidth}>
       {editing ? (
         <div className="flex items-center gap-1">
           <span className="text-[13px] text-gray-500">¥</span>
@@ -625,7 +645,7 @@ export function InlineCurrency({ label, value, onSave, fullWidth }: {
             onBlur={handleSave}
             onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') { setDraft(value?.toString() ?? ''); setEditing(false) } }}
             disabled={saving}
-            className={`w-full px-1.5 py-0.5 text-[13px] font-mono border border-brand-400 rounded outline-none bg-brand-50/30 ${saving ? 'opacity-50' : ''}`}
+            className={`w-full sm:w-[170px] px-2 py-1 text-[13px] font-mono border border-brand-400 rounded outline-none bg-brand-50/30 ${saving ? 'opacity-50' : ''}`}
           />
         </div>
       ) : (
@@ -636,7 +656,7 @@ export function InlineCurrency({ label, value, onSave, fullWidth }: {
           <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
         </div>
       )}
-    </div>
+    </FieldRow>
   )
 }
 
@@ -669,8 +689,7 @@ export function InlineCheckbox({ label, value, onSave, fullWidth }: {
   }
 
   return (
-    <div className={`py-1.5 border-b border-gray-50 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">{label}</div>
+    <FieldRow label={label} fullWidth={fullWidth}>
       <div className="flex items-center gap-2 min-h-[24px]">
         <button
           type="button"
@@ -685,7 +704,7 @@ export function InlineCheckbox({ label, value, onSave, fullWidth }: {
           {shown ? 'あり' : 'なし'}
         </span>
       </div>
-    </div>
+    </FieldRow>
   )
 }
 
@@ -743,8 +762,7 @@ export function InlineTextarea({ label, value, onSave, fullWidth, placeholder, h
 
   if (alwaysEdit) {
     return (
-      <div className={`py-1.5 ${fullWidth ? 'sm:col-span-2' : ''}`}>
-        {!hideLabel && <div className="text-[13px] font-medium text-slate-600 mb-1">{label}</div>}
+      <FieldRow label={label} fullWidth={fullWidth} bare={hideLabel}>
         <textarea
           value={draft}
           onChange={e => setDraft(e.target.value)}
@@ -754,13 +772,12 @@ export function InlineTextarea({ label, value, onSave, fullWidth, placeholder, h
           placeholder={placeholder}
           className="w-full px-3 py-2.5 text-[13px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400 resize-y min-h-[96px] leading-relaxed"
         />
-      </div>
+      </FieldRow>
     )
   }
 
   return (
-    <div ref={containerRef} className={`py-1.5 ${hideLabel ? '' : 'border-b border-gray-50'} ${fullWidth ? 'sm:col-span-2' : ''}`}>
-      {!hideLabel && <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">{label}</div>}
+    <FieldRow containerRef={containerRef} label={label} fullWidth={fullWidth} bare={hideLabel}>
       {editing ? (
         <div>
           <textarea
@@ -771,7 +788,7 @@ export function InlineTextarea({ label, value, onSave, fullWidth, placeholder, h
             onCompositionEnd={() => { composingRef.current = false }}
             disabled={saving}
             placeholder={placeholder}
-            className={`w-full px-1.5 py-1 -ml-1.5 text-[13px] border border-brand-400 rounded outline-none bg-brand-50/30 resize-y min-h-[140px] max-h-[60vh] overflow-y-auto leading-relaxed ${saving ? 'opacity-50' : ''}`}
+            className={`w-full px-2 py-1 text-[13px] border border-brand-400 rounded outline-none bg-brand-50/30 resize-y min-h-[140px] max-h-[60vh] overflow-y-auto leading-relaxed ${saving ? 'opacity-50' : ''}`}
           />
           <div className="text-[12px] text-gray-400 mt-0.5">Escでキャンセル / 他の場所をクリックで保存</div>
         </div>
@@ -787,7 +804,7 @@ export function InlineTextarea({ label, value, onSave, fullWidth, placeholder, h
           <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px] flex-shrink-0 mt-0.5">✏️</span>
         </div>
       )}
-    </div>
+    </FieldRow>
   )
 }
 
@@ -880,13 +897,13 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
   }
 
   return (
-    <div ref={containerRef} className="py-1.5 border-b border-gray-50">
-      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide">
-        {label}
-        {multi && maxSelect && <span className="ml-1.5 font-normal text-[11px] text-gray-400">{maxSelect}名まで（{assigned.length}/{maxSelect}）</span>}
-      </div>
+    <FieldRow
+      containerRef={containerRef}
+      label={label}
+      labelNote={multi && maxSelect ? <span className="font-normal text-[11px] text-gray-400">{maxSelect}名まで（{assigned.length}/{maxSelect}）</span> : undefined}
+    >
       {editing ? (
-        <div className="mt-1 p-2 border border-brand-400 rounded bg-brand-50/30">
+        <div className="p-2 border border-brand-400 rounded bg-brand-50/30">
           {searchable && (
             <input
               type="text"
@@ -980,7 +997,7 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
           <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
         </div>
       )}
-    </div>
+    </FieldRow>
   )
 }
 

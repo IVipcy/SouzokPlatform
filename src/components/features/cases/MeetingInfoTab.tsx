@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { applyRouteToCaseNumber } from '@/lib/caseNumber'
 import { showToast } from '@/components/ui/Toast'
 import {
-  Section, FieldGrid, Field, InlineEdit, InlineSelect,
+  Section, FieldGrid, FieldRow, Field, InlineEdit, InlineSelect,
   InlineDate, InlineMemberSelect, InlineTextarea,
 } from '@/components/ui/InlineFields'
 import ReferralSourceLookup from './ReferralSourceLookup'
@@ -131,7 +131,7 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
           <InlineSelect label="面談結果（ステータス）" value={caseData.status} options={getSelectableCaseStatuses(!!caseData.order_sheet_completed_at, caseData.status, managerAssigned, initialTasksDone, contractProcDone)} optionLabel={getCaseStatusLabel} onSave={v => saveCaseField('status', v)} />
           <InlineSelect label="手続内容（受注区分）" value={caseData.service_category} options={[...ORDER_CATEGORIES]} onSave={v => selectCategory(v)} />
           {caseData.service_category === KENIN_CATEGORY && (
-            <label className="col-span-2 flex items-center gap-2 cursor-pointer text-[13px] text-gray-700 py-1.5">
+            <label className="col-span-2 flex items-center gap-2 cursor-pointer text-[13px] text-gray-700 px-3 py-2.5">
               <input type="checkbox" checked={caseData.service_category_2 === KENIN_COMBO_SECONDARY} onChange={e => toggleFull(e.target.checked)} className="w-4 h-4 accent-brand-600" />
               手続き一式へ移行する（検認① → 手続き一式②）
             </label>
@@ -254,8 +254,9 @@ function ReferralDetailField({ route, value, onSave }: {
       : route === 'その他葬儀社' ? [...OTHER_FUNERAL_COMPANIES]
         : route === '税理士経由' ? [...TAX_ADVISOR_COMPANIES]
           : undefined
+  // ReferralSourceLookup が自前でラベルを出すので、項目名のマスは作らない
   return (
-    <div className="py-1.5">
+    <FieldRow bare>
       <ReferralSourceLookup
         label="紹介元"
         route={route}
@@ -263,6 +264,6 @@ function ReferralDetailField({ route, value, onSave }: {
         onChange={name => onSave(name)}
         staticOptions={staticOptions}
       />
-    </div>
+    </FieldRow>
   )
 }

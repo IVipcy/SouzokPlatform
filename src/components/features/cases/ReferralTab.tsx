@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import type { CaseRow, CaseReferralRow, TaskRow } from '@/types'
 import {
-  Section, SectionHeading, FieldGrid, InlineSelect, InlineEdit, InlineDate, InlineCurrency, InlineTextarea,
+  Section, SectionHeading, FieldGrid, FieldRow, InlineSelect, InlineEdit, InlineDate, InlineCurrency, InlineTextarea,
 } from '@/components/ui/InlineFields'
 import { REFERRAL_PARTNER_TYPES, REFERRAL_BILLING_STATUSES, REAL_ESTATE_REGISTRATION_OPTIONS, TAX_FILING_OPTIONS, REAL_ESTATE_APPRAISAL_RANKS, TAX_ADVISOR_REFERRAL_REASONS, OTHER_REFERRAL_PARTNERS, TAX_ADVISOR_COMPANIES } from '@/lib/constants'
 import TabHeader from './TabHeader'
@@ -35,16 +35,15 @@ type Props = {
 // ※ 親の中で定義すると再レンダーのたびに別部品になり、入力中にフォーカスが外れるのでモジュール直下に置く。
 function FirmNameField({ label, value, onSave }: { label: string; value: string | null; onSave: (v: string) => void }) {
   return (
-    <div className="py-1.5 border-b border-gray-50">
-      <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide mb-1">{label}</div>
+    <FieldRow label={label}>
       <SelectOrTextField
         value={value ?? null}
         options={TAX_ADVISOR_COMPANIES}
         onSave={onSave}
         placeholder="法人名を入力"
-        className="px-2.5 py-2 text-[13px] border border-gray-200 rounded-lg"
+        className="px-2.5 py-1.5 text-[13px] border border-gray-200 rounded-md"
       />
-    </div>
+    </FieldRow>
   )
 }
 

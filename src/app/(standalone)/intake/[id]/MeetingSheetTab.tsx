@@ -8,7 +8,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Sparkles, Trash2, Plus, ChevronDown, Lightbulb } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { FieldGrid, InlineEdit } from '@/components/ui/InlineFields'
+import { FieldGrid, FieldRow, InlineEdit } from '@/components/ui/InlineFields'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import InheritanceDiagramV2 from '@/components/features/cases/InheritanceDiagramV2'
 import OtherAssetsTable from '@/components/features/cases/OtherAssetsTable'
@@ -563,14 +563,12 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
             <InlineEdit label="被相続人ふりがな" value={caseData.deceased_furigana} ai={aiFilled.has('deceased_furigana')} onSave={v => { clearAi('deceased_furigana'); return patchCase({ deceased_furigana: v || null }) }} />
             {/* 生年月日・死亡日は役所申請が和暦基準のため、②面談結果登録・実務タブと同じ和暦入力に統一。
                 DBには従来どおり西暦ISOで保存する。 */}
-            <div className="py-1.5">
-              <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide mb-1">被相続人生年月日</div>
+            <FieldRow label="被相続人生年月日">
               <BirthdayPicker value={caseData.deceased_birth_date} onChange={v => { clearAi('deceased_birth_date'); patchCase({ deceased_birth_date: v || null }) }} />
-            </div>
-            <div className="py-1.5">
-              <div className="text-[12.5px] font-semibold text-gray-500 tracking-wide mb-1">相続開始日（死亡日）</div>
+            </FieldRow>
+            <FieldRow label="相続開始日（死亡日）">
               <BirthdayPicker value={caseData.date_of_death} onChange={v => { clearAi('date_of_death'); patchCase({ date_of_death: v || null }) }} />
-            </div>
+            </FieldRow>
             <InlineEdit label="被相続人住所" value={caseData.deceased_address} ai={aiFilled.has('deceased_address')} onSave={v => { clearAi('deceased_address'); return patchCase({ deceased_address: v || null }) }} fullWidth />
             <InlineEdit label="被相続人本籍" value={caseData.deceased_registered_address} ai={aiFilled.has('deceased_registered_address')} onSave={v => { clearAi('deceased_registered_address'); return patchCase({ deceased_registered_address: v || null }) }} fullWidth />
           </FieldGrid>
