@@ -10,7 +10,6 @@
 import { useEffect, useState } from 'react'
 import { Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import TaskKeywordNudge from '@/components/features/tasks/TaskKeywordNudge'
 import { gyomuForCategories, GYOMU_ALL } from '@/lib/serviceMaster'
 import { partsForCase, activePartKeys } from '@/lib/serviceParts'
 import { isHiddenForAssistant } from '@/lib/assistantTaskTabs'
@@ -153,7 +152,6 @@ export default function NewTaskFields({ caseId, value, onChange, readySlot, defa
           placeholder="例：相続人へ電話連絡、督促 など"
           className={inp}
         />
-        <TaskKeywordNudge title={value.title} caseId={caseId} />
       </div>
 
       {/* 作業内容 */}

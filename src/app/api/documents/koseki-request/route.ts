@@ -168,13 +168,9 @@ function markTypes(ws: ExcelJS.Worksheet, addr: string, selected: Set<string>) {
   if (text === cur) return
   cell.value = text
 
-  // 【】のぶん文字が伸びる。セル幅は固定なので、収まるように縮める。
-  // 結合セルでは shrinkToFit が効かないことがあるため、伸びた量に応じてフォントも落とす。
-  const grew = text.length - cur.length
-  const base = cell.font?.size ?? 11
-  const size = grew >= 8 ? Math.max(8, base - 2) : grew >= 4 ? Math.max(9, base - 1) : base
+  // 【】のぶん文字が伸びるが、フォントは落とさない（他の欄より小さくなって読めなくなるため）。
+  // 幅に収める必要があるときは Excel の「縮小して全体を表示」に任せる。
   cell.alignment = { ...(cell.alignment ?? {}), shrinkToFit: true }
-  cell.font = { ...(cell.font ?? {}), size }
 }
 
 export async function POST(request: NextRequest) {

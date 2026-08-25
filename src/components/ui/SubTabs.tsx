@@ -1,39 +1,40 @@
 'use client'
 
-// タブ内の子タブ。白い帯に並べ、選択中は青文字＋下線で示す。
+// タブ内の子タブ。丸い土台に丸いボタンを並べ、選択中を薄い青で塗る。
 //
-// 以前はグレーの土台に、選択中だけ青の塗りつぶしだった。
-// 案件の色（アラートの色）がページに敷かれるので土台のグレーが濁り、
-// 選んでいない側が地の色に沈んで「ただの文字」に見えていた。
-// 財産調査のようにタブが9枚並ぶ画面でとくに読みづらかったため、下線に変えた。
+// もとはタスク一覧の「業務／その他」の切り替えで使っていた形。
+// 選んでいない側もボタンの形が見えて押せると分かり、
+// 選択中の塗りが濃すぎないので、9枚並ぶ財産調査でも文字の壁にならない。
+// 相続人調査・財産調査・タスク区分など、タブ内の子タブはこれで統一する。
 export function SubTabs({ tabs, active, onChange, className = '' }: {
-  tabs: { key: string; label: string }[]
+  tabs: { key: string; label: string; count?: number }[]
   active: string
   onChange: (key: string) => void
   className?: string
 }) {
   return (
-    <div className={`bg-white border border-gray-200 rounded-lg px-1.5 ${className}`}>
-      <div className="flex flex-wrap items-end gap-0.5">
-        {tabs.map(t => {
-          const on = active === t.key
-          return (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => onChange(t.key)}
-              aria-current={on ? 'page' : undefined}
-              className={`px-3 py-2 text-[13px] rounded-t-[3px] transition-colors ${
-                on
-                  ? 'font-semibold text-brand-700 shadow-[inset_0_-2px_0_var(--color-brand-600)]'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-            >
-              {t.label}
-            </button>
-          )
-        })}
-      </div>
+    <div className={`inline-flex flex-wrap gap-1 bg-gray-50 border border-gray-200 rounded-full p-1 ${className}`}>
+      {tabs.map(t => {
+        const on = active === t.key
+        return (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => onChange(t.key)}
+            aria-current={on ? 'page' : undefined}
+            className={`px-3.5 py-1.5 rounded-full text-[13px] transition-colors whitespace-nowrap ${
+              on
+                ? 'bg-brand-100 text-brand-800 font-semibold'
+                : 'text-gray-500 hover:text-gray-800 hover:bg-white'
+            }`}
+          >
+            {t.label}
+            {t.count != null && t.count > 0 && (
+              <span className={`ml-1 text-[11px] font-mono ${on ? 'opacity-70' : 'opacity-60'}`}>{t.count}</span>
+            )}
+          </button>
+        )
+      })}
     </div>
   )
 }

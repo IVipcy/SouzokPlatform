@@ -209,7 +209,6 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
 
         <div className={(orderSheetMode ? (kindOn('realestate') ? 'space-y-4' : 'hidden') : (sub === 'realestate' ? 'space-y-4' : 'hidden'))}>
           {/* オーダーシート分割表示中は 親OSSection の作業内容欄が上部にあるため、二重表示回避のため 非orderSheetMode のときだけ表示 */}
-          {!orderSheetMode && <WorkContentField caseData={caseData} gyomu="assets_re" patchCase={patchCase} label="作業内容・関連情報（不動産／面談シートと共有）" collapsible />}
           {orderSheetMode ? (
             // オーダーシート（調査前）＝どこに物件があるかのヒアリングまで。所在地を入力（市区町村は自動抽出）。
             // 確実に分かるのは「想定物件＋所在地」と「その市区町村で名寄帳・評価証明が要るか」まで。
@@ -237,7 +236,6 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
           )}
         </div>
         <div className={(orderSheetMode ? (kindOn('deposit') ? 'space-y-3' : 'hidden') : (sub === 'deposit' ? 'space-y-3' : 'hidden'))}>
-          {!orderSheetMode && <WorkContentField caseData={caseData} gyomu="assets_deposit" patchCase={patchCase} label="作業内容・関連情報（預金／面談シートと共有）" collapsible />}
           {orderSheetMode ? (
             <>
               <SectionHeading title="預金口座（金融機関名を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
@@ -248,7 +246,6 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
           )}
         </div>
         <div className={showSecurities ? 'space-y-3' : 'hidden'}>
-          {!orderSheetMode && <WorkContentField caseData={caseData} gyomu="assets_securities" patchCase={patchCase} label="作業内容・関連情報（証券／面談シートと共有）" collapsible />}
           {orderSheetMode ? (
             <>
               <SectionHeading title="証券口座（証券会社名を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
@@ -259,7 +256,6 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
           )}
         </div>
         <div className={showTrust ? 'space-y-3' : 'hidden'}>
-          {!orderSheetMode && <WorkContentField caseData={caseData} gyomu="assets_trust" patchCase={patchCase} label="作業内容・関連情報（信託／面談シートと共有）" collapsible />}
           {orderSheetMode ? (
             <>
               <SectionHeading title="信託口座（信託銀行名を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
@@ -270,7 +266,6 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
           )}
         </div>
         <div className={showInsurance ? 'space-y-3' : 'hidden'}>
-          {!orderSheetMode && <WorkContentField caseData={caseData} gyomu="assets_insurance" patchCase={patchCase} label="作業内容・関連情報（生命保険／面談シートと共有）" collapsible />}
           {orderSheetMode && <SectionHeading title="生命保険" className="mb-2.5 pb-1.5 border-b border-gray-200" />}
           {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="asset_insurance" title="進捗/結果（生命保険）" />}
           <FieldGrid>
@@ -283,9 +278,6 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
             オーダーシートは項目・金額だけ（面談中に根拠資料まで詰めるのは現実的でないため）。 */}
         {OTHER_ASSET_KINDS.map(k => (
           <div key={k.kind} className={showOther(k.kind) ? 'space-y-3' : 'hidden'}>
-            {!orderSheetMode && (
-              <WorkContentField caseData={caseData} gyomu={`assets_other_${k.kind}`} patchCase={patchCase} label={`作業内容・関連情報（${k.kind}／面談シートと共有）`} collapsible />
-            )}
             <SectionHeading title={k.kind} hint={k.hint} className="mb-2.5 pb-1.5 border-b border-gray-200" />
             {isNegativeKind(k.kind) && (
               <p className="text-[11.5px] text-gray-600 bg-gray-50 border border-gray-200 rounded px-2.5 py-1.5">
