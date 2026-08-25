@@ -176,26 +176,30 @@ export function MemoCarryOver({ memos }: { memos: MeetingMemoRow[] }) {
 }
 
 // ── メモ欄＝セクションのフリー作業欄(work_content)。タイピング/手書き切替。 ──
-function MemoField({ caseData, patchCase, section, memos, setMemos, onExtract }: {
+function MemoField({ caseData, patchCase, section, memoKey, memoLabel, memos, setMemos, onExtract }: {
   caseData: CaseRow; patchCase: (p: Partial<CaseRow>) => Promise<void>; section: string
+  /** テキストの保存先キー。省略時は section。財産まわりは 'assets' に寄せて1つのメモを共有する */
+  memoKey?: string
+  memoLabel?: string
   memos: MeetingMemoRow[]; setMemos: React.Dispatch<React.SetStateAction<MeetingMemoRow[]>>
   onExtract?: (src: { image?: string; text?: string }) => Promise<void>
 }) {
   const wc = (caseData.work_content ?? {}) as Record<string, string>
-  const [draft, setDraft] = useState(wc[section] ?? '')
+  const key = memoKey ?? section
+  const [draft, setDraft] = useState(wc[key] ?? '')
   const [extractingText, setExtractingText] = useState(false)
   const secMemos = memos.filter(m => m.section === section)
 
-  const saveText = (v: string) => patchCase({ work_content: { ...wc, [section]: v || null } } as Partial<CaseRow>)
+  const saveText = (v: string) => patchCase({ work_content: { ...wc, [key]: v || null } } as Partial<CaseRow>)
   const delImg = async (m: MeetingMemoRow) => { const supabase = createClient(); if (m.image_path) await supabase.storage.from(m.image_bucket || BUCKET).remove([m.image_path]); await supabase.from('meeting_memos').delete().eq('id', m.id); setMemos(prev => prev.filter(x => x.id !== m.id)) }
 
   return (
     <div className="rounded-lg border border-gray-200 bg-[#FBFCFE] p-2.5 mb-3">
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-[11px] text-gray-500">メモ（＝このセクションのフリー作業欄・OS/実務と共有）</span>
+        <span className="text-[11px] text-gray-500">{memoLabel ?? 'メモ（＝このセクションのフリー作業欄・OS/実務と共有）'}</span>
       </div>
       {/* 項目モードはタイピング専用。手書きは「白紙モード」に一本化した（原本が2か所に散らばるのを防ぐ）。 */}
-      <textarea data-handwriting-tool value={draft} onChange={e => setDraft(e.target.value)} onBlur={() => { if (draft !== (wc[section] ?? '')) saveText(draft) }} rows={4} placeholder="ここに入力（オーダーシート/実務タブのフリー欄に反映されます）" className="w-full text-[14px] leading-relaxed border border-gray-200 rounded-lg px-3 py-2.5 bg-white focus:outline-none focus:border-brand-400 resize-y" />
+      <textarea data-handwriting-tool value={draft} onChange={e => setDraft(e.target.value)} onBlur={() => { if (draft !== (wc[key] ?? '')) saveText(draft) }} rows={4} placeholder="ここに入力（オーダーシート/実務タブのフリー欄に反映されます）" className="w-full text-[14px] leading-relaxed border border-gray-200 rounded-lg px-3 py-2.5 bg-white focus:outline-none focus:border-brand-400 resize-y" />
       {/* 本文をAIで項目に反映（onExtract=このセクションのextract定義あり時のみ表示） */}
       {onExtract && (
         <div className="mt-2 flex justify-end">
@@ -501,11 +505,11 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
   const runExtract = (sec: string) => async (source: { image?: string; text?: string }) => { await runExtractRaw(sec)(source) }
 
   // セクション枠（描画関数：コンポーネント化すると再マウントで手書きが消えるため）。
-  const sec = (key: string, title: string, badge: string | null, body: React.ReactNode, extract?: (src: { image?: string; text?: string }) => Promise<void>, hideMemo?: boolean) => (
+  const sec = (key: string, title: string, badge: string | null, body: React.ReactNode, extract?: (src: { image?: string; text?: string }) => Promise<void>, hideMemo?: boolean, memo?: { key: string; label: string }) => (
     <div key={key} id={`sec-${key}`} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-2.5 bg-[#1E3A8A]"><span className="text-[14px] font-bold text-white flex-1">{title}</span>{badge && <span className="text-[10px] text-white bg-white/22 rounded-full px-1.5 py-0.5">{badge}</span>}</div>
       <div className="p-4">
-        {!hideMemo && <MemoField caseData={caseData} patchCase={patchCase} section={key} memos={memos} setMemos={setMemos} onExtract={extract} />}
+        {!hideMemo && <MemoField caseData={caseData} patchCase={patchCase} section={key} memoKey={memo?.key} memoLabel={memo?.label} memos={memos} setMemos={setMemos} onExtract={extract} />}
         {body}
       </div>
     </div>
@@ -594,17 +598,17 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
 
       {sec('assets_re', '財産調査（不動産）', '常時表示', (
         <REMini caseId={caseData.id} properties={properties} onRefresh={onRefresh} ensureCaseId={ensureCaseId} />
-      ), runExtract('assets_re'))}
+      ), runExtract('assets_re'), false, { key: 'assets', label: '財産のメモ（不動産・預金・証券などで共通。OS/実務の財産調査に反映されます）' })}
 
       {sec('assets_deposit', '財産調査（預金）', '常時表示', (
         <FinMini caseId={caseData.id} kind="預貯金" addLabel="口座を追加" assets={financialAssets} onRefresh={onRefresh} ensureCaseId={ensureCaseId} cols={[{ key: 'institution_name', label: '金融機関名' }, { key: 'branch_name', label: '支店' }, { key: 'account_number', label: '口座番号' }, { key: 'balance_amount', label: '残高（評価額）', money: true }]} />
-      ), runExtract('assets_deposit'))}
+      ), runExtract('assets_deposit'), false, { key: 'assets', label: '財産のメモ（不動産・預金・証券などで共通。OS/実務の財産調査に反映されます）' })}
 
       {OPTIONAL_FIN.filter(f => extraFin.has(f.kind)).map(f => (
         <div key={f.kind}>
           {sec(f.section, `財産調査（${f.label}）`, '任意', (
             <FinMini caseId={caseData.id} kind={f.kind} addLabel={`${f.label}を追加`} assets={financialAssets} onRefresh={onRefresh} ensureCaseId={ensureCaseId} cols={f.cols} />
-          ), runExtract(f.section))}
+          ), runExtract(f.section), false, { key: 'assets', label: '財産のメモ（不動産・預金・証券などで共通。OS/実務の財産調査に反映されます）' })}
         </div>
       ))}
 

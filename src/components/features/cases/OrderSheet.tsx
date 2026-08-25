@@ -165,7 +165,7 @@ export default function OrderSheet({
   const showSec = (gate?: TabKey) => !gate || ALWAYS_SEC.has(gate) || !allowedTabs || allowedTabs.has(gate)
 
   // workContentKey: 上部フリー欄(WorkContentField)の保存先キー。省略時は gate ?? title
-  //   財産調査（不動産）→ assets_re、財産調査（金融資産）→ assets_deposit（面談シートのキーと揃える）
+  //   財産まわりは不動産・金融・その他をまとめて assets の1欄で共有する（面談シート・実務タブと同じキー）
   // 相続債務・その他費用は既定で出さない（発生する案件が少ないため）。
   // 中身があるか、「＋ ◯◯を追加」を押したときだけセクションとして現れる。
   const ALWAYS_OTHER_KIND = 'その他財産'
@@ -182,19 +182,19 @@ export default function OrderSheet({
     // 財産調査は「不動産 → 金融資産 → その他財産 → 相続債務 → その他費用」の順に並べる。
     // 合計だけのページは作らない（1枚使うほどの中身が無いため）。最初の財産ページの先頭に1つ置く。
     // その他財産・相続債務・その他費用は金融資産ではないので、金融ブロックから出して別に置く。
-    { title: '財産（不動産）', gate: 'assets', workContentKey: 'assets_re', node: (
+    { title: '財産（不動産）', gate: 'assets', workContentKey: 'assets', node: (
       <>
         <AssetsTotalBand properties={properties} financialAssets={financialAssets} otherAssets={otherAssets} />
         <div className="mt-3"><AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['realestate']} showOtherKinds={[]} hideSummary /></div>
       </>
     ) },
-    { title: '財産（金融資産）', gate: 'assets', workContentKey: 'assets_deposit', node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} otherAssets={otherAssets} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['deposit', 'securities', 'trust', 'insurance']} showOtherKinds={[]} hideSummary /> },
+    { title: '財産（金融資産）', gate: 'assets', workContentKey: 'assets', node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} otherAssets={otherAssets} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['deposit', 'securities', 'trust', 'insurance']} showOtherKinds={[]} hideSummary /> },
     // その他財産は常に出す。相続債務・その他費用はあまり発生しないので、
     // 中身があるときか「＋ 追加」を押したときだけセクションを出す。
     ...OTHER_ASSET_KINDS.filter(k => otherKindVisible(k.kind)).map(k => ({
       title: k.kind,
       gate: 'assets' as TabKey,
-      workContentKey: `assets_other_${k.kind}`,
+      workContentKey: 'assets',
       node: (
         <>
           <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} otherAssets={otherAssets} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={[]} showOtherKinds={[k.kind]} hideSummary />
