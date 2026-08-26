@@ -12,6 +12,7 @@ import { showToast } from '@/components/ui/Toast'
 import { cascadeDeleteCase } from '@/lib/caseDelete'
 import { CASE_STATUSES, getCaseStatusLabel } from '@/lib/constants'
 import ManagerNames from '@/components/ui/ManagerNames'
+import { AlertCell, type AlertChip } from '@/components/ui/AlertCell'
 
 export type ConsultCase = {
   id: string
@@ -83,15 +84,20 @@ const formatMan = (yen: number): string => {
  * - お客様回答予定日が迫っている案件を上から順に表示（デフォルト）
  * - ステータスでフィルタ可能
  */
-// 一覧の案件名に添えるアラートの小バッジ。長文で折り返して行の高さを壊さないよう、短い語＋ホバーで全文。
-function AlertChip({ tone, title, children }: { tone: 'red' | 'amber' | 'gray'; title: string; children: React.ReactNode }) {
-  const cls = tone === 'red' ? 'bg-[#FBECEA] text-[#A33E36]' : tone === 'amber' ? 'bg-[#FBF3E3] text-[#92670F]' : 'bg-[#F1F3F5] text-[#5B6470]'
-  return (
-    <span title={title} className={`inline-flex flex-none items-center gap-1 rounded-[5px] px-1.5 py-0.5 text-[10.5px] font-bold whitespace-nowrap ${cls}`}>
-      <AlertTriangle className="w-3 h-3" strokeWidth={2.25} />
-      {children}
-    </span>
-  )
+// 1行ぶんのアラートを、管理案件一覧と同じ「アラート」列の形に組み立てる。
+// この表で出るのはアサイン未完了と面談メモ未記載の2つだけ。
+function alertsOf(c: ConsultCase): AlertChip[] {
+  const out: AlertChip[] = []
+  if (c.assignOverdue) out.push({ key: 'assign', label: 'アサイン未完了', severity: 'high', title: '【重要】アサインが完了していません' })
+  if (c.meetingMemoMissing) {
+    out.push({
+      key: 'memo',
+      label: '面談メモ未記載',
+      severity: c.meetingMemoMissing === 'red' ? 'high' : c.meetingMemoMissing === 'yellow' ? 'mid' : 'info',
+      title: '【重要】面談予定日超過・面談メモ未記載',
+    })
+  }
+  return out
 }
 
 export default function ConsultationCasesTable({ cases, manageMode = false, selectable, statusFilters = CONSULT_STATUS_FILTERS }: Props) {
@@ -265,6 +271,7 @@ export default function ConsultationCasesTable({ cases, manageMode = false, sele
                 )}
                 <SortableTh label="案件管理番号"    sortKey="case_number"      currentKey={sortKey} order={sortOrder} onClick={handleSort} />
                 <SortableTh label="案件名"          sortKey="deal_name"        currentKey={sortKey} order={sortOrder} onClick={handleSort} />
+                <th className="px-3 py-2 text-left font-bold whitespace-nowrap">アラート</th>
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">送客元</th>
                 <SortableTh label="面談実施日"      sortKey="meeting_executed" currentKey={sortKey} order={sortOrder} onClick={handleSort} />
                 <SortableTh label="面談結果"        sortKey="status"           currentKey={sortKey} order={sortOrder} onClick={handleSort} />
@@ -310,18 +317,14 @@ export default function ConsultationCasesTable({ cases, manageMode = false, sele
                       <Link href={`/cases/${c.id}`} className="text-brand-600 hover:text-brand-700 hover:underline">{c.case_number}</Link>
                     </td>
                     <td className="px-3 py-2.5">
-                      {/* アラートは折り返す文章ではなく1行のバッジで出し、行の高さを揃える（全文はホバーで） */}
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <Link href={`/cases/${c.id}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate max-w-[200px]">
-                          {c.deal_name}
-                        </Link>
-                        {c.assignOverdue && <AlertChip tone="red" title="【重要】アサインが完了していません">アサイン未完了</AlertChip>}
-                        {c.meetingMemoMissing && (
-                          <AlertChip tone={c.meetingMemoMissing === 'red' ? 'red' : c.meetingMemoMissing === 'yellow' ? 'amber' : 'gray'} title="【重要】面談予定日超過・面談メモ未記載">
-                            面談メモ未記載
-                          </AlertChip>
-                        )}
-                      </div>
+                      <Link href={`/cases/${c.id}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[200px]">
+                        {c.deal_name}
+                      </Link>
+                    </td>
+                    {/* アラート。案件名の下や横に添えると行の高さと案件名の読みやすさを壊すので、
+                        管理案件一覧と同じく独立した列に1行で出す。 */}
+                    <td className="px-3 py-2.5">
+                      <AlertCell chips={alertsOf(c)} />
                     </td>
                     <td className="px-3 py-2.5 text-[12px] text-gray-600">
                       {c.order_route_detail

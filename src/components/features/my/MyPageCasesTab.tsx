@@ -4,8 +4,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Briefcase, Trash2 } from 'lucide-react'
-import { ALERT_SEVERITY_STYLE } from '@/lib/alerts'
-import { CASE_FLAG_LABEL, CASE_FLAG_BG, ALERT_SEVERITY_ORDER, type AlertSeverity } from '@/lib/alertRules'
+import { CASE_FLAG_LABEL, CASE_FLAG_BG, type AlertSeverity } from '@/lib/alertRules'
+import { AlertCell } from '@/components/ui/AlertCell'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -92,36 +92,6 @@ const FLAG_BG = CASE_FLAG_BG
 const FLAG_RANK: Record<NonNullable<CaseFlag>, number> = {
   purple: 0, red: 1, yellow: 2, blue: 3,
 }
-
-type AlertChip = { key: string; label: string; severity: AlertSeverity; href: string }
-
-// アラート列のセル。
-// 案件名の下に積むと件数ぶん行が伸びて高さがバラバラになり、案件名も埋もれる。
-// 1行に固定して、重い順（クレーム→要注意→要確認）の先頭だけ文字で見せ、残りは「＋n」。
-// 何が隠れているかはマウスを乗せれば全部出る。件数の「＋n」を押しても案件詳細へ飛ぶ。
-function AlertCell({ chips }: { chips?: AlertChip[] }) {
-  if (!chips || chips.length === 0) return <span className="text-gray-300">—</span>
-  // 元データも重い順に並んでいるが、途中で組み替えられても崩れないようここでも並べ直す
-  const sorted = [...chips].sort((a, b) => ALERT_SEVERITY_ORDER[a.severity] - ALERT_SEVERITY_ORDER[b.severity])
-  const [head, ...rest] = sorted
-  const all = sorted.map(a => `・${a.label}`).join('\n')
-  return (
-    <div className="flex items-center gap-1 min-w-0" title={chips.length > 1 ? `出ているアラート ${chips.length}件\n${all}` : undefined}>
-      <Link
-        href={head.href}
-        title="クリックで該当箇所へ"
-        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold border transition whitespace-nowrap min-w-0 ${ALERT_SEVERITY_STYLE[head.severity].chip}`}
-      >
-        <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70 flex-none" />
-        <span className="truncate">{head.label}</span>
-      </Link>
-      {rest.length > 0 && (
-        <span className="flex-none text-[11px] font-semibold text-gray-500">＋{rest.length}</span>
-      )}
-    </div>
-  )
-}
-
 
 // ステータス絞り込みタブの定義（相談案件一覧と同じ 稼働中/業務完了/納品完了 の分類）
 const STATUS_TABS = [
@@ -335,7 +305,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
             <th className="px-3 py-2 text-center font-bold whitespace-nowrap">フラグ</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件管理番号</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件名</th>
-            <th className="px-3 py-2 text-left font-bold whitespace-nowrap w-[260px]">
+            <th className="px-3 py-2 text-left font-bold whitespace-nowrap">
               <button
                 type="button"
                 onClick={() => setAlertSort(s => s === 'desc' ? 'asc' : s === 'asc' ? null : 'desc')}
@@ -400,7 +370,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
               {/* アラート。案件名の下に積むと件数ぶん行が伸びて高さがバラバラになるので、
                   独立した列に出して1行に収める。重い順に並べ、先頭だけ文字で見せて残りは「＋n」。
                   全部の中身はマウスを乗せると出る。 */}
-              <td className="px-3 py-2.5 w-[260px] max-w-[260px] overflow-hidden">
+              <td className="px-3 py-2.5">
                 <AlertCell chips={c.alertChips} />
               </td>
               <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-nowrap">{c.sales_name || <span className="text-gray-300">—</span>}</td>
