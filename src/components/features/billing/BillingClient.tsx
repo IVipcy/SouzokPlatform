@@ -167,9 +167,15 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
   const MONEY_COLS = new Set(['amount', 'advance', 'expenses', 'paid', 'refund', 'diff'])
   // 並び替えは日付・金額・超過だけに付ける（22列すべてに付けると見出しが賑やかになる）
   const SORTABLE = new Set(['caseNo', 'invoiceDate', 'dueDate', 'overdue', 'paidDate', 'amount', 'paid', 'diff'])
-  // 列幅は固定（ドラッグ可変をやめる）。日付・番号が見切れない幅を既定にする。
+  // 列幅は固定（ドラッグ可変をやめる）。
+  //
+  // 幅は「実際に入る一番長い内容 ＋ セルの左右padding(28px)」をブラウザで実測して決めた。
+  // 見た目で決めると足りず、日付や金額が「2026-08…」と切れる。
+  // このアプリのフォント（BIZ UDPゴシック）は font-mono でも等幅ではなく数字が広いので、
+  // 一般的な等幅フォントの感覚で見積もると必ず不足する。実測値は以下（13px）:
+  //   2026-08-08 = 94px / ¥12,345,678 = 98px / -¥12,345,678 = 104px / 2608SD0004 = 101px
   const colWidths = {
-    caseNo: 150, case: 190, assignee: 130, gyosei: 56, shiho: 56, type: 96, invoiceDate: 108, dueDate: 108, overdue: 72, paidDate: 108, status: 136, todo: 104, reason: 220, amount: 110, advance: 100, expenses: 100, paid: 100, refund: 100, diff: 90, pdf: 90, receipt: 90, remarks: 220,
+    caseNo: 158, case: 190, assignee: 130, gyosei: 56, shiho: 56, type: 96, invoiceDate: 126, dueDate: 126, overdue: 72, paidDate: 126, status: 144, todo: 104, reason: 220, amount: 130, advance: 130, expenses: 130, paid: 130, refund: 130, diff: 136, pdf: 150, receipt: 92, remarks: 220,
   } as const
   const HEADERS: Array<{ key: keyof typeof colWidths; label: string; align?: 'left' | 'right' }> = [
     { key: 'caseNo', label: '案件管理番号' },
