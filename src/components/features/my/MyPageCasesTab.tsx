@@ -1,15 +1,14 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Briefcase, Trash2 } from 'lucide-react'
 import { ALERT_SEVERITY_STYLE } from '@/lib/alerts'
-import { CASE_FLAG_LABEL, CASE_FLAG_BG, type AlertSeverity } from '@/lib/alertRules'
+import { CASE_FLAG_LABEL, CASE_FLAG_BG, ALERT_SEVERITY_ORDER, type AlertSeverity } from '@/lib/alertRules'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { useStickyLeftColumns } from '@/components/ui/useStickyLeftColumns'
 import { cascadeDeleteCase } from '@/lib/caseDelete'
 import { getCaseStatusLabel } from '@/lib/constants'
 import ManagerNames from '@/components/ui/ManagerNames'
@@ -94,6 +93,35 @@ const FLAG_RANK: Record<NonNullable<CaseFlag>, number> = {
   purple: 0, red: 1, yellow: 2, blue: 3,
 }
 
+type AlertChip = { key: string; label: string; severity: AlertSeverity; href: string }
+
+// アラート列のセル。
+// 案件名の下に積むと件数ぶん行が伸びて高さがバラバラになり、案件名も埋もれる。
+// 1行に固定して、重い順（クレーム→要注意→要確認）の先頭だけ文字で見せ、残りは「＋n」。
+// 何が隠れているかはマウスを乗せれば全部出る。件数の「＋n」を押しても案件詳細へ飛ぶ。
+function AlertCell({ chips }: { chips?: AlertChip[] }) {
+  if (!chips || chips.length === 0) return <span className="text-gray-300">—</span>
+  // 元データも重い順に並んでいるが、途中で組み替えられても崩れないようここでも並べ直す
+  const sorted = [...chips].sort((a, b) => ALERT_SEVERITY_ORDER[a.severity] - ALERT_SEVERITY_ORDER[b.severity])
+  const [head, ...rest] = sorted
+  const all = sorted.map(a => `・${a.label}`).join('\n')
+  return (
+    <div className="flex items-center gap-1 min-w-0" title={chips.length > 1 ? `出ているアラート ${chips.length}件\n${all}` : undefined}>
+      <Link
+        href={head.href}
+        title="クリックで該当箇所へ"
+        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold border transition whitespace-nowrap min-w-0 ${ALERT_SEVERITY_STYLE[head.severity].chip}`}
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70 flex-none" />
+        <span className="truncate">{head.label}</span>
+      </Link>
+      {rest.length > 0 && (
+        <span className="flex-none text-[11px] font-semibold text-gray-500">＋{rest.length}</span>
+      )}
+    </div>
+  )
+}
+
 
 // ステータス絞り込みタブの定義（相談案件一覧と同じ 稼働中/業務完了/納品完了 の分類）
 const STATUS_TABS = [
@@ -147,10 +175,8 @@ function RemainCell({ due, today, muted }: { due: string | null; today: string; 
 export default function MyPageCasesTab({ memberId: _memberId, cases, compact = false, selectable = false, showCompleted = false, withStatusFilter = false }: Props) {
   void _memberId
   const router = useRouter()
-  // 横スクロールしても左に残す列（チェック欄・フラグ・案件管理番号・案件名）。
-  // 案件名まで残すには、その左にある列も一緒に固定するしかない。
-  const tableRef = useRef<HTMLTableElement>(null)
-  useStickyLeftColumns(tableRef, selectable ? 4 : 3)
+  // アラート列の並べ替え（null=通常の並び / desc=多い順 / asc=少ない順）
+  const [alertSort, setAlertSort] = useState<'desc' | 'asc' | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [statusTab, setStatusTab] = useState<StatusTabKey>('active')
@@ -182,8 +208,13 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
   const visibleRows = withStatusFilter
     ? rows.filter(r => activeTabDef.match(r.status) && (!monthFilterOn || isThisMonth(r)))
     : (showCompleted ? [...rows] : rows.filter(r => r.flag !== null))
-  // ソート: 完了系ビューは案件番号順、進行中はフラグ優先度 → 完了予定日昇順
+  // ソート: 完了系ビューは案件番号順、進行中はフラグ優先度 → 完了予定日昇順。
+  // アラート列の見出しを押したときだけ、アラートの件数順に並べ替える（一番詰まっている案件を上に出す）。
   visibleRows.sort((a, b) => {
+    if (alertSort) {
+      const d = (b.alertChips?.length ?? 0) - (a.alertChips?.length ?? 0)
+      if (d !== 0) return alertSort === 'desc' ? d : -d
+    }
     if (isCompletedView) return a.case_number.localeCompare(b.case_number)
     const fa = FLAG_RANK[a.flag ?? 'blue']
     const fb = FLAG_RANK[b.flag ?? 'blue']
@@ -286,11 +317,11 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
         </div>
       )}
       <div className={`bg-white rounded-[3px] overflow-x-auto ${compact ? '' : 'border border-gray-200'}`}>
-      <table ref={tableRef} className="w-full text-[13px] table-auto">
+      <table className="w-full text-[13px] table-auto">
         <thead className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 uppercase tracking-wider">
           <tr>
             {selectable && (
-              <th data-stick="0" className="bg-gray-50 stick-col px-3 py-2 text-center font-bold w-10">
+              <th className="px-3 py-2 text-center font-bold w-10">
                 <input
                   type="checkbox"
                   checked={allSelected}
@@ -301,9 +332,19 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                 />
               </th>
             )}
-            <th data-stick={selectable ? 1 : 0} className="bg-gray-50 stick-col px-3 py-2 text-center font-bold whitespace-nowrap">フラグ</th>
-            <th data-stick={selectable ? 2 : 1} className="bg-gray-50 stick-col px-3 py-2 text-left font-bold whitespace-nowrap">案件管理番号</th>
-            <th data-stick={selectable ? 3 : 2} className="bg-gray-50 stick-col stick-col--last px-3 py-2 text-left font-bold whitespace-nowrap">案件名</th>
+            <th className="px-3 py-2 text-center font-bold whitespace-nowrap">フラグ</th>
+            <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件管理番号</th>
+            <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件名</th>
+            <th className="px-3 py-2 text-left font-bold whitespace-nowrap w-[260px]">
+              <button
+                type="button"
+                onClick={() => setAlertSort(s => s === 'desc' ? 'asc' : s === 'asc' ? null : 'desc')}
+                title={alertSort === 'desc' ? 'アラートが多い順。クリックで少ない順' : alertSort === 'asc' ? 'アラートが少ない順。クリックで元の並びに戻す' : 'クリックでアラートが多い順に並べ替え'}
+                className="inline-flex items-center gap-1 hover:text-gray-900"
+              >
+                アラート{alertSort === 'desc' ? ' ▼' : alertSort === 'asc' ? ' ▲' : ''}
+              </button>
+            </th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注担当</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">管理担当</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注内容</th>
@@ -321,7 +362,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
             /* 背景は不透明にする。左端の固定列がこの色を受け継ぐため（半透明だと下の列が透ける） */
             <tr key={c.id} className={isSelected ? 'bg-brand-50' : 'bg-white hover:bg-gray-50'}>
               {selectable && (
-                <td data-stick="0" className="stick-col px-3 py-2.5 text-center">
+                <td className="px-3 py-2.5 text-center">
                   <input
                     type="checkbox"
                     checked={isSelected}
@@ -330,7 +371,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                   />
                 </td>
               )}
-              <td data-stick={selectable ? 1 : 0} className="stick-col px-3 py-2.5 text-center">
+              <td className="px-3 py-2.5 text-center">
                 {c.flag ? (
                   <Link href={`/cases/${c.id}`} title="案件詳細を開く" className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[11.5px] font-bold whitespace-nowrap hover:brightness-95 transition ${FLAG_BG[c.flag]}`}>
                     {FLAG_LABEL[c.flag]}
@@ -341,10 +382,10 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                   </Link>
                 )}
               </td>
-              <td data-stick={selectable ? 2 : 1} className="stick-col px-3 py-2.5 font-mono text-[12px] whitespace-nowrap">
+              <td className="px-3 py-2.5 font-mono text-[12px] whitespace-nowrap">
                 <Link href={`/cases/${c.id}`} className="text-brand-600 hover:text-brand-700 hover:underline">{c.case_number}</Link>
               </td>
-              <td data-stick={selectable ? 3 : 2} className="stick-col stick-col--last px-3 py-2.5 min-w-[160px]">
+              <td className="px-3 py-2.5 min-w-[160px]">
                 <div className="flex items-center gap-1.5">
                   <Link href={`/cases/${c.id}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[240px]">
                     {c.deal_name}
@@ -355,20 +396,12 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                     </span>
                   )}
                 </div>
-                {c.alertChips && c.alertChips.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {c.alertChips.map(a => (
-                      <Link
-                        key={a.key}
-                        href={a.href}
-                        title="クリックで該当箇所へ"
-                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold border transition whitespace-nowrap ${ALERT_SEVERITY_STYLE[a.severity].chip}`}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />{a.label}
-                      </Link>
-                    ))}
-                  </div>
-                )}
+              </td>
+              {/* アラート。案件名の下に積むと件数ぶん行が伸びて高さがバラバラになるので、
+                  独立した列に出して1行に収める。重い順に並べ、先頭だけ文字で見せて残りは「＋n」。
+                  全部の中身はマウスを乗せると出る。 */}
+              <td className="px-3 py-2.5 w-[260px] max-w-[260px] overflow-hidden">
+                <AlertCell chips={c.alertChips} />
               </td>
               <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-nowrap">{c.sales_name || <span className="text-gray-300">—</span>}</td>
               {/* 管理担当 */}

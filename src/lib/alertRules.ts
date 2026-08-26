@@ -137,7 +137,7 @@ export function evaluateCaseAlerts(c: CaseAlertInput, ctx: CaseAlertContext, tod
   // 前受金の入金御礼連絡。入金を確認した日が期限で、そこから1営業日で要確認・2営業日で要注意。
   // 「お礼の電話が遅れる」のは目に見えて印象が悪いので、他のタスクより早く鳴らす。
   if (ctx.prepayThanksOverdue) {
-    out.push({ key: 'prepay_thanks', category: '前受金入金御礼 未連絡', severity: ctx.prepayThanksOverdue, audience: 'both',
+    out.push({ key: 'prepay_thanks', category: '入金御礼 未連絡', severity: ctx.prepayThanksOverdue, audience: 'both',
       reason: ctx.prepayThanksOverdue === 'high'
         ? `前受金の入金御礼連絡が${ALERT_DAYS.prepayThanksHigh}営業日たっても終わっていません`
         : `前受金の入金御礼連絡が${ALERT_DAYS.prepayThanksMid}営業日たっても終わっていません`,
@@ -163,13 +163,13 @@ export function evaluateCaseAlerts(c: CaseAlertInput, ctx: CaseAlertContext, tod
 
   if (prep && orderDay && orderDays != null) {
     if (ctx.managerExists === false && !c.manager_assign_skipped && orderDays >= ALERT_DAYS.managerUnassign) {
-      out.push({ key: 'manager_unassigned', category: '管理担当 未アサイン', severity: 'high', audience: 'sales',
+      out.push({ key: 'manager_unassigned', category: '管理担当 未割振', severity: 'high', audience: 'sales',
         since: orderDay, days: orderDays,
         reason: `受注から${ALERT_DAYS.managerUnassign}営業日を過ぎても管理担当が決まっていません`, tab: 'assignees' })
     }
     if (!c.order_sheet_completed_at && orderDays >= ALERT_DAYS.orderSheetMid) {
       const high = orderDays >= ALERT_DAYS.orderSheetHigh
-      out.push({ key: 'ordersheet_incomplete', category: 'オーダーシート未完成', severity: high ? 'high' : 'mid', audience: 'sales',
+      out.push({ key: 'ordersheet_incomplete', category: 'オーダーシート 未完成', severity: high ? 'high' : 'mid', audience: 'sales',
         since: orderDay, days: orderDays,
         reason: `受注から${high ? ALERT_DAYS.orderSheetHigh : ALERT_DAYS.orderSheetMid}営業日を過ぎてもオーダーシートが完成していません`, tab: 'orderSheet' })
     }
@@ -185,7 +185,7 @@ export function evaluateCaseAlerts(c: CaseAlertInput, ctx: CaseAlertContext, tod
     const since = dayOf(ctx.advanceInvoiceCreatedAt)
     const days = since ? bizDaysOverdue(since, todayStr) : null
     if (days == null || days >= ALERT_DAYS.advanceSend) {
-      out.push({ key: 'advance_unsent', category: '前受金 郵送・入金待ち', severity: 'mid', audience: 'manager',
+      out.push({ key: 'advance_unsent', category: '前受金 入金待ち', severity: 'mid', audience: 'manager',
         since, days: days ?? undefined,
         reason: `前受金の請求書を作ってから${ALERT_DAYS.advanceSend}営業日を過ぎています。郵送して入金待ちにしてください`, href: '/billing' })
     }

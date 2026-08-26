@@ -346,11 +346,12 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
         <div className="mb-3 rounded-lg border border-brand-200 bg-brand-50 p-3 flex items-start gap-2 flex-wrap">
           <Split className="w-4 h-4 text-brand-700 mt-0.5 flex-none" />
           <div className="flex-1 min-w-0 text-[12.5px] text-brand-800">
-            <span className="font-semibold">粗い「戸籍請求」タスクがあります。</span>
-            現在の役所（{requests.length}件）ごとに、請求・読込タスクへ展開できます（元の粗いタスクは消えます）。
+            <span className="font-semibold">「戸籍請求」タスクが1件にまとまったままです。</span>
+            タスクを作ったときに請求先（役所）が未入力だったため、役所ごとに分かれていません。
+            いま登録されている請求先{requests.length}件ぶんの「戸籍請求」「戸籍読込」タスクに分けられます（まとまっていた1件は消えます）。
           </div>
           <button type="button" onClick={expandCoarseKoseki} disabled={expanding} className="flex-none inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-[12px] font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-50">
-            <Split className="w-3.5 h-3.5" />{expanding ? '展開中…' : '役所ごとに展開'}
+            <Split className="w-3.5 h-3.5" />{expanding ? '分けています…' : '請求先ごとに分ける'}
           </button>
         </div>
       )}
