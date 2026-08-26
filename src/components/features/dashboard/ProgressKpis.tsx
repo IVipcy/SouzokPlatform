@@ -32,14 +32,14 @@ export default function ProgressKpis({ scopeLabel, metrics }: Props) {
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2.5">
         {KPIS.map(k => {
           const toneCls =
-            k.tone === 'red'    ? 'border-[#F5842A] bg-[#F5842A]/10'
-            : k.tone === 'yellow' ? 'border-[#F7B733] bg-[#F7B733]/10'
+            k.tone === 'red'    ? 'border-[#DC2626] bg-[#DC2626]/10'
+            : k.tone === 'yellow' ? 'border-[#EAB308] bg-[#EAB308]/10'
             : k.tone === 'blue'   ? 'border-brand-300 bg-brand-50/40'
             : k.tone === 'purple' ? 'border-purple-300 bg-purple-50/50'
             : k.tone === 'amber'  ? 'border-amber-400 bg-amber-50'
             : 'border-gray-300'
           const valueColor =
-            k.tone === 'red' ? 'text-[#D96A16]'
+            k.tone === 'red' ? 'text-[#DC2626]'
             : k.tone === 'yellow' ? 'text-[#B98410]'
             : k.tone === 'blue' ? 'text-brand-700'
             : k.tone === 'purple' ? 'text-purple-700'

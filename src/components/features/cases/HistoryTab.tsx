@@ -459,7 +459,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
                         <span className="text-[12px] font-mono text-gray-600">{cr.requested_date}</span>
                         {/* 確認中にしても超過は止まらない。放置が見えるようマイページの表と同じバッジを出す */}
                         {sev && (
-                          <span className={`ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10.5px] font-bold ${sev === 'chui' ? 'bg-[#F5842A] text-white' : 'bg-[#F7B733] text-white'}`}>
+                          <span className={`ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10.5px] font-bold ${sev === 'chui' ? 'bg-[#DC2626] text-white' : 'bg-[#EAB308] text-white'}`}>
                             {over}営業日超過
                           </span>
                         )}

@@ -123,7 +123,7 @@ export default function HourenSouTable({ rows, mode, title, note, todayStr }: Pr
                     <td className="px-3 py-2.5 whitespace-nowrap">
                       <span className="text-[12px] font-mono text-gray-600">{r.requestedDate ?? '—'}</span>
                       {sev && (
-                        <span className={`ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10.5px] font-bold ${sev === 'chui' ? 'bg-[#F5842A] text-white' : 'bg-[#F7B733] text-white'}`}>
+                        <span className={`ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10.5px] font-bold ${sev === 'chui' ? 'bg-[#DC2626] text-white' : 'bg-[#EAB308] text-white'}`}>
                           {over}営業日超過
                         </span>
                       )}
