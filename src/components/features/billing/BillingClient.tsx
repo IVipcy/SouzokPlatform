@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Banknote, ClipboardList, Hourglass, CheckCircle2, AlertCircle, AlertTriangle, Undo2, Upload, Receipt, FileSpreadsheet, Wallet, X, type LucideIcon } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
+import { useStickyLeftColumns } from '@/components/ui/useStickyLeftColumns'
 import { createClient } from '@/lib/supabase/client'
 import { notifyPaymentConfirmed } from '@/lib/paymentNotify'
 import { ensurePrepaymentThankYouTask } from '@/lib/prepaymentThankYouTask'
@@ -177,6 +178,11 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
   const colWidths = {
     caseNo: 158, case: 190, assignee: 130, gyosei: 56, shiho: 56, type: 96, invoiceDate: 126, dueDate: 126, overdue: 72, paidDate: 126, status: 144, todo: 104, reason: 220, amount: 130, advance: 130, expenses: 130, paid: 130, refund: 130, diff: 136, pdf: 150, receipt: 92, remarks: 220,
   } as const
+  // 横スクロールしても左に残す列の数（チェック欄・案件管理番号・案件名）
+  const STICK_COUNT = 3
+  const tableRef = useRef<HTMLTableElement>(null)
+  useStickyLeftColumns(tableRef, STICK_COUNT)
+
   const HEADERS: Array<{ key: keyof typeof colWidths; label: string; align?: 'left' | 'right' }> = [
     { key: 'caseNo', label: '案件管理番号' },
     { key: 'case', label: '案件名' },
@@ -841,7 +847,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
             <h2 className="text-[13px] font-semibold text-brand-900">請求・入金一覧</h2>
             <span className="text-[13px] text-gray-400 font-mono bg-gray-50 px-2 py-0.5 rounded">{filtered.length}件</span>
           </div>
-          <table className="list-table list-table--tall border-collapse" style={{ tableLayout: 'fixed', width: 36 + HEADERS.reduce((sum, h) => sum + colWidths[h.key], 0) }}>
+          <table ref={tableRef} className="list-table list-table--tall border-collapse" style={{ tableLayout: 'fixed', width: 36 + HEADERS.reduce((sum, h) => sum + colWidths[h.key], 0) }}>
             <colgroup>
               <col style={{ width: 36 }} />
               {HEADERS.map(h => (
@@ -850,7 +856,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
             </colgroup>
             <thead>
               <tr>
-                <th className="bg-brand-50/60 border-b border-brand-100 px-2 py-2">
+                <th data-stick="0" className="stick-col bg-brand-50 border-b border-brand-100 px-2 py-2">
                   {/* 全選択（発行済の行のみが対象、未請求は別チェック用） */}
                   {(() => {
                     const issuableIds = filtered.filter(inv => inv.status !== '未請求').map(inv => inv.id)
@@ -868,10 +874,11 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                     )
                   })()}
                 </th>
-                {HEADERS.map(h => (
+                {HEADERS.map((h, hi) => (
                   <th
                     key={h.key as string}
-                    className={`relative border-b border-brand-100 px-3.5 py-2 text-[11px] font-bold text-brand-700 tracking-[0.04em] ${h.align === 'right' ? 'text-right' : 'text-left'} ${MONEY_COLS.has(h.key as string) ? 'bg-brand-100/50' : 'bg-brand-50/60'}`}
+                    data-stick={hi < STICK_COUNT - 1 ? hi + 1 : undefined}
+                    className={`relative border-b border-brand-100 px-3.5 py-2 text-[11px] font-bold text-brand-700 tracking-[0.04em] ${h.align === 'right' ? 'text-right' : 'text-left'} ${MONEY_COLS.has(h.key as string) ? 'bg-brand-100/50' : 'bg-brand-50'} ${hi < STICK_COUNT - 1 ? `stick-col ${hi === STICK_COUNT - 2 ? 'stick-col--last' : ''}` : ''}`}
                   >
                     {SORTABLE.has(h.key as string) ? (
                       <button type="button" onClick={() => toggleSort(h.key as string)}
@@ -921,15 +928,17 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                       ref={isLinkTarget ? highlightRowRef : undefined}
                       onClick={() => setSelectedId(inv.id === selectedId ? null : inv.id)}
                       title="クリックで入金消込・依頼などの操作を開く"
+                      /* 背景は不透明にする。左端の固定列がこの色を受け継ぐので、
+                         半透明だと下を流れていく列が透けて見えてしまう。 */
                       className={`border-b border-gray-100 last:border-b-0 transition cursor-pointer ${
-                        isLinkTarget ? 'bg-amber-50/70 ring-2 ring-inset ring-amber-300' :
-                        isBulkSelected ? 'bg-brand-50/60' :
-                        isChecked ? 'bg-brand-50/80' :
-                        selectedId === inv.id ? 'bg-brand-50/40' :
-                        'hover:bg-gray-50/50'
+                        isLinkTarget ? 'bg-amber-50 ring-2 ring-inset ring-amber-300' :
+                        isChecked ? 'bg-brand-100' :
+                        isBulkSelected ? 'bg-brand-50' :
+                        selectedId === inv.id ? 'bg-brand-50' :
+                        'bg-white hover:bg-gray-50'
                       }`}
                     >
-                      <td className="px-2 py-2.5 text-center" onClick={e => e.stopPropagation()}>
+                      <td data-stick="0" className="stick-col px-2 py-2.5 text-center" onClick={e => e.stopPropagation()}>
                         {isUnissued ? (
                           <input
                             type="checkbox"
@@ -948,8 +957,8 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                           />
                         )}
                       </td>
-                      {/* 案件番号（左に契約形態色／クリックで案件詳細へ） */}
-                      <td className="px-3.5 py-2.5 overflow-hidden">
+                      {/* 案件番号（左に契約形態色／クリックで案件詳細へ）。左端に固定する列 */}
+                      <td data-stick="1" className="stick-col px-3.5 py-2.5 overflow-hidden">
                         <div className="flex items-center gap-2">
                           <span className={`inline-flex items-center justify-center w-4 h-4 rounded text-[9px] font-bold text-white flex-shrink-0 ${cdot.cls}`} title={inv.cases?.contract_type ?? '契約形態未設定'}>{cdot.label}</span>
                           {inv.cases?.id ? (
@@ -959,8 +968,8 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                           )}
                         </div>
                       </td>
-                      {/* 案件名（被相続人） */}
-                      <td className="px-3.5 py-2.5 overflow-hidden">
+                      {/* 案件名（被相続人）。左端に固定する列の右端 */}
+                      <td data-stick="2" className="stick-col stick-col--last px-3.5 py-2.5 overflow-hidden">
                         {inv.cases?.id ? (
                           <Link href={`/cases/${inv.cases.id}`} onClick={e => e.stopPropagation()} className="block group min-w-0">
                             <div className="text-[13px] font-semibold text-gray-900 truncate group-hover:text-brand-700 group-hover:underline">{caseName}</div>

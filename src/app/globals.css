@@ -121,6 +121,36 @@ input.input-naked:focus {
   background-image: linear-gradient(rgba(15, 23, 42, 0.035), rgba(15, 23, 42, 0.035));
 }
 
+/* ─── 一覧の左端を固定する（横スクロールしても案件番号・案件名が残る）───
+   left の値は useStickyLeftColumns が実測して入れる。ここでは貼り付け方だけ決める。
+
+   背景は行から受け継ぐ（inherit）。白で塗りつぶすと、行の色分けや選択中の色が
+   固定した列だけ消えてしまうため。受け継ぐ以上、tr 側の背景は必ず不透明にすること
+   （半透明だと、下を流れていく列がそのまま透けて見える）。 */
+.stick-col {
+  position: sticky;
+  z-index: 1;
+}
+/* 背景を受け継ぐのは本文だけ。見出しは thead が透明なので、
+   受け継がせると透けてしまう（見出しのセル自身が持つ色をそのまま使う）。 */
+tbody .stick-col {
+  background-color: inherit;
+}
+thead .stick-col {
+  /* 見出しは本文セルより手前。縦にも固定している表で本文が上に重ならないように */
+  z-index: 3;
+}
+/* 固定した列の右端に線を引いて、ここから先が動く列だと分かるようにする */
+.stick-col--last::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  background-color: #cbd5e1;
+}
+
 /* ─── 表の行区切り線を全画面で統一して濃く ───
    tr の border 色（border-b / divide-y 由来）を slate-300 相当にそろえる。
    ヘッダ帯の下線も同色になり、表ごとの線の濃さのばらつきが消える。 */

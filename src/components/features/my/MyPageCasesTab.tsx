@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Briefcase, Trash2 } from 'lucide-react'
@@ -9,6 +9,7 @@ import { CASE_FLAG_LABEL, CASE_FLAG_BG, type AlertSeverity } from '@/lib/alertRu
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { useStickyLeftColumns } from '@/components/ui/useStickyLeftColumns'
 import { cascadeDeleteCase } from '@/lib/caseDelete'
 import { getCaseStatusLabel } from '@/lib/constants'
 import ManagerNames from '@/components/ui/ManagerNames'
@@ -146,6 +147,10 @@ function RemainCell({ due, today, muted }: { due: string | null; today: string; 
 export default function MyPageCasesTab({ memberId: _memberId, cases, compact = false, selectable = false, showCompleted = false, withStatusFilter = false }: Props) {
   void _memberId
   const router = useRouter()
+  // 横スクロールしても左に残す列（チェック欄・フラグ・案件管理番号・案件名）。
+  // 案件名まで残すには、その左にある列も一緒に固定するしかない。
+  const tableRef = useRef<HTMLTableElement>(null)
+  useStickyLeftColumns(tableRef, selectable ? 4 : 3)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [statusTab, setStatusTab] = useState<StatusTabKey>('active')
@@ -281,11 +286,11 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
         </div>
       )}
       <div className={`bg-white rounded-xl overflow-x-auto ${compact ? '' : 'border border-gray-200 shadow-sm'}`}>
-      <table className="w-full text-[13px] table-auto">
+      <table ref={tableRef} className="w-full text-[13px] table-auto">
         <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 uppercase tracking-wider">
           <tr>
             {selectable && (
-              <th className="px-3 py-2 text-center font-bold w-10">
+              <th data-stick="0" className="bg-brand-50 stick-col px-3 py-2 text-center font-bold w-10">
                 <input
                   type="checkbox"
                   checked={allSelected}
@@ -296,9 +301,9 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                 />
               </th>
             )}
-            <th className="px-3 py-2 text-center font-bold whitespace-nowrap">フラグ</th>
-            <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件管理番号</th>
-            <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件名</th>
+            <th data-stick={selectable ? 1 : 0} className="bg-brand-50 stick-col px-3 py-2 text-center font-bold whitespace-nowrap">フラグ</th>
+            <th data-stick={selectable ? 2 : 1} className="bg-brand-50 stick-col px-3 py-2 text-left font-bold whitespace-nowrap">案件管理番号</th>
+            <th data-stick={selectable ? 3 : 2} className="bg-brand-50 stick-col stick-col--last px-3 py-2 text-left font-bold whitespace-nowrap">案件名</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注担当</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">管理担当</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注内容</th>
@@ -313,9 +318,10 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
             const weekly = c.weeklyStatus ?? '未対応'
             const isSelected = selected.has(c.id)
             return (
-            <tr key={c.id} className={`hover:bg-gray-50/60 ${isSelected ? 'bg-brand-50/50' : ''}`}>
+            /* 背景は不透明にする。左端の固定列がこの色を受け継ぐため（半透明だと下の列が透ける） */
+            <tr key={c.id} className={isSelected ? 'bg-brand-50' : 'bg-white hover:bg-gray-50'}>
               {selectable && (
-                <td className="px-3 py-2.5 text-center">
+                <td data-stick="0" className="stick-col px-3 py-2.5 text-center">
                   <input
                     type="checkbox"
                     checked={isSelected}
@@ -324,7 +330,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                   />
                 </td>
               )}
-              <td className="px-3 py-2.5 text-center">
+              <td data-stick={selectable ? 1 : 0} className="stick-col px-3 py-2.5 text-center">
                 {c.flag ? (
                   <Link href={`/cases/${c.id}`} title="案件詳細を開く" className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[11.5px] font-bold whitespace-nowrap hover:brightness-95 transition ${FLAG_BG[c.flag]}`}>
                     {FLAG_LABEL[c.flag]}
@@ -335,10 +341,10 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                   </Link>
                 )}
               </td>
-              <td className="px-3 py-2.5 font-mono text-[12px] whitespace-nowrap">
+              <td data-stick={selectable ? 2 : 1} className="stick-col px-3 py-2.5 font-mono text-[12px] whitespace-nowrap">
                 <Link href={`/cases/${c.id}`} className="text-brand-600 hover:text-brand-700 hover:underline">{c.case_number}</Link>
               </td>
-              <td className="px-3 py-2.5 min-w-[160px]">
+              <td data-stick={selectable ? 3 : 2} className="stick-col stick-col--last px-3 py-2.5 min-w-[160px]">
                 <div className="flex items-center gap-1.5">
                   <Link href={`/cases/${c.id}`} className="text-[13px] font-semibold text-gray-800 hover:text-brand-600 hover:underline truncate block max-w-[240px]">
                     {c.deal_name}
