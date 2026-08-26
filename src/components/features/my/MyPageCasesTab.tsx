@@ -285,12 +285,12 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
           <button type="button" onClick={() => setSelected(new Set())} className="text-[12px] text-gray-400 hover:text-gray-600 px-1">解除</button>
         </div>
       )}
-      <div className={`bg-white rounded-xl overflow-x-auto ${compact ? '' : 'border border-gray-200 shadow-sm'}`}>
+      <div className={`bg-white rounded-[3px] overflow-x-auto ${compact ? '' : 'border border-gray-200'}`}>
       <table ref={tableRef} className="w-full text-[13px] table-auto">
-        <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 uppercase tracking-wider">
+        <thead className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 uppercase tracking-wider">
           <tr>
             {selectable && (
-              <th data-stick="0" className="bg-brand-50 stick-col px-3 py-2 text-center font-bold w-10">
+              <th data-stick="0" className="bg-gray-50 stick-col px-3 py-2 text-center font-bold w-10">
                 <input
                   type="checkbox"
                   checked={allSelected}
@@ -301,9 +301,9 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                 />
               </th>
             )}
-            <th data-stick={selectable ? 1 : 0} className="bg-brand-50 stick-col px-3 py-2 text-center font-bold whitespace-nowrap">フラグ</th>
-            <th data-stick={selectable ? 2 : 1} className="bg-brand-50 stick-col px-3 py-2 text-left font-bold whitespace-nowrap">案件管理番号</th>
-            <th data-stick={selectable ? 3 : 2} className="bg-brand-50 stick-col stick-col--last px-3 py-2 text-left font-bold whitespace-nowrap">案件名</th>
+            <th data-stick={selectable ? 1 : 0} className="bg-gray-50 stick-col px-3 py-2 text-center font-bold whitespace-nowrap">フラグ</th>
+            <th data-stick={selectable ? 2 : 1} className="bg-gray-50 stick-col px-3 py-2 text-left font-bold whitespace-nowrap">案件管理番号</th>
+            <th data-stick={selectable ? 3 : 2} className="bg-gray-50 stick-col stick-col--last px-3 py-2 text-left font-bold whitespace-nowrap">案件名</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注担当</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">管理担当</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注内容</th>

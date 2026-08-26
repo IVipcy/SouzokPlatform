@@ -842,7 +842,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
       ) : (
       <fieldset disabled={readOnly} className="min-w-0 border-0 p-0 m-0">
         {/* Table */}
-        <div className="bg-white border border-gray-200 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-x-auto">
+        <div className="bg-white border border-gray-200 rounded-[3px] overflow-x-auto">
           <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2.5">
             <h2 className="text-[13px] font-semibold text-brand-900">請求・入金一覧</h2>
             <span className="text-[13px] text-gray-400 font-mono bg-gray-50 px-2 py-0.5 rounded">{filtered.length}件</span>
@@ -856,7 +856,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
             </colgroup>
             <thead>
               <tr>
-                <th data-stick="0" className="stick-col bg-brand-50 border-b border-brand-100 px-2 py-2">
+                <th data-stick="0" className="stick-col bg-gray-50 border-b border-gray-300 px-2 py-2">
                   {/* 全選択（発行済の行のみが対象、未請求は別チェック用） */}
                   {(() => {
                     const issuableIds = filtered.filter(inv => inv.status !== '未請求').map(inv => inv.id)
@@ -878,12 +878,12 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                   <th
                     key={h.key as string}
                     data-stick={hi < STICK_COUNT - 1 ? hi + 1 : undefined}
-                    className={`relative border-b border-brand-100 px-3.5 py-2 text-[11px] font-bold text-brand-700 tracking-[0.04em] ${h.align === 'right' ? 'text-right' : 'text-left'} ${MONEY_COLS.has(h.key as string) ? 'bg-brand-100/50' : 'bg-brand-50'} ${hi < STICK_COUNT - 1 ? `stick-col ${hi === STICK_COUNT - 2 ? 'stick-col--last' : ''}` : ''}`}
+                    className={`relative border-b border-gray-300 px-3.5 py-2 text-[11px] font-bold text-gray-600 tracking-[0.04em] ${h.align === 'right' ? 'text-right' : 'text-left'} ${MONEY_COLS.has(h.key as string) ? 'bg-gray-100' : 'bg-gray-50'} ${hi < STICK_COUNT - 1 ? `stick-col ${hi === STICK_COUNT - 2 ? 'stick-col--last' : ''}` : ''}`}
                   >
                     {SORTABLE.has(h.key as string) ? (
                       <button type="button" onClick={() => toggleSort(h.key as string)}
                         title={sortKey === h.key ? (sortOrder === 'asc' ? '昇順で並び替え中。クリックで降順' : '降順で並び替え中。クリックで昇順') : 'クリックで並び替え'}
-                        className={`inline-flex items-center gap-0.5 hover:text-brand-800 transition-colors ${h.align === 'right' ? 'flex-row-reverse' : ''} ${sortKey === h.key ? 'text-brand-800' : ''}`}>
+                        className={`inline-flex items-center gap-0.5 hover:text-gray-900 transition-colors ${h.align === 'right' ? 'flex-row-reverse' : ''} ${sortKey === h.key ? 'text-gray-900' : ''}`}>
                         {h.label}
                         {sortKey === h.key
                           ? (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3" strokeWidth={2.5} /> : <ArrowDown className="w-3 h-3" strokeWidth={2.5} />)
