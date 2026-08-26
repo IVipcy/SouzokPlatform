@@ -949,7 +949,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
                         <th className="px-2.5 py-1.5 text-left font-semibold text-gray-600">期日</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-gray-200">
                       {completionBlocked.missing.map(m => (
                         <tr key={m.id}>
                           <td className="px-2.5 py-1.5 text-gray-800">{m.typeLabel}</td>

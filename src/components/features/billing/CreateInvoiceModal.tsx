@@ -431,7 +431,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
                 読み込み中…
               </div>
             ) : (
-              <div className="divide-y divide-gray-100">
+              <div className="divide-y divide-gray-200">
                 {/* 金額（種別で意味が変わる：前受金額 / 報酬） */}
                 <div className="px-3 py-2.5 flex items-center gap-2 bg-white">
                   <span className="text-[13px] font-medium text-gray-700 flex-1">{isAdvance ? '前受金額' : '報酬（確定売上）'}</span>

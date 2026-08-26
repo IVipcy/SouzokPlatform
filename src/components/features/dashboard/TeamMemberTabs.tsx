@@ -318,7 +318,7 @@ function AddMemberPicker({
             {query ? '該当するメンバーはいません' : '追加可能なメンバーはいません'}
           </div>
         ) : (
-          <ul className="divide-y divide-gray-100">
+          <ul className="divide-y divide-gray-200">
             {filtered.map(c => {
               const isBusy = busyId === c.id
               return (

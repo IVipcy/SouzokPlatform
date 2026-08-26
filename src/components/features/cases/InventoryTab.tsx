@@ -114,7 +114,7 @@ export default function InventoryTab({ caseId, financialAssets, properties, othe
                     <th className={`${TH} w-40`}>根拠資料</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-gray-200">
                   {sec.rows.length === 0 ? (
                     <tr><td colSpan={sec.headers.length + 4} className="px-3 py-5 text-center text-[12px] text-gray-400">この区分の登録はありません</td></tr>
                   ) : sec.rows.map((r, i) => (
@@ -203,7 +203,7 @@ export default function InventoryTab({ caseId, financialAssets, properties, othe
                   <th className={`${TH} w-36 text-right`}>法定相続分</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-200">
                 {takers.map(h => (
                   <tr key={h.id}>
                     <td className="px-2.5 py-1.5 text-gray-800">{h.name || '（氏名未入力）'}</td>

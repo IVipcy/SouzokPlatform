@@ -66,7 +66,7 @@ export default function CreatedDocsList({ documents, onRefresh }: Props) {
                 <th className="px-3 py-2 w-10" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-200">
               {documents.map(d => (
                 <tr key={d.id} className="hover:bg-gray-50/60">
                   <td className="px-3 py-2.5 text-[13px] text-gray-800">{d.name}</td>

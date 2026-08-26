@@ -1181,7 +1181,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
                     <th className="px-3 py-2 w-32" />
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-gray-200">
                   {salesComplaintRows.map(r => {
                     const sevCls = r.severity === '大クレーム' ? 'bg-red-600 text-white font-semibold'
                       : r.severity === 'クレーム' ? 'bg-red-100 text-red-800 border border-red-300 font-semibold'

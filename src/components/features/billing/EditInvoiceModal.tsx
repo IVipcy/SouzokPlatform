@@ -159,7 +159,7 @@ export default function EditInvoiceModal({ isOpen, onClose, invoice, onSaved }: 
           <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 text-[12px] font-semibold text-gray-700">
             {isAdvance ? '前受金' : '請求内訳'}
           </div>
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-gray-200">
             {/* 金額（前受金額 / 報酬） */}
             <div className="px-3 py-2 flex items-center gap-2 bg-white">
               <span className="text-[13px] font-medium text-gray-700 flex-1">{isAdvance ? '前受金額' : '報酬（確定売上）'}</span>

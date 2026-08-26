@@ -346,7 +346,7 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
                   <th className="px-3 py-2 text-center font-medium w-52">操作</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-200">
                 {shownRows.map((r, i) => {
                   const editing = editingName[r.key] ?? null
                   const shownName = editing !== null ? editing : (r.displayName ?? r.name)
@@ -594,7 +594,7 @@ function InkanClientsModal({ row, heirs, onClose, onSave, saving }: {
           {all.length === 0 ? (
             <div className="text-center py-6 text-[12px] text-gray-400">相続人が登録されていません（相続人調査タブで登録してください）</div>
           ) : (
-            <div className="max-h-64 overflow-y-auto rounded-lg border border-gray-200 divide-y divide-gray-100">
+            <div className="max-h-64 overflow-y-auto rounded-lg border border-gray-200 divide-y divide-gray-200">
               {all.map(name => {
                 const isExtra = extras.includes(name)
                 return (

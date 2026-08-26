@@ -88,7 +88,7 @@ export default function OfficeManagerDashboard({ mode = 'start', rows, currentMe
                   {!isFiling && <th className={`${TH} text-center w-28`}>着手</th>}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-200">
                 {rows.map(r => {
                   const canStart = r.advancePaid && r.filingStatus === '済'
                   return (

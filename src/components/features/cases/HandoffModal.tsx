@@ -72,7 +72,7 @@ export default function HandoffModal({ isOpen, onClose, caseId, salesMemberId, a
           {targets.length === 0 ? (
             <div className="px-3 py-4 text-center text-[12px] text-gray-400">管理担当が登録されていません。</div>
           ) : (
-            <div className="max-h-[240px] overflow-y-auto divide-y divide-gray-100">
+            <div className="max-h-[240px] overflow-y-auto divide-y divide-gray-200">
               {targets.map(m => (
                 <div key={m.id} className="flex items-center gap-2.5 px-3 py-2">
                   <span className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[12px] font-bold flex-shrink-0" style={{ backgroundColor: m.avatar_color }}>{m.name[0]}</span>

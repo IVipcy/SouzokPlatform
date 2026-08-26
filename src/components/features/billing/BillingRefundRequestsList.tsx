@@ -45,7 +45,7 @@ export default function BillingRefundRequestsList({ refundReqs, refundEntries, c
         <button type="button" onClick={() => setTab('request')} className={`text-[11px] px-3 py-1 rounded-full ${tab === 'request' ? 'bg-rose-600 text-white font-semibold' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}>返金依頼 {refundReqs.length}</button>
         <button type="button" onClick={() => setTab('done')} className={`text-[11px] px-3 py-1 rounded-full ${tab === 'done' ? 'bg-gray-700 text-white font-semibold' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}>返金済 {refundEntries.length}</button>
       </div>
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-gray-200">
         {tab === 'request' ? (
           refundReqs.length === 0 ? <div className="px-3 py-8 text-center text-[13px] text-gray-400">返金依頼はありません</div>
           : refundReqs.map(req => {

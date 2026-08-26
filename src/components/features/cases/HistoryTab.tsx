@@ -368,7 +368,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
                   <th className="px-3 py-2 w-28 text-right font-medium">操作</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-200">
                 {progressReports.map(pr => {
                   const confirmer = allMembers.find(m => m.id === pr.confirmer_id)
                   const isRequester = !!currentMemberId && pr.requester_id === currentMemberId
@@ -440,7 +440,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
                   <th className="px-3 py-2 w-48 text-right font-medium">操作</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-200">
                 {caseReports.map(cr => {
                   const confirmer = allMembers.find(m => m.id === cr.confirmer_id)
                   const isRequester = !!currentMemberId && cr.requester_id === currentMemberId

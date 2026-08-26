@@ -69,7 +69,7 @@ export default function ReferralCasesTable({ cases, selectable = false }: { case
                 <th className="px-3 py-2 text-left font-bold">最終更新日</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-200">
               {cases.map(c => {
                 const procedures = (c.procedure_type ?? []).filter(Boolean)
                 const isSelected = sel.selected.has(c.id)

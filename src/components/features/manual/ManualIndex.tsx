@@ -78,7 +78,7 @@ export default function ManualIndex({ items, categoryOrder }: { items: ManualInd
                 <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
                 <h2 className="text-[13px] font-bold text-gray-900">{cat}</h2>
               </div>
-              <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
+              <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-200">
                 {arts.map(a => (
                   <Link key={a.slug} href={`/manual/${a.slug}`} className="flex items-center gap-3 px-4 py-3 hover:bg-brand-50/40 transition-colors group">
                     <BookOpen className="w-4 h-4 text-gray-300 group-hover:text-brand-500 flex-shrink-0" strokeWidth={2} />

@@ -212,7 +212,7 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
                 <th className="px-3 py-2 text-left font-bold">最終更新日</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-200">
               {cases.map(c => {
                 const statusDef = CASE_STATUSES.find(s => s.key === c.status)
                 const flag = contractFlag(c.contract_type)

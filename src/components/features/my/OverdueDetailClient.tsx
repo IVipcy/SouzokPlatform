@@ -74,7 +74,7 @@ export default function OverdueDetailClient({ bills, cases, caseAlerts = [], sev
           {caseAlerts.length === 0 ? (
             <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-[13px] text-gray-400">該当なし</div>
           ) : (
-            <div className="bg-white border border-gray-200 rounded-xl divide-y divide-gray-100 overflow-hidden">
+            <div className="bg-white border border-gray-200 rounded-xl divide-y divide-gray-200 overflow-hidden">
               {caseAlerts.map(a => (
                 <div key={a.caseId + a.category} className="flex items-start gap-3 px-4 py-3">
                   <span className={`flex-none mt-0.5 inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold border ${a.severity === 'chui' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>{a.category}</span>
@@ -115,7 +115,7 @@ export default function OverdueDetailClient({ bills, cases, caseAlerts = [], sev
                       <th className="px-3 py-2 text-center font-bold whitespace-nowrap"></th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-gray-200">
                     {bills.map(b => (
                       <tr key={b.id} className="hover:bg-gray-50/50">
                         <td className="px-3 py-2.5 font-medium text-gray-800">{b.caseName || '—'}</td>
@@ -160,7 +160,7 @@ export default function OverdueDetailClient({ bills, cases, caseAlerts = [], sev
                       <th className="px-3 py-2 text-left font-bold whitespace-nowrap w-24">重要度</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-gray-200">
                     {flatTasks.map(t => (
                       <tr key={t.id} className="hover:bg-gray-50/50">
                         <td className="px-3 py-2.5 font-mono text-[12px] whitespace-nowrap">

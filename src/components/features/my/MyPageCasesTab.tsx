@@ -316,7 +316,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">最終更新日</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-gray-200">
           {visibleRows.map(c => {
             const weekly = c.weeklyStatus ?? '未対応'
             const isSelected = selected.has(c.id)

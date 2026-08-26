@@ -215,7 +215,7 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, default
           {rows.length === 0 ? (
             <p className="text-[12px] text-gray-400 border border-dashed border-gray-200 rounded px-3 py-3 text-center">この士業の立替実費はありません（請求タブで入力してください）</p>
           ) : (
-            <div className="border border-gray-200 rounded-lg divide-y divide-gray-50">
+            <div className="border border-gray-200 rounded-lg divide-y divide-gray-200">
               {rows.map(row => (
                 <div key={row.id} className="flex items-center gap-2 px-3 py-1.5 text-[12.5px]">
                   <span className="flex-1 text-gray-700 truncate">{row.name || '（名目未設定）'}</span>

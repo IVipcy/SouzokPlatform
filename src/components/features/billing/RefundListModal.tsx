@@ -34,7 +34,7 @@ export default function RefundListModal({ isOpen, onClose, entries, periodLabel 
         {entries.length === 0 ? (
           <div className="py-8 text-center text-[13px] text-gray-400">この期間の返金はありません。</div>
         ) : (
-          <div className="border border-gray-200 rounded-lg overflow-hidden divide-y divide-gray-100">
+          <div className="border border-gray-200 rounded-lg overflow-hidden divide-y divide-gray-200">
             {entries.map(e => (
               <div key={e.id} className="px-3 py-2.5 grid grid-cols-[auto_1fr_auto] gap-3 items-center">
                 <span className="text-[12px] font-mono text-gray-400 w-16">{e.date?.slice(5) || '—'}</span>

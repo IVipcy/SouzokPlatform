@@ -473,7 +473,7 @@ export default function TaskCandidatePanel({ caseId, intakeRoles, serviceCategor
                         <span className="text-sm font-semibold text-gray-900 flex-1">{group.gyomu}</span>
                         <span className="text-xs text-gray-400">未追加 {rest.length} / {group.items.length}</span>
                       </div>
-                      <div className="divide-y divide-gray-50">
+                      <div className="divide-y divide-gray-200">
                         {group.items.map(c => {
                           const done = isGenerated(c)
                           return (

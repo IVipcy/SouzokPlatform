@@ -4,10 +4,11 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import {
-  Section, FieldGrid, Field, InlineEdit, InlineSelect,
+  Section, FieldGrid, FieldRow, Field, InlineEdit, InlineSelect,
 } from '@/components/ui/InlineFields'
+import SelectChip from '@/components/ui/SelectChip'
 import Button from '@/components/ui/Button'
-import { Plus, Trash2, Pencil, RotateCcw, ClipboardCheck, Check, MessageSquare } from 'lucide-react'
+import { Plus, Trash2, Pencil, RotateCcw, ClipboardCheck, MessageSquare } from 'lucide-react'
 import { MAILING_DESTINATIONS, CLIENT_TRAIT_OPTIONS } from '@/lib/constants'
 import CaseClientsTable from './CaseClientsTable'
 import AddTaskModal from './AddTaskModal'
@@ -123,9 +124,8 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
 
       {/* 3. 依頼者特徴（常に展開） */}
       <Section title="依頼者特徴">
-        <div className="space-y-3">
-          <div>
-            <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1.5">特徴（複数選択可）</div>
+        <FieldGrid cols={1}>
+          <FieldRow label="特徴" labelNote={<span className="text-[10.5px] font-normal text-gray-400">（複数選択可）</span>}>
             <div className="flex flex-wrap items-center gap-2">
               {(() => {
                 // 依頼者特徴は複数選択（カンマ区切りで client_trait に保存）。
@@ -139,20 +139,7 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
                     {CLIENT_TRAIT_OPTIONS.map(label => {
                       const active = traits.includes(label)
                       return (
-                        <button
-                          key={label}
-                          type="button"
-                          onClick={() => toggle(label)}
-                          className={`inline-flex shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-full border text-[13px] whitespace-nowrap transition-all ${
-                            active
-                              ? 'bg-brand-50 border-brand-300 text-brand-700 font-semibold ring-2 ring-brand-200'
-                              : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
-                          }`}
-                          title={active ? `${label}（クリックで解除）` : label}
-                        >
-                          {active && <Check className="w-3.5 h-3.5" strokeWidth={2.5} />}
-                          <span>{label}</span>
-                        </button>
+                        <SelectChip key={label} on={active} onClick={() => toggle(label)} title={active ? `${label}（クリックで解除）` : label}>{label}</SelectChip>
                       )
                     })}
                     {traits.length > 0 && (
@@ -162,14 +149,17 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
                 )
               })()}
             </div>
-          </div>
-          <TextAreaField
-            label="依頼者特徴詳細"
-            value={caseData.client_trait_detail ?? ''}
-            placeholder="例：この人はこういう性格だから、連絡はまめに取った方がいい。"
-            onSave={v => saveCaseField('client_trait_detail', v || null)}
-          />
-        </div>
+          </FieldRow>
+          <FieldRow label="特徴詳細">
+            <TextAreaField
+              bare
+              label="依頼者特徴詳細"
+              value={caseData.client_trait_detail ?? ''}
+              placeholder="例：この人はこういう性格だから、連絡はまめに取った方がいい。"
+              onSave={v => saveCaseField('client_trait_detail', v || null)}
+            />
+          </FieldRow>
+        </FieldGrid>
       </Section>
 
     </div>
@@ -191,12 +181,14 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
 }
 
 // ============ TextArea Field (inline-editable textarea) ============
-function TextAreaField({ label, value, placeholder, onSave, disabled }: {
+function TextAreaField({ label, value, placeholder, onSave, disabled, bare }: {
   label: string
   value: string
   placeholder?: string
   onSave: (value: string) => Promise<void>
   disabled?: boolean
+  /** FieldRow の中に置くとき、自前のラベル行を出さない */
+  bare?: boolean
 }) {
   const [draft, setDraft] = useState(value)
   const [editing, setEditing] = useState(false)
@@ -218,7 +210,7 @@ function TextAreaField({ label, value, placeholder, onSave, disabled }: {
 
   return (
     <div>
-      <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1">{label}</div>
+      {!bare && <div className="text-[12px] font-semibold text-gray-400 tracking-wide mb-1">{label}</div>}
       <textarea
         value={draft}
         onChange={e => setDraft(e.target.value)}

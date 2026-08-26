@@ -161,7 +161,7 @@ export default function MonthlyMeetingsTable({ cases, title = '当月面談一�
                 <th className="px-3 py-2 text-left font-bold">検討中・失注理由</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-200">
               {sorted.map(c => {
                 const statusDef = CASE_STATUSES.find(s => s.key === c.status)
                 const dueOverdue = !!(c.client_response_due_date && c.client_response_due_date < today && c.status === '検討中')

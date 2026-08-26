@@ -94,7 +94,7 @@ export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
     }>
       <form onSubmit={handleSubmit} className="relative">
         {error && <div className="bg-red-50 border border-red-200 text-red-700 text-[13px] rounded-lg p-2.5 mb-2">{error}</div>}
-        <div className="divide-y divide-gray-100 border border-gray-200 rounded-lg overflow-hidden">
+        <div className="divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
           <Row label="紹介元" required hint="自動で入ります。手入力もできます">
             <input value={form.referrer} onChange={e => set('referrer', e.target.value)} placeholder="例: お仏壇のはせがわ" className={inp} />
           </Row>

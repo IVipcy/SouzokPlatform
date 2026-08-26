@@ -199,7 +199,7 @@ export default function ComplaintsTab({ caseData, currentMemberId: serverMemberI
                   <th className="px-3 py-2 w-28" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-200">
                 {rows.map(r => {
                   const isRequester = !!currentMemberId && r.requester_id === currentMemberId
                   const canConfirm = r.status === '依頼中' && !!currentMemberId && !isRequester

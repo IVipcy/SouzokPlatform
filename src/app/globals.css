@@ -93,6 +93,13 @@ textarea:disabled {
   color: #9ca3af;
 }
 
+/* ─── 表の行区切り線を全画面で統一して濃く ───
+   tr の border 色（border-b / divide-y 由来）を slate-300 相当にそろえる。
+   ヘッダ帯の下線も同色になり、表ごとの線の濃さのばらつきが消える。 */
+table :where(tr) {
+  border-color: #cbd5e1;
+}
+
 /* Tailwind v4 はボタン既定カーソルが default になったため、
    操作可能なコントロールに指カーソルを復活させる（アプリ全体）。 */
 button:not(:disabled),

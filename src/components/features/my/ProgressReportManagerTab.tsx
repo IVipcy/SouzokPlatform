@@ -166,7 +166,7 @@ export default function ProgressReportManagerTab({ rows, currentMemberId }: Prop
                 <th className="px-3 py-2 w-24" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-200">
               {filtered.map(row => {
                 const isUnrequested = row.status === '未対応'
                 const isBusy = busy === row.case_id

@@ -130,7 +130,7 @@ export default function EnvelopeDocumentModal({ isOpen, onClose, caseData, defau
               相続人も依頼者住所も未登録です。相続人調査タブ or 依頼者タブで登録してください。
             </div>
           ) : (
-            <div className="rounded-lg border border-gray-200 divide-y divide-gray-100 max-h-56 overflow-y-auto">
+            <div className="rounded-lg border border-gray-200 divide-y divide-gray-200 max-h-56 overflow-y-auto">
               {options.map(opt => (
                 <label key={opt.id} className={`flex items-start gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer ${currentId === opt.id ? 'bg-brand-50/60' : ''}`}>
                   <input type="radio" name="envrcpt" checked={currentId === opt.id} onChange={() => { setSelectedId(opt.id); setManualPostal('') }} className="mt-1 w-4 h-4 accent-brand-600" />

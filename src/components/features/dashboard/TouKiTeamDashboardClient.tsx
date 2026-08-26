@@ -98,7 +98,7 @@ export default function TouKiTeamDashboardClient({ tasks: initialTasks, currentM
                   <th className="px-3 py-2 w-32" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-200">
                 {visible.map(t => {
                   const s = normalizeTaskStatus(t.status)
                   const caseInfo = t.cases as { id: string; case_number: string; deal_name: string; status: string } | undefined

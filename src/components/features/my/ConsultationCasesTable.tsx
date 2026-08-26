@@ -272,7 +272,7 @@ export default function ConsultationCasesTable({ cases, manageMode = false, sele
                 <th className="px-3 py-2 text-left font-bold whitespace-nowrap">最終更新日</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-200">
               {sorted.map(c => {
                 const statusDef = CASE_STATUSES.find(s => s.key === c.status)
                 // お客様の回答待ち（検討中／検討中（契約書待ち）／面談設定済）のときだけ残り日数・超過を出す。

@@ -197,7 +197,7 @@ export default function NextTaskSelector({ currentTask, direction = 'next', cand
               )}
             </div>
           ) : (
-            <ul className="divide-y divide-gray-100">
+            <ul className="divide-y divide-gray-200">
               {linkedTasks.map(t => {
                 const isBusy = busyId === t.id
                 return (
@@ -249,7 +249,7 @@ export default function NextTaskSelector({ currentTask, direction = 'next', cand
           {/* 操作エリア */}
           <div className="border-t border-gray-100">
             {mode === 'idle' && (
-              <div className="grid grid-cols-2 gap-0 divide-x divide-gray-100">
+              <div className="grid grid-cols-2 gap-0 divide-x divide-gray-200">
                 <button
                   type="button"
                   onClick={() => setMode('picker')}
@@ -354,7 +354,7 @@ function ExistingTaskPicker({
             {query ? '該当するタスクはありません' : '候補のタスクはありません'}
           </div>
         ) : (
-          <ul className="divide-y divide-gray-100">
+          <ul className="divide-y divide-gray-200">
             {filtered.map(t => {
               const isBusy = busyId === t.id
               return (

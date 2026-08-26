@@ -70,7 +70,8 @@ export function WorkContentField({ caseData, gyomu, patchCase, label = '作業�
       <div className="flex flex-col gap-1">
         <button type="button" onClick={() => setOpen(o => !o)} className="flex items-center gap-1.5 text-left">
           <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={2.25} />
-          <span className="text-[12px] font-medium text-slate-500">{label}</span>
+          <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-[1px]" />
+          <span className="text-[12.5px] font-semibold text-brand-800 tracking-[0.02em]">{label}</span>
           {!open && stored && <span className="text-[11px] text-slate-400 truncate max-w-[50%]">：{stored}</span>}
           {!open && !stored && <span className="text-[11px] text-slate-300">（未記入）</span>}
         </button>
@@ -81,7 +82,10 @@ export function WorkContentField({ caseData, gyomu, patchCase, label = '作業�
 
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[12px] font-medium text-slate-500">{label}</span>
+      <span className="flex items-center gap-2">
+        <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-[1px]" />
+        <span className="text-[12.5px] font-semibold text-brand-800 tracking-[0.02em]">{label}</span>
+      </span>
       {textarea}
     </div>
   )

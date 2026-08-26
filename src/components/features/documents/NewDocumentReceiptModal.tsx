@@ -423,7 +423,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
                   className="w-full pl-9 pr-3 py-2 text-[13px] border border-gray-300 rounded-lg focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
                 />
               </div>
-              <div className="mt-1.5 max-h-48 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
+              <div className="mt-1.5 max-h-48 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-200">
                 {filteredCases.length === 0 ? (
                   <div className="px-3 py-3 text-[12px] text-gray-400">該当する案件がありません</div>
                 ) : (

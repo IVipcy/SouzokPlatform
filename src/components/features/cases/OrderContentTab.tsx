@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { Section, FieldGrid, FieldRow, InlineSelect, InlineDate } from '@/components/ui/InlineFields'
+import SelectChip from '@/components/ui/SelectChip'
 import { CONTRACT_TYPES, DIFFICULTY_LEVELS, DIFFICULTY_REASONS } from '@/lib/constants'
 import {
   REFERRAL_ONLY_CATEGORY,
@@ -12,7 +13,6 @@ import {
 import { partsForCase, activePartKeys, partRank, buildParts, type ServicePart } from '@/lib/serviceParts'
 import { DEFAULT_ROLES, type RoleRow } from './ProcedureIntakeSection'
 import TabHeader from './TabHeader'
-import HintNote from '@/components/ui/HintNote'
 import { WorkContentField } from './WorkContentField'
 import type { CaseRow } from '@/types'
 
@@ -129,112 +129,81 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
             <WorkContentField caseData={caseData} gyomu="order" patchCase={patchCase} label="受注内容（提案内容）／面談シートと共有" />
           </div>
         )}
-        {/* 受注内容（提案内容）（3行・複数選択） */}
+        {/* 受注内容（提案内容）・実施業務・その他業務：他の項目と同じ「項目名＝左｜内容＝右」の表形式。
+            チップは SelectChip（未選択＝薄グレー面／選択＝青塗り＋✓）で全画面統一。 */}
         <div className="mb-4">
-          <div className="text-[13px] text-gray-600 mb-1.5">受注内容（提案内容）（複数選択できます）</div>
-          <div className="space-y-1.5">
-            {ORDER_CATEGORY_ROWS.map((row, ri) => (
-              <div key={ri} className="flex flex-wrap gap-2">
-                {row.map(o => {
+          <FieldGrid cols={1}>
+            <FieldRow label="受注内容（提案内容）" labelNote={<span className="text-[10.5px] font-normal text-gray-400">（複数選択可）</span>}>
+              <div className="flex flex-wrap gap-2">
+                {ORDER_CATEGORY_ROWS.flat().map(o => {
                   const on = selectedKeys.includes(o)
                   return (
-                    <button
-                      key={o}
-                      type="button"
-                      onClick={() => setCategories(on ? selectedKeys.filter(x => x !== o) : [...selectedKeys, o])}
-                      className={`px-4 py-2 rounded-full border-[1.5px] text-[13px] font-medium transition select-none ${on ? 'bg-brand-700 border-brand-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'}`}
-                    >
-                      {o}
-                    </button>
+                    <SelectChip key={o} on={on} onClick={() => setCategories(on ? selectedKeys.filter(x => x !== o) : [...selectedKeys, o])}>{o}</SelectChip>
                   )
                 })}
               </div>
-            ))}
-          </div>
-          {selectedKeys.length > 1 && (
-            <p className="mt-2 text-[12px] text-gray-500">選んだ仕事は同時に進めます。あとから足したり外したりもできます。</p>
-          )}
-        </div>
-
-        {/* 実施業務（受注区分に依存せず全表示・初期未選択） */}
-        <div className="mb-4">
-          <div className="text-[13px] text-gray-600 mb-1.5">実施業務</div>
-          <HintNote className="mb-2">実施する予定の作業を選択してください。</HintNote>
-          {isReferralOnly ? (
-            <p className="text-[12px] text-gray-400">「紹介のみ」の場合、自社でやる相続手続きはありません。紹介先は「他事業者紹介」タブに書いてください。</p>
-          ) : (
-            <div className="space-y-2">
-              {GYOMU_SELECTOR_ROWS.map((row, ri) => (
-                <div key={ri} className="flex flex-wrap gap-2">
-                  {row.map(item => {
+              {selectedKeys.length > 1 && (
+                <p className="text-[12px] text-gray-500">選んだ仕事は同時に進めます。あとから足したり外したりもできます。</p>
+              )}
+            </FieldRow>
+            <FieldRow label="実施業務" labelNote={<span className="text-[10.5px] font-normal text-gray-400">（複数選択可）</span>} hint="実施する予定の作業を選択してください。選んだ業務だけ実務タブ・記入欄が出ます。">
+              {isReferralOnly ? (
+                <p className="text-[12px] text-gray-400">「紹介のみ」の場合、自社でやる相続手続きはありません。紹介先は「他事業者紹介」タブに書いてください。</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {GYOMU_SELECTOR_ROWS.flat().map(item => {
                     const on = item.gyomus.every(g => selectedGyomu.includes(g))
                     return (
-                      <button
-                        key={item.label}
-                        type="button"
-                        onClick={() => toggleSelector(item)}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[12.5px] font-medium transition ${on ? 'bg-brand-50 border-brand-300 text-brand-700' : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'}`}
-                      >
-                        {on && <Check className="w-3.5 h-3.5 text-brand-600" strokeWidth={2.5} />}{item.label}
-                      </button>
+                      <SelectChip key={item.label} on={on} onClick={() => toggleSelector(item)}>{item.label}</SelectChip>
                     )
                   })}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+              )}
+            </FieldRow>
 
-        {/* その他（自由入力）＝タスク追加の候補に出る。業務名＝タスク名、内容＝作業内容。 */}
-        {!isReferralOnly && (
-          <div className="mb-4">
-            <div className="text-[13px] text-gray-600 mb-2">その他</div>
-            <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3">
-              <div className="hidden sm:flex gap-2 mb-1.5 text-[11px] text-gray-400 px-0.5">
-                <span className="w-[220px]">業務名（→タスク名）</span>
-                <span className="flex-1">内容（→作業内容）</span>
-                <span className="w-7" />
-              </div>
-              <div className="space-y-1.5">
-                {custom.map((c, i) => (
-                  <div key={i} className="flex flex-col sm:flex-row gap-1.5">
-                    <input
-                      type="text"
-                      value={c.name}
-                      onChange={e => setCustom(prev => prev.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))}
-                      onBlur={() => saveCustom(custom)}
-                      placeholder="業務名"
-                      className="w-full sm:w-[220px] px-2.5 py-1.5 text-[13px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400"
-                    />
-                    <input
-                      type="text"
-                      value={c.detail}
-                      onChange={e => setCustom(prev => prev.map((x, idx) => idx === i ? { ...x, detail: e.target.value } : x))}
-                      onBlur={() => saveCustom(custom)}
-                      placeholder="内容（作業内容）"
-                      className="flex-1 px-2.5 py-1.5 text-[13px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => saveCustom(custom.filter((_, idx) => idx !== i))}
-                      className="w-7 flex-none inline-flex items-center justify-center text-gray-300 hover:text-red-500 transition-colors"
-                      title="削除"
-                    >
-                      <Trash2 className="w-4 h-4" strokeWidth={1.75} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => setCustom(prev => [...prev, { name: '', detail: '' }])}
-                className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 border border-gray-200 rounded-md px-2.5 py-1 bg-white"
-              >
-                <Plus className="w-3.5 h-3.5" strokeWidth={2.25} /> 行を追加
-              </button>
-            </div>
-          </div>
-        )}
+            {!isReferralOnly && (
+              <FieldRow label="その他業務" labelNote={<span className="text-[10.5px] font-normal text-gray-400">（自由追加）</span>} hint="タスク追加の候補に出ます。業務名＝タスク名、内容＝作業内容になります。">
+                <div className="space-y-1.5">
+                  {custom.map((c, i) => (
+                    <div key={i} className="flex flex-col sm:flex-row gap-1.5">
+                      <input
+                        type="text"
+                        value={c.name}
+                        onChange={e => setCustom(prev => prev.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))}
+                        onBlur={() => saveCustom(custom)}
+                        placeholder="業務名（→タスク名）"
+                        className="w-full sm:w-[220px] px-2.5 py-1.5 text-[13px] rounded-md focus:outline-none"
+                      />
+                      <input
+                        type="text"
+                        value={c.detail}
+                        onChange={e => setCustom(prev => prev.map((x, idx) => idx === i ? { ...x, detail: e.target.value } : x))}
+                        onBlur={() => saveCustom(custom)}
+                        placeholder="内容（→作業内容）"
+                        className="flex-1 px-2.5 py-1.5 text-[13px] rounded-md focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => saveCustom(custom.filter((_, idx) => idx !== i))}
+                        className="w-7 flex-none inline-flex items-center justify-center text-gray-300 hover:text-red-500 transition-colors"
+                        title="削除"
+                      >
+                        <Trash2 className="w-4 h-4" strokeWidth={1.75} />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setCustom(prev => [...prev, { name: '', detail: '' }])}
+                    className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 bg-brand-50 rounded-md px-2.5 py-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" strokeWidth={2.25} /> 行を追加
+                  </button>
+                </div>
+              </FieldRow>
+            )}
+          </FieldGrid>
+        </div>
 
         <FieldGrid>
           <InlineSelect label="契約形態" value={caseData.contract_type} options={[...CONTRACT_TYPES]} onSave={v => save('contract_type', v)} />
@@ -256,13 +225,10 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
                 </div>
               </FieldRow>
               <FieldRow label="難しい理由" labelNote={<span className="text-[10.5px] font-normal text-gray-400">（複数選択）</span>}>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-2">
                   {DIFFICULTY_REASONS.map(r => {
                     const on = (caseData.difficulty_reasons ?? []).includes(r)
-                    return (
-                      <button key={r} type="button" onClick={() => toggleDiffReason(r)}
-                        className={`text-[12px] px-2.5 py-1 rounded-full border transition-colors ${on ? 'bg-brand-50 border-brand-300 text-brand-700 font-semibold' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}>{r}</button>
-                    )
+                    return <SelectChip key={r} on={on} onClick={() => toggleDiffReason(r)}>{r}</SelectChip>
                   })}
                 </div>
               </FieldRow>

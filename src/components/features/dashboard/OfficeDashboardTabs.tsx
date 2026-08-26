@@ -292,7 +292,7 @@ function MailTab({ rows, today }: { rows: MailRow[]; today: string }) {
                 <th className={`${TH} text-center`}>放置<span className="block text-[10px] font-normal text-gray-400">対応するまでの日数</span></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-200">
               {rows.map(r => {
                 // 対応（受信の確定）を押さずに何営業日ほったらかしか。タスクの「◯日超過」と同じ見た目。
                 const left = r.receivedDate ? bizDaysOverdue(r.receivedDate, today) : 0

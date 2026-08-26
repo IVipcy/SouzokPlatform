@@ -244,7 +244,8 @@ function PropertyTable({ title, kind, rows, showMuni, renderRow, onAdd, busy }: 
   return (
     <div>
       <div className="flex items-center gap-2 mb-1.5">
-        <span className="text-[12.5px] font-semibold text-gray-700">{title}</span>
+        <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-[1px]" />
+        <span className="text-[12.5px] font-semibold text-brand-800 tracking-[0.02em]">{title}</span>
         <span className="text-[11px] text-gray-400">{rows.length}件</span>
       </div>
       <div className="overflow-x-auto">

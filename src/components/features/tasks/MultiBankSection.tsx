@@ -168,7 +168,7 @@ export default function MultiBankSection({ task, onRefresh }: Props) {
               <th className="text-left px-3 py-2 font-medium text-gray-600 w-[6%]"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-gray-200">
             {banks.map((bank, idx) => {
               const isDone = !!bank.arrDate
               return (

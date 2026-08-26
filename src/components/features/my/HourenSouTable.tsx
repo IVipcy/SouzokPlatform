@@ -105,7 +105,7 @@ export default function HourenSouTable({ rows, mode, title, note, todayStr }: Pr
                 <th className="px-3 py-2 w-44 text-right font-medium">操作</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-200">
               {shown.map(r => {
                 const like = { kind: r.kind, status: r.status, requested_date: r.requestedDate }
                 const sev = caseReportSeverity(like, todayStr)

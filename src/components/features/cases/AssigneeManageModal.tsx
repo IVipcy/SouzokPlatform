@@ -188,7 +188,7 @@ export default function AssigneeManageModal({ isOpen, onClose, caseId, caseMembe
                 <span>主担当</span>
                 <span>副担当</span>
               </div>
-              <div className="divide-y divide-gray-50 max-h-[400px] overflow-y-auto">
+              <div className="divide-y divide-gray-200 max-h-[400px] overflow-y-auto">
                 {tasks.map(task => {
                   const ta = taskAssignments.find(a => a.taskId === task.id)
                   if (!ta) return null

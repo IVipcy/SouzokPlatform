@@ -155,7 +155,7 @@ export default function KosekiSubmissionSection({ task, onRefresh }: Props) {
               <th className="text-left px-3 py-2 font-medium text-gray-600 w-[7%]"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-gray-200">
             {submissions.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-3 py-4 text-center text-gray-400 text-xs">

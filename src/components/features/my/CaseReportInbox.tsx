@@ -86,7 +86,7 @@ export default function CaseReportInbox({ rows, pendingOwnCount }: { rows: Repor
                 <th className="px-3 py-2 w-32" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-200">
               {shown.map(r => {
                 const isApproval = r.kind === 'work_complete' || r.kind === 'delivery_confirm'
                 const btnLabel = isApproval ? '承認/差戻し' : '確認する'

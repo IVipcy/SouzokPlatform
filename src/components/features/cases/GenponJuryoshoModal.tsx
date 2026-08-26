@@ -122,7 +122,7 @@ export default function GenponJuryoshoModal({ isOpen, onClose, caseData, heirs, 
                 相続人も依頼者住所も未登録です。相続人調査タブ or 依頼者タブで住所を登録してください。
               </div>
             ) : (
-              <div className="rounded-lg border border-gray-200 divide-y divide-gray-100 max-h-64 overflow-y-auto">
+              <div className="rounded-lg border border-gray-200 divide-y divide-gray-200 max-h-64 overflow-y-auto">
                 {options.map(opt => (
                   <label key={opt.id ?? 'null'} className={`flex items-start gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer ${currentId === opt.id ? 'bg-brand-50/60' : ''}`}>
                     <input type="radio" name="rcpt" checked={currentId === opt.id} onChange={() => setSelectedId(opt.id)} className="mt-1 w-4 h-4 accent-brand-600" />

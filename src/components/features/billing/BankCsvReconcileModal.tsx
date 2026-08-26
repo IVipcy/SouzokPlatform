@@ -267,7 +267,7 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
         ) : (
           <div>
             <div className="text-[12px] font-semibold text-gray-500 mb-1.5">入金待ちの請求（{invoices.length}件）</div>
-            <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-[24rem] overflow-y-auto">
+            <div className="border border-gray-200 rounded-lg divide-y divide-gray-200 max-h-[24rem] overflow-y-auto">
               {invoices.map(inv => {
                 const res = byInvoice.get(inv.id)
                 const gno = groupNoByInvoice.get(inv.id)   // まとめ払いの何番目に含まれるか
