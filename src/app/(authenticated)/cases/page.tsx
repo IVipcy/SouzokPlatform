@@ -73,7 +73,7 @@ function confirmedRevenue(c: CaseRowRaw): number | null {
       return c.fee_total ?? null
   }
 }
-type TaskRowLite = { id: string; case_id: string; title: string; status: string; sort_order: number | null; task_kind: string | null; due_date: string | null }
+type TaskRowLite = { id: string; case_id: string; title: string; status: string; sort_order: number | null; task_kind: string | null; due_date: string | null; priority: string | null }
 type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: 'kakunin' | 'chui' | null }
 type ReportLite = { case_id: string; status: string; confirmed_date: string | null; requested_date: string | null; kind?: string }
 
@@ -87,7 +87,7 @@ export default async function CasesPage() {
       .select('*, clients(id,name,furigana,phone,mobile_phone), case_members(role, members(id,name,team_id)), case_referrals(partner_type, content, referral_reason)')
       .eq('intake_draft', false)  // 面談シート入力途中の下書きは一覧に出さない（migration 194）
       .order('created_at', { ascending: false }),
-    supabase.from('tasks').select('id,case_id,title,status,sort_order,task_kind,due_date'),
+    supabase.from('tasks').select('id,case_id,title,status,sort_order,task_kind,due_date,priority'),
     supabase.from('progress_reports').select('case_id,status,confirmed_date,requested_date,kind'),
     supabase.from('teams').select('id,name'),
   ])

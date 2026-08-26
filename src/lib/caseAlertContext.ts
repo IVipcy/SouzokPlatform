@@ -42,7 +42,7 @@ export async function fetchCaseAlertContexts(
   const [membersRes, invoicesRes, tasksRes, docsRes, reportsRes, hourensouRes] = await Promise.all([
     supabase.from('case_members').select('case_id,role').in('case_id', caseIds),
     supabase.from('invoices').select('case_id,invoice_type,status,created_at,due_date').in('case_id', caseIds),
-    preloaded.tasks ? empty<unknown>() : supabase.from('tasks').select('case_id,title,task_kind,status,due_date').in('case_id', caseIds),
+    preloaded.tasks ? empty<unknown>() : supabase.from('tasks').select('case_id,title,task_kind,status,due_date,priority').in('case_id', caseIds),
     supabase.from('contract_documents').select('case_id,status,arrival_date').in('case_id', caseIds),
     preloaded.reports ? empty<unknown>() : supabase.from('progress_reports').select('case_id,status,confirmed_date').in('case_id', caseIds),
     // 報連相（要対応の未回答だけアラートに出す）
@@ -70,9 +70,10 @@ export async function fetchCaseAlertContexts(
   // 事務管理タスクの有無と、タスク期限超過の最大深刻度
   const hasCaseTasks = new Set<string>()
   const taskSev = new Map<string, AlertSeverity>()
+  const taskUrgent = new Set<string>()
   // 前受金の入金御礼連絡だけは早く鳴らす（1営業日=要確認／2営業日=要注意）
   const prepaySev = new Map<string, AlertSeverity>()
-  for (const t of taskRows as Array<{ case_id: string; title?: string | null; task_kind: string | null; status: string; due_date: string | null }>) {
+  for (const t of taskRows as Array<{ case_id: string; title?: string | null; task_kind: string | null; status: string; due_date: string | null; priority?: string | null }>) {
     if (t.task_kind === 'case') hasCaseTasks.add(t.case_id)
     if (!OPEN_TASK(t.status)) continue
     if (t.title === PREPAY_THANKS_TITLE) {
@@ -80,7 +81,13 @@ export async function fetchCaseAlertContexts(
       if (s === 'high' || (s === 'mid' && prepaySev.get(t.case_id) !== 'high')) prepaySev.set(t.case_id, s as AlertSeverity)
       continue   // 一般のタスク期限超過とは二重に出さない
     }
-    const s = sevOf(overdueSeverity(t.due_date, todayStr))
+    // 「超急ぎ」は期日前でも要注意（赤）にする。タスクを超急ぎにした時点で
+    //   「今日中に手を打つ」という意思表示なので、期日を待って鳴らすのでは遅い。
+    // ここを入れ忘れていたため、案件のフラグ（要確認）と要注意バナーの中身が食い違い、
+    // フラグを押しても飛び先が空、という状態になっていた。判定はこの1か所に寄せる。
+    const urgent = t.priority === '超急ぎ'
+    const s = urgent ? 'high' : sevOf(overdueSeverity(t.due_date, todayStr))
+    if (urgent) taskUrgent.add(t.case_id)
     if (s === 'high' || (s === 'mid' && taskSev.get(t.case_id) !== 'high')) taskSev.set(t.case_id, s)
   }
 
@@ -119,6 +126,7 @@ export async function fetchCaseAlertContexts(
       contractPending: contractPending.has(id),
       recentWeeklyConfirmed: recentWeekly.has(id),
       taskOverdue: taskSev.get(id) ?? null,
+      taskOverdueUrgent: taskUrgent.has(id),
       prepayThanksOverdue: prepaySev.get(id) ?? null,
       billOverdue: billSev.get(id) ?? null,
       reportActionOverdue: reportSev.get(id) ?? null,

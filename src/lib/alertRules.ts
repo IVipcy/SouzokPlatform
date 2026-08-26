@@ -98,6 +98,8 @@ export type CaseAlertContext = {
   responseCheckDone?: boolean
   /** タスク期日超過の最大深刻度（consumer 側で判定して渡す） */
   taskOverdue?: AlertSeverity | null
+  /** 上が「超急ぎタスク」由来か（期日前でも赤にしている。理由文を分けるために持つ） */
+  taskOverdueUrgent?: boolean
   /** 入金期日超過の最大深刻度 */
   billOverdue?: AlertSeverity | null
   /** 前受金の入金御礼連絡が未完了のまま何日たったか（1営業日=mid / 2営業日=high） */
@@ -129,9 +131,11 @@ export function evaluateCaseAlerts(c: CaseAlertInput, ctx: CaseAlertContext, tod
 
   if (ctx.taskOverdue) {
     out.push({ key: 'task_overdue', category: 'タスク期限超過', severity: ctx.taskOverdue, audience: 'both',
-      reason: ctx.taskOverdue === 'high'
-        ? `期日から${ALERT_CAL_DAYS.taskHigh}日以上たった未完了タスクがあります`
-        : `期日を${ALERT_DAYS.taskMid}営業日過ぎた未完了タスクがあります`, tab: 'tasks' })
+      reason: ctx.taskOverdueUrgent
+        ? '「超急ぎ」の未完了タスクがあります'
+        : ctx.taskOverdue === 'high'
+          ? `期日から${ALERT_CAL_DAYS.taskHigh}日以上たった未完了タスクがあります`
+          : `期日を${ALERT_DAYS.taskMid}営業日過ぎた未完了タスクがあります`, tab: 'tasks' })
   }
 
   // 前受金の入金御礼連絡。入金を確認した日が期限で、そこから1営業日で要確認・2営業日で要注意。
