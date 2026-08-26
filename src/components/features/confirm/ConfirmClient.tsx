@@ -273,7 +273,7 @@ export default function ConfirmClient({ items: initialItems, properties }: { ite
   return (
     <div className="p-6 max-w-[1200px] mx-auto">
       <div className="flex items-center gap-3 flex-wrap mb-4">
-        <h1 className="text-lg font-bold text-gray-900">確認簿</h1>
+        <h1 className="text-lg font-bold text-brand-900">確認簿</h1>
         {view === 'pending'
           ? <span className="text-[12px] text-gray-500">全案件・未処理 {items.length}件</span>
           : <span className="text-[12px] text-gray-500">確認済みの記録を検索</span>}
@@ -433,7 +433,7 @@ function HistoryView() {
         <div className="border border-gray-200 rounded-xl overflow-x-auto">
           <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: 820 }}>
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-[10.5px] text-gray-500">
+              <tr className="bg-brand-50/60 border-b border-brand-100 text-[10.5px] text-brand-700">
                 <th className="px-2.5 py-2 text-left font-semibold w-28">確認日時</th>
                 <th className="px-2.5 py-2 text-left font-semibold w-14">業務</th>
                 <th className="px-2.5 py-2 text-left font-semibold w-28">案件</th>
@@ -499,7 +499,7 @@ function ItemTable({ rows, busy, stamped, canAct, onAct, showGyomu = false }: { 
     <div className="overflow-x-auto">
       <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: 820 }}>
         <thead>
-          <tr className="bg-white border-b border-gray-200 text-[10.5px] text-gray-500">
+          <tr className="bg-white border-b border-brand-100 text-[10.5px] text-brand-700">
             <th className="px-2.5 py-2 text-left font-semibold w-24">起票</th>
             {showGyomu && <th className="px-2.5 py-2 text-left font-semibold w-20">業務</th>}
             <th className="px-2.5 py-2 text-left font-semibold w-28">案件</th>

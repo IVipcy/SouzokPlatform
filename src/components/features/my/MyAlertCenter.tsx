@@ -127,7 +127,7 @@ export default function MyAlertCenter({ variant = 'default' }: { variant?: 'defa
           <div className="mt-10 w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
             <header className="flex items-center gap-2 px-5 py-3.5 border-b border-gray-100">
               <Bell className="w-5 h-5 text-brand-600" strokeWidth={2.25} />
-              <h3 className="text-[16px] font-bold text-gray-900">アラート</h3>
+              <h3 className="text-[16px] font-bold text-brand-900">アラート</h3>
               {totalCount > 0 && <span className="text-[12px] font-bold text-red-600 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">{totalCount}</span>}
               {unreadCount > 0 && (
                 <button type="button" onClick={markAllRead} className="ml-auto inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">

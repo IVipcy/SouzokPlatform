@@ -398,7 +398,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                 <div className="text-[13px] text-gray-700 font-medium">
                   {ageAtDeath(caseData.deceased_birth_date, caseData.date_of_death) != null
                     ? `${ageAtDeath(caseData.deceased_birth_date, caseData.date_of_death)} 歳`
-                    : <span className="text-gray-300 italic text-xs">生年月日と死亡日から自動計算</span>}
+                    : <span className="text-gray-400 italic text-xs">生年月日と死亡日から自動計算</span>}
                 </div>
               </FieldRow>
               {/* 被相続人の郵便番号は廃止。住所は戸籍・住民票から転記するので、

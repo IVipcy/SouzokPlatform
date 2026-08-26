@@ -53,7 +53,7 @@ export default function OrderSheetAppClient({ cases }: { cases: OsCaseRow[] }) {
           <div className="w-12 h-12 rounded-full bg-brand-50 flex items-center justify-center mx-auto mb-3">
             <FileSpreadsheet className="w-6 h-6 text-brand-600" strokeWidth={2} />
           </div>
-          <h1 className="text-[17px] font-bold text-gray-900 mb-1">オーダーシートの作成・修正</h1>
+          <h1 className="text-[17px] font-bold text-brand-900 mb-1">オーダーシートの作成・修正</h1>
           <p className="text-[13px] text-gray-500">どちらを行いますか？</p>
         </div>
 
@@ -100,7 +100,7 @@ export default function OrderSheetAppClient({ cases }: { cases: OsCaseRow[] }) {
         <ArrowLeft className="w-3.5 h-3.5" strokeWidth={2} />TOPに戻る
       </button>
 
-      <h1 className="text-[17px] font-bold text-gray-900 mb-1">{isNew ? 'オーダーシートを新規作成' : 'オーダーシートを修正'}</h1>
+      <h1 className="text-[17px] font-bold text-brand-900 mb-1">{isNew ? 'オーダーシートを新規作成' : 'オーダーシートを修正'}</h1>
       <p className="text-[12px] text-gray-400 mb-3">{isNew ? 'オーダーシート未作成の担当案件' : '作成済みの担当案件'}</p>
 
       <div className="relative mb-3">

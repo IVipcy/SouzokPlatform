@@ -270,7 +270,7 @@ export default function OrderSheet({
       <div className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center gap-3">
         <FileSpreadsheet className="w-5 h-5 text-brand-600" strokeWidth={2} />
         <div className="flex-1 min-w-0">
-          <h2 className="text-[15px] font-bold text-gray-900">オーダーシート</h2>
+          <h2 className="text-[15px] font-bold text-brand-900">オーダーシート</h2>
           <p className="text-[12px] text-gray-500">
             受託案件の概要を1枚で把握・入力します。
           </p>

@@ -71,7 +71,7 @@ export default function HourenSouTable({ rows, mode, title, note, todayStr }: Pr
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
       <div className="px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 flex-wrap">
-        <h3 className="text-[14px] font-bold text-gray-900">{title}</h3>
+        <h3 className="text-[14px] font-bold text-brand-900">{title}</h3>
         <span className="text-[12px] text-gray-400">{rows.length}件</span>
         {note && <span className="ml-auto text-[11px] text-gray-400">{note}</span>}
       </div>

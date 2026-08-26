@@ -43,7 +43,7 @@ export default function Modal({ isOpen, onClose, title, children, footer, maxWid
     >
       <div className={`bg-white rounded-xl shadow-xl ${maxWidth} w-full mx-4 ${maxHeight} flex flex-col`}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
-          <h2 className="text-base font-bold text-gray-900">{title}</h2>
+          <h2 className="text-base font-bold text-brand-900">{title}</h2>
           <button
             onClick={onClose}
             className="w-7 h-7 rounded-md bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-colors text-xs"

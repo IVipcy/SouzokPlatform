@@ -215,7 +215,7 @@ function DocumentNameCell({ value, onSave, disabled }: {
       className="text-left w-full px-2 py-1 rounded text-[13px] text-gray-800 hover:bg-brand-50/40 transition-colors disabled:opacity-60"
       title="クリックして編集"
     >
-      {value || <span className="text-gray-300 italic">書類名未設定</span>}
+      {value || <span className="text-gray-400 italic">書類名未設定</span>}
     </button>
   )
 }

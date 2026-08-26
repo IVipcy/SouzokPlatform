@@ -133,7 +133,7 @@ export default function MeetingPageClient({ cases, currentMemberId, standalone =
               <div className="w-11 h-11 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-3">
                 <AlertTriangle className="w-[22px] h-[22px] text-amber-500" />
               </div>
-              <h3 className="text-[15px] font-bold text-gray-900 mb-2">入力内容が保存されません</h3>
+              <h3 className="text-[15px] font-bold text-brand-900 mb-2">入力内容が保存されません</h3>
               <p className="text-[13px] text-gray-500 leading-relaxed">入力途中の内容は保存されませんが、<br />よろしいですか？</p>
             </div>
             <div className="px-6 pb-6 flex gap-2.5">
@@ -166,7 +166,7 @@ function RouteChoiceTop({ onLp, onOc }: { onLp: () => void; onOc: () => void }) 
         <div className="w-12 h-12 rounded-full bg-brand-50 flex items-center justify-center mx-auto mb-3">
           <PenSquare className="w-6 h-6 text-brand-600" />
         </div>
-        <h2 className="text-[16px] font-bold text-gray-900 mb-1">相談結果の登録</h2>
+        <h2 className="text-[16px] font-bold text-brand-900 mb-1">相談結果の登録</h2>
         <p className="text-[13px] text-gray-500">どちらの相談結果を登録しますか？</p>
       </div>
       <div className="flex flex-col gap-3">

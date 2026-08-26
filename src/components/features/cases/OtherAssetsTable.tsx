@@ -69,11 +69,11 @@ export default function OtherAssetsTable({ caseId, kind, rows: initial, heirs = 
       <div className="overflow-x-auto">
         <table className="w-full text-[12px] border-collapse" style={{ minWidth: detailed ? 640 : 360 }}>
           <thead>
-            <tr className="text-[11px] text-gray-500 border-b border-gray-200">
+            <tr className="text-[11px] text-brand-700 border-b border-brand-100">
               <th className="px-2 py-1.5 text-left font-medium">項目</th>
               <th className="px-2 py-1.5 text-right font-medium w-36">金額</th>
               {withPayer && <th className="px-2 py-1.5 text-left font-medium w-40">立替者</th>}
-              {detailed && <th className="px-2 py-1.5 text-center font-medium w-24">精算する<span className="block text-[10px] font-normal text-gray-400">遺産分割時</span></th>}
+              {detailed && <th className="px-2 py-1.5 text-center font-medium w-24">精算する<span className="block text-[10px] font-normal text-brand-700">遺産分割時</span></th>}
               {detailed && <th className="px-2 py-1.5 text-center font-medium w-20">根拠資料</th>}
               {detailed && <th className="px-2 py-1.5 text-left font-medium">備考・根拠資料</th>}
               <th className="w-9" />

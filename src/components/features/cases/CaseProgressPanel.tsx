@@ -98,7 +98,7 @@ export default function CaseProgressPanel({ tasks, properties }: Props) {
     <div className="bg-white border border-gray-200 rounded-xl p-4 lg:p-5 shadow-sm">
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
-        <h3 className="text-[15px] font-semibold text-gray-900">Phase別タスク進捗</h3>
+        <h3 className="text-[15px] font-semibold text-brand-900">Phase別タスク進捗</h3>
         <span className="text-[12px] text-gray-500 ml-auto flex items-center gap-3 flex-wrap">
           <span className="inline-flex items-center gap-1">
             <span className="inline-block w-2.5 h-2.5 rounded-full bg-brand-600" />完了
@@ -130,7 +130,7 @@ export default function CaseProgressPanel({ tasks, properties }: Props) {
         <div className="mt-6 pt-4 border-t border-gray-200">
           <div className="flex items-center gap-2 mb-3">
             <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
-            <h3 className="text-[15px] font-semibold text-gray-900">不動産査定</h3>
+            <h3 className="text-[15px] font-semibold text-brand-900">不動産査定</h3>
           </div>
           <div className="space-y-3">
             {visibleProperties.map((p, i) => (

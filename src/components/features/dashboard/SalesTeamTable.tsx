@@ -38,7 +38,7 @@ export default function SalesTeamTable({ groups, today, ym, title = 'チーム�
   if (totalMembers === 0) {
     return (
       <section>
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">{title}</h3>
+        <h3 className="text-sm font-semibold text-brand-900 mb-3">{title}</h3>
         <div className="bg-white border border-gray-200 rounded-lg p-8 text-center text-sm text-gray-400">
           受注担当のメンバーが登録されていません
         </div>
@@ -49,7 +49,7 @@ export default function SalesTeamTable({ groups, today, ym, title = 'チーム�
   return (
     <section>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+        <h3 className="text-sm font-semibold text-brand-900">{title}</h3>
         <p className="text-[12px] text-gray-400">
           「目標(新規受注)」列をクリックで個人目標を編集できます。達成すると氏名アイコンにレインボーリング 🌈
         </p>
@@ -63,15 +63,15 @@ export default function SalesTeamTable({ groups, today, ym, title = 'チーム�
               <th className="px-2.5 py-2 text-left font-semibold">氏名</th>
               <th className="px-2.5 py-2 text-left font-semibold">職種</th>
               <th className="px-2.5 py-2 text-left font-semibold">在籍期間</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="当月面談数">面談数</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="当月新規受注件数">新規受注</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200 bg-amber-50/50" title="新規受注の個人目標（クリックで編集）">目標(新規受注)</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200">受注率</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200">平均単価</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="業務完了予定件数">完了予定</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="業務完了件数">完了</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="業務完了金額">完了金額</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="平均サイクル">サイクル</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100" title="当月面談数">面談数</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100" title="当月新規受注件数">新規受注</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100 bg-amber-50/50" title="新規受注の個人目標（クリックで編集）">目標(新規受注)</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100">受注率</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100">平均単価</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100" title="業務完了予定件数">完了予定</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100" title="業務完了件数">完了</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100" title="業務完了金額">完了金額</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100" title="平均サイクル">サイクル</th>
             </tr>
           </thead>
           <tbody>

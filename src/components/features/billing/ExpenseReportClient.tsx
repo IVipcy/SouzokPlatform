@@ -115,7 +115,7 @@ export default function ExpenseReportClient({ rows }: { rows: ExpenseReportRow[]
                 </div>
                 <table className="w-full text-[12.5px]">
                   <thead>
-                    <tr className="text-[11px] text-gray-500 border-b border-gray-100">
+                    <tr className="text-[11px] text-brand-700 border-b border-brand-100">
                       <th className="px-3 py-1.5 text-left font-semibold w-28">発生日</th>
                       <th className="px-3 py-1.5 text-left font-semibold w-24">区分</th>
                       <th className="px-3 py-1.5 text-left font-semibold">内容</th>

@@ -48,7 +48,7 @@ export default function SalesYearMatrixTable({ columns, groups, today }: Props) 
   if (totalMembers === 0) {
     return (
       <section>
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">チーム別／個人別 月次成績（当期）</h3>
+        <h3 className="text-sm font-semibold text-brand-900 mb-3">チーム別／個人別 月次成績（当期）</h3>
         <div className="bg-white border border-gray-200 rounded-lg p-8 text-center text-sm text-gray-400">
           受注担当のメンバーが登録されていません
         </div>
@@ -59,7 +59,7 @@ export default function SalesYearMatrixTable({ columns, groups, today }: Props) 
   return (
     <section>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-900">チーム別／個人別 月次成績（当期）</h3>
+        <h3 className="text-sm font-semibold text-brand-900">チーム別／個人別 月次成績（当期）</h3>
         <p className="text-[12px] text-gray-400">左が当期累計、右に行くほど過去月。横スクロールで移動できます。</p>
       </div>
 
@@ -77,7 +77,7 @@ export default function SalesYearMatrixTable({ columns, groups, today }: Props) 
 
           <thead>
             {/* 月グループのヘッダ */}
-            <tr className="bg-gray-50 border-b border-gray-200">
+            <tr className="bg-brand-50/60 border-b border-brand-100">
               <StickyTh left={LEFT.team} width={COL_W.team} rowSpan={2}>所属チーム</StickyTh>
               <StickyTh left={LEFT.name} width={COL_W.name} rowSpan={2}>氏名</StickyTh>
               <StickyTh left={LEFT.job} width={COL_W.job} rowSpan={2}>職種</StickyTh>
@@ -87,7 +87,7 @@ export default function SalesYearMatrixTable({ columns, groups, today }: Props) 
                   key={c.key}
                   colSpan={9}
                   className={`px-2 py-1.5 text-center font-semibold border-l-2 border-gray-300 ${
-                    c.isCumulative ? 'bg-amber-50 text-amber-800' : 'bg-gray-50 text-gray-700'
+                    c.isCumulative ? 'bg-amber-50 text-amber-800' : 'bg-brand-50/60 text-brand-700'
                   }`}
                 >
                   {c.label}

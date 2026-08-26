@@ -70,7 +70,7 @@ export default function MemberPerformanceTable({
   if (members.length === 0) {
     return (
       <section>
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">メンバー別 月次成績</h3>
+        <h3 className="text-sm font-semibold text-brand-900 mb-3">メンバー別 月次成績</h3>
         <div className="bg-white border border-gray-200 rounded-lg p-8 text-center text-sm text-gray-400">
           受注担当・管理担当のメンバーが登録されていません
         </div>
@@ -81,7 +81,7 @@ export default function MemberPerformanceTable({
   return (
     <section>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-900">メンバー別 月次成績</h3>
+        <h3 className="text-sm font-semibold text-brand-900">メンバー別 月次成績</h3>
         <p className="text-[14px] text-gray-400">
           左が最新（当月）、右に行くほど古い情報。年度（4月〜3月）の経過分を表示。
         </p>
@@ -110,30 +110,30 @@ export default function MemberPerformanceTable({
 
           <thead>
             {/* 月グループのヘッダ */}
-            <tr className="bg-gray-50 border-b border-gray-200">
+            <tr className="bg-brand-50/60 border-b border-brand-100">
               <th
-                className="sticky bg-gray-50 z-20 px-2 py-2 text-left font-semibold text-gray-600 border-r border-gray-200"
+                className="sticky bg-brand-50/60 z-20 px-2 py-2 text-left font-semibold text-brand-700 border-r border-brand-100"
                 style={{ left: LEFT_OFFSET.name, width: COL_W.name }}
                 rowSpan={2}
               >
                 氏名
               </th>
               <th
-                className="sticky bg-gray-50 z-20 px-2 py-2 text-left font-semibold text-gray-600 border-r border-gray-200"
+                className="sticky bg-brand-50/60 z-20 px-2 py-2 text-left font-semibold text-brand-700 border-r border-brand-100"
                 style={{ left: LEFT_OFFSET.team, width: COL_W.team }}
                 rowSpan={2}
               >
                 所属チーム
               </th>
               <th
-                className="sticky bg-gray-50 z-20 px-2 py-2 text-left font-semibold text-gray-600 border-r border-gray-200"
+                className="sticky bg-brand-50/60 z-20 px-2 py-2 text-left font-semibold text-brand-700 border-r border-brand-100"
                 style={{ left: LEFT_OFFSET.job, width: COL_W.job }}
                 rowSpan={2}
               >
                 職種
               </th>
               <th
-                className="sticky bg-gray-50 z-20 px-2 py-2 text-left font-semibold text-gray-600 border-r-2 border-gray-300 shadow-[2px_0_0_0_rgba(0,0,0,0.04)]"
+                className="sticky bg-brand-50/60 z-20 px-2 py-2 text-left font-semibold text-brand-700 border-r-2 border-gray-300 shadow-[2px_0_0_0_rgba(0,0,0,0.04)]"
                 style={{ left: LEFT_OFFSET.tenure, width: COL_W.tenure }}
                 rowSpan={2}
               >
@@ -149,7 +149,7 @@ export default function MemberPerformanceTable({
                   key={m}
                   colSpan={4}
                   className={`px-2 py-1.5 text-center font-semibold border-l border-gray-300 ${
-                    i === 0 && !showCumulative ? 'bg-brand-50 text-brand-800' : 'bg-gray-50 text-gray-700'
+                    i === 0 && !showCumulative ? 'bg-brand-50 text-brand-800' : 'bg-brand-50/60 text-brand-700'
                   }`}
                 >
                   {monthHeaderLabel(m, today)}

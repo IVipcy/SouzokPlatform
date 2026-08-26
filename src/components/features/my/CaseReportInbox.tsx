@@ -55,7 +55,7 @@ export default function CaseReportInbox({ rows, pendingOwnCount }: { rows: Repor
     <>
       <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 flex-wrap">
         <ClipboardCheck className="w-4 h-4 text-brand-600" strokeWidth={2.25} />
-        <h3 className="text-[14px] font-bold text-gray-900">案件報告（受信）</h3>
+        <h3 className="text-[14px] font-bold text-brand-900">案件報告（受信）</h3>
         <span className="text-[11px] text-gray-400 ml-2">自分の案件で報告中 {pendingOwnCount} 件</span>
         <div className="ml-auto flex items-center gap-1.5">
           <ScopeBtn v="all" label="すべて" count={rows.length} current={scope} onSelect={setScope} />

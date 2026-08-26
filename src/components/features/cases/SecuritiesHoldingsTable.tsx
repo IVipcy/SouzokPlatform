@@ -92,12 +92,12 @@ export default function SecuritiesHoldingsTable({ caseId, assets, onRefresh }: {
             <div className="overflow-x-auto">
               <table className="w-full text-[12px] border-collapse" style={{ minWidth: 620 }}>
                 <thead>
-                  <tr className="text-[11px] text-gray-500 border-b border-gray-200">
+                  <tr className="text-[11px] text-brand-700 border-b border-brand-100">
                     <th className="px-2 py-1.5 text-left font-medium">銘柄名</th>
                     <th className="px-2 py-1.5 text-right font-medium w-28">株数・口数</th>
                     <th className="px-2 py-1.5 text-right font-medium w-32">1株あたり</th>
                     <th className="px-2 py-1.5 text-left font-medium w-32">基準日</th>
-                    <th className="px-2 py-1.5 text-right font-medium w-36">評価額<span className="block text-[10px] font-normal text-gray-400">未入力は自動計算</span></th>
+                    <th className="px-2 py-1.5 text-right font-medium w-36">評価額<span className="block text-[10px] font-normal text-brand-700">未入力は自動計算</span></th>
                     <th className="px-2 py-1.5 text-left font-medium">備考</th>
                     <th className="w-9" />
                   </tr>

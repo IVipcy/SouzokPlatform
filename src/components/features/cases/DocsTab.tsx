@@ -222,7 +222,7 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
                   <th className="px-3 py-2 text-left font-semibold w-44">到着物</th>
                   <th className="px-3 py-2 text-left font-semibold w-24">受領日</th>
                   <th className="px-3 py-2 text-left font-semibold w-24">アップ状況</th>
-                  <th className="px-3 py-2 text-left font-semibold">着手可能タスク<span className="block text-[10px] font-normal text-gray-400">紐づけ＝着手可能に</span></th>
+                  <th className="px-3 py-2 text-left font-semibold">着手可能タスク<span className="block text-[10px] font-normal text-brand-700">紐づけ＝着手可能に</span></th>
                   <th className="px-3 py-2 text-center font-semibold w-28">操作</th>
                 </tr>
               </thead>

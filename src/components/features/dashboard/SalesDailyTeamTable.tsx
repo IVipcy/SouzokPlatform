@@ -43,7 +43,7 @@ export default function SalesDailyTeamTable({ groups, today, ym }: Props) {
   if (totalMembers === 0) {
     return (
       <section>
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">チーム別／個人別 本日成績</h3>
+        <h3 className="text-sm font-semibold text-brand-900 mb-3">チーム別／個人別 本日成績</h3>
         <div className="bg-white border border-gray-200 rounded-lg p-8 text-center text-sm text-gray-400">
           受注担当のメンバーが登録されていません
         </div>
@@ -54,7 +54,7 @@ export default function SalesDailyTeamTable({ groups, today, ym }: Props) {
   return (
     <section>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-900">チーム別／個人別 本日成績</h3>
+        <h3 className="text-sm font-semibold text-brand-900">チーム別／個人別 本日成績</h3>
         <p className="text-[12px] text-gray-400">
           「目標」列の値はクリックで個人月間目標を編集できます。達成すると氏名アイコンにレインボーリング 🌈
         </p>
@@ -68,14 +68,14 @@ export default function SalesDailyTeamTable({ groups, today, ym }: Props) {
               <th className="px-2.5 py-2 text-left font-semibold">氏名</th>
               <th className="px-2.5 py-2 text-left font-semibold">職種</th>
               <th className="px-2.5 py-2 text-left font-semibold">在籍期間</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="本日の面談数">本日面談</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="本日の新規受注件数">本日新規受注</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="月累計 新規受注件数（達成判定用）">月累計 新規受注</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200 bg-amber-50/50" title="月目標(新規受注) — クリックで編集">月目標(新規受注)</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200">本日受注率</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200">本日平均単価</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="本日の相続税申告件数">本日 相続税</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="本日の不動産査定件数">本日 査定</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100" title="本日の面談数">本日面談</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100" title="本日の新規受注件数">本日新規受注</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100" title="月累計 新規受注件数（達成判定用）">月累計 新規受注</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100 bg-amber-50/50" title="月目標(新規受注) — クリックで編集">月目標(新規受注)</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100">本日受注率</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100">本日平均単価</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100" title="本日の相続税申告件数">本日 相続税</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100" title="本日の不動産査定件数">本日 査定</th>
             </tr>
           </thead>
           <tbody>

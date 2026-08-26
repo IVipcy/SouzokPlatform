@@ -76,7 +76,7 @@ export default function ManualIndex({ items, categoryOrder }: { items: ManualInd
             <section key={cat}>
               <div className="flex items-center gap-2 mb-2">
                 <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
-                <h2 className="text-[13px] font-bold text-gray-900">{cat}</h2>
+                <h2 className="text-[13px] font-bold text-brand-900">{cat}</h2>
               </div>
               <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-200">
                 {arts.map(a => (

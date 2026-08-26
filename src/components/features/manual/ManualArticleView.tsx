@@ -56,12 +56,12 @@ export default function ManualArticleView({ article, canEdit }: {
             <span key={r} className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-500">{r}</span>
           ))}
         </div>
-        <h1 className="text-[20px] font-bold text-gray-900 mb-4">{article.title || '（無題）'}</h1>
+        <h1 className="text-[20px] font-bold text-brand-900 mb-4">{article.title || '（無題）'}</h1>
 
         <div className="space-y-3.5">
           {(article.blocks ?? []).map(b => {
             if (b.kind === 'heading') {
-              return <h2 key={b.id} className="text-[15.5px] font-bold text-gray-900 pt-2">{b.body}</h2>
+              return <h2 key={b.id} className="text-[15.5px] font-bold text-brand-900 pt-2">{b.body}</h2>
             }
             if (b.kind === 'text') {
               return <p key={b.id} className="text-[13.5px] text-gray-700 leading-[1.9] whitespace-pre-wrap">{linkify(b.body)}</p>

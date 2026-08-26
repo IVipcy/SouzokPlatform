@@ -110,7 +110,7 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
             <span className="text-[14px] font-medium text-gray-700 flex-1">{caseInfo.deal_name}</span>
             <button
               onClick={() => { onClose(); router.push(`/tasks/${task.id}`) }}
-              className="text-[13px] font-medium text-brand-600 hover:text-brand-700 px-2 py-1 rounded hover:bg-brand-50 transition border border-brand-200 bg-white"
+              className="text-[13px] font-semibold text-brand-700 px-2 py-1 rounded bg-brand-50 hover:bg-brand-100 transition"
             >
               タスク詳細 →
             </button>

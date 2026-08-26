@@ -47,7 +47,7 @@ export default function CreatedDocsList({ documents, onRefresh }: Props) {
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
       <div className="px-4 py-2.5 border-b border-gray-200 flex items-center gap-2">
-        <h3 className="text-[14px] font-bold text-gray-900">作成書類一覧</h3>
+        <h3 className="text-[14px] font-bold text-brand-900">作成書類一覧</h3>
         <span className="text-[11px] text-gray-400 font-mono bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">{documents.length}件</span>
         <span className="ml-auto text-[11px] text-gray-400">各タスク等で作成した書類をまとめて表示します</span>
       </div>

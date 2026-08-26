@@ -157,7 +157,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
             <thead>
               <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
                 <th className={TH + ' w-28'}>物件種別</th>
-                <th className={TH}>所在地<span className="block text-[10px] font-normal text-gray-400">名寄帳取得後に地番を要確認</span></th>
+                <th className={TH}>所在地<span className="block text-[10px] font-normal text-brand-700">名寄帳取得後に地番を要確認</span></th>
                 <th className={TH + ' text-right w-32'}>評価額</th>
                 <th className={TH}>備考</th>
                 <th className="px-2.5 py-2 w-8" />
@@ -255,11 +255,11 @@ function PropertyTable({ title, kind, rows, showMuni, renderRow, onAdd, busy }: 
               {showMuni && <th className={TH + ' w-40'}>市区町村</th>}
               <th className={TH + ' w-24'}>物件種別</th>
               <th className={TH + ' w-28'}>取得区分</th>
-              <th className={TH}>所在<span className="block text-[10px] font-normal text-gray-400">名寄帳取得後に地番を要確認</span></th>
+              <th className={TH}>所在<span className="block text-[10px] font-normal text-brand-700">名寄帳取得後に地番を要確認</span></th>
               <th className={TH + ' w-32'}>{land ? '地番' : '家屋番号'}</th>
               <th className={TH + ' w-28'}>{land ? '地目' : '種類'}</th>
               <th className={TH + (land ? ' text-right w-28' : ' w-44')}>{land ? '地積（㎡）' : '構造・床面積'}</th>
-              <th className={TH + ' w-32'}>持分<span className="block text-[10px] font-normal text-gray-400">空欄＝全部</span></th>
+              <th className={TH + ' w-32'}>持分<span className="block text-[10px] font-normal text-brand-700">空欄＝全部</span></th>
               <th className={TH + ' text-right w-32'}>{land ? '固定資産評価額' : '評価額'}</th>
               <th className={TH}>備考</th>
               <th className="px-2.5 py-2 w-8" />

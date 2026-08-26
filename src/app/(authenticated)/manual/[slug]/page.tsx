@@ -23,7 +23,7 @@ export default async function ManualArticlePage({ params }: { params: Promise<{ 
           <span className="text-[11px] font-semibold text-brand-600">{article.category}</span>
           {article.roles.map(r => <span key={r} className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-500">{r}</span>)}
         </div>
-        <h1 className="text-[20px] font-bold text-gray-900 mb-3">{article.title}</h1>
+        <h1 className="text-[20px] font-bold text-brand-900 mb-3">{article.title}</h1>
         <MarkdownView source={article.body} />
         {article.tags.length > 0 && (
           <div className="mt-5 pt-3 border-t border-gray-100 flex flex-wrap gap-1.5">

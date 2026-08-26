@@ -27,7 +27,7 @@ export default function DeptDashboardTabs({ ym, monthLabel, metrics, initialTarg
     <section className="bg-white border border-gray-200 rounded-xl p-4 lg:p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-bold text-gray-900">相続事業部 {monthLabel}</h2>
+          <h2 className="text-lg font-bold text-brand-900">相続事業部 {monthLabel}</h2>
           <span className="text-[12px] text-gray-500 px-2 py-0.5 bg-gray-100 rounded">当月の部全体の数値</span>
         </div>
 

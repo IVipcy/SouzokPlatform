@@ -341,7 +341,7 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
                   <th className="px-2 py-2 text-center font-medium w-14">個数</th>
                   <th className="px-3 py-2 text-left font-medium w-28">受領日(最新)</th>
                   <th className="px-3 py-2 text-left font-medium w-48">補足</th>
-                  {filter === 'target' && heirs.length > 0 && <th className="px-3 py-2 text-left font-medium w-44">受領先<span className="block text-[10px] font-normal text-gray-400">未設定は全員に載せる</span></th>}
+                  {filter === 'target' && heirs.length > 0 && <th className="px-3 py-2 text-left font-medium w-44">受領先<span className="block text-[10px] font-normal text-brand-700">未設定は全員に載せる</span></th>}
                   {filter === 'target' && <th className="px-3 py-2 text-center font-medium w-40">Wチェック</th>}
                   <th className="px-3 py-2 text-center font-medium w-52">操作</th>
                 </tr>

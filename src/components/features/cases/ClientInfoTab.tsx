@@ -572,7 +572,7 @@ function ClientRequestTaskizeModal({ isOpen, onClose, caseId, communicationId, d
       <div className="bg-white rounded-xl border border-gray-200 p-5 w-[440px] max-w-[90vw]" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-3">
           <ClipboardCheck className="w-4 h-4 text-brand-600" />
-          <h3 className="text-[14px] font-bold text-gray-900">お客様依頼をタスク化</h3>
+          <h3 className="text-[14px] font-bold text-brand-900">お客様依頼をタスク化</h3>
         </div>
         <div className="space-y-2.5 text-left">
           <div>

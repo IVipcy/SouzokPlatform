@@ -27,7 +27,7 @@ export default function ManagerTeamTable({ groups, title = 'チーム別／個�
   if (totalMembers === 0) {
     return (
       <section>
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">{title}</h3>
+        <h3 className="text-sm font-semibold text-brand-900 mb-3">{title}</h3>
         <div className="bg-white border border-gray-200 rounded-lg p-8 text-center text-sm text-gray-400">
           管理担当のメンバーが登録されていません
         </div>
@@ -37,21 +37,21 @@ export default function ManagerTeamTable({ groups, title = 'チーム別／個�
 
   return (
     <section className="mb-5">
-      <h3 className="text-sm font-semibold text-gray-900 mb-3">{title}</h3>
+      <h3 className="text-sm font-semibold text-brand-900 mb-3">{title}</h3>
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
         <table className="text-[13px] border-collapse w-full table-auto">
           <thead>
             <tr className="bg-brand-50/60 border-b border-brand-100 text-brand-700 whitespace-nowrap">
               <th className="px-2.5 py-2 text-left font-semibold">所属チーム</th>
               <th className="px-2.5 py-2 text-left font-semibold">氏名</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="担当件数">担当</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="アラートが出ていない案件">なし</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="要確認のアラートが出ている案件">要確認</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="要注意のアラートが出ている案件">要注意</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="クレームが発生している案件">クレーム</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="完了割合（本日時点の完了／業完対象）">完了割合</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="平均サイクル（カ月）">サイクル</th>
-              <th className="px-2 py-2 text-center font-semibold border-l border-gray-200" title="当月発行の請求件数">請求</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100" title="担当件数">担当</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100" title="アラートが出ていない案件">なし</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100" title="要確認のアラートが出ている案件">要確認</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100" title="要注意のアラートが出ている案件">要注意</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100" title="クレームが発生している案件">クレーム</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100" title="完了割合（本日時点の完了／業完対象）">完了割合</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100" title="平均サイクル（カ月）">サイクル</th>
+              <th className="px-2 py-2 text-center font-semibold border-l border-brand-100" title="当月発行の請求件数">請求</th>
             </tr>
           </thead>
           <tbody>

@@ -105,7 +105,7 @@ export default function CancellationSection({ caseId, financialAssets, onRefresh
                         <th className="px-2.5 py-2 text-left font-semibold w-32">支店/銘柄</th>
                         <th className="px-2.5 py-2 text-left font-semibold w-24">解約有無</th>
                         <th className="px-2.5 py-2 text-left font-semibold w-28">解約書類</th>
-                        <th className="px-2.5 py-2 text-left font-semibold w-36">解約完了日<span className="block text-[10px] font-normal text-gray-400">日付を入れると完了</span></th>
+                        <th className="px-2.5 py-2 text-left font-semibold w-36">解約完了日<span className="block text-[10px] font-normal text-brand-700">日付を入れると完了</span></th>
                         <th className="px-2.5 py-2 text-left font-semibold">備考</th>
                       </tr>
                     </thead>

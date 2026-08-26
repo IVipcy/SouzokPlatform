@@ -942,11 +942,11 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
                   <table className="w-full text-[12.5px]">
                     <thead className="bg-gray-100">
                       <tr>
-                        <th className="px-2.5 py-1.5 text-left font-semibold text-gray-600">請求種別</th>
-                        <th className="px-2.5 py-1.5 text-left font-semibold text-gray-600">司/行</th>
-                        <th className="px-2.5 py-1.5 text-right font-semibold text-gray-600">金額</th>
-                        <th className="px-2.5 py-1.5 text-left font-semibold text-gray-600">状態</th>
-                        <th className="px-2.5 py-1.5 text-left font-semibold text-gray-600">期日</th>
+                        <th className="px-2.5 py-1.5 text-left font-semibold text-brand-700">請求種別</th>
+                        <th className="px-2.5 py-1.5 text-left font-semibold text-brand-700">司/行</th>
+                        <th className="px-2.5 py-1.5 text-right font-semibold text-brand-700">金額</th>
+                        <th className="px-2.5 py-1.5 text-left font-semibold text-brand-700">状態</th>
+                        <th className="px-2.5 py-1.5 text-left font-semibold text-brand-700">期日</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">

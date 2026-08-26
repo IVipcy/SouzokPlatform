@@ -165,7 +165,7 @@ export default function SalesKpiTable({ ym, monthLabel, metrics, initialTarget }
     <section className="bg-white border border-gray-200 rounded-xl p-4 lg:p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-bold text-gray-900">受注担当 {monthLabel}</h2>
+          <h2 className="text-lg font-bold text-brand-900">受注担当 {monthLabel}</h2>
           <span className="text-[12px] text-gray-500 px-2 py-0.5 bg-gray-100 rounded">当月の受注担当の数値</span>
         </div>
       </div>
@@ -178,11 +178,11 @@ export default function SalesKpiTable({ ym, monthLabel, metrics, initialTarget }
         <table className="w-full border-collapse text-sm" style={{ minWidth: 860 }}>
           <thead>
             <tr>
-              <th className="w-16 border border-gray-200 bg-gray-50 px-2 py-2 text-[12px] font-semibold text-gray-500" />
+              <th className="w-16 border border-brand-100 bg-brand-50/60 px-2 py-2 text-[12px] font-semibold text-brand-700" />
               {COLS.map(col => (
                 <th
                   key={col.key}
-                  className="border border-gray-200 bg-gray-50 px-3 py-2 text-center text-[13px] font-semibold text-gray-700"
+                  className="border border-brand-100 bg-brand-50/60 px-3 py-2 text-center text-[13px] font-semibold text-brand-700"
                 >
                   {col.label}
                 </th>

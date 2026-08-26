@@ -39,7 +39,7 @@ export default function TeamTaskButton({ tasks, title = 'チームタスク', cu
             <header className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
               <div className="flex items-center gap-2">
                 <ListChecks className="w-5 h-5 text-red-600" strokeWidth={2.25} />
-                <h3 className="text-[15px] font-bold text-gray-900">{title}</h3>
+                <h3 className="text-[15px] font-bold text-brand-900">{title}</h3>
               </div>
               <button type="button" onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-700" aria-label="閉じる"><X className="w-5 h-5" /></button>
             </header>

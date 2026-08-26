@@ -1053,7 +1053,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
           <div className="hidden sm:block bg-white rounded-xl border border-gray-200 overflow-x-auto shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
             <table className="w-full text-[13px] border-collapse" style={{ minWidth: 640 }}>
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-200 text-[12px] text-gray-500">
+                <tr className="bg-brand-50/60 border-b border-brand-100 text-[12px] text-brand-700">
                   <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 110 }}>優先度</th>
                   <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 120 }}>氏名</th>
                   <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 120 }}>ふりがな</th>

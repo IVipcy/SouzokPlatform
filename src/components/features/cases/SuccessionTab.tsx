@@ -195,7 +195,7 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
             <button type="button" onClick={importIncome} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 rounded-md hover:bg-brand-50"><DownloadCloud className="w-3.5 h-3.5" /> 財産目録から取込</button>
           </div>
           <table className="w-full text-[12px] border-collapse" style={{ minWidth: 560 }}>
-            <thead><tr className="text-[11px] text-gray-500 border-b border-gray-100"><th className="px-2 py-1.5 text-left font-medium w-28">財産区分</th><th className="px-2 py-1.5 text-left font-medium">詳細</th><th className="px-2 py-1.5 text-right font-medium w-36">金額</th><th className="px-2 py-1.5 text-left font-medium w-40">備考</th><th className="px-2 py-1.5 w-7" /></tr></thead>
+            <thead><tr className="text-[11px] text-brand-700 border-b border-brand-100"><th className="px-2 py-1.5 text-left font-medium w-28">財産区分</th><th className="px-2 py-1.5 text-left font-medium">詳細</th><th className="px-2 py-1.5 text-right font-medium w-36">金額</th><th className="px-2 py-1.5 text-left font-medium w-40">備考</th><th className="px-2 py-1.5 w-7" /></tr></thead>
             <tbody>
               {income.length === 0 ? <tr><td colSpan={5} className="px-2 py-4 text-center text-gray-400">「財産目録から取込」または行を追加</td></tr> : income.map(r => (
                 <tr key={r.id} className="border-b border-gray-50 last:border-b-0">
@@ -218,7 +218,7 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
             <span className="text-[11px] text-gray-400">報酬・立替（請求タブ）を取込。代理支払は下の「到着物から」で入れます</span>
           </div>
           <table className="w-full text-[12px] border-collapse" style={{ minWidth: 560 }}>
-            <thead><tr className="text-[11px] text-gray-500 border-b border-gray-100"><th className="px-2 py-1.5 text-left font-medium w-24">区分</th><th className="px-2 py-1.5 text-left font-medium">内容</th><th className="px-2 py-1.5 text-right font-medium w-36">金額</th><th className="px-2 py-1.5 text-left font-medium w-40">備考</th><th className="px-2 py-1.5 w-7" /></tr></thead>
+            <thead><tr className="text-[11px] text-brand-700 border-b border-brand-100"><th className="px-2 py-1.5 text-left font-medium w-24">区分</th><th className="px-2 py-1.5 text-left font-medium">内容</th><th className="px-2 py-1.5 text-right font-medium w-36">金額</th><th className="px-2 py-1.5 text-left font-medium w-40">備考</th><th className="px-2 py-1.5 w-7" /></tr></thead>
             <tbody>
               {expense.filter(r => r.source !== 'receipt').length === 0 ? <tr><td colSpan={5} className="px-2 py-4 text-center text-gray-400">「請求タブから取込」または行を追加</td></tr> : expense.filter(r => r.source !== 'receipt').map(r => (
                 <tr key={r.id} className="border-b border-gray-50 last:border-b-0">
@@ -249,7 +249,7 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
               </div>
             ) : (
               <table className="w-full text-[12px] border-collapse" style={{ minWidth: 480 }}>
-                <thead><tr className="text-[11px] text-gray-500 border-b border-gray-100"><th className="px-2 py-1.5 text-left font-medium w-24">受信日</th><th className="px-2 py-1.5 text-left font-medium">内容</th><th className="px-2 py-1.5 text-right font-medium w-36">金額</th><th className="w-9" /></tr></thead>
+                <thead><tr className="text-[11px] text-brand-700 border-b border-brand-100"><th className="px-2 py-1.5 text-left font-medium w-24">受信日</th><th className="px-2 py-1.5 text-left font-medium">内容</th><th className="px-2 py-1.5 text-right font-medium w-36">金額</th><th className="w-9" /></tr></thead>
                 <tbody>
                   {selectedPay.map(p => (
                     <tr key={p.id} className="border-b border-gray-50 last:border-b-0">
@@ -286,7 +286,7 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-[12px] border-collapse" style={{ minWidth: 760 }}>
-              <thead><tr className="text-[11px] text-gray-500 border-b border-gray-100"><th className="px-2 py-1.5 text-left font-medium w-32">相続人</th><th className="px-2 py-1.5 text-left font-medium">銀行名</th><th className="px-2 py-1.5 text-left font-medium">支店</th><th className="px-2 py-1.5 text-left font-medium">口座番号</th><th className="px-2 py-1.5 text-right font-medium w-36">振込金額</th><th className="px-2 py-1.5 text-center font-medium w-20">振込済</th><th className="px-2 py-1.5 w-7" /></tr></thead>
+              <thead><tr className="text-[11px] text-brand-700 border-b border-brand-100"><th className="px-2 py-1.5 text-left font-medium w-32">相続人</th><th className="px-2 py-1.5 text-left font-medium">銀行名</th><th className="px-2 py-1.5 text-left font-medium">支店</th><th className="px-2 py-1.5 text-left font-medium">口座番号</th><th className="px-2 py-1.5 text-right font-medium w-36">振込金額</th><th className="px-2 py-1.5 text-center font-medium w-20">振込済</th><th className="px-2 py-1.5 w-7" /></tr></thead>
               <tbody>
                 {instr.length === 0 ? <tr><td colSpan={7} className="px-2 py-4 text-center text-gray-400">「相続人一覧から取込」してください</td></tr> : instr.map(r => (
                   <tr key={r.id} className="border-b border-gray-50 last:border-b-0">

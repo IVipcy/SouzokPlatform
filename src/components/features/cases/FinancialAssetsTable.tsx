@@ -448,7 +448,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
               <th className="px-2 py-2 text-left font-semibold w-28">取得区分</th>
               {cols.map(c => <th key={c.key} className={`px-2 py-2 text-left font-semibold ${c.width ?? ''}`}>{c.label}</th>)}
               {showBalanceCols && <th className="px-2 py-2 text-right font-semibold w-32">残高/評価額</th>}
-              {showBalanceCols && <th className="px-2 py-2 text-center font-semibold w-20">根拠資料<span className="block text-[10px] font-normal text-gray-400">有無</span></th>}
+              {showBalanceCols && <th className="px-2 py-2 text-center font-semibold w-20">根拠資料<span className="block text-[10px] font-normal text-brand-700">有無</span></th>}
               {showBalanceCols && <th className="px-2 py-2 text-left font-semibold w-56">根拠資料</th>}
               {progressMode && <th className="px-2 py-2 text-center font-semibold w-24">凍結確認</th>}
               {showConfirmed && <th className="px-2 py-2 text-center font-semibold w-24">残高確定</th>}

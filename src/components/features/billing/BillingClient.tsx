@@ -832,7 +832,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
         {/* Table */}
         <div className="bg-white border border-gray-200 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-x-auto">
           <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2.5">
-            <h2 className="text-[13px] font-semibold text-gray-900">請求・入金一覧</h2>
+            <h2 className="text-[13px] font-semibold text-brand-900">請求・入金一覧</h2>
             <span className="text-[13px] text-gray-400 font-mono bg-gray-50 px-2 py-0.5 rounded">{filtered.length}件</span>
             <button
               onClick={resetColWidths}

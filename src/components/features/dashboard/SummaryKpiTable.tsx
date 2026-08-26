@@ -180,11 +180,11 @@ export default function SummaryKpiTable({ ym, metrics, initialTarget }: Props) {
         <table className="w-full border-collapse text-sm" style={{ minWidth: 720 }}>
           <thead>
             <tr>
-              <th className="w-16 border border-gray-200 bg-gray-50 px-2 py-2 text-[12px] font-semibold text-gray-500" />
+              <th className="w-16 border border-brand-100 bg-brand-50/60 px-2 py-2 text-[12px] font-semibold text-brand-700" />
               {COLS.map(col => (
                 <th
                   key={col.key}
-                  className="border border-gray-200 bg-gray-50 px-3 py-2 text-center text-[13px] font-semibold text-gray-700"
+                  className="border border-brand-100 bg-brand-50/60 px-3 py-2 text-center text-[13px] font-semibold text-brand-700"
                 >
                   {col.label}
                 </th>

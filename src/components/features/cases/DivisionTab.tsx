@@ -265,7 +265,7 @@ function InlineEdit({ label, value, onSave, mono, fullWidth }: {
           onClick={handleStartEdit}
           className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]"
         >
-          <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
+          <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700 font-medium' : 'text-gray-400 italic text-xs'}`}>
             {value ?? '未設定'}
           </span>
           <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity " strokeWidth={2} />

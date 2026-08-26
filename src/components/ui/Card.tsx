@@ -58,7 +58,7 @@ export function CardHeader({ title, sub, right, icon }: {
   return (
     <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
       {icon && <span className="flex-shrink-0">{icon}</span>}
-      <h3 className="text-[14px] font-semibold text-gray-900 flex-1">{title}</h3>
+      <h3 className="text-[14px] font-semibold text-brand-900 flex-1">{title}</h3>
       {sub && <span className="text-[12px] text-gray-400">{sub}</span>}
       {right}
     </div>

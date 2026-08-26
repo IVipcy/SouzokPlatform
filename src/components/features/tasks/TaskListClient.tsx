@@ -809,7 +809,7 @@ function ListView({
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2">
-        <h2 className="text-[13px] font-semibold text-gray-900">タスク一覧</h2>
+        <h2 className="text-[13px] font-semibold text-brand-900">タスク一覧</h2>
         <span className="text-[13px] text-gray-400 font-mono bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
           {tasks.length}件
         </span>

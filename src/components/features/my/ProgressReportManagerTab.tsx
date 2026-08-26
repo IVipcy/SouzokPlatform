@@ -137,7 +137,7 @@ export default function ProgressReportManagerTab({ rows, currentMemberId }: Prop
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
       <div className="px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 flex-wrap">
         <ClipboardCheck className="w-4 h-4 text-brand-600" strokeWidth={2.25} />
-        <h3 className="text-[14px] font-bold text-gray-900">案件報告</h3>
+        <h3 className="text-[14px] font-bold text-brand-900">案件報告</h3>
         <div className="flex gap-1 ml-2 bg-gray-50 border border-gray-200 rounded-md p-0.5">
           <FilterChip label="すべて" active={filter === 'all'} onClick={() => setFilter('all')} />
           {FILTERS.map(f => (
@@ -218,7 +218,7 @@ export default function ProgressReportManagerTab({ rows, currentMemberId }: Prop
           <div className="bg-white rounded-xl shadow-xl w-[520px] max-w-[92vw]" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-3 border-b border-gray-200 flex items-center gap-2">
               <ClipboardCheck className="w-4 h-4 text-brand-600" strokeWidth={2.25} />
-              <h4 className="text-[14px] font-bold text-gray-900 flex-1">案件報告</h4>
+              <h4 className="text-[14px] font-bold text-brand-900 flex-1">案件報告</h4>
               <button type="button" onClick={() => !busy && setModalRow(null)} className="text-gray-400 hover:text-gray-600" aria-label="閉じる">
                 <X className="w-4 h-4" />
               </button>

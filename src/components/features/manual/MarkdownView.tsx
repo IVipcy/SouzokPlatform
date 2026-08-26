@@ -37,10 +37,10 @@ export default function MarkdownView({ source }: { source: string }) {
     if (line.trim() === '') { i++; continue }
     // 見出し
     if (line.startsWith('### ')) {
-      blocks.push(<h3 key={key++} className="text-[14px] font-bold text-gray-900 mt-4 mb-1.5">{renderInline(line.slice(4), `h${key}`)}</h3>); i++; continue
+      blocks.push(<h3 key={key++} className="text-[14px] font-bold text-brand-900 mt-4 mb-1.5">{renderInline(line.slice(4), `h${key}`)}</h3>); i++; continue
     }
     if (line.startsWith('## ')) {
-      blocks.push(<h2 key={key++} className="text-[16px] font-bold text-gray-900 mt-5 mb-2 pb-1 border-b border-gray-200">{renderInline(line.slice(3), `h${key}`)}</h2>); i++; continue
+      blocks.push(<h2 key={key++} className="text-[16px] font-bold text-brand-900 mt-5 mb-2 pb-1 border-b border-gray-200">{renderInline(line.slice(3), `h${key}`)}</h2>); i++; continue
     }
     // 注記
     if (line.startsWith('> ')) {

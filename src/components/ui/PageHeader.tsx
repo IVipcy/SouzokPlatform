@@ -44,7 +44,7 @@ export default function PageHeader({
       <div className="min-w-0">
         <p className="text-xs font-medium text-brand-600 tracking-wider uppercase">{eyebrow}</p>
         <div className="flex items-center gap-3 mt-1">
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-brand-900 tracking-tight flex items-center gap-2">
             {Icon && <Icon className="w-6 h-6 text-brand-600 flex-shrink-0" strokeWidth={2} />}
             <span className="truncate">{title}</span>
           </h1>

@@ -941,7 +941,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
                   achievedTitle={`${today.getMonth() + 1}月の目標を達成！`}
                 />
               </div>
-              <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-brand-900 tracking-tight flex items-center gap-2">
                 <UserCircle className="w-6 h-6 text-brand-600 flex-shrink-0" strokeWidth={2} />
                 <span className="truncate">{user.memberName ?? 'マイページ'}</span>
               </h1>
@@ -1157,7 +1157,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
           <div className="px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 flex-wrap">
             <AlertTriangle className="w-4 h-4 text-brand-600" strokeWidth={2.25} />
-            <h3 className="text-[14px] font-bold text-gray-900">クレーム報告（受信）</h3>
+            <h3 className="text-[14px] font-bold text-brand-900">クレーム報告（受信）</h3>
             <span className="text-[11px] text-gray-400 ml-2">報告中 {salesPendingComplaintsCount} 件</span>
             <span className="ml-auto text-[11px] text-gray-400">案件詳細画面で内容を確認→「確認する」を押します</span>
           </div>

@@ -58,7 +58,7 @@ export default function ManualStepView({ step, embedded = false }: {
       <div className="bg-white border border-gray-200 rounded-lg px-6 py-5 print:border-0 print:break-inside-avoid">
         {/* 見出し＋ロール */}
         <div className="flex items-center gap-3 flex-wrap mb-4">
-          <h2 className="text-[19px] font-bold text-gray-900">{step.title || '（無題）'}</h2>
+          <h2 className="text-[19px] font-bold text-brand-900">{step.title || '（無題）'}</h2>
           {rolesOfShots(shots).map(r => (
             <span key={r} className="text-[12px] font-semibold text-white bg-brand-600 rounded-full px-3.5 py-0.5">{r}</span>
           ))}

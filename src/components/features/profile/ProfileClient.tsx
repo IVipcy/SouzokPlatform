@@ -89,7 +89,7 @@ export default function ProfileClient({ member, teamName, isOwner, canEditOrg = 
             {isOwner ? (
               <NameEdit value={member.name} onSave={(v) => updateField('name', v)} />
             ) : (
-              <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{member.name}</h1>
+              <h1 className="text-2xl font-bold text-brand-900 tracking-tight">{member.name}</h1>
             )}
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px] text-gray-600">
               {role && (
@@ -245,7 +245,7 @@ export default function ProfileClient({ member, teamName, isOwner, canEditOrg = 
       <div className="mt-5 bg-gradient-to-br from-amber-50/60 to-white border border-amber-100 rounded-xl p-5">
         <div className="flex items-center gap-2 mb-2">
           <Heart className="w-4 h-4 text-amber-500" />
-          <h3 className="text-[14px] font-semibold text-gray-900">もらったサンクス</h3>
+          <h3 className="text-[14px] font-semibold text-brand-900">もらったサンクス</h3>
           <span className="ml-auto text-[11px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">Phase B で実装予定</span>
         </div>
         <div className="flex items-baseline gap-2">
@@ -283,7 +283,7 @@ function PasswordChangeCard() {
     <div className="mt-5 bg-white rounded-xl border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden">
       <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
         <KeyRound className="w-4 h-4 text-brand-600" />
-        <h3 className="text-[13px] font-semibold text-gray-900">パスワード変更</h3>
+        <h3 className="text-[13px] font-semibold text-brand-900">パスワード変更</h3>
       </div>
       <div className="px-4 py-3 max-w-[420px] space-y-2.5">
         <p className="text-[12px] text-gray-500">初期パスワードから、自分だけがわかるものに変更してください（8文字以上）。</p>
@@ -327,7 +327,7 @@ function MentorsField({ value, members, editable, onSave }: {
     : []
 
   if (!editable) {
-    if (picked.length === 0) return <span className="text-gray-300 italic text-xs">まだ登録されていません</span>
+    if (picked.length === 0) return <span className="text-gray-400 italic text-xs">まだ登録されていません</span>
     return (
       <div className="flex flex-wrap gap-1.5">
         {picked.map(m => (
@@ -386,7 +386,7 @@ function Section({ icon, title, children }: { icon: React.ReactNode; title: stri
     <div className="bg-white rounded-xl border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.04)] mb-5 overflow-hidden">
       <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
         {icon}
-        <h3 className="text-[13px] font-semibold text-gray-900">{title}</h3>
+        <h3 className="text-[13px] font-semibold text-brand-900">{title}</h3>
       </div>
       <div className="px-4 py-3">{children}</div>
     </div>
@@ -406,7 +406,7 @@ function FieldRow({ icon, label, children }: { icon?: React.ReactNode; label: st
 }
 
 function ReadOnlyText({ value, placeholder, mono, multiline }: { value?: string | null; placeholder: string; mono?: boolean; multiline?: boolean }) {
-  if (!value) return <span className="text-gray-300 italic text-xs">{placeholder}</span>
+  if (!value) return <span className="text-gray-400 italic text-xs">{placeholder}</span>
   return (
     <span className={`text-[13px] text-gray-700 ${mono ? 'font-mono' : ''} ${multiline ? 'whitespace-pre-wrap leading-relaxed' : ''}`}>
       {value}
@@ -579,7 +579,7 @@ function TextEdit({ value, onSave, placeholder, mono }: { value?: string | null;
       className="group cursor-pointer inline-flex items-center gap-1 -ml-1 pl-1 pr-1 rounded hover:bg-brand-50 transition-colors"
       title="クリックして編集"
     >
-      <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700' : 'text-gray-300 italic text-xs'} border-b border-dashed border-gray-200 group-hover:border-brand-400`}>
+      <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700' : 'text-gray-400 italic text-xs'} border-b border-dashed border-gray-200 group-hover:border-brand-400`}>
         {value ?? 'クリックして入力'}
       </span>
     </span>
@@ -642,7 +642,7 @@ function BioEdit({ value, onSave }: { value?: string | null; onSave: (v: string)
       {value ? (
         <span className="text-[13px] text-gray-700 whitespace-pre-wrap leading-relaxed">{value}</span>
       ) : (
-        <span className="text-gray-300 italic text-xs">クリックして自己紹介を入力</span>
+        <span className="text-gray-400 italic text-xs">クリックして自己紹介を入力</span>
       )}
     </div>
   )
@@ -682,7 +682,7 @@ function TagsField({ tags, editable, placeholder, onSave }: { tags: string[]; ed
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {tags.length === 0 && !editable && (
-        <span className="text-gray-300 italic text-xs">未設定</span>
+        <span className="text-gray-400 italic text-xs">未設定</span>
       )}
       {tags.map(t => (
         <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[13px] font-semibold bg-brand-50 text-brand-700 border border-brand-200">

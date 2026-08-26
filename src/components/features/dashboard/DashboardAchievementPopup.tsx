@@ -109,7 +109,7 @@ export default function DashboardAchievementPopup({ isAchieved, storageKey }: Pr
             <div className="text-[11px] font-semibold tracking-wider uppercase text-emerald-600 mb-1">
               CONGRATULATIONS
             </div>
-            <h3 className="text-xl sm:text-2xl font-extrabold text-gray-900 mb-2">
+            <h3 className="text-xl sm:text-2xl font-extrabold text-brand-900 mb-2">
               今月の目標を達成！
             </h3>
             <p className="text-[13px] text-gray-500 leading-relaxed">
@@ -122,7 +122,7 @@ export default function DashboardAchievementPopup({ isAchieved, storageKey }: Pr
             <div className="text-[11px] font-semibold tracking-wider uppercase text-red-600 mb-1">
               KEEP PUSHING
             </div>
-            <h3 className="text-xl sm:text-2xl font-extrabold text-gray-900 mb-2">
+            <h3 className="text-xl sm:text-2xl font-extrabold text-brand-900 mb-2">
               今月の目標は未達成
             </h3>
             <p className="text-[13px] text-gray-500 leading-relaxed">

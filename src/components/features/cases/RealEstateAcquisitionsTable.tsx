@@ -259,7 +259,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
               </th>}
               <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-52">対象</th>
               <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-40"><span className="inline-flex items-center gap-1">請求先<HintTip text={scope === 'municipality' ? '請求する市区町村役所。物件の所在地から自動で入ります（編集可）。' : scope === 'property' ? '請求する法務局。必要なら管轄の法務局名に修正してください。' : 'どこに請求するか（役所・法務局など）。'} /></span></th>
-              <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-56">取得する資料<span className="block text-[10px] font-normal text-gray-400">1宛先＝1請求（複数選択）</span></th>
+              <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-56">取得する資料<span className="block text-[10px] font-normal text-brand-700">1宛先＝1請求（複数選択）</span></th>
               {progressMode && <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-28">
                 <span className="inline-flex items-center gap-1">年度<HintTip text="名寄帳・評価証明の年度（和暦）。行ごとに持つので、令和7年度と令和8年度を並べて管理できます。登記情報・公図などには年度がありません。" /></span>
               </th>}

@@ -152,7 +152,7 @@ export default function FinanceTab({ caseData, expenses, onRefresh }: Props) {
             {expenses.length > 0 ? (
               <table className="w-full text-left">
                 <thead>
-                  <tr className="text-[13px] text-gray-400 border-b border-gray-100">
+                  <tr className="text-[13px] text-brand-700 border-b border-brand-100">
                     <th className="pb-1.5 font-medium">費目</th>
                     <th className="pb-1.5 font-medium text-right">金額</th>
                     <th className="pb-1.5 font-medium">発生日</th>
@@ -337,7 +337,7 @@ function InlineEdit({ label, value, onSave, mono, type = 'text', displayFormat }
           onClick={handleStartEdit}
           className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]"
         >
-          <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${displayValue && displayValue !== '未設定' ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
+          <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${displayValue && displayValue !== '未設定' ? 'text-gray-700 font-medium' : 'text-gray-400 italic text-xs'}`}>
             {displayValue ?? '未設定'}
           </span>
           <Pencil className="w-3 h-3 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" strokeWidth={1.75} />
@@ -352,7 +352,7 @@ function Section({ title, icon: _icon, children }: { title: string; icon: string
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
       <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
         <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
-        <h3 className="text-[13px] font-semibold text-gray-900">{title}</h3>
+        <h3 className="text-[13px] font-semibold text-brand-900">{title}</h3>
       </div>
       <div className="px-4 py-3">{children}</div>
     </div>

@@ -185,7 +185,7 @@ export default function KosekiRequestsTable({ caseId, requests, onRefresh, order
               {progressMode && (
                 <th className="px-2.5 py-2 text-left font-semibold w-48">
                   <span className="inline-flex items-center gap-1">取得方法<HintTip text={AUTHORITY_HELP} /></span>
-                  <span className="block text-[10px] font-normal text-gray-400">職務上請求は用紙の番号も</span>
+                  <span className="block text-[10px] font-normal text-brand-700">職務上請求は用紙の番号も</span>
                 </th>
               )}
               {progressMode && <th className="px-2.5 py-2 text-left font-semibold w-28">請求日</th>}

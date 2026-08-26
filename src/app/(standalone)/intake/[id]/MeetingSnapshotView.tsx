@@ -37,7 +37,7 @@ function List({ rows, cols }: { rows: Record<string, unknown>[]; cols: { key: st
     <div className="overflow-x-auto">
       <table className="w-full text-[12.5px] border-collapse">
         <thead>
-          <tr className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500">
+          <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
             {cols.map(c => <th key={c.key} className="px-2 py-1.5 text-left font-semibold whitespace-nowrap">{c.label}</th>)}
           </tr>
         </thead>

@@ -309,7 +309,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 function DeptSummaryCards({ title, items }: { title: string; items: { label: string; value: string; unit: string }[] }) {
   return (
     <section className="bg-white border border-gray-200 rounded-xl p-4 lg:p-5 shadow-sm">
-      <h2 className="text-lg font-bold text-gray-900 mb-4">{title}</h2>
+      <h2 className="text-lg font-bold text-brand-900 mb-4">{title}</h2>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         {items.map(k => (
           <div key={k.label} className="bg-white border border-gray-300 rounded-xl overflow-hidden">

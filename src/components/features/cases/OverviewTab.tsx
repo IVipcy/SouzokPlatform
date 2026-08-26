@@ -348,7 +348,7 @@ function Section({ title, icon: _icon, children }: { title: string; icon: string
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
       <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
         <span className="inline-block w-[3px] h-4 bg-brand-600 rounded-full" />
-        <h3 className="text-[13px] font-semibold text-gray-900">{title}</h3>
+        <h3 className="text-[13px] font-semibold text-brand-900">{title}</h3>
       </div>
       <div className="px-4 py-3">
         {children}
@@ -365,7 +365,7 @@ function Field({ label, value, mono }: { label: string; value?: string | null; m
   return (
     <div className="py-1.5 border-b border-gray-50">
       <div className="text-[12px] font-semibold text-gray-400 tracking-wide">{label}</div>
-      <div className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
+      <div className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700 font-medium' : 'text-gray-400 italic text-xs'}`}>
         {value ?? '未設定'}
       </div>
     </div>
@@ -434,7 +434,7 @@ function InlineEdit({ label, value, onSave, mono, fullWidth, required }: {
         />
       ) : (
         <div onClick={handleStartEdit} className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]">
-          <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
+          <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700 font-medium' : 'text-gray-400 italic text-xs'}`}>
             {value ?? '未設定'}
           </span>
           <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity " strokeWidth={2} />
@@ -488,7 +488,7 @@ function InlineSelect({ label, value, options, onSave, fullWidth, required, rend
           {value ? (
             renderValue ? renderValue(value) : <span className="text-[13px] text-gray-700 font-medium">{value}</span>
           ) : (
-            <span className="text-gray-300 italic text-xs">未設定</span>
+            <span className="text-gray-400 italic text-xs">未設定</span>
           )}
           <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">▼</span>
         </div>
@@ -580,7 +580,7 @@ function InlineMultiSelect({ label, value, options, onSave, fullWidth, required,
               ))}
             </div>
           ) : (
-            <span className="text-gray-300 italic text-xs">未設定</span>
+            <span className="text-gray-400 italic text-xs">未設定</span>
           )}
           <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" strokeWidth={2} />
         </div>
@@ -632,7 +632,7 @@ function InlineDate({ label, value, onSave, fullWidth, required }: {
         />
       ) : (
         <div onClick={() => { setDraft(value ?? ''); setEditing(true) }} className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]">
-          <span className={`text-[13px] font-mono ${value ? 'text-gray-700 font-medium' : missing ? 'text-red-500 text-xs' : 'text-gray-300 italic text-xs'}`}>
+          <span className={`text-[13px] font-mono ${value ? 'text-gray-700 font-medium' : missing ? 'text-red-500 text-xs' : 'text-gray-400 italic text-xs'}`}>
             {value ?? (missing ? '⚠ 未設定（必須）' : '未設定')}
           </span>
           <CalendarDays className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity " strokeWidth={2} />
@@ -682,7 +682,7 @@ function InlineNumber({ label, value, onSave, fullWidth, suffix }: {
         />
       ) : (
         <div onClick={() => { setDraft(value?.toString() ?? ''); setEditing(true) }} className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]">
-          <span className={`text-[13px] font-mono ${value != null ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
+          <span className={`text-[13px] font-mono ${value != null ? 'text-gray-700 font-medium' : 'text-gray-400 italic text-xs'}`}>
             {value != null ? `${value.toLocaleString()}${suffix ?? ''}` : '未設定'}
           </span>
           <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity " strokeWidth={2} />
@@ -735,7 +735,7 @@ function InlineCurrency({ label, value, onSave, fullWidth }: {
         </div>
       ) : (
         <div onClick={() => { setDraft(value?.toString() ?? ''); setEditing(true) }} className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]">
-          <span className={`text-[13px] font-mono ${value != null ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
+          <span className={`text-[13px] font-mono ${value != null ? 'text-gray-700 font-medium' : 'text-gray-400 italic text-xs'}`}>
             {value != null ? `¥${value.toLocaleString()}` : '未設定'}
           </span>
           <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity " strokeWidth={2} />
@@ -826,7 +826,7 @@ function InlineTextarea({ label, value, onSave, fullWidth }: {
           {value ? (
             <span className="text-[13px] text-gray-700 whitespace-pre-wrap leading-relaxed">{value}</span>
           ) : (
-            <span className="text-gray-300 italic text-xs">未設定</span>
+            <span className="text-gray-400 italic text-xs">未設定</span>
           )}
           <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5" strokeWidth={2} />
         </div>
@@ -935,7 +935,7 @@ function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseId, onRe
               ))}
             </div>
           ) : (
-            <span className="text-xs text-gray-300 italic">未設定</span>
+            <span className="text-xs text-gray-400 italic">未設定</span>
           )}
           <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity " strokeWidth={2} />
         </div>

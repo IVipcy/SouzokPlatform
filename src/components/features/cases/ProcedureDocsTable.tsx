@@ -89,7 +89,7 @@ export default function ProcedureDocsTable({ caseId, gyomu, docRoles, documents,
       <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 820 }}>
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-[11.5px] text-gray-500">
+            <tr className="bg-brand-50/60 border-b border-brand-100 text-[11.5px] text-brand-700">
               <th className="px-2.5 py-1.5 text-left font-semibold w-52">資料</th>
               <th className="px-2.5 py-1.5 text-left font-semibold w-36">請求先</th>
               <th className="px-2.5 py-1.5 text-left font-semibold w-32">請求日</th>

@@ -131,7 +131,7 @@ export default function PartnerManagerField({ caseId, partnerId, onChange, label
         onClick={() => setOpen(o => !o)}
         className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]"
       >
-        <span className={`text-[13px] ${current ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
+        <span className={`text-[13px] ${current ? 'text-gray-700 font-medium' : 'text-gray-400 italic text-xs'}`}>
           {current ? `${current.name}（${current.kickback_rate}%）` : '未設定'}
         </span>
         <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">▾</span>

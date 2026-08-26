@@ -256,7 +256,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
               {/* タスク名（ラベル付き） */}
               <div className="flex items-baseline gap-2 mb-1">
                 <span className="text-[12px] font-semibold text-gray-400 tracking-wide flex-shrink-0">タスク名:</span>
-                <h1 className="text-[22px] font-extrabold text-gray-900 tracking-tight">
+                <h1 className="text-[22px] font-extrabold text-brand-900 tracking-tight">
                   {task.title}
                 </h1>
               </div>
@@ -279,7 +279,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                     <span className="text-[13px] text-gray-700">
                       {caseData.procedure_type && caseData.procedure_type.length > 0
                         ? caseData.procedure_type.join('・')
-                        : <span className="text-gray-300 italic">未設定</span>}
+                        : <span className="text-gray-400 italic">未設定</span>}
                     </span>
                   </div>
                 </div>

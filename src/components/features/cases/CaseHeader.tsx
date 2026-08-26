@@ -136,7 +136,7 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
           {/* 左: 案件の識別情報 */}
           <div className="flex-shrink-0 min-w-0" style={{ maxWidth: 360 }}>
             {/* 案件名 + クレームフラグ ＋ 折りたたみトグル（枠なしテキスト） */}
-            <h1 className="flex items-center gap-2 text-[18px] font-extrabold text-gray-900 tracking-tight leading-snug">
+            <h1 className="flex items-center gap-2 text-[18px] font-extrabold text-brand-900 tracking-tight leading-snug">
               <span className="truncate">{caseData.deal_name}</span>
               {caseData.has_complaint && (
                 <span className="flex-shrink-0 inline-flex w-4 h-4 rounded-full bg-purple-600 items-center justify-center shadow-[0_0_0_2px_rgba(147,51,234,0.2)]" title="クレーム案件（紫フラグ）">

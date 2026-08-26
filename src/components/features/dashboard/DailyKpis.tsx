@@ -21,7 +21,7 @@ export default function DailyKpis({ scopeLabel, metrics }: Props) {
   return (
     <section className="mb-6">
       <div className="flex items-center gap-3 mb-4">
-        <h2 className="text-lg font-bold text-gray-900">{scopeLabel} 本日</h2>
+        <h2 className="text-lg font-bold text-brand-900">{scopeLabel} 本日</h2>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">

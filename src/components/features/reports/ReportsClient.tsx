@@ -163,7 +163,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-100">
-        <h3 className="text-[13px] font-semibold text-gray-900">{title}</h3>
+        <h3 className="text-[13px] font-semibold text-brand-900">{title}</h3>
       </div>
       <div className="px-4 py-3.5">{children}</div>
     </div>

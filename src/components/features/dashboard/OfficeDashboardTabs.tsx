@@ -289,7 +289,7 @@ function MailTab({ rows, today }: { rows: MailRow[]; today: string }) {
                 <th className={TH}>差出人</th>
                 <th className={TH}>到着物</th>
                 <th className={`${TH} text-center`}>通数</th>
-                <th className={`${TH} text-center`}>放置<span className="block text-[10px] font-normal text-gray-400">対応するまでの日数</span></th>
+                <th className={`${TH} text-center`}>放置<span className="block text-[10px] font-normal text-brand-700">対応するまでの日数</span></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">

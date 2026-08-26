@@ -486,7 +486,7 @@ function MuniDocTable({ rows, muni, itemType, years, onPatch, onDelete, onToggle
         </tbody>
       </table>
       <div className="px-2.5 py-2 border-t border-gray-100">
-        <button type="button" onClick={() => onAdd(muni, itemType)} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 border border-gray-200 rounded-md px-2.5 py-1 bg-white">
+        <button type="button" onClick={() => onAdd(muni, itemType)} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-md px-2.5 py-1.5">
           <Plus className="w-3.5 h-3.5" strokeWidth={2.25} /> 追加（年度ごと）
         </button>
       </div>

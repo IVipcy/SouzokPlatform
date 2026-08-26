@@ -273,7 +273,7 @@ export default function SystemTaskList({
     <section className="bg-white rounded-xl border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
       <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
         <span className="inline-block w-1 h-4 bg-brand-600 rounded-full" />
-        <h3 className="text-[14px] font-bold text-gray-900">{title}</h3>
+        <h3 className="text-[14px] font-bold text-brand-900">{title}</h3>
         <span className="text-[12px] text-gray-400 font-mono bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">
           {visible.length}
         </span>

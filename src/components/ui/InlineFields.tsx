@@ -169,7 +169,7 @@ export function FieldRow({ label, children, fullWidth, labelNote, containerRef, 
 export function Field({ label, value, mono }: { label: string; value?: string | null; mono?: boolean }) {
   return (
     <FieldRow label={label}>
-      <div className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
+      <div className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700 font-medium' : 'text-gray-400 italic text-xs'}`}>
         {value ?? '未設定'}
       </div>
     </FieldRow>
@@ -287,7 +287,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
             className="group cursor-pointer flex flex-1 min-w-0 items-center gap-1.5 min-h-[24px] px-1 -mx-1 rounded hover:bg-brand-50 transition-colors"
             title="クリックして編集"
           >
-            <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? `${ai ? 'text-blue-600' : 'text-gray-700'} font-medium border-b border-dashed border-gray-200 group-hover:border-brand-400` : 'text-gray-300 italic text-xs border-b border-dashed border-gray-200 group-hover:border-brand-400'}`}>
+            <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? `${ai ? 'text-blue-600' : 'text-gray-700'} font-medium border-b border-dashed border-gray-200 group-hover:border-brand-400` : 'text-gray-400 italic text-xs border-b border-dashed border-gray-200 group-hover:border-brand-400'}`}>
               {value ?? 'クリックして入力'}
             </span>
             <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity " strokeWidth={2} />
@@ -451,7 +451,7 @@ export function InlineMultiSelect({ label, value, options, onSave, fullWidth, re
               ))}
             </div>
           ) : (
-            <span className="text-gray-300 italic text-xs">未設定</span>
+            <span className="text-gray-400 italic text-xs">未設定</span>
           )}
           <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" strokeWidth={2} />
         </div>
@@ -588,7 +588,7 @@ export function InlineNumber({ label, value, onSave, fullWidth, suffix }: {
         />
       ) : (
         <div onClick={() => { setDraft(value?.toString() ?? ''); setEditing(true) }} className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]">
-          <span className={`text-[13px] font-mono ${value != null ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
+          <span className={`text-[13px] font-mono ${value != null ? 'text-gray-700 font-medium' : 'text-gray-400 italic text-xs'}`}>
             {value != null ? `${value.toLocaleString()}${suffix ?? ''}` : '未設定'}
           </span>
           <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity " strokeWidth={2} />
@@ -656,7 +656,7 @@ export function InlineCurrency({ label, value, onSave, fullWidth }: {
         </div>
       ) : (
         <div onClick={() => { setDraft(value?.toString() ?? ''); setEditing(true) }} className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]">
-          <span className={`text-[13px] font-mono ${value != null ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
+          <span className={`text-[13px] font-mono ${value != null ? 'text-gray-700 font-medium' : 'text-gray-400 italic text-xs'}`}>
             {value != null ? `¥${value.toLocaleString()}` : '未設定'}
           </span>
           <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity " strokeWidth={2} />
@@ -805,7 +805,7 @@ export function InlineTextarea({ label, value, onSave, fullWidth, placeholder, h
           ) : placeholder ? (
             <span className="text-[12px] text-gray-300 whitespace-pre-wrap leading-relaxed">{placeholder}</span>
           ) : (
-            <span className="text-gray-300 italic text-xs">未設定</span>
+            <span className="text-gray-400 italic text-xs">未設定</span>
           )}
           <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5" strokeWidth={2} />
         </div>
@@ -998,7 +998,7 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
               ))}
             </div>
           ) : (
-            <span className="text-xs text-gray-300 italic">未設定</span>
+            <span className="text-xs text-gray-400 italic">未設定</span>
           )}
           <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity " strokeWidth={2} />
         </div>

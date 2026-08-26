@@ -89,7 +89,7 @@ export default function IntakeEntryClient({ cases, drafts }: Props) {
 
           <div className="text-center mb-6">
             <div className="w-12 h-12 rounded-full bg-brand-50 flex items-center justify-center mx-auto mb-3"><PenSquare className="w-6 h-6 text-brand-600" /></div>
-            <h2 className="text-[16px] font-bold text-gray-900 mb-1">どの案件を入力しますか？</h2>
+            <h2 className="text-[16px] font-bold text-brand-900 mb-1">どの案件を入力しますか？</h2>
             <p className="text-[13px] text-gray-500">案件を確定してから、面談シートに進みます。</p>
           </div>
           <div className="flex flex-col gap-3">

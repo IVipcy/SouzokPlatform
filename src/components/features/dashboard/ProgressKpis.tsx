@@ -24,7 +24,7 @@ export default function ProgressKpis({ scopeLabel, metrics }: Props) {
   return (
     <section className="mb-6">
       <div className="flex items-center gap-3 mb-4">
-        <h2 className="text-lg font-bold text-gray-900">{scopeLabel} 進捗管理ボード</h2>
+        <h2 className="text-lg font-bold text-brand-900">{scopeLabel} 進捗管理ボード</h2>
         {/* 案件色は「その案件に出ているアラートで一番重い色」でしかない。条件は alertRules.ts に集約。 */}
         <span className="text-[11.5px] text-gray-400">案件の色＝出ているアラートで一番重い色（クレーム＞要注意＞要確認＞なし）</span>
       </div>

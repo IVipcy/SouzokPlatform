@@ -120,14 +120,14 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                 <th className="px-2.5 py-2 text-left font-semibold">差出人</th>
                 <th className="px-2.5 py-2 text-left font-semibold">到着物</th>
                 <th className="px-2.5 py-2 text-center font-semibold">通数</th>
-                <th className="px-2.5 py-2 text-center font-semibold">ファイル<span className="text-[10px] font-normal text-gray-400 block">案件フォルダ</span></th>
-                <th className="px-2.5 py-2 text-left font-semibold">原本格納先<span className="text-[10px] font-normal text-gray-400 block">チームのBOX</span></th>
+                <th className="px-2.5 py-2 text-center font-semibold">ファイル<span className="text-[10px] font-normal text-brand-700 block">案件フォルダ</span></th>
+                <th className="px-2.5 py-2 text-left font-semibold">原本格納先<span className="text-[10px] font-normal text-brand-700 block">チームのBOX</span></th>
                 <th className="px-2.5 py-2 text-center font-semibold">
                   <span className="inline-flex items-center gap-1">
                     W-Check
                     <HintTip width={300} text={W_CHECK_HELP} />
                   </span>
-                  <span className="text-[10px] font-normal text-gray-400 block">受信確定</span>
+                  <span className="text-[10px] font-normal text-brand-700 block">受信確定</span>
                 </th>
                 <th className="px-2.5 py-2 text-center font-semibold">
                   <span className="inline-flex items-center gap-1">
@@ -135,7 +135,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                     <HintTip width={300} text={TAIOU_HELP} />
                   </span>
                 </th>
-                <th className="px-2.5 py-2 text-left font-semibold">紐付けタスク<span className="text-[10px] font-normal text-gray-400 block">クリックで詳細</span></th>
+                <th className="px-2.5 py-2 text-left font-semibold">紐付けタスク<span className="text-[10px] font-normal text-brand-700 block">クリックで詳細</span></th>
               </tr>
             </thead>
             <tbody>

@@ -101,10 +101,10 @@ export default function CompletionBreakdown({ breakdown }: Props) {
         <table className="w-full border-collapse text-sm" style={{ minWidth: 460 }}>
           <thead>
             <tr>
-              <th className="border-b border-gray-200 px-3 py-2 text-left text-[12px] font-semibold text-gray-500">手続区分</th>
-              <th className="border-b border-gray-200 px-3 py-2 text-right text-[12px] font-semibold text-gray-500">件数</th>
-              <th className="border-b border-gray-200 px-3 py-2 text-right text-[12px] font-semibold text-gray-500">金額</th>
-              <th className="border-b border-gray-200 px-3 py-2 text-right text-[12px] font-semibold text-gray-500">割合</th>
+              <th className="border-b border-brand-100 px-3 py-2 text-left text-[12px] font-semibold text-brand-700">手続区分</th>
+              <th className="border-b border-brand-100 px-3 py-2 text-right text-[12px] font-semibold text-brand-700">件数</th>
+              <th className="border-b border-brand-100 px-3 py-2 text-right text-[12px] font-semibold text-brand-700">金額</th>
+              <th className="border-b border-brand-100 px-3 py-2 text-right text-[12px] font-semibold text-brand-700">割合</th>
             </tr>
           </thead>
           <tbody>

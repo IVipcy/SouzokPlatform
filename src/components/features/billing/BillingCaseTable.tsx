@@ -105,7 +105,7 @@ export default function BillingCaseTable({ rows, title = '請求対象案件' }:
       )}
 
       <div>
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">
+        <h3 className="text-sm font-semibold text-brand-900 mb-3">
           {title}
           <span className="ml-2 text-[12px] font-mono text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">{sorted.length}件</span>
           {statusFilter !== 'all' && <button type="button" onClick={() => setStatusFilter('all')} className="ml-2 text-[11px] text-brand-600 hover:underline">絞り込み解除</button>}

@@ -83,7 +83,7 @@ export default function OfficeManagerDashboard({ mode = 'start', rows, currentMe
                   <th className={TH}>チーム</th>
                   <th className={TH}>受注担当</th>
                   <th className={TH}>管理担当</th>
-                  <th className={`${TH} text-center`}>前受金入金<span className="block text-[10px] font-normal text-gray-400">system</span></th>
+                  <th className={`${TH} text-center`}>前受金入金<span className="block text-[10px] font-normal text-brand-700">system</span></th>
                   <th className={`${TH} text-center`}>ファイル化</th>
                   {!isFiling && <th className={`${TH} text-center w-28`}>着手</th>}
                 </tr>

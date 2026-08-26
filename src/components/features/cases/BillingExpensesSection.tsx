@@ -155,7 +155,7 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
           <colgroup>
             <col style={{ width: 300 }} /><col style={{ width: 64 }} /><col style={{ width: 80 }} /><col style={{ width: 96 }} /><col /><col style={{ width: 52 }} />
           </colgroup>
-          <thead><tr className="text-[10.5px] text-gray-500 border-b border-gray-100">
+          <thead><tr className="text-[10.5px] text-brand-700 border-b border-brand-100">
             <th className="px-1.5 py-1 text-left font-medium">名目</th><th className="px-1.5 py-1 text-right font-medium">数量</th><th className="px-1.5 py-1 text-right font-medium">単価（税込）</th><th className="px-1.5 py-1 text-right font-medium">金額（税込）</th><th className="px-1.5 py-1 text-left font-medium">備考</th><th className="px-1.5 py-1" />
           </tr></thead>
           <tbody>
@@ -344,7 +344,7 @@ function CaseExpenseBlock({ caseId }: { caseId: string }) {
       <div className="px-3 pb-3 pt-2">
         <table className="w-full text-[12px]">
           <thead>
-            <tr className="text-[11px] text-gray-500 border-b border-gray-100">
+            <tr className="text-[11px] text-brand-700 border-b border-brand-100">
               <th className="px-2 py-1.5 text-left font-semibold w-24">発生源</th>
               <th className="px-2 py-1.5 text-left font-semibold">内容</th>
               <th className="px-2 py-1.5 text-left font-semibold w-28">日付</th>

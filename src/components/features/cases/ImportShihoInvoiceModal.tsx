@@ -184,7 +184,7 @@ export default function ImportShihoInvoiceModal({ isOpen, onClose, caseData, onS
             <div className="bg-white border border-gray-200 rounded-md p-2 space-y-1.5">
               <div className="text-[11px] text-gray-500">読み取り結果（確認して反映）</div>
               <table className="w-full text-[11.5px]">
-                <thead><tr className="text-gray-400"><th className="text-left font-medium">種別</th><th className="text-right font-medium">報酬</th><th className="text-right font-medium">登免/印紙</th></tr></thead>
+                <thead><tr className="text-brand-700"><th className="text-left font-medium">種別</th><th className="text-right font-medium">報酬</th><th className="text-right font-medium">登免/印紙</th></tr></thead>
                 <tbody>{ocrItems.map((it, i) => (<tr key={i}><td className="text-gray-700 pr-2">{it.type || '—'}</td><td className="text-right font-mono">{yen(it.reward)}</td><td className="text-right font-mono">{yen(it.tax)}</td></tr>))}</tbody>
               </table>
               <div className="text-[11.5px] text-gray-600 flex justify-between border-t border-gray-100 pt-1"><span>郵送料・システム利用料</span><span className="font-mono">{yen(ocrExpense)}</span></div>

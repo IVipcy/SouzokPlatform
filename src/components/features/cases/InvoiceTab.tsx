@@ -157,7 +157,7 @@ export default function InvoiceTab({ caseData, expenses, tasks, onRefresh, patch
               {expenses.length > 0 ? (
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="text-[13px] text-gray-400 border-b border-gray-100">
+                    <tr className="text-[13px] text-brand-700 border-b border-brand-100">
                       <th className="pb-1.5 font-medium">費目</th>
                       <th className="pb-1.5 font-medium text-right">金額</th>
                       <th className="pb-1.5 font-medium">発生日</th>

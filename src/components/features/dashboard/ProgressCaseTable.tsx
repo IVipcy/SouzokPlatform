@@ -43,7 +43,7 @@ export default function ProgressCaseTable({ rowsWithFlag, rowsUnset, showRoleBad
   return (
     <div className="space-y-5">
       <section>
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">案件一覧</h3>
+        <h3 className="text-sm font-semibold text-brand-900 mb-3">案件一覧</h3>
         {rowsWithFlag.length === 0 ? (
           <div className="bg-white border border-gray-200 rounded-lg p-8 text-center text-sm text-gray-400">
             該当する案件はありません

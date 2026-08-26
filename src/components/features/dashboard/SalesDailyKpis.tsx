@@ -40,7 +40,7 @@ export default function SalesDailyKpis({ scopeLabel, periodLabel, metrics }: Pro
   return (
     <section className="bg-white border border-gray-200 rounded-xl p-4 lg:p-5 shadow-sm">
       <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <h2 className="text-lg font-bold text-gray-900">受注担当 {scopeLabel} {periodLabel}</h2>
+        <h2 className="text-lg font-bold text-brand-900">受注担当 {scopeLabel} {periodLabel}</h2>
         <span className="text-[12px] text-gray-500 px-2 py-0.5 bg-gray-100 rounded">{periodLabel}の集計</span>
       </div>
 
