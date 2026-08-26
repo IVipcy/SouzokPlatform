@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Sparkles, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import { CASE_STATUSES, getCaseStatusLabel } from '@/lib/constants'
@@ -28,10 +28,8 @@ export type ReferralRow = {
 export default function ReferralCasesTable({ cases, selectable = false }: { cases: ReferralRow[]; selectable?: boolean }) {
   const sel = useCaseBulkDelete(cases.map(c => c.id))
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+    <div className="bg-white border border-gray-200 rounded-[3px] overflow-hidden">
       <div className="px-4 py-2.5 border-b border-gray-200 flex items-center gap-2">
-        <Sparkles className="w-4 h-4 text-cyan-600" strokeWidth={2.25} />
-        <h3 className="text-[14px] font-bold text-brand-900">個別案件一覧</h3>
         <span className="text-[11px] text-gray-400 font-mono bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">
           {cases.length}件
         </span>
