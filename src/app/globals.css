@@ -93,6 +93,15 @@ textarea:disabled {
   color: #9ca3af;
 }
 
+/* 入力欄コンテナ方式（ボタン内蔵の入力欄）用：
+   容器側が面とフォーカスリングを持つので、中の input は素通しにする。 */
+input.input-naked,
+input.input-naked:focus {
+  background-color: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
 /* ─── 表の行区切り線を全画面で統一して濃く ───
    tr の border 色（border-b / divide-y 由来）を slate-300 相当にそろえる。
    ヘッダ帯の下線も同色になり、表ごとの線の濃さのばらつきが消える。 */

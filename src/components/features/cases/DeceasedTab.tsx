@@ -677,7 +677,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                       placeholder="1234567"
                       className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
                     />
-                    <PostalLookupButton zip={heirPostal} onResolved={addr => setAndSave({ address: addr })} className="flex-none inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 px-2.5 py-1.5 rounded-md border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed" />
+                    <PostalLookupButton zip={heirPostal} onResolved={addr => setAndSave({ address: addr })} className="flex-none inline-flex items-center gap-1 h-7 px-2.5 rounded text-[11.5px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap" />
                   </div>
                 </FormField>
                 <FormField label="住所">

@@ -243,7 +243,10 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
   if (alwaysEdit) {
     return (
       <FieldRow label={label} fullWidth={fullWidth} hint={hint}>
-        <div className="flex items-center gap-2">
+        {/* ボタン（住所を取得・フリガナ取得等）は入力欄の「中」に内蔵する。
+            外に並べると行ごとに入力欄の幅がバラつくため、容器が面とフォーカスリングを持ち、
+            input は素通し（.input-naked）にして全行の見た目幅をそろえる。 */}
+        <div className="flex items-center flex-1 min-w-0 h-9 rounded-md bg-[#f3f5f8] focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-400 transition-colors">
           <input
             type="text"
             value={draft}
@@ -252,9 +255,9 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
             onCompositionEnd={() => { composingRef.current = false }}
             onBlur={() => { if (!composingRef.current) { const t = draft.trim(); if (t !== (value ?? '')) withToast(() => onSave(t)) } }}
             placeholder="入力"
-            className={`flex-1 min-w-0 h-9 px-2.5 text-[13px] bg-white border border-gray-200 rounded-md outline-none focus:border-brand-400 ${mono ? 'font-mono' : ''} ${ai ? 'text-blue-600' : ''}`}
+            className={`input-naked flex-1 min-w-0 h-full px-2.5 text-[13px] rounded-md outline-none ${mono ? 'font-mono' : ''} ${ai ? 'text-blue-600' : ''}`}
           />
-          {renderAction(draft)}
+          {action != null && <div className="flex-none pr-1">{renderAction(draft)}</div>}
         </div>
         {address && <AddressHint value={draft} />}
       </FieldRow>

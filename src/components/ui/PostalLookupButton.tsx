@@ -32,7 +32,7 @@ export default function PostalLookupButton({ zip, onResolved, className }: {
       onClick={run}
       disabled={disabled}
       title={z.length !== 7 ? '7桁の郵便番号を入力すると押せます' : '郵便番号から住所を取得'}
-      className={className ?? 'mt-1.5 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 px-2.5 py-1.5 rounded-md border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed'}
+      className={className ?? 'inline-flex items-center gap-1 h-7 px-2.5 rounded text-[11.5px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap'}
     >
       <MapPin className="w-3.5 h-3.5" />{busy ? '取得中…' : '住所を取得'}
     </button>

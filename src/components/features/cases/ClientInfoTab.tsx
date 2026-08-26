@@ -74,7 +74,7 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
               value={client.postal_code}
               hint="郵便番号7桁を入れて「住所を取得」を押すと住所が入ります（番地・建物は自分で足してください）"
               onSave={v => saveClientField('postal_code', v.replace(/[^0-9]/g, ''))}
-              action={(zip) => <PostalLookupButton zip={zip} onResolved={addr => saveClientField('address', addr)} className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-brand-600 hover:text-brand-700 px-2 py-1 rounded-md border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed" />}
+              action={(zip) => <PostalLookupButton zip={zip} onResolved={addr => saveClientField('address', addr)} className="inline-flex items-center gap-1 h-7 px-2.5 rounded text-[11.5px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap" />}
             />
             <InlineEdit label="依頼者住所" value={client.address} onSave={v => saveClientField('address', v)} fullWidth required />
             {/* 振込名義人（カナ）＝入金CSV突合のキー。本人振込なら依頼者ふりがなをカタカナで自動入力。
@@ -93,7 +93,7 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
                       type="button"
                       disabled={!mainFurigana}
                       onClick={() => mainFurigana && saveClientField('transfer_name_kana', toKatakana(mainFurigana))}
-                      className="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-1.5 py-0.5 rounded border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="inline-flex items-center gap-1 h-7 px-2.5 rounded text-[11.5px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                     >メイン依頼者のフリガナを取得</button>
                   }
                 />
