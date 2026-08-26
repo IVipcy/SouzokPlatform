@@ -343,7 +343,13 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
               )}
               <td className="px-3 py-2.5 text-center">
                 {c.flag ? (
-                  <Link href={`/cases/${c.id}`} title="案件詳細を開く" className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[11.5px] font-bold whitespace-nowrap hover:brightness-95 transition ${FLAG_BG[c.flag]}`}>
+                  /* フラグは「何がマズいか」の入口。案件詳細のトップに落とすと結局そこから探す
+                     ことになるので、要注意/要確認バナーと同じ一覧へ、この案件だけに絞って飛ばす。 */
+                  <Link
+                    href={`/my/overdue?sev=${c.flag === 'yellow' ? 'kakunin' : 'chui'}&case=${c.id}`}
+                    title={`${FLAG_LABEL[c.flag]}の中身を見る（この案件だけ）`}
+                    className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[11.5px] font-bold whitespace-nowrap hover:brightness-95 transition ${FLAG_BG[c.flag]}`}
+                  >
                     {FLAG_LABEL[c.flag]}
                   </Link>
                 ) : (

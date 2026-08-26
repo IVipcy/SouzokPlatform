@@ -14,10 +14,12 @@ import type { TaskRow } from '@/types'
 // マイページ上部の要確認/要注意バナーの遷移先。バナーで選んだ severity で絞り込み表示。
 // 入金超過の請求＋案件別表（事務管理・受注/管理担当タスクを問わず超過が発生している案件）を並べる。
 
-type SearchParams = Promise<{ sev?: string }>
+// case を付けるとその案件ぶんだけに絞る。一覧のフラグ（要注意/要確認）から
+// 「この案件の何がマズいのか」へ直行するために使う。
+type SearchParams = Promise<{ sev?: string; case?: string }>
 
 export default async function OverdueDetailPage({ searchParams }: { searchParams: SearchParams }) {
-  const { sev } = await searchParams
+  const { sev, case: caseIdParam } = await searchParams
   const user = await getCurrentUser()
   if (!user?.memberId) redirect('/login')
   if (!canSeeMyPage(user)) redirect('/')
@@ -201,16 +203,35 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
   const fCases = sevFilter ? caseList.filter(c => c.overdue?.severity === sevFilter) : caseList
   const fAlerts = sevFilter ? caseStateAlerts.filter(a => a.severity === sevFilter) : caseStateAlerts
 
+  // 案件で絞る（一覧のフラグから来たとき）。絞った案件の名前は見出しに出す。
+  const only = (caseIdParam ?? '').trim() || null
+  const gBills = only ? fBills.filter(b => b.caseId === only) : fBills
+  const gCases = only ? fCases.filter(c => c.id === only) : fCases
+  const gAlerts = only ? fAlerts.filter(a => a.caseId === only) : fAlerts
+  const onlyName = only
+    ? (gAlerts[0]?.dealName ?? gCases[0]?.deal_name ?? gBills[0]?.caseName ?? null)
+    : null
+
   return (
     <div>
       <PageHeader
         eyebrow="My"
         title="要対応（期日超過）一覧"
         icon={AlertTriangle}
-        description={sevFilter ? (sevFilter === 'chui' ? '要注意（2週間以上超過）' : '要確認（5営業日超過）') : '要確認・要注意 すべて'}
-        right={<Link href="/my" className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition"><ArrowLeft className="w-3.5 h-3.5" /> マイページへ</Link>}
+        description={[
+          sevFilter ? (sevFilter === 'chui' ? '要注意（2週間以上超過）' : '要確認（5営業日超過）') : '要確認・要注意 すべて',
+          onlyName ? `${onlyName} の分だけ表示中` : null,
+        ].filter(Boolean).join(' ／ ')}
+        right={
+          <div className="flex items-center gap-2">
+            {only && (
+              <Link href={`/my/overdue${sevFilter ? `?sev=${sevFilter}` : ''}`} className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-brand-700 border border-brand-200 bg-brand-50 rounded-lg hover:bg-brand-100 transition">絞り込みを外す</Link>
+            )}
+            <Link href="/my" className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition"><ArrowLeft className="w-3.5 h-3.5" /> マイページへ</Link>
+          </div>
+        }
       />
-      <OverdueDetailClient bills={fBills} cases={fCases} caseAlerts={fAlerts} sev={sevFilter} />
+      <OverdueDetailClient bills={gBills} cases={gCases} caseAlerts={gAlerts} sev={sevFilter} />
     </div>
   )
 }
