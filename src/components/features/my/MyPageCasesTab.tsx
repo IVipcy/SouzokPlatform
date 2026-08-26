@@ -35,8 +35,6 @@ export type MyCaseRow = {
   team_name?: string | null
   /** 受注内容（手続区分） */
   procedure_type?: string[] | null
-  /** オーダーシート完成日時（作成済判定） */
-  order_sheet_completed_at?: string | null
   /** 進捗: 次の未完了タスク + 完了/総数 */
   nextTaskId?: string | null
   nextTaskTitle?: string | null
@@ -61,9 +59,6 @@ export type MyCaseRow = {
   reopenCount?: number
   /** 週次報告状況 */
   weeklyStatus?: '未対応' | '依頼中' | '確認済'
-  /** 直近お客様報告 */
-  lastCommDate?: string | null
-  lastCommDetail?: string | null
   /** 最終更新日 */
   updated_at?: string | null
   /** 案件に出ているアラート（色＝重大度・クリックで該当箇所へ）。判定は alertRules.ts */
@@ -306,13 +301,10 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件名</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注担当</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">管理担当</th>
-            <th className="px-3 py-2 text-left font-bold whitespace-nowrap">オーダーシート</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">受注内容</th>
-            <th className="px-3 py-2 text-left font-bold whitespace-nowrap" title="完了予定日までの残り日数（暦日）">残り</th>
+            <th className="px-3 py-2 text-left font-bold whitespace-nowrap" title="完了予定日までの残り日数（暦日）">完了予定までの残り</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">完了予定日</th>
             <th className="px-3 py-2 text-center font-bold whitespace-nowrap">週次報告状況</th>
-            <th className="px-3 py-2 text-left font-bold whitespace-nowrap">直近お客様報告日</th>
-            <th className="px-3 py-2 text-left font-bold whitespace-nowrap">やり取り詳細</th>
             <th className="px-3 py-2 text-left font-bold whitespace-nowrap">最終更新日</th>
           </tr>
         </thead>
@@ -375,14 +367,6 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
               <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-nowrap">{c.sales_name || <span className="text-gray-300">—</span>}</td>
               {/* 管理担当 */}
               <td className="px-3 py-2.5 text-[12px] text-gray-700 whitespace-nowrap"><ManagerNames name={c.manager_name} subName={c.sub_manager_name} /></td>
-              {/* オーダーシート作成（未作成=— / 作成済=タブへのリンク） */}
-              <td className="px-3 py-2.5">
-                {c.order_sheet_completed_at ? (
-                  <Link href={`/cases/${c.id}?tab=orderSheet`} className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100">作成済</Link>
-                ) : (
-                  <span className="text-gray-300">—</span>
-                )}
-              </td>
               {/* 受注内容（手続区分） */}
               <td className="px-3 py-2.5">
                 {c.procedure_type && c.procedure_type.filter(Boolean).length > 0 ? (
@@ -393,7 +377,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                   </div>
                 ) : <span className="text-gray-300">—</span>}
               </td>
-              {/* 残り（完了予定日までの暦日）。完了済みの案件は色を付けない。 */}
+              {/* 完了予定までの残り（暦日）。完了済みの案件は色を付けない。 */}
               <td className="px-3 py-2.5 whitespace-nowrap">
                 <RemainCell due={c.expected_completion_date} today={today} muted={isCompletedView} />
               </td>
@@ -402,16 +386,6 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
               {/* 週次報告状況 */}
               <td className="px-3 py-2.5 text-center">
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${WEEKLY_BADGE[weekly]}`}>{weekly}</span>
-              </td>
-              {/* 直近お客様報告日 */}
-              <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600 whitespace-nowrap">{c.lastCommDate ?? <span className="text-gray-300">—</span>}</td>
-              {/* やり取り詳細 */}
-              <td className="px-3 py-2.5 text-[12px] text-gray-600 min-w-[200px] max-w-[320px]">
-                {c.lastCommDetail ? (
-                  <span className="line-clamp-2 whitespace-pre-line" title={c.lastCommDetail}>{c.lastCommDetail}</span>
-                ) : (
-                  <span className="text-gray-300">—</span>
-                )}
               </td>
               {/* 最終更新日 */}
               <td className="px-3 py-2.5 text-[12px] font-mono text-gray-500 whitespace-nowrap">

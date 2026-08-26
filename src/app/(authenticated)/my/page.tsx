@@ -247,11 +247,10 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   let teamReports: Array<ProgressReportRow & { cases: { case_number: string; deal_name: string } | null }> = []
   let wonChanges: Array<{ entity_id: string; created_at: string }> = []
   let assigneeChanges: Array<{ entity_id: string; metadata: { op?: string; role?: string } | null }> = []
-  let comms: Array<{ case_id: string; communicated_at: string | null; detail: string | null }> = []
 
   if (caseIdArray.length > 0) {
     try {
-      const [tasksRes, invoicesRes, roleTaskRes, changesRes, propsRes, referralsRes, reportsRes, wonRes, assigneeRes, commsRes] = await Promise.all([
+      const [tasksRes, invoicesRes, roleTaskRes, changesRes, propsRes, referralsRes, reportsRes, wonRes, assigneeRes] = await Promise.all([
         supabase.from('tasks').select('id,case_id,title,status,sort_order,due_date,task_kind').in('case_id', caseIdArray),
         supabase.from('invoices').select('id,case_id,invoice_type,status,amount,firm_type,issued_date,created_at,expenses_amount,advance_deduction,notes,receipt_issued_date,due_date,needs_review').in('case_id', caseIdArray),
         // 担当者ベース: 自分が task_assignees に紐付く未完了タスク（システム/案件タスク共通）
@@ -273,7 +272,6 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         isSales && salesCaseIdArray.length > 0
           ? supabase.from('activity_log').select('entity_id,metadata').eq('entity_type', 'case').eq('action', 'assignee_change').in('entity_id', salesCaseIdArray)
           : Promise.resolve({ data: [] }),
-        supabase.from('client_communications').select('case_id,communicated_at,detail').in('case_id', caseIdArray).order('communicated_at', { ascending: false }),
       ])
       boardTasks = (tasksRes.data ?? []) as BoardTask[]
       invoices = (invoicesRes.data ?? []) as typeof invoices
@@ -284,7 +282,6 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       allReports = (reportsRes.data ?? []) as ProgressReportRow[]
       wonChanges = (wonRes.data ?? []) as Array<{ entity_id: string; created_at: string }>
       assigneeChanges = (assigneeRes.data ?? []) as Array<{ entity_id: string; metadata: { op?: string; role?: string } | null }>
-      comms = (commsRes.data ?? []) as Array<{ case_id: string; communicated_at: string | null; detail: string | null }>
     } catch { /* migration 未適用環境では空扱い */ }
   }
 
@@ -454,12 +451,6 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     if (weeklyStatusOf(cid) === '確認済') reportConfirmedRecent.add(cid)
   }
 
-  // 案件ごと: 直近の依頼者やり取り（最新1件）
-  const lastCommByCase = new Map<string, { date: string | null; detail: string | null }>()
-  for (const c of comms) {
-    if (!lastCommByCase.has(c.case_id)) lastCommByCase.set(c.case_id, { date: c.communicated_at, detail: c.detail })
-  }
-
   // 案件行のアラートチップ用シグナル（前受金の状態は他の表示でも使う）
   const advanceStatusByCase = new Map<string, string>()
   for (const i of invoices) if (i.invoice_type === '前受金' && !advanceStatusByCase.has(i.case_id)) advanceStatusByCase.set(i.case_id, i.status)
@@ -474,7 +465,6 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       href: h.href ?? (h.tab ? `/cases/${c.id}?tab=${h.tab}` : `/cases/${c.id}`),
     }))
     const prog = progressByCase.get(c.id)
-    const lastComm = lastCommByCase.get(c.id)
     return {
       id: c.id,
       case_number: c.case_number,
@@ -491,7 +481,6 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       manager_name: managerByCase.get(c.id) ?? null,
       sub_manager_name: subManagerByCase.get(c.id) ?? null,
       procedure_type: c.procedure_type,
-      order_sheet_completed_at: c.order_sheet_completed_at,
       // 進捗（次の未完了タスク + 完了/総数）＋ task_kind別 進捗 + 期限超過フラグ
       nextTaskId: prog?.nextSystemTaskId ?? prog?.nextCaseTaskId ?? null,
       nextTaskTitle: prog?.nextSystemTaskTitle ?? prog?.nextCaseTaskTitle ?? null,
@@ -511,9 +500,6 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
       reopenCount: reopenCountByCase.get(c.id) ?? 0,
       // 週次報告状況
       weeklyStatus: weeklyStatusOf(c.id),
-      // 直近お客様報告
-      lastCommDate: lastComm?.date ?? null,
-      lastCommDetail: lastComm?.detail ?? null,
       alertChips,
       flag: MGMT_ACTIVE_STATUSES.has(c.status) ? computeCaseFlag(c, hits) : null,
     }

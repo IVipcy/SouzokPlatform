@@ -76,13 +76,12 @@ function confirmedRevenue(c: CaseRowRaw): number | null {
 type TaskRowLite = { id: string; case_id: string; title: string; status: string; sort_order: number | null; task_kind: string | null; due_date: string | null }
 type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: 'kakunin' | 'chui' | null }
 type ReportLite = { case_id: string; status: string; confirmed_date: string | null; requested_date: string | null; kind?: string }
-type CommLite = { case_id: string; communicated_at: string | null; detail: string | null }
 
 export default async function CasesPage() {
   const supabase = await createClient()
   const today = new Date()
 
-  const [{ data: casesRaw }, { data: tasksRaw }, { data: reportsRaw }, { data: commsRaw }, { data: teamsRaw }] = await Promise.all([
+  const [{ data: casesRaw }, { data: tasksRaw }, { data: reportsRaw }, { data: teamsRaw }] = await Promise.all([
     supabase
       .from('cases')
       .select('*, clients(id,name,furigana,phone,mobile_phone), case_members(role, members(id,name,team_id)), case_referrals(partner_type, content, referral_reason)')
@@ -90,14 +89,12 @@ export default async function CasesPage() {
       .order('created_at', { ascending: false }),
     supabase.from('tasks').select('id,case_id,title,status,sort_order,task_kind,due_date'),
     supabase.from('progress_reports').select('case_id,status,confirmed_date,requested_date,kind'),
-    supabase.from('client_communications').select('case_id,communicated_at,detail').order('communicated_at', { ascending: false }),
     supabase.from('teams').select('id,name'),
   ])
 
   const cases = (casesRaw ?? []) as CaseRowRaw[]
   const tasks = (tasksRaw ?? []) as TaskRowLite[]
   const reports = (reportsRaw ?? []) as ReportLite[]
-  const comms = (commsRaw ?? []) as CommLite[]
   const teamNameById = new Map<string, string>((((teamsRaw ?? []) as Array<{ id: string; name: string }>).map(t => [t.id, t.name])))
 
   // 担当者名 + 受注担当のチーム名
@@ -192,12 +189,6 @@ export default async function CasesPage() {
     return '未対応'
   }
 
-  // 直近やり取り
-  const lastCommByCase = new Map<string, { date: string | null; detail: string | null }>()
-  for (const c of comms) {
-    if (!lastCommByCase.has(c.case_id)) lastCommByCase.set(c.case_id, { date: c.communicated_at, detail: c.detail })
-  }
-
   // 案件再オープン回数（progress_reports.kind='case_reopen'）
   const reopenCountByCase = new Map<string, number>()
   for (const pr of reports) {
@@ -208,7 +199,6 @@ export default async function CasesPage() {
   // 管理案件の行マッピング（対応中・完了で共通利用）
   const toMyCaseRow = (c: CaseRowRaw): MyCaseRow => {
     const prog = progressByCase.get(c.id)
-    const lc = lastCommByCase.get(c.id)
     const hits = caseAlertHits.get(c.id) ?? []
     return {
       id: c.id,
@@ -227,7 +217,6 @@ export default async function CasesPage() {
       sub_manager_name: subManagerByCase.get(c.id) ?? null,
       team_name: salesTeamByCase.get(c.id) ?? null,
       procedure_type: c.procedure_type,
-      order_sheet_completed_at: c.order_sheet_completed_at,
       nextTaskId: prog?.nextSystemTaskId ?? prog?.nextCaseTaskId ?? null,
       nextTaskTitle: prog?.nextSystemTaskTitle ?? prog?.nextCaseTaskTitle ?? null,
       nextCaseTaskId: prog?.nextCaseTaskId ?? null,
@@ -251,8 +240,6 @@ export default async function CasesPage() {
         key: h.key, label: h.category, severity: h.severity,
         href: h.href ?? (h.tab ? `/cases/${c.id}?tab=${h.tab}` : `/cases/${c.id}`),
       })),
-      lastCommDate: lc?.date ?? null,
-      lastCommDetail: lc?.detail ?? null,
     }
   }
 
