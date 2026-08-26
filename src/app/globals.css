@@ -113,6 +113,10 @@ input.input-naked:focus {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* 2行構成のセル（案件名+被相続人、担当 受/管 等）を持つ一覧は少し背を高くして余白を出す */
+.list-table.list-table--tall tbody td {
+  height: 62px;
+}
 .list-table tbody tr:hover td {
   background-image: linear-gradient(rgba(15, 23, 42, 0.035), rgba(15, 23, 42, 0.035));
 }

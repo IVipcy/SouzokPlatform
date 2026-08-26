@@ -332,7 +332,7 @@ export default function ConsultationCasesTable({ cases, manageMode = false, sele
                     </td>
                     <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600 whitespace-nowrap">{c.meeting_executed_date ?? '—'}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap">
-                      {statusDef ? <Badge label={statusDef.label} color={statusDef.color} /> : <span className="text-gray-300">—</span>}
+                      {statusDef ? <Badge label={statusDef.label} color={statusDef.color} minWidth={96} /> : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-3 py-2.5 text-[12px] font-mono whitespace-nowrap">
                       {c.client_response_due_date ? (

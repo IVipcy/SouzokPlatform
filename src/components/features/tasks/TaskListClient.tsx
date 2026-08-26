@@ -990,11 +990,11 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
       {/* ステータス（未着手 / 受領待ち / 着手OK / 対応中 / 完了） */}
       <td className="px-3.5 py-2.5">
         {/* バッジ5色ルール：緑=完了だけ／青=進行／琥珀=注意（着手OK・受領待ち）／灰=未着手 */}
-        {status === '完了' ? <Badge label="完了" tone="green" />
-          : status === '対応中' ? <Badge label="対応中" tone="blue" />
-          : signal.ready ? <Badge label="着手OK" tone="amber" />
-          : isWaitingReceipt(task) ? <Badge label="受領待ち" tone="amber" />
-          : <Badge label="未着手" tone="gray" />}
+        {status === '完了' ? <Badge label="完了" tone="green" minWidth={72} />
+          : status === '対応中' ? <Badge label="対応中" tone="blue" minWidth={72} />
+          : signal.ready ? <Badge label="着手OK" tone="amber" minWidth={72} />
+          : isWaitingReceipt(task) ? <Badge label="受領待ち" tone="amber" minWidth={72} />
+          : <Badge label="未着手" tone="gray" minWidth={72} />}
       </td>
 
       {/* 着手OK理由 / 受領待ち内容 */}

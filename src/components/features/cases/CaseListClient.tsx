@@ -343,7 +343,7 @@ function ListView({ filtered, taskCounts, router, onDelete, taskDueDatesMap, sho
                       <div className="text-[12px] text-red-500 font-semibold mt-0.5">⚠ 期限超過あり</div>
                     )}
                   </td>
-                  <td className="px-3.5 py-3">{statusDef && <Badge label={statusDef.label} color={statusDef.color} />}</td>
+                  <td className="px-3.5 py-3">{statusDef && <Badge label={statusDef.label} color={statusDef.color} minWidth={96} />}</td>
                   <td className="px-3.5 py-3">
                     {c.difficulty && (
                       <span className="inline-flex items-center justify-center w-[22px] h-[22px] rounded text-[13px] font-bold font-mono"

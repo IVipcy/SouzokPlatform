@@ -275,10 +275,10 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
                     </select>
                   </td>
                   <td className="px-2.5 py-2">
-                    {status === '完了' ? <Badge label="完了" tone="green" />
-                      : status === '対応中' ? <Badge label="対応中" tone="blue" />
-                      : signal.ready ? <Badge label="着手OK" tone="amber" />
-                      : <Badge label="未着手" tone="gray" />}
+                    {status === '完了' ? <Badge label="完了" tone="green" minWidth={72} />
+                      : status === '対応中' ? <Badge label="対応中" tone="blue" minWidth={72} />
+                      : signal.ready ? <Badge label="着手OK" tone="amber" minWidth={72} />
+                      : <Badge label="未着手" tone="gray" minWidth={72} />}
                   </td>
                   <td className="px-2.5 py-2 align-top">
                     {status === '着手前' ? (

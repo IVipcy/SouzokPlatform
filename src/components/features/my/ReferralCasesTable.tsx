@@ -91,7 +91,7 @@ export default function ReferralCasesTable({ cases, selectable = false }: { case
                     <td className="px-3 py-2.5">
                       {(() => {
                         const def = CASE_STATUSES.find(s => s.key === c.status)
-                        return def ? <Badge label={getCaseStatusLabel(c.status)} color={def.color} /> : <span className="text-gray-300">—</span>
+                        return def ? <Badge label={getCaseStatusLabel(c.status)} color={def.color} minWidth={96} /> : <span className="text-gray-300">—</span>
                       })()}
                     </td>
                     <td className="px-3 py-2.5 text-[12px] text-gray-600">{c.order_route_detail || <span className="text-gray-300">—</span>}</td>

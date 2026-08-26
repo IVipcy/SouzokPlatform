@@ -15,7 +15,6 @@ import BankCsvReconcileModal from './BankCsvReconcileModal'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import Button from '@/components/ui/Button'
 import { Edit2, FileText, MessagesSquare, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react'
-import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import { openOfficialInvoice, openOfficialReceipt } from '@/lib/openInvoiceDoc'
 import OpenInvoiceButton from './OpenInvoiceButton'
 import { showToast } from '@/components/ui/Toast'
@@ -168,9 +167,10 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
   const MONEY_COLS = new Set(['amount', 'advance', 'expenses', 'paid', 'refund', 'diff'])
   // 並び替えは日付・金額・超過だけに付ける（22列すべてに付けると見出しが賑やかになる）
   const SORTABLE = new Set(['caseNo', 'invoiceDate', 'dueDate', 'overdue', 'paidDate', 'amount', 'paid', 'diff'])
-  const { widths: colWidths, startResize: startColResize } = useResizableColumns('billingListColWidths', {
-    caseNo: 140, case: 180, assignee: 124, gyosei: 58, shiho: 58, type: 92, invoiceDate: 100, dueDate: 100, overdue: 92, paidDate: 100, status: 128, todo: 112, reason: 220, amount: 110, advance: 100, expenses: 100, paid: 100, refund: 100, diff: 90, pdf: 90, receipt: 90, remarks: 220,
-  })
+  // 列幅は固定（ドラッグ可変をやめる）。日付・番号が見切れない幅を既定にする。
+  const colWidths = {
+    caseNo: 150, case: 190, assignee: 130, gyosei: 56, shiho: 56, type: 96, invoiceDate: 108, dueDate: 108, overdue: 72, paidDate: 108, status: 136, todo: 104, reason: 220, amount: 110, advance: 100, expenses: 100, paid: 100, refund: 100, diff: 90, pdf: 90, receipt: 90, remarks: 220,
+  } as const
   const HEADERS: Array<{ key: keyof typeof colWidths; label: string; align?: 'left' | 'right' }> = [
     { key: 'caseNo', label: '案件管理番号' },
     { key: 'case', label: '案件名' },
@@ -835,7 +835,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
             <h2 className="text-[13px] font-semibold text-brand-900">請求・入金一覧</h2>
             <span className="text-[13px] text-gray-400 font-mono bg-gray-50 px-2 py-0.5 rounded">{filtered.length}件</span>
           </div>
-          <table className="list-table w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+          <table className="list-table list-table--tall w-full border-collapse" style={{ tableLayout: 'fixed' }}>
             <colgroup>
               <col style={{ width: 36 }} />
               {HEADERS.map(h => (
@@ -877,7 +877,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                           : <ChevronsUpDown className="w-3 h-3 text-brand-300" strokeWidth={2} />}
                       </button>
                     ) : h.label}
-                    <ResizeHandle onMouseDown={startColResize(h.key)} />
+
                   </th>
                 ))}
               </tr>
@@ -1018,11 +1018,11 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {isUnissued || inv.status === '入金済' ? (
                             // 未請求・入金済は読み取り専用（入金済は入金消込／CSVでのみ確定）
-                            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[5px] text-[11.5px] font-medium ${st.bg} ${st.text}`} title={inv.status === '入金済' ? '入金済は入金消込／CSV突合で確定します' : undefined}>
+                            <span className={`inline-flex items-center justify-center gap-1.5 px-2 py-0.5 rounded-[5px] text-[11.5px] font-medium min-w-[76px] ${st.bg} ${st.text}`} title={inv.status === '入金済' ? '入金済は入金消込／CSV突合で確定します' : undefined}>
                               <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: st.dot }} />{inv.status}
                             </span>
                           ) : (
-                            <select value={inv.status} onChange={e => handleStatusChange(inv.id, e.target.value as InvoiceStatus)} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-[5px] text-[11.5px] font-medium cursor-pointer outline-none focus:ring-2 focus:ring-brand-300 ${st.bg} ${st.text}`} title="クリックでステータス変更">
+                            <select value={inv.status} onChange={e => handleStatusChange(inv.id, e.target.value as InvoiceStatus)} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-[5px] text-[11.5px] font-medium cursor-pointer outline-none focus:ring-2 focus:ring-brand-300 min-w-[76px] ${st.bg} ${st.text}`} title="クリックでステータス変更">
                               {EDITABLE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                           )}
