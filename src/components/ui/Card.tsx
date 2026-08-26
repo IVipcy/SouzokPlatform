@@ -10,11 +10,13 @@ type Props = {
   children: ReactNode
 }
 
+// 四角・枠線なしのフラット面（背景グレーとの明度差で領域を示す）。
+// outlined だけは「枠で区切る」ことが目的の variant なので枠線を残す。
 const VARIANT_CLS: Record<Variant, string> = {
-  default:  'bg-white border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
-  elevated: 'bg-white border border-gray-200 shadow-md',
+  default:  'bg-white shadow-[0_1px_2px_rgba(0,0,0,0.05)]',
+  elevated: 'bg-white shadow-md',
   outlined: 'bg-white border border-gray-300',
-  subtle:   'bg-gray-50 border border-gray-200',
+  subtle:   'bg-gray-50',
 }
 
 const PADDING_CLS: Record<Padding, string> = {
@@ -33,7 +35,7 @@ const PADDING_CLS: Record<Padding, string> = {
  */
 export default function Card({ variant = 'default', padding = 'md', className = '', children }: Props) {
   return (
-    <div className={`rounded-xl ${VARIANT_CLS[variant]} ${PADDING_CLS[padding]} ${className}`}>
+    <div className={`${VARIANT_CLS[variant]} ${PADDING_CLS[padding]} ${className}`}>
       {children}
     </div>
   )

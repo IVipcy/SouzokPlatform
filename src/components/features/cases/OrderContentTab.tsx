@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Check, Plus, Trash2 } from 'lucide-react'
-import { Section, FieldGrid, InlineSelect, InlineDate } from '@/components/ui/InlineFields'
+import { Section, FieldGrid, FieldRow, InlineSelect, InlineDate } from '@/components/ui/InlineFields'
 import { CONTRACT_TYPES, DIFFICULTY_LEVELS, DIFFICULTY_REASONS } from '@/lib/constants'
 import {
   REFERRAL_ONLY_CATEGORY,
@@ -243,35 +243,35 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
         </FieldGrid>
 
         {/* 難易度（普通/難/激難）＋難しい理由（複数選択）＋その他。面談シート(①)では非表示＝OS/実務で入力 */}
+        {/* 他の項目と同じ「項目名＝左｜内容＝右」の表形式に揃える */}
         {!meetingSheetMode && (
-          <div className="mt-3 rounded-lg border border-gray-200 p-3">
-            <div className="flex items-center gap-2 mb-2.5">
-              <span className="text-[12px] font-semibold text-gray-500 w-14 shrink-0">難易度</span>
-              <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
-                {DIFFICULTY_LEVELS.map((lv, i) => (
-                  <button key={lv} type="button" onClick={() => save('difficulty', lv)}
-                    className={`text-[13px] px-3.5 py-1.5 ${i > 0 ? 'border-l border-gray-200' : ''} ${caseData.difficulty === lv ? 'bg-brand-600 text-white font-semibold' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>{lv}</button>
-                ))}
-              </div>
-            </div>
-            <div className="mb-2.5">
-              <div className="text-[11px] text-gray-400 mb-1">難しい理由（複数選択）</div>
-              <div className="flex flex-wrap gap-1.5">
-                {DIFFICULTY_REASONS.map(r => {
-                  const on = (caseData.difficulty_reasons ?? []).includes(r)
-                  return (
-                    <button key={r} type="button" onClick={() => toggleDiffReason(r)}
-                      className={`text-[12px] px-2.5 py-1 rounded-full border transition-colors ${on ? 'bg-brand-50 border-brand-300 text-brand-700 font-semibold' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}>{r}</button>
-                  )
-                })}
-              </div>
-            </div>
-            <div>
-              <div className="text-[11px] text-gray-400 mb-1">その他難しい理由</div>
-              <input type="text" defaultValue={caseData.difficulty_reason_other ?? ''}
-                onBlur={e => { const v = e.target.value.trim(); if (v !== (caseData.difficulty_reason_other ?? '')) save('difficulty_reason_other', v || null) }}
-                placeholder="自由記述" className="w-full px-2.5 py-2 text-[13px] border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-brand-400" />
-            </div>
+          <div className="mt-3">
+            <FieldGrid cols={1}>
+              <FieldRow label="難易度">
+                <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden self-start">
+                  {DIFFICULTY_LEVELS.map((lv, i) => (
+                    <button key={lv} type="button" onClick={() => save('difficulty', lv)}
+                      className={`text-[13px] px-3.5 py-1.5 ${i > 0 ? 'border-l border-gray-200' : ''} ${caseData.difficulty === lv ? 'bg-brand-600 text-white font-semibold' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>{lv}</button>
+                  ))}
+                </div>
+              </FieldRow>
+              <FieldRow label="難しい理由" labelNote={<span className="text-[10.5px] font-normal text-gray-400">（複数選択）</span>}>
+                <div className="flex flex-wrap gap-1.5">
+                  {DIFFICULTY_REASONS.map(r => {
+                    const on = (caseData.difficulty_reasons ?? []).includes(r)
+                    return (
+                      <button key={r} type="button" onClick={() => toggleDiffReason(r)}
+                        className={`text-[12px] px-2.5 py-1 rounded-full border transition-colors ${on ? 'bg-brand-50 border-brand-300 text-brand-700 font-semibold' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}>{r}</button>
+                    )
+                  })}
+                </div>
+              </FieldRow>
+              <FieldRow label="その他難しい理由">
+                <input type="text" defaultValue={caseData.difficulty_reason_other ?? ''}
+                  onBlur={e => { const v = e.target.value.trim(); if (v !== (caseData.difficulty_reason_other ?? '')) save('difficulty_reason_other', v || null) }}
+                  placeholder="自由記述" className="w-full px-2.5 py-2 text-[13px] rounded-md focus:outline-none" />
+              </FieldRow>
+            </FieldGrid>
           </div>
         )}
       </Section>

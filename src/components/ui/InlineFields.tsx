@@ -46,34 +46,36 @@ export function Section({ title, icon: _icon, children, actionLabel, onAction, c
   const [open, setOpen] = useState(defaultOpen)
   const isOpen = collapsible ? open : true
 
-  // nested=false（通常）: 白背景＋薄枠＋青見出しのカード型。
+  // nested=false（通常）: 白背景・四角・枠線なし＋濃い青帯見出しのカード型。
   // nested=true（オーダーシート内）: 枠なし・灰の細見出し＋インデントで、親の中の一部だと分かる小見出しに。
-  const sectionCls = nested ? '' : 'bg-white border border-gray-200 rounded'
+  const sectionCls = nested ? '' : 'bg-white'
   const headerCls = nested
     ? 'flex items-center gap-2 mb-2'
-    : 'flex items-center gap-2 px-4 py-2.5 bg-brand-50 border-b border-brand-100 rounded-t-[3px]'
-  const tickCls = nested ? 'inline-block w-[3px] h-3.5 bg-brand-500 rounded-[1px] flex-shrink-0' : 'inline-block w-[3px] h-3.5 bg-brand-600 rounded-[1px] flex-shrink-0'
-  const titleCls = nested ? 'text-[12.5px] font-semibold text-gray-600 tracking-[0.02em]' : 'text-[13px] font-semibold text-brand-800 tracking-[0.02em]'
+    : 'flex items-center gap-2 px-4 py-2.5 bg-brand-600'
+  const titleCls = nested ? 'text-[12.5px] font-semibold text-gray-600 tracking-[0.02em]' : 'text-[13px] font-bold text-white tracking-[0.02em]'
+  const chevronCls = nested ? 'text-brand-400 group-hover:text-brand-600' : 'text-white/70 group-hover:text-white'
+  const toggleTextCls = nested ? 'text-brand-400 group-hover:text-brand-600' : 'text-white/70 group-hover:text-white'
+  const actionCls = nested ? 'text-brand-600 hover:text-brand-700' : 'text-white/90 hover:text-white'
   const contentCls = nested ? 'pl-[11px]' : 'px-4 py-3.5'
 
   return (
     <section className={sectionCls}>
       <div className={headerCls}>
-        <span className={tickCls} />
+        {nested && <span className="inline-block w-[3px] h-3.5 bg-brand-500 rounded-[1px] flex-shrink-0" />}
         {collapsible ? (
           <button
             type="button"
             onClick={() => setOpen(o => !o)}
             className="inline-flex items-center gap-1.5 text-left group"
           >
-            <h3 className={`${titleCls} group-hover:text-brand-900 transition-colors`}>{title}</h3>
+            <h3 className={titleCls}>{title}</h3>
             <svg
-              className={`w-4 h-4 text-brand-400 transition-transform group-hover:text-brand-600 ${isOpen ? 'rotate-180' : ''}`}
+              className={`w-4 h-4 transition-transform ${chevronCls} ${isOpen ? 'rotate-180' : ''}`}
               viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"
             >
               <path d="M6 8l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            <span className="text-[11px] text-brand-400 group-hover:text-brand-600">{isOpen ? '閉じる' : '開く'}</span>
+            <span className={`text-[11px] ${toggleTextCls}`}>{isOpen ? '閉じる' : '開く'}</span>
           </button>
         ) : (
           <h3 className={titleCls}>{title}</h3>
@@ -81,7 +83,7 @@ export function Section({ title, icon: _icon, children, actionLabel, onAction, c
         {titleRight}
         {hint && <HintTip text={hint} />}
         {actionLabel && onAction && (
-          <button onClick={onAction} className="ml-auto text-[12.5px] text-brand-600 font-semibold hover:text-brand-700">＋ {actionLabel}</button>
+          <button onClick={onAction} className={`ml-auto text-[12.5px] font-semibold ${actionCls}`}>＋ {actionLabel}</button>
         )}
       </div>
       {isOpen && (
@@ -114,9 +116,11 @@ export function FieldGrid({ children, cols = 2 }: { children: React.ReactNode; c
   // 1項目=1行はスマホのみ。PC(sm以上)は2列で見やすく。
   // cols={1} を明示したときだけ常に1列。
   const oneCol = cols === 1
+  // 区切りは「セルの下線」で引く（以前の gap-px＋灰背景方式だと、奇数個のとき
+  // 空きマスに容器の灰色がベタで見えて「死にスペース」になっていた。空きは白のまま残す）。
   return (
     <div
-      className={`grid ${oneCol ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-px bg-gray-100 rounded-lg overflow-hidden border border-gray-100 [&>*]:bg-white`}
+      className={`grid ${oneCol ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} bg-white [&>*]:bg-white [&>*]:border-b [&>*]:border-slate-300`}
     >
       {children}
     </div>
@@ -131,7 +135,7 @@ export function FieldGrid({ children, cols = 2 }: { children: React.ReactNode; c
 //
 // グリッドの列送りには一切手を出さない（1項目=1マスのまま）。
 // 左右の余白は FieldGrid ではなくこの行が持つ。左のマスをマスの端まで届かせるため。
-export function FieldRow({ label, children, fullWidth, labelNote, containerRef, bare }: {
+export function FieldRow({ label, children, fullWidth, labelNote, containerRef, bare, hint }: {
   label?: React.ReactNode
   children: React.ReactNode
   fullWidth?: boolean
@@ -140,6 +144,8 @@ export function FieldRow({ label, children, fullWidth, labelNote, containerRef, 
   containerRef?: React.Ref<HTMLDivElement>
   /** 見出しと内容が重複する欄。項目名のマスを作らず、内容だけを横いっぱいに置く */
   bare?: boolean
+  /** 項目名の横に置く「?」ヘルプ。常時表示のヒント文はここに畳む（場所を取らない） */
+  hint?: string
 }) {
   const span = fullWidth ? 'sm:col-span-2' : ''
   if (bare) {
@@ -147,8 +153,8 @@ export function FieldRow({ label, children, fullWidth, labelNote, containerRef, 
   }
   return (
     <div ref={containerRef} className={`flex items-stretch ${span}`}>
-      <div className="w-[6.5rem] sm:w-[8.5rem] flex-shrink-0 bg-gray-50/80 border-r border-gray-100 px-3 py-2 flex flex-col justify-center text-[12.5px] font-semibold text-gray-600 tracking-wide leading-snug">
-        <span className="break-words">{label}</span>
+      <div className="w-[6.5rem] sm:w-[8.5rem] flex-shrink-0 bg-slate-100 border-r border-slate-300 px-3 py-2 flex flex-col justify-center text-[12.5px] font-semibold text-gray-600 tracking-wide leading-snug">
+        <span className="break-words">{label}{hint && <HintTip text={hint} className="ml-1" />}</span>
         {labelNote}
       </div>
       <div className="flex-1 min-w-0 px-3 py-2 flex flex-col justify-center gap-1 min-h-[42px]">
@@ -236,7 +242,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
 
   if (alwaysEdit) {
     return (
-      <FieldRow label={label} fullWidth={fullWidth}>
+      <FieldRow label={label} fullWidth={fullWidth} hint={hint}>
         <div className="flex items-center gap-2">
           <input
             type="text"
@@ -251,13 +257,12 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
           {renderAction(draft)}
         </div>
         {address && <AddressHint value={draft} />}
-        {hint && <p className="text-[11px] text-gray-400">{hint}</p>}
       </FieldRow>
     )
   }
 
   return (
-    <FieldRow label={<>{label}{required && <span className="text-red-500 ml-0.5">*</span>}</>} fullWidth={fullWidth}>
+    <FieldRow label={<>{label}{required && <span className="text-red-500 ml-0.5">*</span>}</>} fullWidth={fullWidth} hint={hint}>
       <div className="flex items-center gap-2">
         {editing ? (
           <input
@@ -286,7 +291,6 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
         )}
         {renderAction(editing ? draft : (value ?? ''))}
       </div>
-      {hint && <p className="text-[11px] text-gray-400">{hint}</p>}
     </FieldRow>
   )
 }
@@ -495,16 +499,15 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
 
   if (alwaysEdit) {
     return (
-      <FieldRow label={<>{label}{required && <span className="text-red-500 ml-0.5">*</span>}</>} fullWidth={fullWidth}>
+      <FieldRow label={<>{label}{required && <span className="text-red-500 ml-0.5">*</span>}</>} fullWidth={fullWidth} hint={hint}>
         <input type="date" max={max} value={draft} onChange={e => { setDraft(e.target.value); if (e.target.value !== (value ?? '')) withToast(() => onSave(e.target.value)) }} className={`w-full sm:w-[170px] h-9 px-2.5 text-[13px] bg-white border border-gray-200 rounded-md outline-none focus:border-brand-400 ${ai ? 'text-blue-600' : ''}`} />
         {wareki && value && toWareki(value) && <div className="text-[11px] text-gray-500">和暦：{toWareki(value)}</div>}
-        {hint && <p className="text-[11px] text-gray-400">{hint}</p>}
       </FieldRow>
     )
   }
 
   return (
-    <FieldRow label={<>{label}{required && <span className="text-red-500 ml-0.5">*</span>}</>} fullWidth={fullWidth}>
+    <FieldRow label={<>{label}{required && <span className="text-red-500 ml-0.5">*</span>}</>} fullWidth={fullWidth} hint={hint}>
       {editing ? (
         <input
           ref={inputRef}
@@ -537,7 +540,6 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
       {wareki && value && toWareki(value) && (
         <div className="text-[11px] text-gray-500">和暦：{toWareki(value)}</div>
       )}
-      {hint && <p className="text-[11px] text-gray-400">{hint}</p>}
     </FieldRow>
   )
 }

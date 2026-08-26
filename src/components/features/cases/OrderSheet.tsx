@@ -352,14 +352,14 @@ export default function OrderSheet({
 // 親は「濃い青の見出し＋薄グレー地の容器」にして、中の白カード群を包む＝親子の階層を視覚化する。
 function OSSection({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
   return (
-    <section id={id} className="scroll-mt-24 bg-[#FEF8EA] border border-[#EADFC7] rounded-lg">
-      <div className="px-4 py-2.5 bg-brand-600 rounded-t-lg">
+    <section id={id} className="scroll-mt-24 bg-[#FEF8EA]">
+      <div className="px-4 py-2.5 bg-brand-600">
         <h2 className="text-[14px] font-bold text-white tracking-[0.02em]">{title}</h2>
       </div>
       {/* 中の Section は「親の中の見出しブロック」に切り替える（枠なし・灰見出し）。
           中身エリアは白背景にして、内側の表がベージュに透けないようにする（ベージュは外枠として残る）。 */}
       <NestedSectionContext.Provider value={true}>
-        <div className="p-4 space-y-4 rounded-b-lg bg-white">{children}</div>
+        <div className="p-4 space-y-4 bg-white">{children}</div>
       </NestedSectionContext.Provider>
     </section>
   )

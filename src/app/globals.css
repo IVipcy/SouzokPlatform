@@ -4,13 +4,16 @@
    タイポグラフィ・カラー基盤
    ──────────────────────────────────────── */
 @theme inline {
-  /* フォントスタック: ヒラギノ角ゴ優先（無い環境は Noto Sans JP / 游ゴシック にフォールバック） */
+  /* フォントスタック: BIZ UDPゴシック優先（Windows 10/11 標準。丸みがありつつ帳票向けでフォーマル）。
+     無い環境（Mac等）はヒラギノ角ゴ → Noto Sans JP / 游ゴシック にフォールバック */
   --font-sans:
+    "BIZ UDPGothic", "BIZ UDPゴシック",
     "Hiragino Kaku Gothic ProN", "Hiragino Sans", "ヒラギノ角ゴ ProN W3",
     "Noto Sans JP", "Yu Gothic Medium", "Yu Gothic", "YuGothic", "Meiryo",
     system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  /* 数字・日付も同じヒラギノ角ゴに統一（等幅をやめる） */
+  /* 数字・日付も同じスタックに統一（等幅をやめる） */
   --font-mono:
+    "BIZ UDPGothic", "BIZ UDPゴシック",
     "Hiragino Kaku Gothic ProN", "Hiragino Sans",
     "Noto Sans JP", "Yu Gothic", system-ui, sans-serif;
 
@@ -53,11 +56,41 @@ html {
 body {
   font-family: var(--font-sans);
   color: #1f2937;
-  background-color: #f9fafb;
+  /* 枠線なしの白セクションが背景から浮くよう、従来より一段だけ濃いグレー */
+  background-color: #eef1f5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: 0.01em;
   line-height: 1.6;
+}
+
+/* ─── 入力欄のフラット化（全画面共通）───
+   うっすらした枠線をやめ、薄グレーの「面」で入力欄を示す。
+   フォーカスした欄だけ白面＋青リングにして、入力中の場所を逆に目立たせる。
+   ※ ここは無レイヤーの宣言なので、Tailwind ユーティリティ（border-gray-200 等）より優先される。 */
+input:where(:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"], [type="button"], [type="submit"], [type="reset"])),
+select,
+textarea {
+  background-color: #f3f5f8;
+  border-color: transparent;
+}
+input::placeholder,
+textarea::placeholder {
+  color: #a3adba;
+}
+input:where(:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"], [type="button"], [type="submit"], [type="reset"])):focus,
+select:focus,
+textarea:focus {
+  background-color: #ffffff;
+  border-color: transparent;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-brand-400);
+}
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background-color: #e9edf2;
+  color: #9ca3af;
 }
 
 /* Tailwind v4 はボタン既定カーソルが default になったため、
