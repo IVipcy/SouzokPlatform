@@ -88,13 +88,18 @@ const formatMan = (yen: number): string => {
 // この表で出るのはアサイン未完了と面談メモ未記載の2つだけ。
 function alertsOf(c: ConsultCase): AlertChip[] {
   const out: AlertChip[] = []
-  if (c.assignOverdue) out.push({ key: 'assign', label: 'アサイン未完了', severity: 'high', title: '【重要】アサインが完了していません' })
+  // 飛び先は alertRules の同じアラートに合わせる（担当＝担当タブ／面談メモ＝面談情報タブ）。
+  // 押したらその作業ができる場所へ直行できることが、このバッジのいちばんの価値なので必ず付ける。
+  if (c.assignOverdue) {
+    out.push({ key: 'assign', label: '管理担当 未割振', severity: 'high', href: `/cases/${c.id}?tab=assignees`, title: '受注から日が経っても管理担当が決まっていません' })
+  }
   if (c.meetingMemoMissing) {
     out.push({
       key: 'memo',
       label: '面談メモ未記載',
       severity: c.meetingMemoMissing === 'red' ? 'high' : c.meetingMemoMissing === 'yellow' ? 'mid' : 'info',
-      title: '【重要】面談予定日超過・面談メモ未記載',
+      href: `/cases/${c.id}?tab=basicInfo`,
+      title: '面談予定日を過ぎていますが、面談の実施内容が入力されていません',
     })
   }
   return out
