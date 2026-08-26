@@ -136,7 +136,17 @@ export function FieldGrid({ children, cols = 2 }: { children: React.ReactNode; c
 //
 // グリッドの列送りには一切手を出さない（1項目=1マスのまま）。
 // 左右の余白は FieldGrid ではなくこの行が持つ。左のマスをマスの端まで届かせるため。
-export function FieldRow({ label, children, fullWidth, labelNote, containerRef, bare, hint }: {
+// 「相続開始日（死亡日）」のような（…）付きの項目名は、カッコ内を2行目の小さな注記に落とす。
+// カッコ内が中途半端に折り返されるのを防ぎ、ラベル列の見た目をそろえるため。
+function splitParenLabel(label: React.ReactNode): { main: React.ReactNode; note?: string } {
+  if (typeof label === 'string') {
+    const m = label.match(/^(.+?)（(.+)）$/)
+    if (m) return { main: m[1], note: `（${m[2]}）` }
+  }
+  return { main: label }
+}
+
+export function FieldRow({ label, children, fullWidth, labelNote, containerRef, bare, hint, required }: {
   label?: React.ReactNode
   children: React.ReactNode
   fullWidth?: boolean
@@ -147,18 +157,22 @@ export function FieldRow({ label, children, fullWidth, labelNote, containerRef, 
   bare?: boolean
   /** 項目名の横に置く「?」ヘルプ。常時表示のヒント文はここに畳む（場所を取らない） */
   hint?: string
+  /** 必須マーク（赤い*）を項目名の後ろに出す */
+  required?: boolean
 }) {
   const span = fullWidth ? 'sm:col-span-2' : ''
   if (bare) {
     return <div ref={containerRef} className={`px-3 py-2 ${span}`}>{children}</div>
   }
+  const { main, note } = splitParenLabel(label)
   return (
     <div ref={containerRef} className={`flex items-stretch ${span}`}>
       <div className="w-[6.5rem] sm:w-[8.5rem] flex-shrink-0 bg-slate-100 border-r border-slate-300 px-3 py-2 flex flex-col justify-center text-[12.5px] font-semibold text-gray-600 tracking-wide leading-snug">
-        <span className="break-words">{label}{hint && <HintTip text={hint} className="ml-1" />}</span>
+        <span className="break-words">{main}{required && <span className="text-red-500 ml-0.5">*</span>}{hint && <HintTip text={hint} className="ml-1" />}</span>
+        {note && <span className="text-[10.5px] font-normal text-gray-400 leading-tight">{note}</span>}
         {labelNote}
       </div>
-      <div className="flex-1 min-w-0 px-3 py-2 flex flex-col justify-center gap-1 min-h-[42px]">
+      <div className="flex-1 min-w-0 px-3 py-2 flex flex-col justify-center gap-1 min-h-[44px]">
         {children}
       </div>
     </div>
@@ -187,13 +201,15 @@ export function QIRow({ label, children }: { label: string; children: React.Reac
 }
 
 // ─── InlineEdit (text) ───
-export function InlineEdit({ label, value, onSave, mono, fullWidth, required, action, hint, ai, address }: {
+export function InlineEdit({ label, value, onSave, mono, fullWidth, required, action, hint, ai, address, width }: {
   label: string
   value?: string | null
   onSave: (value: string) => Promise<void>
   mono?: boolean
   fullWidth?: boolean
   required?: boolean
+  /** 常時入力(オーダーシート)時の入力欄幅。名前などの短い値は 'md'（約300px）に絞る */
+  width?: 'md' | 'full'
   // ラベル横に置く補助ボタン（例: 「依頼者と同じ」自動入力）。
   // 関数を渡すと「現在の入力値」を受け取れる（例: 郵便番号→住所取得ボタンが入力中の値で有効化される）。
   action?: React.ReactNode | ((current: string) => React.ReactNode)
@@ -247,7 +263,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
         {/* ボタン（住所を取得・フリガナ取得等）は入力欄の「中」に内蔵する。
             外に並べると行ごとに入力欄の幅がバラつくため、容器が面とフォーカスリングを持ち、
             input は素通し（.input-naked）にして全行の見た目幅をそろえる。 */}
-        <div className="flex items-center flex-1 min-w-0 h-9 rounded-md bg-[#f3f5f8] focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-400 transition-colors">
+        <div className={`flex items-center flex-1 min-w-0 h-9 rounded-md bg-[#f3f5f8] focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-400 transition-colors ${width === 'md' ? 'sm:max-w-[300px]' : ''}`}>
           <input
             type="text"
             value={draft}
@@ -266,7 +282,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
   }
 
   return (
-    <FieldRow label={<>{label}{required && <span className="text-red-500 ml-0.5">*</span>}</>} fullWidth={fullWidth} hint={hint}>
+    <FieldRow label={label} required={required} fullWidth={fullWidth} hint={hint}>
       <div className="flex items-center gap-2">
         {editing ? (
           <input
@@ -337,7 +353,7 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
   }
 
   return (
-    <FieldRow label={<>{label}{required && <span className="text-red-500 ml-0.5">*</span>}</>} fullWidth={fullWidth}>
+    <FieldRow label={label} required={required} fullWidth={fullWidth}>
       {editing ? (
         <select
           value={value ?? ''}
@@ -416,7 +432,7 @@ export function InlineMultiSelect({ label, value, options, onSave, fullWidth, re
   return (
     <FieldRow
       containerRef={containerRef}
-      label={<>{label}{required && <span className="text-red-500 ml-0.5">*</span>}</>}
+      label={label} required={required}
       fullWidth={fullWidth}
     >
       {editing ? (
@@ -503,7 +519,7 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
 
   if (alwaysEdit) {
     return (
-      <FieldRow label={<>{label}{required && <span className="text-red-500 ml-0.5">*</span>}</>} fullWidth={fullWidth} hint={hint}>
+      <FieldRow label={label} required={required} fullWidth={fullWidth} hint={hint}>
         <input type="date" max={max} value={draft} onChange={e => { setDraft(e.target.value); if (e.target.value !== (value ?? '')) withToast(() => onSave(e.target.value)) }} className={`w-full sm:w-[170px] h-9 px-2.5 text-[13px] bg-white border border-gray-200 rounded-md outline-none focus:border-brand-400 ${ai ? 'text-blue-600' : ''}`} />
         {wareki && value && toWareki(value) && <div className="text-[11px] text-gray-500">和暦：{toWareki(value)}</div>}
       </FieldRow>
@@ -511,7 +527,7 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
   }
 
   return (
-    <FieldRow label={<>{label}{required && <span className="text-red-500 ml-0.5">*</span>}</>} fullWidth={fullWidth} hint={hint}>
+    <FieldRow label={label} required={required} fullWidth={fullWidth} hint={hint}>
       {editing ? (
         <input
           ref={inputRef}

@@ -391,7 +391,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
               <FieldRow label="被相続人生年月日">
                 <BirthdayPicker value={caseData.deceased_birth_date} onChange={v => patchCase({ deceased_birth_date: v || null, deceased_age: ageAtDeath(v, caseData.date_of_death) })} />
               </FieldRow>
-              <FieldRow label={<>相続開始日（死亡日）<span className="text-red-500 ml-0.5">*</span></>}>
+              <FieldRow label="相続開始日（死亡日）" required>
                 <BirthdayPicker value={caseData.date_of_death} onChange={v => patchCase({ date_of_death: v || null, deceased_age: ageAtDeath(caseData.deceased_birth_date, v) })} />
               </FieldRow>
               <FieldRow label="被相続人年齢（享年・自動計算）">

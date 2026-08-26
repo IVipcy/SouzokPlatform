@@ -217,10 +217,9 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
           <div className="mt-3">
             <FieldGrid cols={1}>
               <FieldRow label="難易度">
-                <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden self-start">
-                  {DIFFICULTY_LEVELS.map((lv, i) => (
-                    <button key={lv} type="button" onClick={() => save('difficulty', lv)}
-                      className={`text-[13px] px-3.5 py-1.5 ${i > 0 ? 'border-l border-gray-200' : ''} ${caseData.difficulty === lv ? 'bg-brand-600 text-white font-semibold' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>{lv}</button>
+                <div className="flex flex-wrap gap-2">
+                  {DIFFICULTY_LEVELS.map(lv => (
+                    <SelectChip key={lv} on={caseData.difficulty === lv} onClick={() => save('difficulty', lv)}>{lv}</SelectChip>
                   ))}
                 </div>
               </FieldRow>

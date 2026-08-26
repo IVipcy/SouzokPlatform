@@ -76,17 +76,18 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
               onSave={v => saveClientField('postal_code', v.replace(/[^0-9]/g, ''))}
               action={(zip) => <PostalLookupButton zip={zip} onResolved={addr => saveClientField('address', addr)} className="inline-flex items-center gap-1 h-7 px-2.5 rounded text-[11.5px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap" />}
             />
-            <InlineEdit label="依頼者住所" value={client.address} onSave={v => saveClientField('address', v)} fullWidth required />
+            <InlineEdit label="依頼者住所" value={client.address} onSave={v => saveClientField('address', v)} required />
             {/* 振込名義人（カナ）＝入金CSV突合のキー。本人振込なら依頼者ふりがなをカタカナで自動入力。
                 「検討中」段階では入金が発生しないため表示しない（受注後に表示）。 */}
             {caseData.status !== '検討中' && (
               <>
                 <InlineEdit
-                  label="振込名義人 候補①（カナ）"
+                  label="振込名義人（カナ）"
                   value={client.transfer_name_kana}
                   onSave={v => saveClientField('transfer_name_kana', toKatakana(v))}
                   mono
                   fullWidth
+                  width="md"
                   hint={mainFurigana ? undefined : 'メイン依頼者にフリガナが未登録です（依頼者一覧で入力すると取得できます）'}
                   action={
                     <button
