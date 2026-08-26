@@ -1,5 +1,6 @@
 'use client'
 
+import { Pencil, CalendarDays } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -436,7 +437,7 @@ function InlineEdit({ label, value, onSave, mono, fullWidth, required }: {
           <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
             {value ?? '未設定'}
           </span>
-          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
+          <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity " strokeWidth={2} />
         </div>
       )}
     </div>
@@ -581,7 +582,7 @@ function InlineMultiSelect({ label, value, options, onSave, fullWidth, required,
           ) : (
             <span className="text-gray-300 italic text-xs">未設定</span>
           )}
-          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px] flex-shrink-0">✏️</span>
+          <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" strokeWidth={2} />
         </div>
       )}
     </div>
@@ -634,7 +635,7 @@ function InlineDate({ label, value, onSave, fullWidth, required }: {
           <span className={`text-[13px] font-mono ${value ? 'text-gray-700 font-medium' : missing ? 'text-red-500 text-xs' : 'text-gray-300 italic text-xs'}`}>
             {value ?? (missing ? '⚠ 未設定（必須）' : '未設定')}
           </span>
-          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">📅</span>
+          <CalendarDays className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity " strokeWidth={2} />
         </div>
       )}
     </div>
@@ -684,7 +685,7 @@ function InlineNumber({ label, value, onSave, fullWidth, suffix }: {
           <span className={`text-[13px] font-mono ${value != null ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
             {value != null ? `${value.toLocaleString()}${suffix ?? ''}` : '未設定'}
           </span>
-          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
+          <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity " strokeWidth={2} />
         </div>
       )}
     </div>
@@ -737,7 +738,7 @@ function InlineCurrency({ label, value, onSave, fullWidth }: {
           <span className={`text-[13px] font-mono ${value != null ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
             {value != null ? `¥${value.toLocaleString()}` : '未設定'}
           </span>
-          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
+          <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity " strokeWidth={2} />
         </div>
       )}
     </div>
@@ -827,7 +828,7 @@ function InlineTextarea({ label, value, onSave, fullWidth }: {
           ) : (
             <span className="text-gray-300 italic text-xs">未設定</span>
           )}
-          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px] flex-shrink-0 mt-0.5">✏️</span>
+          <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5" strokeWidth={2} />
         </div>
       )}
     </div>
@@ -936,7 +937,7 @@ function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseId, onRe
           ) : (
             <span className="text-xs text-gray-300 italic">未設定</span>
           )}
-          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
+          <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity " strokeWidth={2} />
         </div>
       )}
     </div>

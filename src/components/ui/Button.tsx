@@ -16,8 +16,9 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 const VARIANT_CLS: Record<Variant, string> = {
   primary:
     'bg-brand-600 text-white border border-brand-600 hover:bg-brand-700 hover:border-brand-700 active:bg-brand-800 disabled:opacity-50',
+  // 副次＝薄青面（白＋灰枠は廃止。全画面の副次ボタンをこの見た目に統一する）
   secondary:
-    'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400 active:bg-gray-100 disabled:opacity-50',
+    'bg-brand-50 text-brand-700 border border-transparent hover:bg-brand-100 active:bg-brand-100 disabled:opacity-50',
   ghost:
     'bg-transparent text-gray-600 border border-transparent hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50',
   danger:
@@ -35,7 +36,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(function Button(
   ref,
 ) {
   const cls = [
-    'inline-flex items-center justify-center font-medium transition shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-1 cursor-pointer disabled:cursor-not-allowed',
+    'inline-flex items-center justify-center font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-1 cursor-pointer disabled:cursor-not-allowed',
     VARIANT_CLS[variant],
     SIZE_CLS[size],
     className,

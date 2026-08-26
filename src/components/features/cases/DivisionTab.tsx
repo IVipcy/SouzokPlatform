@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, Pencil } from 'lucide-react'
 import DivisionDetailsTable from './DivisionDetailsTable'
 import AgreementDispatchTable from './AgreementDispatchTable'
 import type { CaseRow, DivisionDetailRow, HeirRow, AgreementDispatchRow, AssetInventoryRow, TaskRow } from '@/types'
@@ -268,7 +268,7 @@ function InlineEdit({ label, value, onSave, mono, fullWidth }: {
           <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700 font-medium' : 'text-gray-300 italic text-xs'}`}>
             {value ?? '未設定'}
           </span>
-          <span className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[12px]">✏️</span>
+          <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity " strokeWidth={2} />
         </div>
       )}
     </div>

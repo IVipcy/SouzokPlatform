@@ -13,7 +13,7 @@ export default function TabHeader({ title, description, right }: Props) {
     <div className="mb-3 flex items-center gap-3 flex-wrap">
       <div className="inline-flex items-center gap-2">
         <span className="inline-block w-[4px] h-[18px] bg-brand-600 rounded-[2px]" aria-hidden="true" />
-        <h2 className="text-[15px] font-bold text-gray-900 tracking-[0.01em]">{title}</h2>
+        <h2 className="text-[15px] font-bold text-brand-900 tracking-[0.01em]">{title}</h2>
       </div>
       {description && (
         <span className="text-[12px] text-gray-500">{description}</span>
