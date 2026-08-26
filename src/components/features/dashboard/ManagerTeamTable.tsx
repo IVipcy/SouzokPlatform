@@ -107,7 +107,7 @@ function KpiCells({ kpis: k, bold }: { kpis: ProgressKpiBundle; bold?: boolean }
       <td className={`${base} text-gray-900`}>{k.totalAssigned > 0 ? k.totalAssigned : dim}</td>
       <td className={base}>{num(k.blueCount, 'text-sky-600')}</td>
       <td className={base}>{num(k.yellowCount, 'text-[#B98410]')}</td>
-      <td className={base}>{num(k.redCount, 'text-[#D96A16]')}</td>
+      <td className={base}>{num(k.redCount, 'text-[#DC2626]')}</td>
       <td className={base}>{num(k.purpleCount, 'text-purple-600')}</td>
       <td className={`${base} text-gray-700`}>
         {k.monthCompletionTarget > 0 ? `${k.monthCompleted}/${k.monthCompletionTarget}` : dim}
