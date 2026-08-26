@@ -106,7 +106,7 @@ export default function InventoryTab({ caseId, financialAssets, properties, othe
             <div className="overflow-x-auto">
               <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: 720 }}>
                 <thead>
-                  <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
+                  <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
                     <th className={`${TH} w-10 text-center`}>番号</th>
                     {sec.headers.map(h => <th key={h} className={TH}>{h}</th>)}
                     <th className={`${TH} w-36 text-right`}>{sec.amountHeader}</th>
@@ -197,7 +197,7 @@ export default function InventoryTab({ caseId, financialAssets, properties, othe
           <div className="overflow-x-auto">
             <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: 420 }}>
               <thead>
-                <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
+                <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
                   <th className={TH}>相続人</th>
                   <th className={`${TH} w-40`}>法定相続割合</th>
                   <th className={`${TH} w-36 text-right`}>法定相続分</th>

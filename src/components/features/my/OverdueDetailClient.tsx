@@ -105,7 +105,7 @@ export default function OverdueDetailClient({ bills, cases, caseAlerts = [], sev
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: 640 }}>
-                  <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
+                  <thead className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
                     <tr>
                       <th className="px-3 py-2 text-left font-bold whitespace-nowrap">案件</th>
                       <th className="px-3 py-2 text-left font-bold whitespace-nowrap">請求</th>
@@ -149,7 +149,7 @@ export default function OverdueDetailClient({ bills, cases, caseAlerts = [], sev
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: 820 }}>
-                  <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
+                  <thead className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
                     <tr>
                       <th className="px-3 py-2 text-left font-bold whitespace-nowrap w-32">案件管理番号</th>
                       <th className="px-3 py-2 text-left font-bold whitespace-nowrap w-40">案件名</th>

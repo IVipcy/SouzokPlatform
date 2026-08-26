@@ -88,7 +88,7 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
       <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1240 }}>
           <thead>
-            <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+            <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
               <th className="px-2.5 py-2 text-left font-semibold w-24">物件種別</th>
               <th className="px-2.5 py-2 text-left font-semibold w-48">所在地</th>
               <th className="px-2.5 py-2 text-left font-semibold w-32">取得者</th>

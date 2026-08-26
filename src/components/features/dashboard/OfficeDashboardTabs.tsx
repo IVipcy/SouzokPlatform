@@ -279,7 +279,7 @@ function MailTab({ rows, today }: { rows: MailRow[]; today: string }) {
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: 980 }}>
-            <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
+            <thead className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
               <tr>
                 <th className={TH}>番号</th>
                 <th className={TH}>拠点</th>

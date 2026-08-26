@@ -115,10 +115,10 @@ export default function AcquisitionPlanEditor({ caseId, properties, acquisitions
         {munis.length === 0 ? (
           <p className="text-[12px] text-gray-400">上の物件一覧に所在地を入力すると、市区町村ごとの名寄帳がここに自動で入ります。</p>
         ) : (
-          <div className="overflow-x-auto bg-white border border-gray-200 rounded-lg">
+          <div className="overflow-x-auto bg-white border border-gray-200 rounded-[3px]">
             <table className="w-full text-[13px] border-collapse" style={{ minWidth: 720 }}>
               <thead>
-                <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+                <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
                   <th className="px-2.5 py-2 text-left font-semibold w-28">取得区分</th>
                   <th className="px-2.5 py-2 text-left font-semibold w-40">請求先(役所)</th>
                   <th className="px-2.5 py-2 text-left font-semibold w-48">対象(市区町村)</th>
@@ -178,10 +178,10 @@ export default function AcquisitionPlanEditor({ caseId, properties, acquisitions
           hint={'物件ごとに 登記情報・所有者事項・公図・地積測量図・路線価 をチップで選びます。\n取得区分「依頼者取得」なら資料選択は不要です。'}
           className="mb-2.5 pb-1.5 border-b border-gray-200"
         />
-        <div className="overflow-x-auto bg-white border border-gray-200 rounded-lg">
+        <div className="overflow-x-auto bg-white border border-gray-200 rounded-[3px]">
           <table className="w-full text-[13px] border-collapse" style={{ minWidth: 720 }}>
             <thead>
-              <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+              <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
                 <th className="px-2.5 py-2 text-left font-semibold w-28">取得区分</th>
                 <th className="px-2.5 py-2 text-left font-semibold w-32">請求先</th>
                 <th className="px-2.5 py-2 text-left font-semibold w-56">対象(物件)</th>

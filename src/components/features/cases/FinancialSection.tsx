@@ -90,7 +90,7 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, on
             <div className="overflow-x-auto">
               <table className="w-full text-[13px] border-collapse" style={{ minWidth: 680 }}>
                 <thead>
-                  <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+                  <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
                     <th className="px-2.5 py-2 text-left font-semibold">金融機関</th>
                     <th className="px-2.5 py-2 text-left font-semibold w-40">支店/銘柄</th>
                     <th className="px-2.5 py-2 text-left font-semibold">進捗/メモ</th>

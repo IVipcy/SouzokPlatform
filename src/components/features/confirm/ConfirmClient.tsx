@@ -430,10 +430,10 @@ function HistoryView() {
       ) : filtered.length === 0 ? (
         <div className="text-center text-[13px] text-gray-400 py-16 border border-dashed border-gray-200 rounded-lg">記録がありません</div>
       ) : (
-        <div className="border border-gray-200 rounded-xl overflow-x-auto">
+        <div className="border border-gray-200 rounded-[3px] overflow-x-auto">
           <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: 820 }}>
             <thead>
-              <tr className="bg-brand-50/60 border-b border-brand-100 text-[10.5px] text-brand-700">
+              <tr className="bg-gray-50 border-b border-gray-300 text-[10.5px] text-gray-600">
                 <th className="px-2.5 py-2 text-left font-semibold w-28">確認日時</th>
                 <th className="px-2.5 py-2 text-left font-semibold w-14">業務</th>
                 <th className="px-2.5 py-2 text-left font-semibold w-28">案件</th>

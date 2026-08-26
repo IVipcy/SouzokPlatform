@@ -332,9 +332,9 @@ export default function DeliveryTab({ caseData, currentMemberId, canManage = fal
             {filter === 'exclude' && '対象外の書類はありません'}
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+          <div className="overflow-x-auto rounded-[3px] border border-gray-200 bg-white">
             <table className="w-full text-[13px]" style={{ minWidth: 900 }}>
-              <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+              <thead className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
                 <tr>
                   <th className="px-2 py-2 text-center font-medium w-10">No</th>
                   <th className="px-3 py-2 text-left font-medium">書類名（クリックで編集）</th>

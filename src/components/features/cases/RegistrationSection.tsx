@@ -64,7 +64,7 @@ export default function RegistrationSection({ caseId, properties, heirs = [], on
               <div className="overflow-x-auto">
                 <table className="w-full text-[12px] border-collapse" style={{ minWidth: 760 }}>
                   <thead>
-                    <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
+                    <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
                       <th className="px-2.5 py-2 text-left font-semibold w-36">市区町村</th>
                       <th className="px-2.5 py-2 text-left font-semibold">所在地</th>
                       <th className="px-2.5 py-2 text-left font-semibold">進捗/メモ</th>
@@ -110,7 +110,7 @@ export default function RegistrationSection({ caseId, properties, heirs = [], on
                 <div className="overflow-x-auto">
                   <table className="text-[12px] border-collapse" style={{ minWidth: 1780, width: 'max-content' }}>
                     <thead>
-                      <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
+                      <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
                         <th className="px-2 py-2 text-left font-semibold w-20">種別</th>
                         <th className="px-2 py-2 text-left font-semibold w-44">所在地</th>
                         <th className="px-2 py-2 text-left font-semibold w-32">取得者（相続人）</th>

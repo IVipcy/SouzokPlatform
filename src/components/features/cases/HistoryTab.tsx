@@ -353,7 +353,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-[13px]" style={{ minWidth: 1000 }}>
-              <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+              <thead className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">分類</th>
                   <th className="px-3 py-2 text-left font-medium">フェーズ</th>
@@ -426,7 +426,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-[13px]" style={{ minWidth: 1000 }}>
-              <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+              <thead className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">種別</th>
                   <th className="px-3 py-2 text-left font-medium">依頼者</th>

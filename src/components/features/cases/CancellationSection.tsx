@@ -63,7 +63,7 @@ export default function CancellationSection({ caseId, financialAssets, onRefresh
               <div className="overflow-x-auto">
                 <table className="w-full text-[12px] border-collapse" style={{ minWidth: 680 }}>
                   <thead>
-                    <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
+                    <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
                       <th className="px-2.5 py-2 text-left font-semibold">金融機関</th>
                       <th className="px-2.5 py-2 text-left font-semibold w-28">支店/銘柄</th>
                       <th className="px-2.5 py-2 text-center font-semibold w-20">解約有無</th>
@@ -101,7 +101,7 @@ export default function CancellationSection({ caseId, financialAssets, onRefresh
                 <div className="overflow-x-auto">
                   <table className="w-full text-[12px] border-collapse" style={{ minWidth: 840 }}>
                     <thead>
-                      <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
+                      <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
                         <th className="px-2.5 py-2 text-left font-semibold w-32">支店/銘柄</th>
                         <th className="px-2.5 py-2 text-left font-semibold w-24">解約有無</th>
                         <th className="px-2.5 py-2 text-left font-semibold w-28">解約書類</th>

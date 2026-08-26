@@ -115,10 +115,10 @@ export default function BillingCaseTable({ rows, title = '請求対象案件' }:
             {statusFilter === 'all' ? '請求対象の案件はありません（当月の受託 / 当月完了予定の対応中 / 当月業務完了）' : '該当する請求はありません'}
           </div>
         ) : (
-          <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+          <div className="bg-white border border-gray-200 rounded-[3px] overflow-x-auto">
             <table className="text-[13px] border-collapse w-max min-w-full">
               <thead>
-                <tr className="bg-brand-50/60 border-b border-brand-100 text-brand-700 whitespace-nowrap">
+                <tr className="bg-gray-50 border-b border-gray-300 text-gray-600 whitespace-nowrap">
                   <th className="px-1 py-2 text-center font-semibold" title="契約形態（行/司/連名）"></th>
                   <th className="px-2.5 py-2 text-left font-semibold">案件管理番号</th>
                   <th className="px-2.5 py-2 text-left font-semibold">案件名</th>

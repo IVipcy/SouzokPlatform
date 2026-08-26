@@ -69,7 +69,7 @@ export default function AgreementDispatchTable({ caseId, heirs, dispatches, onRe
       <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 720 }}>
           <thead>
-            <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+            <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
               <th className="px-2.5 py-2 text-left font-semibold w-40">相続人</th>
               <th className="px-2.5 py-2 text-left font-semibold w-32">送付日</th>
               <th className="px-2.5 py-2 text-left font-semibold w-32">返送（受領）日</th>

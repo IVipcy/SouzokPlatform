@@ -97,7 +97,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
           {singleDay ? 'この日の到着物はありません。' : 'まだ受信記録はありません。右上の「+ 新規作成」から登録できます。'}
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+        <div className="bg-white border border-gray-200 rounded-[3px] overflow-x-auto">
           <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1520 }}>
             <colgroup>
               <col style={{ width: 104 }} />{/* 番号（未開封バッジ・開封して再登録が入る） */}
@@ -113,7 +113,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
               <col style={{ width: 200 }} />{/* 紐付けタスク */}
             </colgroup>
             <thead>
-              <tr className="bg-brand-50/60 border-b border-brand-100 text-brand-700">
+              <tr className="bg-gray-50 border-b border-gray-300 text-gray-600">
                 <th className="px-2.5 py-2 text-left font-semibold">番号</th>
                 <th className="px-2.5 py-2 text-left font-semibold">案件管理番号</th>
                 <th className="px-2.5 py-2 text-left font-semibold">〒種類</th>

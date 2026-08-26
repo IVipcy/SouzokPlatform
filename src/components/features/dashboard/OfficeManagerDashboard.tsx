@@ -75,7 +75,7 @@ export default function OfficeManagerDashboard({ mode = 'start', rows, currentMe
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: 920 }}>
-              <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
+              <thead className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
                 <tr>
                   <th className={TH}>OS最終更新日</th>
                   <th className={TH}>案件番号</th>

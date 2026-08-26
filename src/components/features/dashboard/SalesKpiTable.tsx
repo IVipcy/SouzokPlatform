@@ -178,7 +178,7 @@ export default function SalesKpiTable({ ym, monthLabel, metrics, initialTarget }
         <table className="w-full border-collapse text-sm" style={{ minWidth: 860 }}>
           <thead>
             <tr>
-              <th className="w-16 border border-brand-100 bg-brand-50/60 px-2 py-2 text-[12px] font-semibold text-brand-700" />
+              <th className="w-16 border border-gray-300 bg-gray-50 px-2 py-2 text-[12px] font-semibold text-gray-600" />
               {COLS.map(col => (
                 <th
                   key={col.key}

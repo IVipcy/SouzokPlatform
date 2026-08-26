@@ -434,7 +434,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
               <div className="overflow-x-auto">
                 <table className="w-full text-[12px] border-collapse" style={{ minWidth: 620 }}>
                   <thead>
-                    <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
+                    <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
                       <th className="px-2.5 py-2 text-left font-semibold w-28">対象者</th>
                       <th className="px-2.5 py-2 text-left font-semibold">請求先</th>
                       <th className="px-2.5 py-2 text-left font-semibold w-20">請求日</th>
@@ -526,7 +526,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                 <div className="overflow-x-auto">
                   <table className="text-[12px] border-collapse" style={{ minWidth: 2200, width: 'max-content' }}>
                     <thead>
-                      <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
+                      <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
                         <th className="px-2 py-2 text-left font-semibold w-24">
                           <span className="inline-flex items-center gap-1">請求区分<HintTip text={KIND_HINT} /></span>
                         </th>

@@ -87,7 +87,7 @@ export default function TouKiTeamDashboardClient({ tasks: initialTasks, currentM
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-[13px]" style={{ minWidth: 1000 }}>
-              <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+              <thead className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">案件</th>
                   <th className="px-3 py-2 text-left font-medium">タスク</th>

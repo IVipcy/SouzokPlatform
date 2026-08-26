@@ -307,10 +307,10 @@ export default function RealEstateOrderBlocks({ caseId, properties, acquisitions
                 {muniProps.length === 0 ? (
                   <p className="text-[12px] text-gray-400">物件一覧に物件を追加すると、物件ごとの行が出ます。</p>
                 ) : (
-                  <div className="overflow-x-auto bg-white border border-gray-200 rounded-lg">
+                  <div className="overflow-x-auto bg-white border border-gray-200 rounded-[3px]">
                     <table className="w-full text-[13px] border-collapse" style={{ minWidth: 680 }}>
                       <thead>
-                        <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+                        <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
                           <th className="px-2.5 py-2 text-left font-semibold w-28">取得区分</th>
                           <th className="px-2.5 py-2 text-left font-semibold w-36">請求先</th>
                           <th className="px-2.5 py-2 text-left font-semibold w-52">対象物件</th>
@@ -435,10 +435,10 @@ function MuniDocTable({ rows, muni, itemType, years, onPatch, onDelete, onToggle
   onAdd: (muni: string, itemType: string) => void
 }) {
   return (
-    <div className="overflow-x-auto bg-white border border-gray-200 rounded-lg">
+    <div className="overflow-x-auto bg-white border border-gray-200 rounded-[3px]">
       <table className="w-full text-[13px] border-collapse" style={{ minWidth: 640 }}>
         <thead>
-          <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+          <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
             <th className="px-2.5 py-2 text-left font-semibold w-28">取得区分</th>
             <th className="px-2.5 py-2 text-left font-semibold w-40">所在地</th>
             <th className="px-2.5 py-2 text-left font-semibold w-32">年度</th>

@@ -157,15 +157,15 @@ export default function MultiBankSection({ task, onRefresh }: Props) {
       </div>
 
       {/* 銀行別テーブル */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <div className="overflow-x-auto rounded-[3px] border border-gray-200">
         <table className="w-full text-xs">
           <thead>
-            <tr className="bg-brand-50/60 border-b border-brand-100">
-              <th className="text-left px-3 py-2 font-medium text-brand-700 w-[35%]">金融機関</th>
-              <th className="text-left px-3 py-2 font-medium text-brand-700 w-[15%]">凍結済</th>
-              <th className="text-left px-3 py-2 font-medium text-brand-700 w-[22%]">請求日</th>
-              <th className="text-left px-3 py-2 font-medium text-brand-700 w-[22%]">到着日</th>
-              <th className="text-left px-3 py-2 font-medium text-brand-700 w-[6%]"></th>
+            <tr className="bg-gray-50 border-b border-gray-300">
+              <th className="text-left px-3 py-2 font-medium text-gray-600 w-[35%]">金融機関</th>
+              <th className="text-left px-3 py-2 font-medium text-gray-600 w-[15%]">凍結済</th>
+              <th className="text-left px-3 py-2 font-medium text-gray-600 w-[22%]">請求日</th>
+              <th className="text-left px-3 py-2 font-medium text-gray-600 w-[22%]">到着日</th>
+              <th className="text-left px-3 py-2 font-medium text-gray-600 w-[6%]"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">

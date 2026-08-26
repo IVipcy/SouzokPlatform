@@ -39,10 +39,10 @@ export default function EvalCertTable({ properties, requestTo, onRefresh }: Prop
   }
 
   return (
-    <div className="overflow-x-auto bg-white border border-gray-200 rounded-lg">
+    <div className="overflow-x-auto bg-white border border-gray-200 rounded-[3px]">
       <table className="w-full text-[13px] border-collapse" style={{ minWidth: 840 }}>
         <thead>
-          <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+          <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
             <th className="px-2.5 py-2 whitespace-nowrap text-left font-semibold w-28">取得区分</th>
             <th className="px-2.5 py-2 whitespace-nowrap text-left font-semibold w-40">請求先</th>
             <th className="px-2.5 py-2 whitespace-nowrap text-left font-semibold w-24">物件種別</th>

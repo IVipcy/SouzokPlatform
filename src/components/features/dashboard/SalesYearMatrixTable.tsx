@@ -63,7 +63,7 @@ export default function SalesYearMatrixTable({ columns, groups, today }: Props) 
         <p className="text-[12px] text-gray-400">左が当期累計、右に行くほど過去月。横スクロールで移動できます。</p>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+      <div className="bg-white border border-gray-200 rounded-[3px] overflow-x-auto">
         <table className="border-collapse text-[13px] w-max">
           <colgroup>
             <col style={{ width: COL_W.team }} />
@@ -77,7 +77,7 @@ export default function SalesYearMatrixTable({ columns, groups, today }: Props) 
 
           <thead>
             {/* 月グループのヘッダ */}
-            <tr className="bg-brand-50/60 border-b border-brand-100">
+            <tr className="bg-gray-50 border-b border-gray-300">
               <StickyTh left={LEFT.team} width={COL_W.team} rowSpan={2}>所属チーム</StickyTh>
               <StickyTh left={LEFT.name} width={COL_W.name} rowSpan={2}>氏名</StickyTh>
               <StickyTh left={LEFT.job} width={COL_W.job} rowSpan={2}>職種</StickyTh>
@@ -94,7 +94,7 @@ export default function SalesYearMatrixTable({ columns, groups, today }: Props) 
                 </th>
               ))}
             </tr>
-            <tr className="bg-brand-50/60 border-b border-brand-100 text-brand-700">
+            <tr className="bg-gray-50 border-b border-gray-300 text-gray-600">
               {columns.map(c => (
                 <SubHeaderGroup key={c.key} highlight={c.isCumulative} />
               ))}

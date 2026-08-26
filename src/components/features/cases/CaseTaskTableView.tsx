@@ -229,7 +229,7 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
       <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 900 }}>
           <thead>
-            <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+            <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
               <th className="px-2.5 py-2 w-9 text-center">
                 <input type="checkbox" checked={allSel} ref={el => { if (el) el.indeterminate = !allSel && someSel }} onChange={toggleAll} className="w-4 h-4 accent-brand-600 cursor-pointer" aria-label="全選択" />
               </th>

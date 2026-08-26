@@ -218,7 +218,7 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
                 <col style={{ width: 216 }} />
               </colgroup>
               <thead>
-                <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+                <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
                   <th className="px-3 py-2 text-left font-semibold w-44">到着物</th>
                   <th className="px-3 py-2 text-left font-semibold w-24">受領日</th>
                   <th className="px-3 py-2 text-left font-semibold w-24">アップ状況</th>

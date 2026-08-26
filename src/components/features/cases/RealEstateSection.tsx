@@ -358,7 +358,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
             <div className="overflow-x-auto">
               <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1080 }}>
                 <thead>
-                  <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+                  <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
                     <th className="px-2.5 py-2 text-left font-semibold w-36">市区町村</th>
                     <th className="px-2.5 py-2 text-left font-semibold">所在</th>
                     <th className="px-2.5 py-2 text-left font-semibold w-28">地番・家屋番号</th>

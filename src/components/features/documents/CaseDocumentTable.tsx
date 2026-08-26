@@ -86,7 +86,7 @@ export default function CaseDocumentTable({ caseId, rows, defaultTaskId = null, 
             <col style={{ width: 50 }} />
           </colgroup>
           <thead>
-            <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+            <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
               <th className="px-3 py-2 text-left font-semibold">{noun}名</th>
               <th className="px-3 py-2 text-left font-semibold">ファイル更新日</th>
               <th className="px-3 py-2 text-left font-semibold">ファイル</th>

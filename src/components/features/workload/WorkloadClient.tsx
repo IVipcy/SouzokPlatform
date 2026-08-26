@@ -294,10 +294,10 @@ export default function WorkloadClient({ teams, defaultTeamId, assignCaseId, una
             )}
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-xl overflow-x-auto shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+          <div className="bg-white border border-gray-200 rounded-[3px] overflow-x-auto">
             <table className="w-full text-[13px] border-collapse" style={{ minWidth: 900 }}>
               <thead>
-                <tr className="bg-brand-50/60 border-b border-brand-100 text-brand-700">
+                <tr className="bg-gray-50 border-b border-gray-300 text-gray-600">
                   {canAssign && <th className="px-3 py-2.5 w-10" />}
                   <th className="px-3 py-2.5 text-left font-semibold">氏名</th>
                   <th className="px-3 py-2.5 text-left font-semibold">所属チーム</th>
@@ -365,10 +365,10 @@ export default function WorkloadClient({ teams, defaultTeamId, assignCaseId, una
             </div>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-xl overflow-x-auto shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+          <div className="bg-white border border-gray-200 rounded-[3px] overflow-x-auto">
             <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: 1040 }}>
               <thead>
-                <tr className="bg-brand-50/60 border-b border-brand-100 text-brand-700">
+                <tr className="bg-gray-50 border-b border-gray-300 text-gray-600">
                   <th className="px-3 py-2.5 w-10" />
                   <th className="px-3 py-2.5 text-left font-semibold whitespace-nowrap">受注日</th>
                   <th className="px-3 py-2.5 text-center font-semibold whitespace-nowrap">経過</th>

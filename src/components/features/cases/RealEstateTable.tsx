@@ -155,7 +155,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
         <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-[13px] border-collapse">
             <thead>
-              <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+              <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
                 <th className={TH + ' w-28'}>物件種別</th>
                 <th className={TH}>所在地<span className="block text-[10px] font-normal text-brand-700">名寄帳取得後に地番を要確認</span></th>
                 <th className={TH + ' text-right w-32'}>評価額</th>
@@ -251,7 +251,7 @@ function PropertyTable({ title, kind, rows, showMuni, renderRow, onAdd, busy }: 
       <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse">
           <thead>
-            <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+            <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
               {showMuni && <th className={TH + ' w-40'}>市区町村</th>}
               <th className={TH + ' w-24'}>物件種別</th>
               <th className={TH + ' w-28'}>取得区分</th>

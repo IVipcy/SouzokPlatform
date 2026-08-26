@@ -73,7 +73,7 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
     <div className="overflow-x-auto">
       <table className="w-full text-[12px] border-collapse" style={{ minWidth: 820 }}>
         <thead>
-          <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
+          <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
             <th className="px-2 py-2 text-left font-semibold w-48">対象者</th>
             <th className="px-2 py-2 text-left font-semibold w-40">戸籍の取得範囲</th>
             <th className="px-2 py-2 text-left font-semibold w-40">住所関係書類</th>

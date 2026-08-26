@@ -346,7 +346,7 @@ export default function SystemTaskList({
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]">
-            <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700">
+            <thead className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
               <tr>
                 {selectable && (
                   <th className="px-3 py-2 text-center w-8">

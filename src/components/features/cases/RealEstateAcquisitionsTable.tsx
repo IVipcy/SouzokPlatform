@@ -250,7 +250,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
       <div className="overflow-x-auto">
         <table className="text-[13px] border-collapse" style={{ minWidth: progressMode ? (fullCost ? 1860 : 1680) : 640, width: 'max-content' }}>
           <thead>
-            <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+            <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
               {progressMode && <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-24">
                 <span className="inline-flex items-center gap-1">請求区分<HintTip text={KIND_HINT} /></span>
               </th>}

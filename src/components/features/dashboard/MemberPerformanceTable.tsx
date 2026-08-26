@@ -87,7 +87,7 @@ export default function MemberPerformanceTable({
         </p>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+      <div className="bg-white border border-gray-200 rounded-[3px] overflow-x-auto">
         <table className="border-collapse text-[13px] w-max min-w-full">
           <colgroup>
             <col style={{ width: COL_W.name }} />
@@ -110,7 +110,7 @@ export default function MemberPerformanceTable({
 
           <thead>
             {/* 月グループのヘッダ */}
-            <tr className="bg-brand-50/60 border-b border-brand-100">
+            <tr className="bg-gray-50 border-b border-gray-300">
               <th
                 className="sticky bg-brand-50/60 z-20 px-2 py-2 text-left font-semibold text-brand-700 border-r border-brand-100"
                 style={{ left: LEFT_OFFSET.name, width: COL_W.name }}
@@ -156,7 +156,7 @@ export default function MemberPerformanceTable({
                 </th>
               ))}
             </tr>
-            <tr className="bg-brand-50/60 border-b border-brand-100 text-brand-700">
+            <tr className="bg-gray-50 border-b border-gray-300 text-gray-600">
               {showCumulative && <SubHeaderGroup highlight />}
               {months.map((m, i) => (
                 <SubHeaderGroup key={m} highlight={i === 0 && !showCumulative} />

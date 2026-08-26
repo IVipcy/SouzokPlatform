@@ -109,7 +109,7 @@ export function IntakeDocsEditor({ docs, onSave }: { docs: DocRow[]; onSave: (ne
       <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 760 }}>
           <thead>
-            <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+            <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
               <th className="px-2.5 py-2 text-left font-semibold w-56">到着物</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">受領状況</th>
               <th className="px-2.5 py-2 text-left font-semibold">備考</th>
@@ -209,7 +209,7 @@ export function IntakeRolesEditor({ roles, onSave, gyomuOptions = GYOMU_LIST, pr
               <div className="overflow-x-auto">
                 <table className="w-full text-[13px] border-collapse" style={{ minWidth: 720 }}>
                   <thead>
-                    <tr className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 tracking-[0.04em]">
+                    <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
                       <th className="px-2.5 py-2 text-left font-semibold w-64">作業</th>
                       <th className="px-2.5 py-2 text-left font-semibold w-28">作業区分</th>
                       <th className="px-2.5 py-2 text-left font-semibold w-36">担当</th>
