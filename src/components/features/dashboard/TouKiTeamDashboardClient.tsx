@@ -16,6 +16,7 @@ import { showToast } from '@/components/ui/Toast'
 import { normalizeTaskStatus } from '@/lib/taskReadiness'
 import { bizDaysUntil } from '@/lib/overdue'
 import type { TaskRow } from '@/types'
+import { RemainCell } from '@/components/ui/RemainCell'
 
 type FilterKey = 'all' | 'not_started' | 'in_progress' | 'done'
 
@@ -121,7 +122,7 @@ export default function TouKiTeamDashboardClient({ tasks: initialTasks, currentM
                         ) : <span className="text-gray-300">— 未着手 —</span>}
                       </td>
                       <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600 whitespace-nowrap">{t.due_date ?? <span className="text-gray-300">—</span>}</td>
-                      <td className="px-3 py-2.5 whitespace-nowrap"><RemainCell dueDate={t.due_date} today={today} done={s === '完了'} /></td>
+                      <td className="px-3 py-2.5 whitespace-nowrap"><RemainCell days={t.due_date ? bizDaysUntil(t.due_date, today) : null} muted={s === '完了'} /></td>
                       <td className="px-3 py-2.5">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-medium ${STATUS_BADGE[s] ?? 'bg-gray-100 text-gray-600'}`}>{s}</span>
                       </td>
@@ -158,27 +159,6 @@ export default function TouKiTeamDashboardClient({ tasks: initialTasks, currentM
 }
 
 // 「残り」列。期限までの営業日。超過は赤で日数を出す（タスク一覧と同じ見た目）。
-function RemainCell({ dueDate, today, done }: { dueDate: string | null; today: string; done: boolean }) {
-  if (!dueDate) return <span className="text-[12px] text-gray-300">—</span>
-  const n = bizDaysUntil(dueDate, today)
-  if (done) return <span className="text-[12px] text-gray-400">{n < 0 ? `${-n}日超過` : '—'}</span>
-  if (n < 0) {
-    return (
-      <span className="inline-flex items-baseline gap-0.5 text-red-600">
-        <span className="text-[17px] font-bold leading-none tabular-nums">{-n}</span>
-        <span className="text-[11px] font-bold">日超過</span>
-      </span>
-    )
-  }
-  if (n === 0) return <span className="text-[14px] font-bold text-amber-700 leading-none">本日</span>
-  return (
-    <span className={`inline-flex items-baseline gap-0.5 ${n <= 2 ? 'text-amber-700' : 'text-gray-700'}`}>
-      <span className="text-[17px] font-bold leading-none tabular-nums">{n}</span>
-      <span className="text-[11px] font-semibold">日</span>
-    </span>
-  )
-}
-
 function FilterChip({ label, active, onClick, count }: { label: string; active: boolean; onClick: () => void; count?: number }) {
   return (
     <button type="button" onClick={onClick}

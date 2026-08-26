@@ -12,6 +12,7 @@ import { showToast } from '@/components/ui/Toast'
 import { cascadeDeleteCase } from '@/lib/caseDelete'
 import { getCaseStatusLabel } from '@/lib/constants'
 import ManagerNames from '@/components/ui/ManagerNames'
+import { RemainCell } from '@/components/ui/RemainCell'
 
 type CaseFlag = 'purple' | 'red' | 'yellow' | 'blue' | null
 
@@ -110,28 +111,6 @@ const thisMonthYm = () => todayYmd().slice(0, 7)
 // 数か月先まであるため、暦日のほうが実感に合う。
 const daysLeft = (due: string, today: string) =>
   Math.round((new Date(due + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime()) / 86400000)
-
-// 「残り」セル。超過は赤、近いものは琥珀。完了した案件は色を付けない。
-function RemainCell({ due, today, muted }: { due: string | null; today: string; muted: boolean }) {
-  if (!due) return <span className="text-gray-300">—</span>
-  const n = daysLeft(due, today)
-  if (muted) return <span className="text-[12px] text-gray-400">{n < 0 ? `${-n}日超過` : '—'}</span>
-  if (n < 0) {
-    return (
-      <span className="inline-flex items-baseline gap-0.5 text-red-600 whitespace-nowrap">
-        <span className="text-[16px] font-bold leading-none tabular-nums">{-n}</span>
-        <span className="text-[10.5px] font-bold">日超過</span>
-      </span>
-    )
-  }
-  if (n === 0) return <span className="text-[14px] font-bold text-amber-700 leading-none">本日</span>
-  return (
-    <span className={`inline-flex items-baseline gap-0.5 whitespace-nowrap ${n <= 14 ? 'text-amber-700' : 'text-gray-700'}`}>
-      <span className="text-[16px] font-bold leading-none tabular-nums">{n}</span>
-      <span className="text-[10.5px] font-semibold">日</span>
-    </span>
-  )
-}
 
 // 鮮度フラグ: 紫=クレーム / 赤・黄・青=最終接触(案件を最後に開いた日)からの未対応 営業日数
 // 青: <5営業日 / 黄: 5営業日〜 / 赤: 10営業日〜（案件色をアラート深刻度に合わせた統一ルール）
@@ -394,7 +373,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
               </td>
               {/* 完了予定までの残り（暦日）。完了済みの案件は色を付けない。 */}
               <td className="px-3 py-2.5 whitespace-nowrap">
-                <RemainCell due={c.expected_completion_date} today={today} muted={isCompletedView} />
+                <RemainCell days={c.expected_completion_date ? daysLeft(c.expected_completion_date, today) : null} muted={isCompletedView} warnAt={14} />
               </td>
               {/* 完了予定日 */}
               <td className="px-3 py-2.5 text-[12px] font-mono text-gray-600 whitespace-nowrap">{c.expected_completion_date ?? <span className="text-gray-300">—</span>}</td>

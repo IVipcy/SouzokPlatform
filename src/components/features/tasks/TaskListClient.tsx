@@ -27,6 +27,7 @@ import { useCurrentMember } from '@/lib/useCurrentMember'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import { showToast } from '@/components/ui/Toast'
 import type { TaskRow, MemberRow } from '@/types'
+import { RemainCell } from '@/components/ui/RemainCell'
 
 type CaseMemberInfo = { id: string; name: string; avatar_color: string; avatar_url: string | null }
 export type CaseInfo = {
@@ -156,35 +157,6 @@ const CHIP_ON: Record<string, string> = {
   red: 'bg-red-100 text-red-800 border-red-300',
   gray: 'bg-gray-200 text-gray-800 border-gray-300',
 }
-// 「残り」列。期限までの営業日を大きめに出す。
-//   超過      赤で「7日超過」（何日ほったらかしかが一番知りたい情報）
-//   当日      琥珀で「本日」
-//   2営業日以内 琥珀
-//   それ以降   グレー
-// 完了したタスクは色を付けない（もう急ぐ必要がないため）。
-function RemainCell({ dueDate, today, done }: { dueDate: string | null; today: string; done: boolean }) {
-  if (!dueDate) return <span className="text-[12px] text-gray-300">—</span>
-  const n = bizDaysUntil(dueDate, today)
-  if (done) {
-    return <span className="text-[12px] text-gray-400">{n < 0 ? `${-n}日超過` : '—'}</span>
-  }
-  if (n < 0) {
-    return (
-      <span className="inline-flex items-baseline gap-0.5 text-red-600">
-        <span className="text-[19px] font-bold leading-none tabular-nums">{-n}</span>
-        <span className="text-[11px] font-bold">日超過</span>
-      </span>
-    )
-  }
-  if (n === 0) return <span className="text-[15px] font-bold text-amber-700 leading-none">本日</span>
-  return (
-    <span className={`inline-flex items-baseline gap-0.5 ${n <= 2 ? 'text-amber-700' : 'text-gray-700'}`}>
-      <span className="text-[19px] font-bold leading-none tabular-nums">{n}</span>
-      <span className="text-[11px] font-semibold">日</span>
-    </span>
-  )
-}
-
 function Chip({ label, note, tone, on, onClick }: {
   label: string; note?: string; tone: keyof typeof CHIP_ON; on: boolean; onClick: () => void
 }) {
@@ -1071,7 +1043,7 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
 
       {/* 残り（期限までの営業日）。超過は赤で日数を出す。完了したタスクは急がせない。 */}
       <td className="px-2.5 py-2.5">
-        <RemainCell dueDate={task.due_date} today={today} done={status === '完了'} />
+        <RemainCell days={task.due_date ? bizDaysUntil(task.due_date, today) : null} muted={status === '完了'} size="lg" />
       </td>
 
       {/* 実施結果（ext_data.execution_result） */}
