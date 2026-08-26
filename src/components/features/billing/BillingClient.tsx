@@ -1000,12 +1000,12 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                         </div>
                       </td>
                       {/* 行／司。該当する側だけ塗りのバッジで出す（縦に読んで件数が掴めるように） */}
-                      <td className="px-2 py-2.5 text-center">
+                      <td className="px-3.5 py-2.5 text-center">
                         {inv.firm_type === 'gyosei'
                           ? <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-bold text-white" style={{ backgroundColor: SHIGYO_COLORS['行政'].color }}>行政</span>
                           : <span className="text-gray-200 text-xs">—</span>}
                       </td>
-                      <td className="px-2 py-2.5 text-center">
+                      <td className="px-3.5 py-2.5 text-center">
                         {inv.firm_type === 'shiho'
                           ? <span className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-bold text-white" style={{ backgroundColor: SHIGYO_COLORS['司法'].color }}>司法</span>
                           : <span className="text-gray-200 text-xs">—</span>}
@@ -1019,7 +1019,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                       {/* 入金期日 */}
                       <td className={`px-3.5 py-2.5 text-[13px] font-mono ${od ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>{inv.due_date || '—'}</td>
                       {/* 超過日数。督促の起点なので数字を大きく出す */}
-                      <td className="px-2 py-2.5 text-center">
+                      <td className="px-3.5 py-2.5 text-center">
                         {od == null
                           ? <span className="text-gray-200 text-xs">—</span>
                           : <span className="inline-flex items-baseline gap-0.5 text-red-600" title={`入金期日を ${od}日 過ぎています`}>
@@ -1055,7 +1055,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                         </div>
                       </td>
                       {/* やること。自分が動く番ならボタン、他人待ちなら表示のみ */}
-                      <td className="px-2 py-2.5" onClick={e => e.stopPropagation()}>
+                      <td className="px-3.5 py-2.5" onClick={e => e.stopPropagation()}>
                         {(() => {
                           const t = todoOf(inv)
                           if (!t) return <span className="text-gray-200 text-xs">—</span>
@@ -1116,7 +1116,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
                         )}
                       </td>
                       {/* 備考（表上で直接編集） */}
-                      <td className="px-2 py-1.5" onClick={e => e.stopPropagation()}>
+                      <td className="px-3.5 py-1.5" onClick={e => e.stopPropagation()}>
                         <RemarksCell value={inv.notes} onCommit={v => handleNotesCommit(inv.id, v)} />
                       </td>
                     </tr>

@@ -13,10 +13,10 @@ export type AlertChip = { key: string; label: string; severity: AlertSeverity; h
  * 独立した列に出して1行に固定し、重い順（クレーム→要注意→要確認）の先頭だけ文字で見せ、
  * 残りは「＋n」。隠れている中身はマウスを乗せれば全部出る。
  *
- * 幅は中の div で固定する。表が table-auto だと td の width が効かず、
+ * 幅の上限は中の div で決める。表が table-auto だと td の width/max-width が効かず、
  * 長いアラートが1つ入っただけで列がどこまでも広がってしまうため。
- * 160px は、一番長いアラート名（「オーダーシート 未完成」＝110px）＋バッジの余白＋「＋n」を
- * ブラウザで実測して決めた。これ以上広げても空くだけ。
+ * 上限160pxは、一番長いアラート名（「オーダーシート 未完成」＝110px）＋バッジの余白＋「＋n」を
+ * ブラウザで実測した値。固定ではなく上限なので、短いアラートしか無い列は中身ぶんまで縮む。
  */
 export function AlertCell({ chips }: { chips?: AlertChip[] }) {
   if (!chips || chips.length === 0) return <span className="text-gray-300">—</span>
@@ -33,7 +33,7 @@ export function AlertCell({ chips }: { chips?: AlertChip[] }) {
   )
   return (
     <div
-      className="flex items-center gap-1 w-[160px]"
+      className="flex items-center gap-1 max-w-[160px]"
       title={chips.length > 1 ? `出ているアラート ${chips.length}件\n${all}` : (head.title ?? undefined)}
     >
       {head.href
