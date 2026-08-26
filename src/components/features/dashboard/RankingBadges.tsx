@@ -1,4 +1,4 @@
-import { Crown, Trophy, Target } from 'lucide-react'
+import { Crown, Trophy } from 'lucide-react'
 
 // マイページの名前の「上」に出す月間ランキングの称号。
 // 文字は出さずアイコンだけを並べ、ホバーでランキング名を出す（名前の行を押し広げないため）。
@@ -30,14 +30,7 @@ export default function RankingBadges({ badges, achieved = false, achievedTitle 
       ? <Crown className="w-3.5 h-3.5" strokeWidth={2} />
       : <Trophy className="w-3 h-3" strokeWidth={2} />,
   }))
-  if (items.length === 0 && achieved) {
-    items.push({
-      key: 'goal',
-      title: achievedTitle,
-      cls: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      icon: <Target className="w-3.5 h-3.5" strokeWidth={2} />,
-    })
-  }
+  // 称号が無い月は何も出さない（達成は目標チップ側で分かる。単独アイコンは「謎の画像」に見えるため廃止）
   if (items.length === 0) return null
 
   return (

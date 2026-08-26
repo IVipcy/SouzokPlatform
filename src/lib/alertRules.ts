@@ -283,14 +283,14 @@ export const CASE_FLAG_LABEL: Record<CaseColorFlag, string> = {
 }
 export const CASE_FLAG_BG: Record<CaseColorFlag, string> = {
   purple: 'bg-purple-600 text-white',
-  red:    'bg-[#F5842A] text-[#3a2600]',
-  yellow: 'bg-[#F7B733] text-[#3a2600]',
+  red:    'bg-[#DC2626] text-white',
+  yellow: 'bg-[#EAB308] text-[#3B2A05]',
   blue:   'bg-sky-100 text-sky-700',
 }
 /** 数字だけ出すところ（KPIカード・チーム表）の文字色 */
 export const CASE_FLAG_TEXT: Record<CaseColorFlag, string> = {
   purple: 'text-purple-600',
-  red:    'text-[#D96A16]',
+  red:    'text-[#DC2626]',
   yellow: 'text-[#B98410]',
   blue:   'text-sky-600',
 }
