@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2, ListChecks, PackageCheck, Package, Compass, HelpCircle, ChevronDown, ChevronsUpDown, SlidersHorizontal } from 'lucide-react'
+import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2, ListChecks, Compass, HelpCircle, ChevronDown, ChevronsUpDown, SlidersHorizontal } from 'lucide-react'
 import { HELP_TYPE_LABEL, type HelpType } from '@/lib/managerReviewTask'
 import PageHeader from '@/components/ui/PageHeader'
 import HelpHint from '@/components/ui/HelpHint'
@@ -11,6 +11,7 @@ import { TaskTabHelp } from '@/components/ui/TaskSeverityHelp'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import EditTaskModal from './EditTaskModal'
 import CompleteTaskModal from './CompleteTaskModal'
+import Badge from '@/components/ui/Badge'
 import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES, TASK_PRIORITIES, getWorkRoleDef } from '@/lib/constants'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
@@ -820,7 +821,7 @@ function ListView({
         <div className="px-6 py-16 text-center text-sm text-gray-400">該当するタスクがありません</div>
       ) : (
         <div className="overflow-x-auto">
-        <table className="border-collapse" style={{ tableLayout: 'fixed', width: HEADERS.reduce((s, h) => s + widths[h.key], 0) }}>
+        <table className="list-table border-collapse" style={{ tableLayout: 'fixed', width: HEADERS.reduce((s, h) => s + widths[h.key], 0) }}>
           <colgroup>
             {HEADERS.map(h => <col key={h.key} style={{ width: widths[h.key] }} />)}
           </colgroup>
@@ -988,11 +989,12 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
 
       {/* ステータス（未着手 / 受領待ち / 着手OK / 対応中 / 完了） */}
       <td className="px-3.5 py-2.5">
-        {status === '完了' ? <span className="inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">完了</span>
-          : status === '対応中' ? <span className="inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200">対応中</span>
-          : signal.ready ? <span className="inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200"><PackageCheck className="w-3 h-3 flex-shrink-0" strokeWidth={2} />着手OK</span>
-          : isWaitingReceipt(task) ? <span className="inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50/60 text-amber-700 border border-amber-200"><Package className="w-3 h-3 flex-shrink-0" strokeWidth={2} />受領待ち</span>
-          : <span className="inline-flex whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-50 text-gray-500 border border-gray-200">未着手</span>}
+        {/* バッジ5色ルール：緑=完了だけ／青=進行／琥珀=注意（着手OK・受領待ち）／灰=未着手 */}
+        {status === '完了' ? <Badge label="完了" tone="green" />
+          : status === '対応中' ? <Badge label="対応中" tone="blue" />
+          : signal.ready ? <Badge label="着手OK" tone="amber" />
+          : isWaitingReceipt(task) ? <Badge label="受領待ち" tone="amber" />
+          : <Badge label="未着手" tone="gray" />}
       </td>
 
       {/* 着手OK理由 / 受領待ち内容 */}

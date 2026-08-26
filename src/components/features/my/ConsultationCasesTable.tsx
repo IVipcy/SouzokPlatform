@@ -250,7 +250,7 @@ export default function ConsultationCasesTable({ cases, manageMode = false, sele
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-[13px]">
+          <table className="list-table w-full text-[13px]">
             <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 uppercase tracking-wider">
               <tr>
                 {canSelect && (

@@ -297,7 +297,7 @@ function ListView({ filtered, taskCounts, router, onDelete, taskDueDatesMap, sho
         <div className="flex-1" />
 
       </div>
-      <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+      <table className="list-table w-full border-collapse" style={{ tableLayout: 'fixed' }}>
         <colgroup>
           {HEADERS.map(h => <col key={h.key} style={{ width: widths[h.key] }} />)}
         </colgroup>

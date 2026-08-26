@@ -51,7 +51,7 @@ export default function ReferralCasesTable({ cases, selectable = false }: { case
         <div className="px-4 py-12 text-center text-[13px] text-gray-400">個別案件（受注なし＋パートナー紹介）はありません</div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-[13px]">
+          <table className="list-table w-full text-[13px]">
             <thead className="bg-brand-50/60 border-b border-brand-100 text-[11px] text-brand-700 uppercase tracking-wider">
               <tr>
                 {selectable && (

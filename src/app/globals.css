@@ -102,6 +102,21 @@ input.input-naked:focus {
   box-shadow: none;
 }
 
+/* ─── 一覧テーブルの型（案件一覧・タスク一覧・請求一覧・マイページの表に付与）───
+   行の高さ46px固定・全セル1行表示（あふれは…で省略）・
+   ホバーは半透明の被せなので、アラート色付きの行でも色味が残る。 */
+.list-table tbody td {
+  height: 46px;
+  padding-top: 0;
+  padding-bottom: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.list-table tbody tr:hover td {
+  background-image: linear-gradient(rgba(15, 23, 42, 0.035), rgba(15, 23, 42, 0.035));
+}
+
 /* ─── 表の行区切り線を全画面で統一して濃く ───
    tr の border 色（border-b / divide-y 由来）を slate-300 相当にそろえる。
    ヘッダ帯の下線も同色になり、表ごとの線の濃さのばらつきが消える。 */

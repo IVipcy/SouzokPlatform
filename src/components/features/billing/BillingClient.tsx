@@ -835,7 +835,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
             <h2 className="text-[13px] font-semibold text-brand-900">請求・入金一覧</h2>
             <span className="text-[13px] text-gray-400 font-mono bg-gray-50 px-2 py-0.5 rounded">{filtered.length}件</span>
           </div>
-          <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+          <table className="list-table w-full border-collapse" style={{ tableLayout: 'fixed' }}>
             <colgroup>
               <col style={{ width: 36 }} />
               {HEADERS.map(h => (
