@@ -52,18 +52,8 @@ export default function RankingBadges({ badges, achieved = false, achievedTitle 
             className={`relative inline-flex items-center justify-center w-[22px] h-[22px] rounded-full border ${it.cls}`}
             style={achieved ? { overflow: 'visible' } : undefined}
           >
-            {achieved && (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src="/dashboard-popup/achievement-ring.png"
-                alt=""
-                aria-hidden
-                className="absolute inset-0 w-full h-full pointer-events-none achievement-avatar-img"
-                style={{ zIndex: 0 }}
-                draggable={false}
-              />
-            )}
-            <span className="relative inline-flex" style={{ zIndex: 1 }}>{it.icon}</span>
+            {/* 虹リング画像は「謎の画像」に見えるためやめ、達成はアイコン色とホバー文言で伝える */}
+            <span className="relative inline-flex">{it.icon}</span>
           </span>
         </span>
       ))}

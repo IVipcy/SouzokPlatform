@@ -775,7 +775,7 @@ function ListView({
   onSort: (key: SortKey) => void
   caseScope: boolean
 }) {
-  const { widths, reset, startResize } = useResizableColumns('taskListColWidths', {
+  const { widths, startResize } = useResizableColumns('taskListColWidths', {
     select: 40, gyomu: 124, tanto: 118, title: 220, priority: 96, status: 96, readyReason: 280, caseCol: 190, sales: 100, manager: 100, due: 100, remain: 96,
     execResult: 200,
     action: 110, ops: 40,
@@ -814,13 +814,6 @@ function ListView({
           {tasks.length}件
         </span>
         <div className="flex-1" />
-        <button
-          onClick={reset}
-          title="列幅をデフォルトに戻す"
-          className="text-[13px] text-gray-500 hover:text-brand-600 px-2 py-1 rounded-md hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-colors"
-        >
-          ↔ 列幅リセット
-        </button>
       </div>
 
       {tasks.length === 0 ? (

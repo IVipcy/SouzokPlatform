@@ -161,7 +161,7 @@ export default function CaseClientsTable({ caseId, clients, onRefresh, clientId,
         type="button"
         onClick={addRow}
         disabled={busy}
-        className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 disabled:opacity-50"
+        className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-md px-2.5 py-1.5 disabled:opacity-50"
       >
         <Plus className="w-3.5 h-3.5" /> 依頼者を追加
       </button>

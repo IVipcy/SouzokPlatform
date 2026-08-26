@@ -222,7 +222,7 @@ const TH = 'px-2.5 py-2 whitespace-nowrap text-left font-semibold'
 function AddButton({ label, busy, onClick }: { label: string; busy: boolean; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} disabled={busy}
-      className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[12.5px] font-semibold text-white bg-brand-600 hover:bg-brand-700 transition-colors disabled:opacity-50">
+      className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[12.5px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 transition-colors disabled:opacity-50">
       <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> {label}
     </button>
   )

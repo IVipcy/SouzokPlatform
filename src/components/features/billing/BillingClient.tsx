@@ -168,7 +168,7 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
   const MONEY_COLS = new Set(['amount', 'advance', 'expenses', 'paid', 'refund', 'diff'])
   // 並び替えは日付・金額・超過だけに付ける（22列すべてに付けると見出しが賑やかになる）
   const SORTABLE = new Set(['caseNo', 'invoiceDate', 'dueDate', 'overdue', 'paidDate', 'amount', 'paid', 'diff'])
-  const { widths: colWidths, reset: resetColWidths, startResize: startColResize } = useResizableColumns('billingListColWidths', {
+  const { widths: colWidths, startResize: startColResize } = useResizableColumns('billingListColWidths', {
     caseNo: 140, case: 180, assignee: 124, gyosei: 58, shiho: 58, type: 92, invoiceDate: 100, dueDate: 100, overdue: 92, paidDate: 100, status: 128, todo: 112, reason: 220, amount: 110, advance: 100, expenses: 100, paid: 100, refund: 100, diff: 90, pdf: 90, receipt: 90, remarks: 220,
   })
   const HEADERS: Array<{ key: keyof typeof colWidths; label: string; align?: 'left' | 'right' }> = [
@@ -834,13 +834,6 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
           <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2.5">
             <h2 className="text-[13px] font-semibold text-brand-900">請求・入金一覧</h2>
             <span className="text-[13px] text-gray-400 font-mono bg-gray-50 px-2 py-0.5 rounded">{filtered.length}件</span>
-            <button
-              onClick={resetColWidths}
-              className="ml-auto text-[12px] text-gray-400 hover:text-gray-600 transition"
-              title="列幅をリセット"
-            >
-              列幅リセット
-            </button>
           </div>
           <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
             <colgroup>

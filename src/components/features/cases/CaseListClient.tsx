@@ -273,7 +273,7 @@ function ListView({ filtered, taskCounts, router, onDelete, taskDueDatesMap, sho
   const today = new Date().toISOString().split('T')[0]
 
   // 列幅（リサイズ可能・localStorage保存）
-  const { widths, reset, startResize } = useResizableColumns('caseListColWidths', {
+  const { widths, startResize } = useResizableColumns('caseListColWidths', {
     deal: 280, status: 100, difficulty: 70, progress: 110, sales: 150, asset: 120, orderDate: 110, ops: 50,
   })
   const HEADERS: Array<{ key: keyof typeof widths; label: string }> = [
@@ -295,10 +295,7 @@ function ListView({ filtered, taskCounts, router, onDelete, taskDueDatesMap, sho
           {filtered.length}件
         </span>
         <div className="flex-1" />
-        <button onClick={reset} title="列幅をデフォルトに戻す"
-          className="text-[13px] text-gray-500 hover:text-brand-600 px-2 py-1 rounded-md hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-colors">
-          ↔ 列幅リセット
-        </button>
+
       </div>
       <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
         <colgroup>
