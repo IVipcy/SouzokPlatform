@@ -21,19 +21,9 @@ type Props = {
   candidates?: React.ReactNode
 }
 
-// 着手フラグ。設定しない＝前のタスクが終わってから着手OKにする通常運用。
-const READY_OPTIONS = [
-  { key: 'none', label: '設定しない', hint: '前のタスクの完了時に設定する' },
-  { key: 'now', label: '着手OK', hint: 'すぐ取りかかれる' },
-  { key: 'receipt', label: '受領次第OK', hint: '書類が届いたら着手' },
-] as const
-type ReadyKey = typeof READY_OPTIONS[number]['key']
-
 export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, defaultPhase, candidates }: Props) {
   const currentMemberId = useCurrentMember(null)
   const [form, setForm] = useState<NewTaskValue>(emptyNewTask)
-  const [ready, setReady] = useState<ReadyKey>('none')
-  const [readyNote, setReadyNote] = useState('')
   // 候補を渡されたときだけ2タブ。左＝新規作成／右＝候補から選択。
   const [tab, setTab] = useState<'manual' | 'candidate'>('manual')
   const [saving, setSaving] = useState(false)
@@ -57,11 +47,12 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
 
     const supabase = createClient()
 
-    // 着手フラグ（着手OK＝ready_reason／受領次第OK＝ready_on_receipt）。設定しないなら何も入れない。
-    const readyExt: Record<string, unknown> | null =
-      ready === 'now' ? { ready_reason: readyNote.trim() || '着手OK', ready_on_receipt: false }
-      : ready === 'receipt' ? { ready_on_receipt: true, ready_wait_note: readyNote.trim() || null }
-      : null
+    // タスクは作った時点で常に着手OK（着手前で寝かせる運用はやめた）。
+    // 外出タスクの印もここで ext_data に入れる。
+    const readyExt: Record<string, unknown> = {
+      ready_reason: '着手OK', ready_on_receipt: false,
+      ...(form.outing ? { outing: true } : {}),
+    }
 
     if (form.roleKind === 'assistant') {
       // 事務管理タスク（業務にひもづく通常タスク）
@@ -79,7 +70,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
           sort_order: 99,
           created_by: currentMemberId,
           procedure_text: form.work.trim() || null,
-          ...(readyExt ? { ext_data: readyExt } : {}),
+          ext_data: readyExt,
         })
       if (taskErr) { setError(`追加に失敗しました: ${taskErr.message}`); setSaving(false); return }
     } else {
@@ -102,7 +93,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
           sort_order: 99,
           created_by: currentMemberId,
           procedure_text: form.work.trim() || null,
-          ...(readyExt ? { ext_data: readyExt } : {}),
+          ext_data: readyExt,
         })
         .select('id')
         .single()
@@ -128,12 +119,8 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
       // 続けて同じ業務のタスクを足すことが多いので、業務区分・担当区分は残す
       showToast('タスクを追加しました', 'success')
       setForm({ ...emptyNewTask(), roleKind: form.roleKind, gyomu: form.gyomu })
-      setReady('none')
-      setReadyNote('')
     } else {
       setForm(emptyNewTask())
-      setReady('none')
-      setReadyNote('')
       close()
     }
   }
@@ -187,33 +174,6 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
           onChange={patch}
           defaultGyomu={defaultPhase}
           workRequired
-          readySlot={
-            <div>
-              <label className="block text-[13px] font-semibold text-gray-500 mb-1">着手</label>
-              <div className="flex gap-1.5">
-                {READY_OPTIONS.map(o => (
-                  <button
-                    key={o.key}
-                    type="button"
-                    onClick={() => setReady(o.key)}
-                    className={`flex-1 px-2.5 py-1.5 text-[12.5px] font-medium rounded-lg border transition-colors ${ready === o.key ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-                    title={o.hint}
-                  >
-                    {o.label}
-                  </button>
-                ))}
-              </div>
-              {ready !== 'none' && (
-                <input
-                  type="text"
-                  value={readyNote}
-                  onChange={e => setReadyNote(e.target.value)}
-                  placeholder={ready === 'receipt' ? '何の受領待ちか（例：戸籍の到着）' : '着手OKの理由（任意）'}
-                  className="mt-1.5 w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
-                />
-              )}
-            </div>
-          }
         />
       </div>
     </Modal>

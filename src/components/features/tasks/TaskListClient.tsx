@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, User, AlertTriangle, X, Play, CheckCircle2, Trash2, ListChecks, Compass, HelpCircle, ChevronDown, ChevronsUpDown, SlidersHorizontal } from 'lucide-react'
+import { Search, User, X, Play, CheckCircle2, Trash2, ListChecks, Compass, HelpCircle, ChevronDown, ChevronsUpDown, SlidersHorizontal } from 'lucide-react'
 import { HELP_TYPE_LABEL, type HelpType } from '@/lib/managerReviewTask'
 import PageHeader from '@/components/ui/PageHeader'
 import HelpHint from '@/components/ui/HelpHint'
@@ -11,7 +11,6 @@ import { TaskTabHelp } from '@/components/ui/TaskSeverityHelp'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import EditTaskModal from './EditTaskModal'
 import CompleteTaskModal from './CompleteTaskModal'
-import Badge from '@/components/ui/Badge'
 import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES, TASK_PRIORITIES, getWorkRoleDef } from '@/lib/constants'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
@@ -20,14 +19,12 @@ import { taskSeverity, SEVERITY_RANK, SEVERITY_TAB, SEVERITY_TAB_NOTE, SEVERITY_
 import { bizDaysUntil } from '@/lib/overdue'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { GyomuBadge } from '@/components/ui/KoteiBadge'
-import { TantoKubunBadge } from '@/components/ui/TantoKubunBadge'
-import { getStartSignal, isWaitingReceipt, receiptWaitNote, type ReadinessReceipt } from '@/lib/taskReadiness'
+import { getStartSignal, type ReadinessReceipt } from '@/lib/taskReadiness'
 import { isTaskFreezeBlocked } from '@/lib/financeFreeze'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import { showToast } from '@/components/ui/Toast'
 import type { TaskRow, MemberRow } from '@/types'
-import { RemainCell } from '@/components/ui/RemainCell'
 
 type CaseMemberInfo = { id: string; name: string; avatar_color: string; avatar_url: string | null }
 export type CaseInfo = {
@@ -186,6 +183,8 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   const [statusFilter, setStatusFilter] = useState<string>('着手前')
   // 自分のタスクは既定OFF。出社直後は未アサインの着手前を拾うのが日常動線。
   const [filterMine, setFilterMine] = useState(searchParams.get('assignee') === 'mine')
+  // 外出タスク（役所・銀行など外で行う作業）だけに絞る
+  const [outingOnly, setOutingOnly] = useState(false)
   // 業務タブ（戸籍／不動産調査／…／その他）。'all'＝すべて。
   // 以前は工程(KOTEI)で絞らせていたが、実務と対応しない中間の括りだったので置き換えた。
   const [taskTab, setTaskTab] = useState<string>('all')
@@ -279,6 +278,9 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     if (priFilter.size > 0) {
       result = result.filter(t => priFilter.has(t.priority || '通常'))
     }
+    if (outingOnly) {
+      result = result.filter(t => ((t.ext_data ?? {}) as Record<string, unknown>).outing === true)
+    }
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       result = result.filter(t => {
@@ -321,7 +323,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       const bd = b.due_date ?? '9999-12-31'
       return ad.localeCompare(bd)
     })
-  }, [assistantTasks, statusFilter, filterMine, taskTab, search, caseMap, currentMemberId, today, sevFilter, priFilter, sortKey, sortDir, caseScope, isReady])
+  }, [assistantTasks, statusFilter, filterMine, taskTab, search, caseMap, currentMemberId, today, sevFilter, priFilter, outingOnly, sortKey, sortDir, caseScope, isReady])
 
   // 業務タブごとの件数と重さ。タブの並びは定義どおり固定で、0件でも出す
   // （「そのタブは今やることが無い」ことが分かるほうが探しやすい）。
@@ -571,7 +573,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           </div>
 
           {/* 遅れ・優先度は普段たたんでおく。絞っている数はボタンの青バッジで見える。 */}
-          <FilterMenu sevFilter={sevFilter} setSevFilter={setSevFilter} priFilter={priFilter} setPriFilter={setPriFilter} />
+          <FilterMenu sevFilter={sevFilter} setSevFilter={setSevFilter} priFilter={priFilter} setPriFilter={setPriFilter} outingOnly={outingOnly} setOutingOnly={setOutingOnly} />
 
           <div className="ml-auto flex items-center gap-2">
             <button
@@ -748,29 +750,29 @@ function ListView({
   onSort: (key: SortKey) => void
   caseScope: boolean
 }) {
-  const { widths, startResize } = useResizableColumns('taskListColWidths', {
-    select: 40, gyomu: 124, tanto: 118, title: 220, priority: 96, status: 96, readyReason: 280, caseCol: 190, sales: 100, manager: 100, due: 100, remain: 96,
-    execResult: 200,
+  // 列は運用の指定どおり：タスク上げ日／案件番号／依頼者名／業務分類／タスク内容／
+  // 優先度／管理担当／タスク起票者／タスク詳細（＋選択・操作・削除）。
+  // 担当区分・ステータス・着手OK理由・期限・残り・実施結果・受注担当は出さない
+  // （ステータスと着手OK理由は「作った時点で着手OK」の運用でほぼ一定になった）。
+  // 保存キーは列構成を変えたので v2 に切り替え（旧幅の持ち越しでレイアウトが崩れるため）。
+  const { widths, startResize } = useResizableColumns('taskListColWidths2', {
+    select: 40, createdAt: 106, caseNo: 116, clientName: 140, gyomu: 124, title: 280, priority: 96, manager: 110, creator: 104, detail: 92,
     action: 110, ops: 40,
   })
   // sort を持つ列は見出しを押すと並び替えできる。
   const HEADERS: Array<{ key: keyof typeof widths; label: string; sort?: SortKey }> = [
     { key: 'select',     label: '' },
-    { key: 'gyomu',      label: '業務区分' },
-    { key: 'tanto',      label: '担当区分' },
-    { key: 'title',      label: 'タスク名' },
+    { key: 'createdAt',  label: 'タスク上げ日' },
+    ...(!caseScope ? [
+      { key: 'caseNo' as const,     label: '案件番号' },
+      { key: 'clientName' as const, label: '依頼者名' },
+    ] : []),
+    { key: 'gyomu',      label: '業務分類' },
+    { key: 'title',      label: 'タスク内容' },
     { key: 'priority',   label: '優先度', sort: 'priority' },
-    { key: 'status',     label: 'ステータス' },
-    { key: 'readyReason', label: '着手OK理由' },
-    // 案件詳細では案件・受注担当・管理担当は全行で同じなので出さない
-    ...(caseScope ? [] : [
-      { key: 'caseCol' as const, label: '案件' },
-      { key: 'sales' as const,   label: '受注担当' },
-      { key: 'manager' as const, label: '管理担当' },
-    ]),
-    { key: 'due',        label: '期限' },
-    { key: 'remain',     label: '残り', sort: 'remain' },
-    { key: 'execResult', label: '実施結果' },
+    { key: 'manager',    label: '管理担当' },
+    { key: 'creator',    label: 'タスク起票者' },
+    { key: 'detail',     label: 'タスク詳細' },
     { key: 'action',     label: '操作' },
     { key: 'ops',        label: '' },
   ]
@@ -838,7 +840,6 @@ function ListView({
                 caseMap={caseMap}
                 allMembers={allMembers}
                 today={today}
-                signal={getStartSignal(task, receipts)}
                 onAdvance={onAdvance}
                 loading={loadingTaskId === task.id}
                 onDelete={onDelete}
@@ -858,12 +859,11 @@ function ListView({
 }
 
 // ─── 1行 ───
-function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdvance, loading, onDelete, onSetPriority, selected, onToggleSelect, roleScope, caseScope }: {
+function TaskRow({ task, caseMap, allMembers: _allMembers, today, onAdvance, loading, onDelete, onSetPriority, selected, onToggleSelect, roleScope, caseScope }: {
   task: TaskRow
   caseMap: Record<string, CaseInfo>
   allMembers: MemberRow[]
   today: string
-  signal: { ready: boolean; reason: string | null; source: 'doc' | 'manual' | null }
   onAdvance: (task: TaskRow) => void
   loading: boolean
   onDelete: (task: TaskRow) => void
@@ -897,11 +897,27 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
         />
       </td>
 
-      {/* 業務区分 */}
-      <td className="px-3.5 py-2.5"><GyomuBadge phase={task.phase} /></td>
+      {/* タスク上げ日（起票日） */}
+      <td className="px-3.5 py-2.5">
+        <span className="text-[12.5px] font-mono text-gray-500">{task.created_at ? task.created_at.slice(0, 10) : '—'}</span>
+      </td>
 
-      {/* 担当区分（誰が持つタスクか）。事務管理=ピンク／管理担当=みどり／受注担当=青／相続登記T=紫。 */}
-      <td className="px-3.5 py-2.5"><TantoKubunBadge task={task} /></td>
+      {/* 案件番号・依頼者名（案件詳細では全行同じなので出さない） */}
+      {!caseScope && (<>
+      <td className="px-3.5 py-2.5">
+        {caseInfo ? (
+          <a href={`/cases/${task.case_id}`} className="text-[12.5px] font-mono text-brand-700 hover:underline truncate block">{caseInfo.case_number}</a>
+        ) : <span className="text-[12px] text-gray-300">—</span>}
+      </td>
+      <td className="px-3.5 py-2.5">
+        {caseInfo ? (
+          <a href={`/cases/${task.case_id}`} className="text-[13px] text-gray-700 hover:text-brand-600 hover:underline truncate block">{caseInfo.deal_name}</a>
+        ) : <span className="text-[12px] text-gray-300">—</span>}
+      </td>
+      </>)}
+
+      {/* 業務分類 */}
+      <td className="px-3.5 py-2.5"><GyomuBadge phase={task.phase} /></td>
 
       {/* タスク名 */}
       <td className="px-3.5 py-2.5 relative">
@@ -923,6 +939,9 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
               <workRole.Icon className="w-3 h-3" strokeWidth={2.25} />
               {workRole.shortLabel}
             </span>
+          )}
+          {ext.outing === true && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold bg-sky-50 text-sky-700 border border-sky-200 flex-shrink-0" title="外出タスク（役所・銀行など外で行う作業）">外出</span>
           )}
           {!!ext.manager_review && (
             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200 flex-shrink-0">
@@ -959,54 +978,6 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
         </select>
       </td>
 
-      {/* ステータス（未着手 / 受領待ち / 着手OK / 対応中 / 完了） */}
-      <td className="px-3.5 py-2.5">
-        {/* バッジ5色ルール：緑=完了だけ／青=進行／琥珀=注意（着手OK・受領待ち）／灰=未着手 */}
-        {status === '完了' ? <Badge label="完了" tone="green" minWidth={72} />
-          : status === '対応中' ? <Badge label="対応中" tone="blue" minWidth={72} />
-          : signal.ready ? <Badge label="着手OK" tone="amber" minWidth={72} />
-          : isWaitingReceipt(task) ? <Badge label="受領待ち" tone="amber" minWidth={72} />
-          : <Badge label="未着手" tone="gray" minWidth={72} />}
-      </td>
-
-      {/* 着手OK理由 / 受領待ち内容 */}
-      <td className="px-3.5 py-2.5">
-        {signal.ready && signal.reason
-          ? <span className="text-[12px] text-amber-800 whitespace-normal break-words" title={signal.reason}>{signal.reason}</span>
-          : isWaitingReceipt(task) && receiptWaitNote(task)
-          ? <span className="text-[12px] text-amber-700 whitespace-normal break-words" title={`受領待ち：${receiptWaitNote(task)}`}>受領待ち：{receiptWaitNote(task)}</span>
-          : <span className="text-[12px] text-gray-300">—</span>}
-      </td>
-
-      {/* 案件・受注担当・管理担当（案件詳細では全行同じなので出さない） */}
-      {!caseScope && (<>
-      <td className="px-3.5 py-2.5 min-w-0">
-        {caseInfo ? (
-          <a href={`/cases/${task.case_id}`} className="block group/link">
-            <div className="text-[12px] font-mono text-gray-400 truncate">{caseInfo.case_number}</div>
-            <div className="text-[13px] text-gray-600 truncate group-hover/link:text-brand-600 group-hover/link:underline">
-              {caseInfo.deal_name}
-            </div>
-          </a>
-        ) : (
-          <span className="text-[12px] text-gray-300">—</span>
-        )}
-      </td>
-
-      {/* 受注担当 */}
-      <td className="px-3.5 py-2.5">
-        {caseInfo?.sales ? (
-          <Link
-            href={`/profile/${caseInfo.sales.id}`}
-            className="text-[13px] text-gray-700 hover:text-brand-700 hover:underline truncate block"
-          >
-            {caseInfo.sales.name}
-          </Link>
-        ) : (
-          <span className="text-[12px] text-gray-300">—</span>
-        )}
-      </td>
-
       {/* 管理担当 */}
       <td className="px-3.5 py-2.5">
         {caseInfo?.manager ? (
@@ -1027,39 +998,20 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, signal, onAdva
           </span>
         )}
       </td>
-      </>)}
 
-      {/* 期限 */}
+      {/* タスク起票者。自動生成（created_by なし）は — */}
       <td className="px-3.5 py-2.5">
-        {task.due_date ? (
-          <span className={`text-[13px] font-mono inline-flex items-center gap-1 ${isOverdue ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
-            {isOverdue && <AlertTriangle className="w-3 h-3" strokeWidth={2.25} />}
-            {task.due_date}
-          </span>
-        ) : (
-          <span className="text-[12px] text-gray-300">—</span>
-        )}
-      </td>
-
-      {/* 残り（期限までの営業日）。超過は赤で日数を出す。完了したタスクは急がせない。 */}
-      <td className="px-2.5 py-2.5">
-        <RemainCell days={task.due_date ? bizDaysUntil(task.due_date, today) : null} muted={status === '完了'} size="lg" />
-      </td>
-
-      {/* 実施結果（ext_data.execution_result） */}
-      <td className="px-3.5 py-2.5 align-top">
         {(() => {
-          const result = typeof ext.execution_result === 'string' ? ext.execution_result : ''
-          if (!result.trim()) return <span className="text-[12px] text-gray-300">—</span>
-          return (
-            <span
-              className="text-[12px] text-gray-700 line-clamp-2 whitespace-pre-line"
-              title={result}
-            >
-              {result}
-            </span>
-          )
+          const name = task.created_by_member?.name ?? _allMembers.find(m => m.id === task.created_by)?.name ?? null
+          return name
+            ? <span className="text-[13px] text-gray-700 truncate block">{name}</span>
+            : <span className="text-[12px] text-gray-300" title="自動生成タスク">—</span>
         })()}
+      </td>
+
+      {/* タスク詳細（作業内容・実施結果はここで見る） */}
+      <td className="px-3.5 py-2.5">
+        <a href={`/tasks/${task.id}`} className="inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-colors">開く</a>
       </td>
 
       {/* 操作（着手/完了ボタン） */}
@@ -1193,14 +1145,16 @@ function FilterTab({ label, active, onClick, count, accent, big }: { label: stri
 
 // 遅れ・優先度の絞り込み。普段はたたんでおき、「絞り込み ▼」で開く。
 // 毎日押すステータスの邪魔をしないためにまとめた。絞っている数はボタンの青バッジで見える。
-function FilterMenu({ sevFilter, setSevFilter, priFilter, setPriFilter }: {
+function FilterMenu({ sevFilter, setSevFilter, priFilter, setPriFilter, outingOnly, setOutingOnly }: {
   sevFilter: SevFilter
   setSevFilter: (updater: (v: SevFilter) => SevFilter) => void
   priFilter: Set<string>
   setPriFilter: (updater: (prev: Set<string>) => Set<string>) => void
+  outingOnly: boolean
+  setOutingOnly: (v: boolean | ((prev: boolean) => boolean)) => void
 }) {
   const [open, setOpen] = useState(false)
-  const activeCount = (sevFilter !== 'all' ? 1 : 0) + priFilter.size
+  const activeCount = (sevFilter !== 'all' ? 1 : 0) + priFilter.size + (outingOnly ? 1 : 0)
   return (
     <div className="relative">
       <button type="button" onClick={() => setOpen(o => !o)}
@@ -1238,10 +1192,14 @@ function FilterMenu({ sevFilter, setSevFilter, priFilter, setPriFilter }: {
                   })} />
               ))}
             </div>
+            <div className="text-[11.5px] font-semibold text-gray-500 mt-3 mb-2">種類</div>
+            <div className="flex flex-wrap gap-1.5">
+              <Chip label="外出タスク" tone="gray" on={outingOnly} onClick={() => setOutingOnly(v => !v)} />
+            </div>
             <div className="flex items-center justify-between border-t border-gray-100 mt-3 pt-2.5">
               <span className="text-[11.5px] text-gray-400">{activeCount > 0 ? `${activeCount}件を選択中` : '絞り込みなし'}</span>
               {activeCount > 0 && (
-                <button type="button" onClick={() => { setSevFilter(() => 'all'); setPriFilter(() => new Set()) }}
+                <button type="button" onClick={() => { setSevFilter(() => 'all'); setPriFilter(() => new Set()); setOutingOnly(false) }}
                   className="text-[12px] font-semibold text-brand-600 hover:text-brand-700">すべて解除</button>
               )}
             </div>

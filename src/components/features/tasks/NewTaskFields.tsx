@@ -25,10 +25,12 @@ export type NewTaskValue = {
   work: string
   dueDate: string
   priority: string
+  /** 外出して行う作業（役所回り等）。事務管理タスク一覧で絞り込める */
+  outing: boolean
 }
 
 export const emptyNewTask = (): NewTaskValue => ({
-  roleKind: 'assistant', gyomu: '', title: '', work: '', dueDate: '', priority: '通常',
+  roleKind: 'assistant', gyomu: '', title: '', work: '', dueDate: '', priority: '通常', outing: false,
 })
 
 const ROLE_KINDS: { key: RoleKind; label: string; desc: string }[] = [
@@ -50,8 +52,6 @@ type Props = {
   caseId: string
   value: NewTaskValue
   onChange: (patch: Partial<NewTaskValue>) => void
-  /** 完了モーダルのように、着手の選び方を親が持つ場合に差し込む */
-  readySlot?: React.ReactNode
   /** 開いたときに初期値として入れたい業務（実務タブ等から開いたとき） */
   defaultGyomu?: string
   compact?: boolean
@@ -59,7 +59,7 @@ type Props = {
   workRequired?: boolean
 }
 
-export default function NewTaskFields({ caseId, value, onChange, readySlot, defaultGyomu, compact = false, workRequired = false }: Props) {
+export default function NewTaskFields({ caseId, value, onChange, defaultGyomu, compact = false, workRequired = false }: Props) {
   const [gyomuOptions, setGyomuOptions] = useState<string[]>([])
 
   // 案件の受注区分・役割分担から「業務」の選択肢を用意する
@@ -177,6 +177,17 @@ export default function NewTaskFields({ caseId, value, onChange, readySlot, defa
         />
       </div>
 
+      {/* 外出タスク（役所回り等）。一覧の絞り込みで外出分だけまとめて拾える */}
+      <label className={`flex items-center gap-2 cursor-pointer ${compact ? 'text-[12.5px]' : 'text-[13px]'} text-gray-700`}>
+        <input
+          type="checkbox"
+          checked={value.outing}
+          onChange={e => onChange({ outing: e.target.checked })}
+          className="w-4 h-4 accent-brand-600"
+        />
+        外出タスク（役所・銀行など外に出て行う作業）
+      </label>
+
       {/* 優先度 */}
       <div>
         <label className={label}>優先度</label>
@@ -194,8 +205,6 @@ export default function NewTaskFields({ caseId, value, onChange, readySlot, defa
         </div>
       </div>
 
-      {/* 着手（呼び出し側が持つ） */}
-      {readySlot}
     </div>
   )
 }

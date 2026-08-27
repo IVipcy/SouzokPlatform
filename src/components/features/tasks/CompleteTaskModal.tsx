@@ -10,14 +10,14 @@
 //   いずれの次タスクにも ext_data.ready_from_task_id（このタスク）を記録し前段表示に使う。
 
 import { useEffect, useMemo, useState } from 'react'
-import { Loader2, CheckCircle2, ArrowRight, Plus, HelpCircle, Package } from 'lucide-react'
+import { Loader2, CheckCircle2, ArrowRight, Plus, HelpCircle } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import NewTaskFields, { emptyNewTask, type NewTaskValue } from '@/components/features/tasks/NewTaskFields'
 import { showToast } from '@/components/ui/Toast'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrentMember } from '@/lib/useCurrentMember'
-import { normalizeTaskStatus, getStartSignal, isWaitingReceipt } from '@/lib/taskReadiness'
+import { normalizeTaskStatus } from '@/lib/taskReadiness'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { KoteiBadge, GyomuBadge } from '@/components/ui/KoteiBadge'
 import { TantoKubunBadge } from '@/components/ui/TantoKubunBadge'
@@ -26,30 +26,17 @@ import { notifyTasksReady, type ReadyTaskLite } from '@/lib/taskReadyNotify'
 import type { TaskRow } from '@/types'
 
 type Cand = { id: string; title: string; phase: string | null; sort_order: number | null; status: string; ext_data?: Record<string, unknown> | null; source_rid?: string | null; task_kind?: string | null }
-type Mode = 'now' | 'receipt'
 
-// 請求タスクの source_rid → 対になる読込/受領タスクの source_rid。
-//   koseki:{id} → koseki-read:{id} ／ re-muni:{muni} → re-muni-read:{muni} ／ fin:{name} → fin-read:{name} ／ family-tree → family-tree-recv
-function pairedReadRid(rid: string | null | undefined): string | null {
-  if (!rid) return null
-  if (rid === 'family-tree') return 'family-tree-recv'
-  const m = rid.match(/^(koseki|re-muni|re-houmu|fin):(.+)$/)
-  return m ? `${m[1]}-read:${m[2]}` : null
-}
 // 戸籍のタスクか（請求 koseki: / 読込 koseki-read:）。
 // 1通の戸籍で他の人の分まで判明したとき、いらなくなった戸籍タスクをまとめて完了できるようにする。
 const isKosekiRid = (rid: string | null | undefined): boolean => !!rid && /^koseki(-read)?:/.test(rid)
 
-// 読込/受領タスクか（source_rid が -read: か family-tree-recv）。
-const isReadRid = (rid: string | null | undefined): boolean => !!rid && (/-read:/.test(rid) || rid === 'family-tree-recv')
 
-// 着手OK経路に応じた ext_data を作る
-function extForMode(base: Record<string, unknown>, mode: Mode, note: string, fromTaskId: string): Record<string, unknown> {
-  const n = note.trim()
-  if (mode === 'receipt') {
-    return { ...base, ready_on_receipt: true, ready_wait_note: n, ready_reason: null, ready_from_task_id: fromTaskId }
-  }
-  return { ...base, ready_reason: n || '着手OK', ready_on_receipt: false, ready_wait_note: null, ready_from_task_id: fromTaskId }
+// 着手OKの ext_data を作る。
+// 以前は「今すぐ着手OK（理由付き）／受領次第OK」の2経路だったが、
+// タスクは作った時点で着手OKという運用に一本化したため、理由も受領待ちも聞かない。
+function extReady(base: Record<string, unknown>, fromTaskId: string): Record<string, unknown> {
+  return { ...base, ready_reason: '着手OK', ready_on_receipt: false, ready_wait_note: null, ready_from_task_id: fromTaskId }
 }
 
 export default function CompleteTaskModal({ task, onClose, onCompleted }: {
@@ -68,16 +55,12 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
   })()
   const [result, setResult] = useState(initialResult)
   const [sel, setSel] = useState<Record<string, boolean>>({})
-  const [mode, setMode] = useState<Record<string, Mode>>({})
-  const [note, setNote] = useState<Record<string, string>>({})
   const [work, setWork] = useState<Record<string, string>>({})  // 次タスクの作業内容（任意・先に記入）
   const [noNext, setNoNext] = useState(false)
   const [showOthers, setShowOthers] = useState(false)
 
   // 新規追加タスク。入力欄は「タスク追加」モーダルの新規作成タブと同じ部品を使う。
   const [newTask, setNewTask] = useState<NewTaskValue>(emptyNewTask)
-  const [newMode, setNewMode] = useState<Mode>('now')
-  const [newNote, setNewNote] = useState('')
   const newTitle = newTask.title
 
   // 管理担当ヘルプ（完了時は①次を教えて／②巻き取り）
@@ -97,10 +80,10 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
       const rows = ((tsData ?? []) as Array<Cand & { task_kind: string | null }>)
         .filter(t => {
           if (t.id === task.id) return false
-          if (normalizeTaskStatus(t.status) !== '着手前') return false
-          const tr = t as unknown as TaskRow
-          if (getStartSignal(tr).ready || isWaitingReceipt(tr)) return false
-          return true
+          // 着手前のタスクを全部出す。いまはタスクを作った時点で着手OKになるので、
+          // 「まだ着手OKでないもの」で絞ると候補が空になる。ここで選ぶ意味は
+          // 担当への通知と、作業内容の事前記入。
+          return normalizeTaskStatus(t.status) === '着手前'
         })
       setCands(rows)
       // この戸籍で不要になる可能性がある他の戸籍タスク（着手前・対応中の両方）。
@@ -109,18 +92,6 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
         setDropAll(((tsData ?? []) as Array<Cand & { task_kind: string | null }>).filter(t =>
           t.id !== task.id && isKosekiRid(t.source_rid) && normalizeTaskStatus(t.status) !== '完了'))
       }
-      // 着手OKの提案文（「不動産の請求は戸籍不要」等）はこのモーダルでは出さない。
-      // 次に着手するタスクを選ぶのは人で、うんちくを読ませる場ではないため。
-      // 対になる読込/受領タスクは、選んだときの初期値だけ「受領次第OK」にしておく（自動チェックはしない）。
-      const noteInit: Record<string, string> = {}
-      const modeInit: Record<string, Mode> = {}
-      const pairRid = pairedReadRid(task.source_rid)
-      const pairCand = pairRid ? rows.find(r => (r as Cand).source_rid === pairRid) : undefined
-      if (pairCand) { modeInit[pairCand.id] = 'receipt'; noteInit[pairCand.id] = '請求完了。受領次第で読込に着手' }
-      // 読込/受領系タスクは（手動で選ぶ場合も）既定モードを「受領次第OK」に。
-      for (const r of rows) if (isReadRid((r as Cand).source_rid)) modeInit[r.id] = modeInit[r.id] ?? 'receipt'
-      if (Object.keys(noteInit).length > 0) setNote(prev => ({ ...prev, ...noteInit }))
-      if (Object.keys(modeInit).length > 0) setMode(prev => ({ ...prev, ...modeInit }))
       setLoading(false)
     })()
   }, [task.case_id, task.id])
@@ -137,13 +108,8 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
   }, [cands, curRank])
 
   const selectedIds = Object.keys(sel).filter(id => sel[id])
-  const modeOf = (id: string): Mode => mode[id] ?? 'now'
-  // 複数選択OK。「今すぐ着手OK」は理由を任意（空なら「着手OK」）、
-  // 「受領次第OK」だけ何の受領待ちかの入力を必須にする。
-  const selectedOk = selectedIds.every(id => modeOf(id) !== 'receipt' || (note[id] ?? '').trim().length > 0)
-  const newOk = !newTitle.trim() || newMode !== 'receipt' || newNote.trim().length > 0
   const hasAction = noNext || selectedIds.length > 0 || newTitle.trim().length > 0
-  const canSubmit = result.trim().length > 0 && selectedOk && newOk && hasAction
+  const canSubmit = result.trim().length > 0 && hasAction
 
   const toggle = (id: string) => { setNoNext(false); setSel(prev => ({ ...prev, [id]: !prev[id] })) }
 
@@ -167,7 +133,7 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
       const { data: rows } = await supabase.from('tasks').select('id, title, case_id, ext_data, status, task_kind, assign_role, work_role').in('id', selectedIds)
       for (const row of (rows ?? []) as Array<{ id: string; title: string; case_id: string; ext_data: Record<string, unknown> | null; status: string; task_kind: string | null; assign_role: string | null; work_role: string | null }>) {
         if (normalizeTaskStatus(row.status) !== '着手前') continue
-        const next = extForMode(row.ext_data ?? {}, modeOf(row.id), note[row.id] ?? '', task.id)
+        const next = extReady(row.ext_data ?? {}, task.id)
         const patch: Record<string, unknown> = { ext_data: next }
         const wc = (work[row.id] ?? '').trim()
         if (wc) patch.procedure_text = wc  // 先に記入した作業内容を次タスクへ反映
@@ -175,7 +141,7 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
         readied.push({
           id: row.id, title: row.title, case_id: row.case_id,
           task_kind: row.task_kind, assign_role: row.assign_role, work_role: row.work_role,
-          mode: modeOf(row.id), note: note[row.id] ?? '',
+          mode: 'now', note: '',
         })
       }
     }
@@ -185,7 +151,7 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
     //      事務管理 → task_kind='case'（業務にひもづく通常タスク）
     //      管理担当/受注担当 → task_kind='system' で、その担当へ割当・通知
     if (newTitle.trim()) {
-      const newExt = extForMode({}, newMode, newNote, task.id)
+      const newExt = { ...extReady({}, task.id), ...(newTask.outing ? { outing: true } : {}) }
       const isAssistant = newTask.roleKind === 'assistant'
       const gyomu = newTask.gyomu || task.phase || 'その他'
       const { data: created } = await supabase.from('tasks').insert({
@@ -209,7 +175,7 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
           task_kind: isAssistant ? 'case' : 'system',
           assign_role: isAssistant ? null : newTask.roleKind,
           work_role: newTask.roleKind,
-          mode: newMode, note: newNote,
+          mode: 'now', note: '',
         })
       }
     }
@@ -250,25 +216,6 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
     onCompleted()
   }
 
-  // 着手OK / 受領次第OK のトグル＋理由欄（既存・新規で共用）。
-  // ※ コンポーネントではなく関数として呼ぶ（入力中のフォーカス喪失を防ぐ）
-  const renderModePicker = ({ value, onChange, note: nv, onNote, idKey }: { value: Mode; onChange: (m: Mode) => void; note: string; onNote: (v: string) => void; idKey: string }) => (
-    <div className="space-y-1.5">
-      <div className="flex gap-1.5">
-        <button type="button" onClick={() => onChange('now')} className={`flex-1 text-center text-[12px] py-1 rounded-md border transition-colors ${value === 'now' ? 'bg-emerald-50 text-emerald-700 border-emerald-300 border-2 font-semibold' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>今すぐ着手OK</button>
-        <button type="button" onClick={() => onChange('receipt')} className={`flex-1 inline-flex items-center justify-center gap-1 text-[12px] py-1 rounded-md border transition-colors ${value === 'receipt' ? 'bg-amber-50 text-amber-800 border-amber-300 border-2 font-semibold' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}><Package className="w-3 h-3" strokeWidth={2} />受領次第OK</button>
-      </div>
-      <input
-        type="text"
-        value={nv}
-        onChange={e => onNote(e.target.value)}
-        placeholder={value === 'receipt' ? '何の受領待ちか（例：戸籍一式が届いたら）' : '着手OK理由（任意・例：相続人が確定したため）'}
-        className={`w-full px-2.5 py-1.5 text-[12px] border rounded-lg outline-none ${value === 'receipt' ? 'border-amber-200 bg-amber-50/40 focus:border-amber-400' : 'border-emerald-200 bg-emerald-50/30 focus:border-emerald-400'}`}
-        data-key={idKey}
-      />
-    </div>
-  )
-
   const renderCand = (c: Cand) => {
     const on = !!sel[c.id]
     return (
@@ -282,7 +229,6 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
         </label>
         {on && (
           <div className="px-2.5 pb-2 space-y-1.5">
-            {renderModePicker({ value: modeOf(c.id), onChange: m => setMode(prev => ({ ...prev, [c.id]: m })), note: note[c.id] ?? '', onNote: v => setNote(prev => ({ ...prev, [c.id]: v })), idKey: c.id })}
             <div>
               <div className="text-[10.5px] text-gray-400 mb-0.5">作業内容（任意・先に書いておける）</div>
               <textarea
@@ -391,12 +337,6 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
               onChange={p => setNewTask(prev => ({ ...prev, ...p }))}
               defaultGyomu={task.phase ?? undefined}
               compact
-              readySlot={newTitle.trim() ? (
-                <div>
-                  <label className="block text-[11.5px] font-semibold text-gray-500 mb-1">着手</label>
-                  {renderModePicker({ value: newMode, onChange: setNewMode, note: newNote, onNote: setNewNote, idKey: 'new' })}
-                </div>
-              ) : null}
             />
           </div>
         </div>

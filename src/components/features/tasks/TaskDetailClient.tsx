@@ -624,8 +624,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
 // =================== このタスクの作業内容セクション ===================
 // 構成（全項目クリックで編集 → 外クリックで自動保存、保存ボタン無し）:
 //   1. 作業内容 (tasks.procedure_text)  — テンプレ初期値 + 上書き可
-//   2. 実施結果 (ext_data.execution_result) — 次タスクの前段確認で読み取られる
-//   3. 作業進捗メモ (tasks.notes) — 本人の備忘録
+// ※実施結果は完了モーダルで書く。この画面には置かない（二重の入力口になるため）
 function TaskWorkSection({
   task,
   saveField,
@@ -634,18 +633,6 @@ function TaskWorkSection({
   saveField: (field: string, value: unknown) => Promise<void>
   onRefresh?: () => void
 }) {
-  const ext = (task.ext_data ?? {}) as Record<string, unknown>
-
-  const handleSaveExecutionResult = async (next: string) => {
-    const supabase = createClient()
-    const nextExt = { ...ext, execution_result: next }
-    const { error } = await supabase
-      .from('tasks')
-      .update({ ext_data: nextExt })
-      .eq('id', task.id)
-    if (error) throw error
-  }
-
   return (
     <div className="space-y-3">
       {/* このタスクの作業内容（見出しと重複するラベルは非表示、補足は?ホバー） */}
@@ -659,22 +646,6 @@ function TaskWorkSection({
         />
       </Section>
 
-      {/* 実施結果・引継ぎ事項（重要なので独立セクション。システムタスクでは非表示） */}
-      {task.task_kind !== 'system' && (
-        <Section
-          title="実施結果・引継ぎ事項"
-          titleRight={<span className="text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full">必須</span>}
-          hint="完了時に「案件進捗 → 進捗メモ」へ自動追記（タスクへのリンク付き）。次の作業者もここを読みます。完了するには入力が必須です。"
-        >
-          <InlineTextarea
-            label="実施結果・引継ぎ事項"
-            hideLabel
-            value={typeof ext.execution_result === 'string' ? ext.execution_result : ''}
-            onSave={handleSaveExecutionResult}
-            placeholder="何をして、どうなったか。次の担当への引継ぎ事項も…"
-          />
-        </Section>
-      )}
     </div>
   )
 }

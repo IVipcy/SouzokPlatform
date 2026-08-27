@@ -374,10 +374,8 @@ export default function TaskCandidatePanel({ caseId, intakeRoles, serviceCategor
         assign_role: isManager ? 'manager' : null,
         // その他は入力した内容を作業内容(procedure_text)に。それ以外はテンプレ流し込みなし。
         procedure_text: c.custom ? (c.work?.trim() || null) : null,
-        // 請求(起点)＝着手OK／読込等＝受領次第OK。それ以外は無し。
-        ext_data: c.ready ? { ready: true, ready_reason: '起点タスク（前提なし・すぐ着手可）' }
-          : c.readyOnReceipt ? { ready_on_receipt: true }
-          : null,
+        // タスクは作った時点で常に着手OK（着手前で寝かせる運用はやめた）。
+        ext_data: { ready_reason: '着手OK', ready_on_receipt: false },
         sort_order: existingTasks.length + i,
       }
     })
