@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Flag, Trophy, FileText, MessagesSquare, Handshake, Play, ClipboardCheck, Check, ChevronDown, ChevronRight, type LucideIcon } from 'lucide-react'
-import { todayJstYmd, freshnessFlag } from '@/lib/dashboardMetrics'
+import { todayJstYmd } from '@/lib/dashboardMetrics'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { koteiOf, koteiRank } from '@/lib/kotei'
@@ -140,126 +140,126 @@ function monthDayDiff(from: Date, to: Date): { months: number; days: number; tot
 }
 const fmtMonthDay = (d: { months: number; days: number }) => d.months > 0 ? `${d.months}ヶ月${d.days}日` : `${d.days}日`
 
-// 稼働中案件の 受注 → 現在 → 業務完了予定 の3点軸。
-// 受注→現在の矢印は 最終接触の鮮度(freshnessFlag)で 青/黄/赤 に色分け、上に経過日数。
-// 現在→業務完了予定 は淡い水色、上に残り日数。
-// 業務完了予定を過ぎたら、その区間（線・矢じり・完了予定アイコン・日付・ラベル）を赤にする。
-// 受注→現在は色の意味が違う（最終接触からの放置度合い）ので触らない。
+// 受注後の稼働中案件の帯タイムライン（矢羽根）。
+// 受注→現在を「進んだ量」としてロイヤルブルーで塗り、まだ来ていない区間はクリームの帯。
+// 予定を過ぎた案件は、予定を越えたぶんだけ赤になる（遅れの大きさが帯の長さで見える）。
+// 数字（残り/超過）は帯の上、ノード名と日付は帯の下1段。丸ノードにアイコンを置く。
+//
+// 以前は 受注→現在 の線を最終接触の鮮度で青/黄/赤に塗り分けていたが、
+// 鮮度は案件フラグ・アラートで見えるためここでは畳み、帯の色は進捗の意味に一本化した。
+const AXIS_C = {
+  blue: '#2F5AD9', blueDark: '#24449C', blueRing: '#DDE5FA',
+  cream: '#F4EDE3', creamEdge: '#D9CDB9', creamText: '#8A7B60', creamTick: '#E3D9C9',
+  red: '#CE3B3B', redDark: '#B02E2E', redRing: '#F9E2E2',
+}
+// 帯の丸ノード＋下のラベル（名前・日付）。レンダー中に部品を作らないようモジュールレベルに置く。
+function AxisNode({ compact, leftPct, Icon, label, date, tone, big }: {
+  compact: boolean; leftPct: number; Icon: LucideIcon; label: string; date: string | null
+  tone: 'blue' | 'red' | 'cream' | 'redOutline'; big?: boolean
+}) {
+  const nodePx = compact ? 26 : 32
+  const sz = big ? nodePx + 4 : nodePx
+  const style: React.CSSProperties =
+    tone === 'blue' ? { background: AXIS_C.blue, color: '#fff', border: '2px solid #fff', boxShadow: big ? `0 0 0 4px ${AXIS_C.blueRing}` : undefined }
+    : tone === 'red' ? { background: AXIS_C.red, color: '#fff', border: '2px solid #fff', boxShadow: big ? `0 0 0 4px ${AXIS_C.redRing}` : undefined }
+    : tone === 'redOutline' ? { background: '#fff', color: AXIS_C.red, border: `2px solid ${AXIS_C.red}` }
+    : { background: AXIS_C.cream, color: AXIS_C.creamText, border: `2px solid ${AXIS_C.creamEdge}` }
+  return (
+    <>
+      <span className="absolute z-10 rounded-full flex items-center justify-center" style={{ left: `${leftPct}%`, top: '50%', transform: 'translate(-50%,-50%)', width: sz, height: sz, ...style }}>
+        <Icon className={compact ? 'w-[13px] h-[13px]' : 'w-4 h-4'} strokeWidth={2.1} />
+      </span>
+      <div className="absolute text-center whitespace-nowrap" style={{ left: `${leftPct}%`, top: nodePx / 2 + 10, transform: 'translateX(-50%)' }}>
+        <div className={`${compact ? 'text-[11px]' : 'text-[12.5px]'} font-semibold leading-tight`} style={{ color: tone === 'redOutline' ? AXIS_C.redDark : tone === 'cream' ? '#6b7280' : '#111827' }}>{label}</div>
+        <div className={`${compact ? 'text-[10px]' : 'text-[11px]'} font-mono`} style={{ color: tone === 'redOutline' ? AXIS_C.redDark : '#9ca3af' }}>{date ?? '—'}</div>
+      </div>
+    </>
+  )
+}
+// 帯の上に出す数字（残り/超過）。月ラベルよりさらに上の段。
+function AxisCaption({ compact, leftPct, head, value, color }: { compact: boolean; leftPct: number; head: string; value: string; color: string }) {
+  return (
+    <div className="absolute whitespace-nowrap" style={{ left: `${leftPct}%`, top: -36, transform: 'translateX(-50%)', color }}>
+      <span className="text-[10.5px] mr-1">{head}</span>
+      <span className={`${compact ? 'text-[14px]' : 'text-[15px]'} font-bold`}>{value}</span>
+    </div>
+  )
+}
 function ActiveMilestoneAxis({ caseData, compact }: { caseData: CaseRow; compact: boolean }) {
   const parse = (s: string | null | undefined) => { if (!s) return null; const d = new Date(s); return Number.isNaN(d.getTime()) ? null : d }
-  const orderDate = parse(ymd(caseData.order_received_date) ?? ymd(caseData.order_date))
-  const goalDate = parse(ymd(caseData.expected_completion_date))
+  const orderYmd = ymd(caseData.order_received_date) ?? ymd(caseData.order_date)
+  const goalYmd = ymd(caseData.expected_completion_date)
+  const orderDate = parse(orderYmd)
+  const goalDate = parse(goalYmd)
   const now = new Date()
-  const flag = freshnessFlag(caseData, now)   // 'purple' | 'red' | 'yellow' | 'blue'
-  const elapsedCls = flag === 'red' ? '#ef4444' : flag === 'yellow' ? '#f59e0b' : flag === 'purple' ? '#7c3aed' : '#38bdf8'
-  const elapsedDiff = orderDate ? monthDayDiff(orderDate, now) : null
-  const remainOver = !!goalDate && goalDate.getTime() < now.getTime()
-  const remainDiff = goalDate && !remainOver ? monthDayDiff(now, goalDate) : null
-  // 超過しているときは「どれだけ過ぎたか」を出す（「超過」の2文字だけでは遅れ具合が読めない）
-  const overDiff = goalDate && remainOver ? monthDayDiff(goalDate, now) : null
-  const elapsed = elapsedDiff ? fmtMonthDay(elapsedDiff) : '—'
-  const remain = remainOver ? (overDiff ? fmtMonthDay(overDiff) : '超過') : (remainDiff ? fmtMonthDay(remainDiff) : '—')
-  const remainCls = remainOver ? '#ef4444' : '#93c5fd'
-  // 超過時に左側へ出す「予定期間」＝受注から業務完了予定まで
-  const plannedDiff = orderDate && goalDate ? monthDayDiff(orderDate, goalDate) : null
-  const plannedSpan = plannedDiff ? fmtMonthDay(plannedDiff) : '—'
-  const plannedDays = plannedDiff?.totalDays ?? 0
-  // 「現在」の位置を 経過:残り の日数比で動かす（flex-grow 比率）。0でも最小幅は確保。
-  const elapsedDays = elapsedDiff?.totalDays ?? 0
-  const remainDays = remainDiff?.totalDays ?? 0
+  const todayStr = now.toLocaleDateString('sv-SE')
+  const over = !!goalDate && goalDate.getTime() < now.getTime()
 
-  const circlePx = compact ? 30 : 36           // アイコンは小さめに
-  const iconSz = compact ? 'w-[14px] h-[14px]' : 'w-[17px] h-[17px]'
+  const remainDiff = goalDate && !over ? monthDayDiff(now, goalDate) : null
+  const overDiff = goalDate && over ? monthDayDiff(goalDate, now) : null
+  const elapsedDays = orderDate ? Math.max(1, monthDayDiff(orderDate, now).totalDays) : null
+  const plannedDays = orderDate && goalDate ? Math.max(1, monthDayDiff(orderDate, goalDate).totalDays) : null
 
-  // 月目盛り：受注→業務完了予定 の期間に入る各月1日の位置（比率）。ラベルは 8月/9月…、年跨ぎの1月だけ年付き。
+  // 折り返し点（通常=現在、超過=業務完了予定）の位置。日数比だが、
+  // 端に寄りすぎるとラベル同士が重なるので 15〜85% に収める。
+  const clamp = (r: number) => Math.min(0.85, Math.max(0.15, r))
+  const midRatio = over
+    ? clamp(plannedDays && elapsedDays ? plannedDays / elapsedDays : 0.5)
+    : clamp(plannedDays && elapsedDays ? elapsedDays / plannedDays : 0.5)
+  const midPct = midRatio * 100
+  const tailPct = (midRatio + 1) / 2 * 100   // 後半区間（残り/超過）の中央
+
+  // 月目盛り：帯の全期間（受注→予定、超過時は受注→現在）に入る各月1日。
+  const spanStart = orderDate
+  const spanEnd = over ? now : goalDate
   const monthTicks: { label: string; ratio: number }[] = []
-  if (orderDate && goalDate && goalDate.getTime() > orderDate.getTime()) {
-    const span = goalDate.getTime() - orderDate.getTime()
-    const startYear = orderDate.getFullYear()
-    const d = new Date(orderDate.getFullYear(), orderDate.getMonth() + 1, 1)  // 受注の翌月1日から
-    while (d.getTime() < goalDate.getTime()) {
+  if (spanStart && spanEnd && spanEnd.getTime() > spanStart.getTime()) {
+    const span = spanEnd.getTime() - spanStart.getTime()
+    const startYear = spanStart.getFullYear()
+    const d = new Date(spanStart.getFullYear(), spanStart.getMonth() + 1, 1)
+    while (d.getTime() < spanEnd.getTime()) {
       const m = d.getMonth() + 1
       const label = (d.getFullYear() !== startYear && m === 1) ? `${d.getFullYear()}/1月` : `${m}月`
-      monthTicks.push({ label, ratio: (d.getTime() - orderDate.getTime()) / span })
+      monthTicks.push({ label, ratio: (d.getTime() - spanStart.getTime()) / span })
       d.setMonth(d.getMonth() + 1)
     }
   }
-  const tickStep = monthTicks.length > 12 ? 2 : 1  // 月が多すぎるときは隔月に間引く
-  const lineTop = 30 + circlePx / 2                // 軸ラインのY（paddingTop=30 基準）
+  const tickStep = monthTicks.length > 10 ? 2 : 1
 
-  // アイコン（連続ラインの上に重ねる。z-10 で線より前面）
-  const Node = ({ Icon, label, date, cur, future, over }: { Icon: LucideIcon; label: string; date: string | null; cur?: boolean; future?: boolean; over?: boolean }) => (
-    <div className="relative flex-none z-10" style={{ width: circlePx, height: circlePx }}>
-      {/* 現在アイコンはパルスリングで点滅 */}
-      {cur && <span className="absolute inset-0 rounded-full bg-brand-400/60 animate-ping" />}
-      <span className={`relative w-full h-full rounded-full flex items-center justify-center shadow-sm ${
-        over ? 'bg-white text-red-600 border-2 border-red-500'
-        : future ? 'bg-white text-gray-400 border-2 border-gray-300'
-        : 'bg-brand-700 text-white'} ${cur ? 'ring-4 ring-brand-100' : ''}`}>
-        <Icon className={iconSz} strokeWidth={2} />
-      </span>
-      {/* 下：ノード名＋日付（絶対配置・中央） */}
-      <div className="absolute left-1/2 -translate-x-1/2 text-center whitespace-nowrap" style={{ top: circlePx + 6 }}>
-        <div className={`${compact ? 'text-[11px]' : 'text-[13px]'} font-semibold leading-tight ${over ? 'text-red-600' : future ? 'text-gray-400' : 'text-gray-900'}`}>{label}</div>
-        <div className={`${compact ? 'text-[10px]' : 'text-[11px]'} font-mono ${over ? 'text-red-600' : 'text-gray-400'}`}>{date ?? '—'}</div>
-      </div>
-    </div>
-  )
-  // 色付きセグメント（連続ラインの上に重ねる。矢じり付き・ラベルは上）。flex-grow=日数で現在位置を可変。
-  const Segment = ({ color, label, sub, grow }: { color: string; label: string; sub: string; grow: number }) => (
-    <div className="relative flex-none z-10 flex items-center" style={{ flexGrow: Math.max(0, grow), flexBasis: 0, minWidth: 76, height: 3 }}>
-      <div className="w-full" style={{ height: 3, background: color }} />
-      {/* 矢じり（CSS三角・線の先端） */}
-      <span className="absolute" style={{ right: -1, top: '50%', transform: 'translateY(-50%)', width: 0, height: 0, borderTop: '5px solid transparent', borderBottom: '5px solid transparent', borderLeft: `9px solid ${color}` }} />
-      {/* ラベル（線の上） */}
-      <div className="absolute left-1/2 -translate-x-1/2 text-center whitespace-nowrap" style={{ bottom: 10 }}>
-        <div className="text-[10px] text-gray-400 leading-none mb-0.5">{sub}</div>
-        <div className="text-[13px] font-bold leading-none" style={{ color }}>{label}</div>
-      </div>
-    </div>
-  )
+  const nodePx = compact ? 26 : 32
 
   return (
-    <div className="overflow-hidden">
-      {/* 上下のラベル分の余白を確保しつつ、連続ラインの上にアイコン・矢印を重ねる（横スクロールは出さない）。
-          両端は 端ノードの日付ラベルがはみ出さないよう左右パディングを確保。 */}
-      <div className="relative w-full" style={{ paddingTop: 30, paddingBottom: 34, paddingLeft: 44, paddingRight: 44 }}>
-        {/* 連続した横一線（背面・アイコン中心の高さ・全幅） */}
-        <div className="absolute left-0 right-0" style={{ top: 30 + circlePx / 2 - 1.5, height: 3, background: '#c7d2fe' }} />
-        {/* 月目盛り（背面・上部余白内に収める。軸ラインまで短い点線＋小さな月ラベル） */}
+    <div style={{ padding: `40px ${compact ? 44 : 56}px ${nodePx / 2 + 42}px` }}>
+      <div className="relative" style={{ height: 7 }}>
+        {/* 月目盛り（クリーム系の細線＋小さな月ラベル） */}
         {monthTicks.filter((_, i) => i % tickStep === 0).map((t, i) => (
-          <div
-            key={i}
-            className="absolute pointer-events-none text-center"
-            style={{ left: `calc(${circlePx / 2 + 44}px + ${t.ratio} * (100% - ${circlePx + 88}px))`, top: 0, height: lineTop, transform: 'translateX(-50%)' }}
-          >
-            <div className="text-[9px] leading-none text-gray-400 whitespace-nowrap">{t.label}</div>
-            <div className="mx-auto" style={{ width: 0, marginTop: 2, height: lineTop - 11, borderLeft: '1px dashed #d1d5db' }} />
+          <div key={i} className="absolute pointer-events-none" style={{ left: `${t.ratio * 100}%` }}>
+            <div className="absolute" style={{ top: -5, width: 1, height: 14, background: AXIS_C.creamTick }} />
+            <div className="absolute text-[9px] leading-none text-gray-400 whitespace-nowrap" style={{ top: -17, transform: 'translateX(-50%)' }}>{t.label}</div>
           </div>
         ))}
-        {/* アイコン＋セグメント（前面）。
-            予定どおり  … 受注 →経過→ 現在 →残り→ 業務完了予定
-            超過している… 受注 →予定→ 業務完了予定 →超過(赤)→ 現在
-            旗を通り過ぎて赤い区間を進んでいる、という時系列どおりの並びにする。 */}
-        <div className="relative flex items-center">
-          <Node Icon={Handshake} label="受注" date={orderDate ? ymd(caseData.order_received_date) ?? ymd(caseData.order_date) : null} />
-          {remainOver ? (
-            <>
-              <Segment color={elapsedCls} sub="予定" label={plannedSpan} grow={plannedDays} />
-              <Node Icon={Flag} label="業務完了予定" date={goalDate ? ymd(caseData.expected_completion_date) : null} future over />
-              {/* 過ぎた日数ぶん線が伸びる（遅れの大きさが目で分かる） */}
-              <Segment color={remainCls} sub="超過" label={remain} grow={overDiff?.totalDays ?? 0} />
-              <Node Icon={Play} label="現在" date={ymd(now.toISOString())} cur />
-            </>
-          ) : (
-            <>
-              <Segment color={elapsedCls} sub="経過" label={elapsed} grow={elapsedDays} />
-              <Node Icon={Play} label="現在" date={ymd(now.toISOString())} cur />
-              <Segment color={remainCls} sub="残り" label={remain} grow={remainDays} />
-              <Node Icon={Flag} label="業務完了予定" date={goalDate ? ymd(caseData.expected_completion_date) : null} future />
-            </>
-          )}
-        </div>
+        {/* 帯の下地（クリーム）＝これから先の区間の色 */}
+        <div className="absolute inset-0 rounded-full" style={{ background: AXIS_C.cream }} />
+        {/* 進んだ量（青）と、予定を越えたぶん（赤） */}
+        <div className="absolute rounded-l-full" style={{ left: 0, top: 0, height: 7, width: `${midPct}%`, background: AXIS_C.blue }} />
+        {over && <div className="absolute rounded-r-full" style={{ left: `${midPct}%`, top: 0, height: 7, width: `${100 - midPct}%`, background: AXIS_C.red }} />}
+        {/* 数字（完了予定が未設定なら出さない。「残り —」は情報が無い） */}
+        {goalDate && (over
+          ? <AxisCaption compact={compact} leftPct={tailPct} head="超過" value={overDiff ? fmtMonthDay(overDiff) : '—'} color={AXIS_C.redDark} />
+          : <AxisCaption compact={compact} leftPct={tailPct} head="残り" value={remainDiff ? fmtMonthDay(remainDiff) : '—'} color={AXIS_C.blueDark} />)}
+        {/* ノード（時系列どおりの並び。超過時は旗を通り過ぎて赤い区間を進んでいる） */}
+        <AxisNode compact={compact} leftPct={0} Icon={Handshake} label="受注" date={orderYmd} tone="blue" />
+        {over ? (
+          <>
+            <AxisNode compact={compact} leftPct={midPct} Icon={Flag} label="業務完了予定" date={goalYmd} tone="redOutline" />
+            <AxisNode compact={compact} leftPct={100} Icon={Play} label="現在" date={todayStr} tone="red" big />
+          </>
+        ) : (
+          <>
+            <AxisNode compact={compact} leftPct={midPct} Icon={Play} label="現在" date={todayStr} tone="blue" big />
+            <AxisNode compact={compact} leftPct={100} Icon={Flag} label="完了予定" date={goalYmd} tone="cream" />
+          </>
+        )}
       </div>
     </div>
   )

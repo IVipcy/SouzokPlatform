@@ -262,39 +262,20 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
             {!headerCollapsed && <MilestoneAxis caseData={caseData} tasks={tasks} statusHistory={statusHistory} compact />}
           </div>
 
-          {/* 右上: アラート集約＋アクションボタン（到着物・書類作成） */}
-          <div className="flex-shrink-0 flex items-center gap-1.5 flex-wrap justify-end" style={{ maxWidth: '45%' }}>
-            {alertChips.map((c, i) => (
-              c.tab && onActivateTab ? (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => onActivateTab(c.tab!)}
-                  title={`「${c.label}」の出元へ移動`}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white border border-gray-200 text-gray-700 shadow-[0_1px_1px_rgba(0,0,0,0.03)] hover:bg-brand-50 hover:border-brand-200 hover:text-brand-800 transition-colors cursor-pointer"
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
-                  {c.label}
-                </button>
-              ) : (
-                <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white border border-gray-200 text-gray-700 shadow-[0_1px_1px_rgba(0,0,0,0.03)]">
-                  <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
-                  {c.label}
-                </span>
-              )
-            ))}
-
+          {/* 右上: アクションボタン（常に同じ位置・折り返さない）＋その下にアラート。
+              以前はアラートとボタンが同じ折り返し枠にいて、アラートが増えると
+              書類作成ボタンが下の行へ押し出されていた。ボタン列を上段に固定し、
+              アラートは下段で折り返す。3つのボタンは高さ・余白・文字を同寸にそろえ、
+              色は「書類作成」（作る操作）だけ塗り、見るだけの2つは白地にする。 */}
+          <div className="flex-shrink-0 flex flex-col items-end gap-2" style={{ maxWidth: '45%' }}>
             {(showReceiptsAction || showDocsAction || showDocumentCreateAction) && (
-              <>
-                {alertChips.length > 0 && (
-                  <span className="w-px h-5 bg-gray-200 mx-0.5" aria-hidden="true" />
-                )}
+              <div className="flex items-center gap-2 flex-nowrap">
                 {showReceiptsAction && (
                   <button
                     type="button"
                     onClick={() => onActivateTab?.('receipts')}
                     title="到着物（受信簿・受領台帳）を開く"
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium bg-white border-[1.5px] border-brand-200 text-brand-800 hover:bg-brand-50 transition-colors"
+                    className="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-md text-[12px] font-semibold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors whitespace-nowrap"
                   >
                     <Inbox className="w-3.5 h-3.5" strokeWidth={2} />
                     到着物
@@ -303,7 +284,7 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                     )}
                     {receiptTotal > 0 && (
                       <span
-                        className={`rounded-full px-1.5 text-[11px] font-mono leading-tight border ${receiptCount > 0 ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-white text-brand-700 border-brand-200'}`}
+                        className={`rounded-full px-1.5 text-[11px] font-mono leading-tight border ${receiptCount > 0 ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-gray-100 text-gray-600 border-gray-200'}`}
                         title={receiptCount > 0 ? `到着物 ${receiptTotal}件（うち未対応 ${receiptCount}件）` : `到着物 ${receiptTotal}件`}
                       >{receiptTotal}</span>
                     )}
@@ -315,14 +296,14 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                     onClick={() => onActivateTab?.('docs')}
                     title="案件フォルダ（書類一式）を開く"
                     data-nav-tab={(highlightTabs ?? []).includes('docs') ? 'docs' : undefined}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium bg-white border-[1.5px] border-brand-200 text-brand-800 hover:bg-brand-50 transition-colors"
+                    className="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-md text-[12px] font-semibold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors whitespace-nowrap"
                   >
                     <FolderOpen className="w-3.5 h-3.5" strokeWidth={2} />
                     案件フォルダ
                     {(highlightTabs ?? []).includes('docs') && (
                       <span className="text-brand-600 font-bold text-[10px] leading-none">●</span>
                     )}
-                    <span className="bg-white text-brand-700 border border-brand-200 rounded-full px-1.5 text-[11px] font-mono leading-tight">{docCount}</span>
+                    <span className="bg-gray-100 text-gray-600 border border-gray-200 rounded-full px-1.5 text-[11px] font-mono leading-tight">{docCount}</span>
                   </button>
                 )}
                 {showDocumentCreateAction && (
@@ -330,14 +311,37 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                     type="button"
                     onClick={() => onActivateTab?.('documentCreate')}
                     title="書類作成"
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-[12px] font-semibold bg-brand-600 text-white hover:bg-brand-700 transition-colors"
+                    className="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-md text-[12px] font-semibold bg-brand-600 border border-brand-600 text-white hover:bg-brand-700 transition-colors whitespace-nowrap"
                   >
                     <FilePlus className="w-3.5 h-3.5" strokeWidth={2.25} />
                     書類作成
                     <ChevronDown className="w-3 h-3" strokeWidth={2.5} />
                   </button>
                 )}
-              </>
+              </div>
+            )}
+            {alertChips.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                {alertChips.map((c, i) => (
+                  c.tab && onActivateTab ? (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => onActivateTab(c.tab!)}
+                      title={`「${c.label}」の出元へ移動`}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white border border-gray-200 text-gray-700 shadow-[0_1px_1px_rgba(0,0,0,0.03)] hover:bg-brand-50 hover:border-brand-200 hover:text-brand-800 transition-colors cursor-pointer"
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+                      {c.label}
+                    </button>
+                  ) : (
+                    <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white border border-gray-200 text-gray-700 shadow-[0_1px_1px_rgba(0,0,0,0.03)]">
+                      <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+                      {c.label}
+                    </span>
+                  )
+                ))}
+              </div>
             )}
           </div>
         </div>
