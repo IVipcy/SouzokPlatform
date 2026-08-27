@@ -675,7 +675,7 @@ function ListView({
   // 日付や案件番号が「2026-0…」「2608SD0…」と切れる事故が起きていた）。
   // 幅は中身の実測（日付90px／案件番号101px）＋左右余白24pxで決めている。
   const widths = {
-    select: 40, createdAt: 120, caseNo: 132, clientName: 150, gyomu: 110, title: 300,
+    select: 44, createdAt: 120, caseNo: 132, clientName: 150, gyomu: 110, title: 300,
     priority: 104, manager: 124, creator: 116, work: 284, ops: 40,
   } as const
   // sort を持つ列は見出しを押すと並び替えできる。
@@ -713,16 +713,22 @@ function ListView({
         <div className="px-6 py-16 text-center text-sm text-gray-400">該当するタスクがありません</div>
       ) : (
         <div className="overflow-x-auto">
-        <table className="list-table list-table--task border-collapse" style={{ tableLayout: 'fixed', width: HEADERS.reduce((s, h) => s + widths[h.key], 0) }}>
+        {/* 表は容器いっぱいに広げ、余った幅は作業内容の列が吸う。
+            列を全部固定にすると、案件番号・依頼者名を出さない案件詳細のタスクタブで
+            右が丸ごと余っていた。逆に容器が狭いときは minWidth まで縮んでから横スクロール。 */}
+        <table
+          className="list-table list-table--task border-collapse"
+          style={{ tableLayout: 'fixed', width: '100%', minWidth: HEADERS.reduce((sum, h) => sum + widths[h.key], 0) }}
+        >
           <colgroup>
-            {HEADERS.map(h => <col key={h.key} style={{ width: widths[h.key] }} />)}
+            {HEADERS.map(h => <col key={h.key} style={h.key === 'work' ? undefined : { width: widths[h.key] }} />)}
           </colgroup>
           <thead>
             <tr>
               {HEADERS.map(h => (
                 <th
                   key={h.key}
-                  className="relative text-left px-3.5 py-2.5 text-[12px] font-bold text-gray-600 tracking-wider uppercase bg-gray-50 border-b border-gray-300"
+                  className={`relative text-left py-2.5 text-[12px] font-bold text-gray-600 tracking-wider uppercase bg-gray-50 border-b border-gray-300 ${h.key === 'select' ? 'px-2.5' : 'px-3.5'}`}
                 >
                   {h.key === 'select' ? (
                     <input
@@ -799,8 +805,8 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onDelete, onSe
       : status !== '完了' && task.priority === '急ぎ' ? 'bg-amber-50/70'
       : isOverdue ? 'bg-red-50/30' : ''
     }`}>
-      {/* チェックボックス */}
-      <td className="px-3.5 py-2.5">
+      {/* チェックボックス。幅いっぱいに文字が無いので省略記号を出さない */}
+      <td className="px-2.5 py-2.5 text-clip">
         <input
           type="checkbox"
           checked={selected}
