@@ -323,9 +323,8 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
             <span className="text-[12.5px] text-gray-700">次が分からない・難しいときは</span>
             <button type="button" onClick={() => setHourenSouOpen(true)}
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50">
-              報連相を送る
+              担当者に相談する
             </button>
-            <span className="text-[11px] text-gray-400">宛先を選んで送れます。完了はそのまま進められます。</span>
           </div>
 
           {/* 候補に無い → 新規追加。入力欄は「タスク追加」モーダルの新規作成タブと同じ。 */}
