@@ -399,13 +399,21 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
               )}
               {/* タスクの進め方の相談。中身は報連相だが、押す人にとっては
                   「担当に確認する」という行為なのでその名前にする。
-                  送るとこのタスクは「確認中」になり、回答が付くまで完了できない。 */}
+                  送るとこのタスクは「確認中」になり、回答が付くまで完了できない。
+                  回答待ちの間は押させない。重ねて送ると同じ件で報連相が二重に立ち、
+                  どちらに答えれば完了できるのか分からなくなるため。 */}
               {!isSystemTask && (
                 <button
                   type="button"
                   onClick={() => setHelpOpen(true)}
-                  title="タスクの進め方を担当に相談します。送るとこのタスクは「確認中」になり、回答が付くまで完了できません"
-                  className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors"
+                  disabled={review.pending > 0}
+                  title={review.pending > 0
+                    ? '担当の回答待ちです。回答が付いてから、必要なら改めて確認できます'
+                    : 'タスクの進め方を担当に相談します。送るとこのタスクは「確認中」になり、回答が付くまで完了できません'}
+                  className={`inline-flex items-center gap-1.5 text-[12px] font-semibold rounded-lg px-3 py-1.5 transition-colors border ${
+                    review.pending > 0
+                      ? 'text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed'
+                      : 'text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100'}`}
                 >
                   <HelpCircle className="w-3.5 h-3.5" strokeWidth={2} />
                   担当に確認する
