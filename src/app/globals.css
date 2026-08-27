@@ -113,6 +113,10 @@ input.input-naked:focus {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* タスク一覧は作業内容をセル内でスクロールさせるため、行を高くして全行そろえる */
+.list-table.list-table--task tbody td {
+  height: 76px;
+}
 /* 2行構成のセル（案件名+被相続人、担当 受/管 等）を持つ一覧は少し背を高くして余白を出す */
 .list-table.list-table--tall tbody td {
   height: 62px;

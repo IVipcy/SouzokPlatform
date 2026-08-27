@@ -3,14 +3,13 @@
 import { useState, useMemo, useCallback, useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, User, X, Play, CheckCircle2, Trash2, ListChecks, Compass, HelpCircle, ChevronDown, ChevronsUpDown, SlidersHorizontal } from 'lucide-react'
+import { Search, User, X, CheckCircle2, Trash2, ListChecks, Compass, HelpCircle, ChevronDown, ChevronsUpDown, SlidersHorizontal } from 'lucide-react'
 import { HELP_TYPE_LABEL, type HelpType } from '@/lib/managerReviewTask'
 import PageHeader from '@/components/ui/PageHeader'
 import HelpHint from '@/components/ui/HelpHint'
 import { TaskTabHelp } from '@/components/ui/TaskSeverityHelp'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import EditTaskModal from './EditTaskModal'
-import CompleteTaskModal from './CompleteTaskModal'
 import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES, TASK_PRIORITIES, getWorkRoleDef } from '@/lib/constants'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
@@ -20,9 +19,7 @@ import { bizDaysUntil } from '@/lib/overdue'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { GyomuBadge } from '@/components/ui/KoteiBadge'
 import { getStartSignal, type ReadinessReceipt } from '@/lib/taskReadiness'
-import { isTaskFreezeBlocked } from '@/lib/financeFreeze'
 import { useCurrentMember } from '@/lib/useCurrentMember'
-import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import { showToast } from '@/components/ui/Toast'
 import type { TaskRow, MemberRow } from '@/types'
 
@@ -205,8 +202,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   const [search, setSearch] = useState('')
   const [editTask, setEditTask] = useState<TaskRow | null>(null)
   const [deleteTask, setDeleteTask] = useState<TaskRow | null>(null)
-  const [completeTask, setCompleteTask] = useState<TaskRow | null>(null)
-  const [loadingTaskId, setLoadingTaskId] = useState<string | null>(null)
   // 一括操作用の選択状態
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkBusy, setBulkBusy] = useState(false)
@@ -375,71 +370,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     router.refresh()
   }, [router])
 
-  const handleAdvance = useCallback(async (task: TaskRow) => {
-    const current = normalizeStatus(task.status)
-    if (current === '完了') return
-    if (loadingTaskId) return
-
-    // 事務管理タスクの完了は完了ゲート（実施結果＋次の着手OK選択）を必ず通す
-    if (current === '対応中' && task.task_kind !== 'system') {
-      setCompleteTask(task)
-      return
-    }
-    // 着手不可（ハード）は解約タスクの凍結未確認のみ。解約は機関単位で判定（その機関の口座が凍結済なら着手可）。
-    if (current === '着手前' && isTaskFreezeBlocked(task, freezeAssetsByCase[task.case_id] ?? [])) {
-      showToast('口座の凍結確認が未完了です。財産調査タブで管理担当が凍結確認すると着手できます', 'error'); return
-    }
-
-    setLoadingTaskId(task.id)
-    try {
-      const supabase = createClient()
-      const memberId = currentMemberId
-
-      if (current === '着手前') {
-        const updates: Record<string, unknown> = { status: '対応中' }
-        if (memberId) {
-          updates.started_by = memberId
-          updates.started_at = new Date().toISOString()
-        }
-        const { error } = await supabase.from('tasks').update(updates).eq('id', task.id)
-        if (error) { showToast(`エラー: ${error.message}`, 'error'); return }
-        if (memberId) {
-          await supabase.from('case_activities').insert({
-            case_id: task.case_id, task_id: task.id, member_id: memberId,
-            activity_type: 'task_started',
-            description: `${task.title} に着手`,
-            activity_date: new Date().toISOString().split('T')[0],
-          })
-        }
-        showToast(`「${task.title}」に着手しました`)
-      } else {
-        // 実施結果・引継ぎ事項が未入力なら完了させない（システムタスクを除く）。一覧では入力できないため詳細へ誘導。
-        if (task.task_kind !== 'system') {
-          const exec = (task.ext_data as { execution_result?: string } | null)?.execution_result
-          if (!exec || !exec.trim()) {
-            showToast('実施結果・引継ぎ事項が未入力です。タスク詳細で入力してから完了してください', 'error')
-            return
-          }
-        }
-        const { error } = await supabase.from('tasks').update({ status: '完了' }).eq('id', task.id)
-        if (error) { showToast(`エラー: ${error.message}`, 'error'); return }
-        if (memberId) {
-          await supabase.from('case_activities').insert({
-            case_id: task.case_id, task_id: task.id, member_id: memberId,
-            activity_type: 'task_completed',
-            description: `${task.title} を完了`,
-            activity_date: new Date().toISOString().split('T')[0],
-          })
-        }
-        showToast(`「${task.title}」を完了しました`)
-      }
-      router.refresh()
-    } catch {
-      showToast('通信エラーが発生しました', 'error')
-    } finally {
-      setLoadingTaskId(null)
-    }
-  }, [currentMemberId, loadingTaskId, router, freezeAssetsByCase])
 
   const handleDelete = async () => {
     if (!deleteTask) return
@@ -563,8 +493,8 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         <div className={`flex items-center gap-2.5 flex-wrap ${onExtraTab ? 'hidden' : ''}`}>
           {/* ステータス：よく見る「対応中・着手OK」を左に寄せ、押しやすいよう少し大きく。 */}
           <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
-            <FilterTab label="対応中"   count={kpis.doing}    active={statusFilter === '対応中'} onClick={() => setStatusFilter('対応中')} big />
             <FilterTab label="着手OK"   count={kpis.todo}     active={statusFilter === '着手前'} onClick={() => setStatusFilter('着手前')} big />
+            <FilterTab label="対応中"   count={kpis.doing}    active={statusFilter === '対応中'} onClick={() => setStatusFilter('対応中')} big />
             {caseScope && (
               <FilterTab label="未着手" count={kpis.notReady} active={statusFilter === 'notReady'} onClick={() => setStatusFilter('notReady')} big />
             )}
@@ -657,9 +587,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         caseMap={caseMap}
         allMembers={allMembers}
         today={today}
-        receipts={receipts}
-        onAdvance={handleAdvance}
-        loadingTaskId={loadingTaskId}
         onEdit={setEditTask}
         onDelete={setDeleteTask}
         onSetPriority={setPriority}
@@ -683,13 +610,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           caseMap={caseMap}
           allMembers={allMembers}
           onSaved={() => { setEditTask(null); router.refresh() }}
-        />
-      )}
-      {completeTask && (
-        <CompleteTaskModal
-          task={completeTask}
-          onClose={() => setCompleteTask(null)}
-          onCompleted={() => { setCompleteTask(null); router.refresh() }}
         />
       )}
       <DeleteConfirmModal
@@ -716,9 +636,6 @@ function ListView({
   caseMap,
   allMembers,
   today,
-  receipts,
-  onAdvance,
-  loadingTaskId,
   onEdit: _onEdit,
   onDelete,
   onSetPriority,
@@ -735,9 +652,6 @@ function ListView({
   caseMap: Record<string, CaseInfo>
   allMembers: MemberRow[]
   today: string
-  receipts: ReadinessReceipt[]
-  onAdvance: (task: TaskRow) => void
-  loadingTaskId: string | null
   onEdit: (task: TaskRow) => void
   onDelete: (task: TaskRow) => void
   onSetPriority: (task: TaskRow, priority: string) => void
@@ -754,15 +668,17 @@ function ListView({
   // 優先度／管理担当／タスク起票者／タスク詳細（＋選択・操作・削除）。
   // 担当区分・ステータス・着手OK理由・期限・残り・実施結果・受注担当は出さない
   // （ステータスと着手OK理由は「作った時点で着手OK」の運用でほぼ一定になった）。
-  // 保存キーは列構成を変えたので v2 に切り替え（旧幅の持ち越しでレイアウトが崩れるため）。
-  const { widths, startResize } = useResizableColumns('taskListColWidths2', {
-    select: 40, createdAt: 106, caseNo: 116, clientName: 140, gyomu: 124, title: 280, priority: 96, manager: 110, creator: 104, detail: 92,
-    action: 110, ops: 40,
-  })
+  // 列幅は固定。ドラッグでの変更はやめた（人によって幅が変わり、
+  // 日付や案件番号が「2026-0…」「2608SD0…」と切れる事故が起きていた）。
+  // 幅は中身の実測（日付90px／案件番号101px）＋左右余白24pxで決めている。
+  const widths = {
+    select: 40, createdAt: 120, caseNo: 132, clientName: 150, gyomu: 110, title: 300,
+    priority: 104, manager: 124, creator: 116, work: 284, ops: 40,
+  } as const
   // sort を持つ列は見出しを押すと並び替えできる。
   const HEADERS: Array<{ key: keyof typeof widths; label: string; sort?: SortKey }> = [
     { key: 'select',     label: '' },
-    { key: 'createdAt',  label: 'タスク上げ日' },
+    { key: 'createdAt',  label: 'タスク起票日' },
     ...(!caseScope ? [
       { key: 'caseNo' as const,     label: '案件番号' },
       { key: 'clientName' as const, label: '依頼者名' },
@@ -772,8 +688,7 @@ function ListView({
     { key: 'priority',   label: '優先度', sort: 'priority' },
     { key: 'manager',    label: '管理担当' },
     { key: 'creator',    label: 'タスク起票者' },
-    { key: 'detail',     label: 'タスク詳細' },
-    { key: 'action',     label: '操作' },
+    { key: 'work',       label: '作業内容' },
     { key: 'ops',        label: '' },
   ]
 
@@ -795,7 +710,7 @@ function ListView({
         <div className="px-6 py-16 text-center text-sm text-gray-400">該当するタスクがありません</div>
       ) : (
         <div className="overflow-x-auto">
-        <table className="list-table border-collapse" style={{ tableLayout: 'fixed', width: HEADERS.reduce((s, h) => s + widths[h.key], 0) }}>
+        <table className="list-table list-table--task border-collapse" style={{ tableLayout: 'fixed', width: HEADERS.reduce((s, h) => s + widths[h.key], 0) }}>
           <colgroup>
             {HEADERS.map(h => <col key={h.key} style={{ width: widths[h.key] }} />)}
           </colgroup>
@@ -827,7 +742,6 @@ function ListView({
                   ) : (
                     <span className="truncate block">{h.label}</span>
                   )}
-                  {h.key !== 'ops' && h.key !== 'select' && <ResizeHandle onMouseDown={startResize(h.key)} />}
                 </th>
               ))}
             </tr>
@@ -840,8 +754,6 @@ function ListView({
                 caseMap={caseMap}
                 allMembers={allMembers}
                 today={today}
-                onAdvance={onAdvance}
-                loading={loadingTaskId === task.id}
                 onDelete={onDelete}
                 onSetPriority={onSetPriority}
                 selected={selectedIds.has(task.id)}
@@ -859,13 +771,11 @@ function ListView({
 }
 
 // ─── 1行 ───
-function TaskRow({ task, caseMap, allMembers: _allMembers, today, onAdvance, loading, onDelete, onSetPriority, selected, onToggleSelect, roleScope, caseScope }: {
+function TaskRow({ task, caseMap, allMembers: _allMembers, today, onDelete, onSetPriority, selected, onToggleSelect, roleScope, caseScope }: {
   task: TaskRow
   caseMap: Record<string, CaseInfo>
   allMembers: MemberRow[]
   today: string
-  onAdvance: (task: TaskRow) => void
-  loading: boolean
   onDelete: (task: TaskRow) => void
   onSetPriority: (task: TaskRow, priority: string) => void
   selected: boolean
@@ -1009,14 +919,13 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onAdvance, loa
         })()}
       </td>
 
-      {/* タスク詳細（作業内容・実施結果はここで見る） */}
-      <td className="px-3.5 py-2.5">
-        <a href={`/tasks/${task.id}`} className="inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-colors">開く</a>
-      </td>
-
-      {/* 操作（着手/完了ボタン） */}
-      <td className="px-3.5 py-2.5">
-        <AdvanceButton status={task.status} onAdvance={() => onAdvance(task)} loading={loading} />
+      {/* 作業内容。長いものはセル内で縦スクロールさせ、行の高さは全行そろえる。 */}
+      <td className="px-3.5 py-2.5 align-top">
+        {task.procedure_text?.trim() ? (
+          <div className="max-h-[58px] overflow-y-auto whitespace-pre-wrap leading-relaxed text-[12px] text-gray-600 pr-1.5">
+            {task.procedure_text}
+          </div>
+        ) : <span className="text-[12px] text-gray-300">—</span>}
       </td>
 
       {/* 削除（hover時のみ） */}
@@ -1030,42 +939,6 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onAdvance, loa
         </button>
       </td>
     </tr>
-  )
-}
-
-function AdvanceButton({ status, onAdvance, loading }: { status: string; onAdvance: () => void; loading?: boolean }) {
-  const current = normalizeStatus(status)
-  const spinner = <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-
-  if (current === '着手前') {
-    return (
-      <button
-        onClick={e => { e.stopPropagation(); onAdvance() }}
-        disabled={loading}
-        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 disabled:opacity-60 transition-colors"
-      >
-        {loading ? spinner : <Play className="w-3 h-3" strokeWidth={2.5} />}
-        {loading ? '処理中' : '着手'}
-      </button>
-    )
-  }
-  if (current === '対応中') {
-    return (
-      <button
-        onClick={e => { e.stopPropagation(); onAdvance() }}
-        disabled={loading}
-        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 hover:bg-brand-100 hover:border-brand-300 disabled:opacity-60 transition-colors"
-      >
-        {loading ? spinner : <CheckCircle2 className="w-3 h-3" strokeWidth={2.25} />}
-        {loading ? '処理中' : '完了'}
-      </button>
-    )
-  }
-  return (
-    <span className="inline-flex items-center gap-1 text-[12px] text-gray-400">
-      <CheckCircle2 className="w-3 h-3" strokeWidth={2} />
-      完了
-    </span>
   )
 }
 
