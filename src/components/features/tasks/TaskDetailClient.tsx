@@ -88,7 +88,6 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
   })()
 
   const currentStatus = normalizeStatus(task.status)
-  const currentStatusDef = TASK_STATUSES_V12.find(s => s.key === currentStatus)
 
   // ─── 保存ヘルパー ───
   const saveField = async (field: string, value: unknown) => {
@@ -213,7 +212,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
     } finally {
       setAdvancing(false)
     }
-  }, [advancing, currentMemberId, currentStatus, task, router, financeFreezeBlocked])
+  }, [advancing, currentMemberId, currentStatus, task, router, financeFreezeBlocked, review.pending])
 
   // ステータスを1段戻す（押し間違いの訂正用）。対応中→着手前（着手記録も消す）／完了→対応中。
   // 差戻しワークフローではなく単なる訂正。本人または管理担当のみ。理由・通知なし。
@@ -283,12 +282,19 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                 )}
               </div>
 
-              {/* タスク名（ラベル付き） */}
-              <div className="flex items-baseline gap-2 mb-1">
+              {/* タスク名（ラベル付き）。優先度は左の情報欄で変えるが、
+                  急ぎ・超急ぎだけは開いた瞬間に気づけるようここにも小さく出す。 */}
+              <div className="flex items-baseline gap-2 mb-1 flex-wrap">
                 <span className="text-[12px] font-semibold text-gray-400 tracking-wide flex-shrink-0">タスク名:</span>
                 <h1 className="text-[22px] font-extrabold text-brand-900 tracking-tight">
                   {task.title}
                 </h1>
+                {(task.priority === '急ぎ' || task.priority === '超急ぎ') && (
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11.5px] font-bold border flex-shrink-0 ${
+                    task.priority === '超急ぎ' ? 'bg-red-100 text-red-700 border-red-300' : 'bg-amber-50 text-amber-700 border-amber-300'}`}>
+                    {task.priority}
+                  </span>
+                )}
               </div>
 
               {/* 案件名（ラベル付き） + 手続き区分 */}
@@ -365,11 +371,6 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
               )}
               {currentStatus === '確認中' && (
                 <div className="inline-flex items-center gap-2 flex-wrap">
-                  {review.pending > 0 ? (
-                    <span className="text-[12px] text-amber-700">担当の回答待ち（回答が付くと完了できます）</span>
-                  ) : (
-                    <span className="text-[12px] text-gray-400">回答が付きました。完了できます</span>
-                  )}
                   {canRevert && <button type="button" onClick={handleRevert} disabled={reverting} className="text-[11px] text-gray-400 hover:text-gray-600 underline underline-offset-2 disabled:opacity-50" title="押し間違いの訂正">着手前に戻す</button>}
                   <button
                     onClick={handleAdvance}
@@ -407,42 +408,50 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                 </button>
               )}
 
-              {/* 現在ステータス */}
-              <span
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border"
-                style={{
-                  color: currentStatusDef?.color,
-                  borderColor: `${currentStatusDef?.color}40`,
-                  backgroundColor: `${currentStatusDef?.color}10`,
-                }}
-              >
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: currentStatusDef?.color }} />
-                {currentStatus}
-              </span>
-
-              {/* 優先度（バッジ風の編集セレクト） */}
-              <select
-                value={task.priority}
-                onChange={e => saveField('priority', e.target.value)}
-                title="優先度"
-                className={`text-xs font-semibold rounded-full border px-2.5 py-1 outline-none cursor-pointer ${task.priority === '超急ぎ' ? 'bg-red-100 text-red-700 border-red-300 font-bold' : task.priority === '急ぎ' ? 'bg-amber-50 text-amber-700 border-amber-300' : 'bg-gray-50 text-gray-600 border-gray-300'}`}
-              >
-                {PRIORITIES.map(p => <option key={p.key} value={p.key}>優先度：{p.key}</option>)}
-              </select>
+              {/* ステータスのバッジは置かない。押せない飾りで、状態は左の帯と下の矢羽根で分かる。
+                  優先度も左の情報欄へ移した（急ぎのときだけタスク名の横に赤バッジを出す）。 */}
             </div>
           </div>
         </div>
 
         {/* 日付（縦並び）＋ ステータスフロー（矢羽根・日付注記） */}
         <div className="px-5 pb-4 flex items-start gap-5">
-          {/* 期限・起票日・作業完了日を縦に */}
-          <div className="flex-none w-[128px] border-r border-gray-100 pr-4 space-y-1.5">
+          {/* 期限・起票日・起票者・優先度・外出を縦に。
+              作業完了日は右の矢羽根の「完了」に日付が出ていて二重なので置かない。 */}
+          <div className="flex-none w-[168px] border-r border-gray-100 pr-4 space-y-1.5">
             <div>
               <div className="text-[10px] text-gray-400">タスク期限</div>
               <input type="date" defaultValue={task.due_date ?? ''} key={`due-${task.due_date ?? ''}`} onBlur={e => { if (e.target.value !== (task.due_date ?? '')) saveField('due_date', e.target.value || null) }} className="text-[12.5px] font-medium text-gray-800 border border-gray-200 rounded px-1.5 py-0.5 w-full outline-none focus:border-brand-500 bg-gray-50 focus:bg-white" />
             </div>
             <div><div className="text-[10px] text-gray-400">起票日</div><div className="text-[12.5px] font-medium text-gray-800 font-mono">{task.issued_date ?? task.created_at?.slice(0, 10) ?? '—'}</div></div>
-            <div><div className="text-[10px] text-gray-400">作業完了日</div><div className="text-[12.5px] font-medium text-gray-800 font-mono">{task.completed_at?.slice(0, 10) ?? '—'}</div></div>
+            <div>
+              <div className="text-[10px] text-gray-400">起票者</div>
+              <div className="text-[12.5px] font-medium text-gray-800 truncate" title="自動生成タスクは —">
+                {allMembers.find(m => m.id === task.created_by)?.name ?? task.created_by_member?.name ?? <span className="text-gray-300">—</span>}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] text-gray-400">優先度</div>
+              <select
+                value={task.priority}
+                onChange={e => saveField('priority', e.target.value)}
+                className={`w-full text-[12.5px] font-semibold rounded border px-1.5 py-0.5 outline-none cursor-pointer ${task.priority === '超急ぎ' ? 'bg-red-50 text-red-700 border-red-300' : task.priority === '急ぎ' ? 'bg-amber-50 text-amber-700 border-amber-300' : 'bg-gray-50 text-gray-700 border-gray-200'}`}
+              >
+                {PRIORITIES.map(p => <option key={p.key} value={p.key}>{p.key}</option>)}
+              </select>
+            </div>
+            <div>
+              <div className="text-[10px] text-gray-400">外出</div>
+              <label className="flex items-center gap-1.5 text-[12.5px] text-gray-800 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={((task.ext_data ?? {}) as Record<string, unknown>).outing === true}
+                  onChange={e => saveField('ext_data', { ...((task.ext_data ?? {}) as Record<string, unknown>), outing: e.target.checked })}
+                  className="w-4 h-4 accent-brand-600"
+                />
+                外出タスク
+              </label>
+            </div>
           </div>
           {/* 矢羽根 */}
           <div className="flex-1 self-center">
