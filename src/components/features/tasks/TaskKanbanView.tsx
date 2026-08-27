@@ -41,7 +41,10 @@ export default function TaskKanbanView({ tasks, caseMap = {}, receipts = [], tod
   const grouped: Record<ColumnKey, TaskRow[]> = { '着手前': [], '対応中': [], '完了': [] }
   for (const t of tasks) {
     const s = normalizeTaskStatus(t.status)
-    if (s === '着手前' || s === '対応中' || s === '完了') grouped[s].push(t)
+    // 確認中（担当へ相談して回答待ち）は、手が離れているわけではないので対応中の列に置く。
+    // ここで拾い漏らすとカンバンからタスクが消えてしまう。
+    const col = s === '確認中' ? '対応中' : s
+    if (col === '着手前' || col === '対応中' || col === '完了') grouped[col].push(t)
   }
   // 着手前は「着手OK（書類受領/手動）」を上位に並べる
   grouped['着手前'].sort((a, b) => {

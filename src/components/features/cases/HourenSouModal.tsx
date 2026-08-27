@@ -27,6 +27,8 @@ type Props = {
   allMembers: MemberRow[]
   /** 本文の下書き（タスクから開いたときにタスク名を入れる） */
   initialMessage?: string
+  /** どのタスクについての相談か。渡すと報連相にタスクを紐づけ、回答でそのタスクが完了できるようになる */
+  taskId?: string | null
   onSent?: () => void
 }
 
@@ -35,7 +37,7 @@ const KIND_OPTIONS: { key: CaseReportKind; note: string }[] = [
   { key: '要対応', note: '回答が無いと進まない' },
 ]
 
-export default function HourenSouModal({ isOpen, onClose, caseData, currentMemberId, salesMemberId = null, allMembers, initialMessage = '', onSent }: Props) {
+export default function HourenSouModal({ isOpen, onClose, caseData, currentMemberId, salesMemberId = null, allMembers, initialMessage = '', taskId = null, onSent }: Props) {
   const auth = useAuth()
   const [kind, setKind] = useState<CaseReportKind>('情報共有')
   const [message, setMessage] = useState('')
@@ -145,6 +147,7 @@ export default function HourenSouModal({ isOpen, onClose, caseData, currentMembe
       message: message.trim() || null,
       requested_date: today,
       status: '依頼中',
+      ...(taskId ? { task_id: taskId } : {}),
     }).select('id').single()
     if (error || !row) { console.error('case_reports insert failed:', error); setSending(false); showToast(`送信に失敗しました: ${error?.message ?? ''}`, 'error'); return }
     // 各通知先に通知（type=case_report で MyAlertCenter が報連相・メモタブへ遷移）

@@ -350,6 +350,8 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       notReady: caseScope ? pre.filter(t => !isReady(t)).length : 0,
       todo: caseScope ? pre.filter(t => isReady(t)).length : pre.length,
       doing: assistantTasks.filter(t => normalizeStatus(t.status) === '対応中').length,
+      // 確認中＝タスク詳細から「担当に確認する」で相談を送り、回答待ちのもの
+      reviewing: assistantTasks.filter(t => normalizeStatus(t.status) === '確認中').length,
       done: assistantTasks.filter(t => normalizeStatus(t.status) === '完了').length,
     }
   }, [assistantTasks, caseScope, isReady])
@@ -495,6 +497,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
             <FilterTab label="着手OK"   count={kpis.todo}     active={statusFilter === '着手前'} onClick={() => setStatusFilter('着手前')} big />
             <FilterTab label="対応中"   count={kpis.doing}    active={statusFilter === '対応中'} onClick={() => setStatusFilter('対応中')} big />
+            <FilterTab label="確認中"   count={kpis.reviewing} active={statusFilter === '確認中'} onClick={() => setStatusFilter('確認中')} big />
             {caseScope && (
               <FilterTab label="未着手" count={kpis.notReady} active={statusFilter === 'notReady'} onClick={() => setStatusFilter('notReady')} big />
             )}

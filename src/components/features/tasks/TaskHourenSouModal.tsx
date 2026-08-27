@@ -11,11 +11,13 @@ import { createClient } from '@/lib/supabase/client'
 import HourenSouModal from '@/components/features/cases/HourenSouModal'
 import type { CaseRow, MemberRow } from '@/types'
 
-export default function TaskHourenSouModal({ isOpen, onClose, caseId, currentMemberId, taskTitle, onSent }: {
+export default function TaskHourenSouModal({ isOpen, onClose, caseId, currentMemberId, taskId = null, taskTitle, onSent }: {
   isOpen: boolean
   onClose: () => void
   caseId: string
   currentMemberId: string | null
+  /** どのタスクについての相談か（渡すと報連相に紐づく） */
+  taskId?: string | null
   /** 送信欄の下書きに入れるタスク名 */
   taskTitle?: string | null
   onSent?: () => void
@@ -53,6 +55,7 @@ export default function TaskHourenSouModal({ isOpen, onClose, caseId, currentMem
       currentMemberId={currentMemberId}
       salesMemberId={salesMemberId}
       allMembers={members}
+      taskId={taskId}
       onSent={onSent}
       initialMessage={taskTitle ? `【${taskTitle}】について相談です。\n` : ''}
     />

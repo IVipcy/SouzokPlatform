@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Briefcase, Play, CheckCircle2, ExternalLink, ChevronDown, ChevronUp, Check, Package, PackageCheck, HelpCircle, ArrowRightCircle } from 'lucide-react'
@@ -108,6 +108,10 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
   const [cautionBusy, setCautionBusy] = useState(false)
   const [checkingCaution, setCheckingCaution] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  // このタスクについて送った相談（報連相）の状態。
+  //   pending  … 回答待ち（タスクは確認中。完了させない）
+  //   answered … 回答済み（完了できる）
+  const [review, setReview] = useState<{ pending: number; answer: { by: string | null; date: string | null; comment: string | null } | null }>({ pending: 0, answer: null })
   // 着手OKは「次やる目印」（ソフト）。着手OKでなくても着手はできる。
   // 着手不可（ハード制限）は口座凍結未確認の金融タスクのみ。
   const startSignal = getStartSignal(task)
@@ -119,10 +123,36 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
   const isInitialTask = task.category === '初期対応'
   const [startPromptOpen, setStartPromptOpen] = useState(currentStatus === '着手前' && (!isSystemTask || isInitialTask))
 
+  // このタスクに紐づく相談の回答状況を読む。確認中の完了可否と、回答内容の表示に使う。
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      const { data } = await createClient()
+        .from('case_reports')
+        .select('status, confirmed_date, confirm_comment, confirmer:members!case_reports_confirmer_id_fkey(name)')
+        .eq('task_id', task.id)
+        .order('created_at', { ascending: false })
+      if (!alive) return
+      const rows = (data ?? []) as unknown as Array<{ status: string; confirmed_date: string | null; confirm_comment: string | null; confirmer: { name: string } | null }>
+      const pending = rows.filter(r => r.status !== '確認済').length
+      const ans = rows.find(r => r.status === '確認済')
+      setReview({
+        pending,
+        answer: ans ? { by: ans.confirmer?.name ?? null, date: ans.confirmed_date, comment: ans.confirm_comment } : null,
+      })
+    })()
+    return () => { alive = false }
+  }, [task.id, task.status])
+
   const handleAdvance = useCallback(async () => {
     if (advancing) return
+    // 確認中＝担当に相談を投げて回答待ち。回答が付くまでは完了させない。
+    if (currentStatus === '確認中' && review.pending > 0) {
+      showToast('相談への回答待ちです。回答が付くと完了できます', 'error')
+      return
+    }
     // 事務管理タスクの完了は完了ゲートを通す。ゲート前に「依頼のし忘れ等」の軽い注意を挟む（止めない）。
-    if (currentStatus === '対応中' && task.task_kind !== 'system') {
+    if ((currentStatus === '対応中' || currentStatus === '確認中') && task.task_kind !== 'system') {
       setCheckingCaution(true)
       try {
         const c = await getCompletionCaution(task, currentMemberId ?? null)
@@ -163,7 +193,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
           })
         }
         showToast(`「${task.title}」に着手しました`)
-      } else if (currentStatus === '対応中') {
+      } else if (currentStatus === '対応中' || currentStatus === '確認中') {
         // ここに来るのは受注/管理担当(system)タスクのみ（事務管理タスクは完了ゲートへ）
         const { error } = await supabase.from('tasks').update({ status: '完了' }).eq('id', task.id)
         if (error) { showToast(`エラー: ${error.message}`, 'error'); return }
@@ -286,11 +316,26 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
               )}
             </div>
 
+            {/* 相談の状況（担当に確認する を使ったタスクだけ） */}
+            {(review.pending > 0 || review.answer) && (
+              <div className={`mt-2 rounded-lg border px-3 py-2 text-[12.5px] ${review.pending > 0 ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>
+                {review.pending > 0 ? (
+                  <span>担当へ確認中です。回答が付くと完了できます（報連相タブで確認できます）。</span>
+                ) : (
+                  <span>
+                    回答済み{review.answer?.by ? `：${review.answer.by}` : ''}{review.answer?.date ? `（${review.answer.date}）` : ''}
+                    {review.answer?.comment ? ` 「${review.answer.comment}」` : ''}
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* ステータス表示 + 進行ボタン + 優先度 */}
             <div className="flex items-center gap-2 flex-wrap pt-1">
               {/* 進行ボタン */}
               {currentStatus === '着手前' && (
-                <div className="flex flex-col items-end">
+                <div className="inline-flex items-center gap-2">
+                  <span className="text-[12px] text-gray-400">{canStart ? '作業を始める前に押す' : '口座の凍結確認後に押せます'}</span>
                   <button
                     onClick={handleAdvance}
                     disabled={advancing || !canStart}
@@ -301,11 +346,12 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                     {advancing ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Play className="w-4 h-4" strokeWidth={2.5} />}
                     {advancing ? '処理中...' : '着手する'}
                   </button>
-                  <span className="text-[12px] text-gray-400 mt-0.5">{canStart ? '作業を始める前に押す' : '口座の凍結確認後に押せます'}</span>
                 </div>
               )}
               {currentStatus === '対応中' && (
-                <div className="flex flex-col items-end">
+                <div className="inline-flex items-center gap-2">
+                  <span className="text-[12px] text-gray-400">完了条件を満たしたら押す</span>
+                  {canRevert && <button type="button" onClick={handleRevert} disabled={reverting} className="text-[11px] text-gray-400 hover:text-gray-600 underline underline-offset-2 disabled:opacity-50" title="押し間違いの訂正">着手前に戻す</button>}
                   <button
                     onClick={handleAdvance}
                     disabled={advancing || checkingCaution}
@@ -315,10 +361,26 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                     {advancing ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />}
                     {advancing ? '処理中...' : '完了にする'}
                   </button>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[12px] text-gray-400">完了条件を満たしたら押す</span>
-                    {canRevert && <button type="button" onClick={handleRevert} disabled={reverting} className="text-[11px] text-gray-400 hover:text-gray-600 underline underline-offset-2 disabled:opacity-50" title="押し間違いの訂正">着手前に戻す</button>}
-                  </div>
+                </div>
+              )}
+              {currentStatus === '確認中' && (
+                <div className="inline-flex items-center gap-2 flex-wrap">
+                  {review.pending > 0 ? (
+                    <span className="text-[12px] text-amber-700">担当の回答待ち（回答が付くと完了できます）</span>
+                  ) : (
+                    <span className="text-[12px] text-gray-400">回答が付きました。完了できます</span>
+                  )}
+                  {canRevert && <button type="button" onClick={handleRevert} disabled={reverting} className="text-[11px] text-gray-400 hover:text-gray-600 underline underline-offset-2 disabled:opacity-50" title="押し間違いの訂正">着手前に戻す</button>}
+                  <button
+                    onClick={handleAdvance}
+                    disabled={advancing || checkingCaution || review.pending > 0}
+                    title={review.pending > 0 ? '相談への回答待ちです' : undefined}
+                    className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold text-white shadow-sm transition-all
+                      ${review.pending > 0 ? 'bg-gray-300 cursor-not-allowed' : advancing || checkingCaution ? 'bg-brand-400 cursor-wait scale-95' : 'bg-brand-600 hover:bg-brand-700 hover:scale-105 active:scale-95'}`}
+                  >
+                    {advancing ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle2 className="w-4 h-4" strokeWidth={2.25} />}
+                    {advancing ? '処理中...' : '完了にする'}
+                  </button>
                 </div>
               )}
               {currentStatus === '完了' && (
@@ -330,15 +392,18 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                   {canRevert && <button type="button" onClick={handleRevert} disabled={reverting} className="text-[11px] text-gray-400 hover:text-gray-600 underline underline-offset-2 disabled:opacity-50" title="押し間違いの訂正">対応中に戻す</button>}
                 </div>
               )}
-              {/* 相談は報連相で送る（systemタスクでは出さない）。ステータスの左に配置 */}
+              {/* タスクの進め方の相談。中身は報連相だが、押す人にとっては
+                  「担当に確認する」という行為なのでその名前にする。
+                  送るとこのタスクは「確認中」になり、回答が付くまで完了できない。 */}
               {!isSystemTask && (
                 <button
                   type="button"
                   onClick={() => setHelpOpen(true)}
+                  title="タスクの進め方を担当に相談します。送るとこのタスクは「確認中」になり、回答が付くまで完了できません"
                   className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors"
                 >
                   <HelpCircle className="w-3.5 h-3.5" strokeWidth={2} />
-                  報連相を送る
+                  担当に確認する
                 </button>
               )}
 
@@ -570,8 +635,17 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
           onClose={() => setHelpOpen(false)}
           caseId={task.case_id}
           currentMemberId={currentMemberId}
+          taskId={task.id}
           taskTitle={task.title}
-          onSent={() => { setHelpOpen(false); router.refresh() }}
+          onSent={async () => {
+            setHelpOpen(false)
+            // 相談を送ったタスクは回答が付くまで「確認中」で止める（完了ボタンは押せない）。
+            // 完了・着手前のタスクからは送れないので、対応中・着手前のときだけ移す。
+            if (currentStatus !== '完了') {
+              await createClient().from('tasks').update({ status: '確認中' }).eq('id', task.id)
+            }
+            router.refresh()
+          }}
         />
       )}
 
@@ -606,7 +680,9 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
             ) : startSignal.ready ? (
               <div className="flex items-start gap-2 text-[12.5px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                 <PackageCheck className="w-4 h-4 flex-shrink-0 mt-0.5" strokeWidth={2} />
-                <span>着手OK{startSignal.reason ? `：${startSignal.reason}` : ''}。着手すると「対応中」になります。</span>
+                {/* 理由は運用変更で全タスク共通の「着手OK」になったため、そのまま出すと
+                    「着手OK：着手OK。」と重なる。中身のある理由のときだけ添える。 */}
+                <span>着手すると「対応中」になります。{startSignal.reason && startSignal.reason !== '着手OK' ? `（${startSignal.reason}）` : ''}</span>
               </div>
             ) : (
               <div className="flex items-start gap-2 text-[12.5px] text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">

@@ -47,7 +47,9 @@ export function toReadinessReceipts(receipts: TimelineReceiptShape[] | undefined
   return out
 }
 
-// タスクのステータスを 3 段階（着手前 / 対応中 / 完了）に正規化する。
+// タスクのステータスを 着手前 / 対応中 / 確認中 / 完了 に正規化する。
+// 確認中＝「担当に確認する」で相談を送り、回答待ちの状態。対応中には畳まない
+// （畳むと、回答待ちで止まっているタスクが普通の作業中と区別できなくなる）。
 export function normalizeTaskStatus(status: string): string {
   if (status === '未着手') return '着手前'
   if (['Wチェック待ち', '保留', '差戻し'].includes(status)) return '対応中'
