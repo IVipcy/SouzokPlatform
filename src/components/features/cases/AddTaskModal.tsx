@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import NewTaskFields, { emptyNewTask, type NewTaskValue } from '@/components/features/tasks/NewTaskFields'
+import TaskTargetPicker, { emptyTarget, resolveTargetRid, type TaskTarget } from '@/components/features/tasks/TaskTargetPicker'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { showToast } from '@/components/ui/Toast'
 import type { MemberRow } from '@/types'
@@ -24,6 +25,8 @@ type Props = {
 export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, defaultPhase, candidates }: Props) {
   const currentMemberId = useCurrentMember(null)
   const [form, setForm] = useState<NewTaskValue>(emptyNewTask)
+  // 実務タブのどこの作業か。入れておくとタスクからその場所へ直接飛べる（任意）
+  const [target, setTarget] = useState<TaskTarget>(emptyTarget)
   // 候補を渡されたときだけ2タブ。左＝新規作成／右＝候補から選択。
   const [tab, setTab] = useState<'manual' | 'candidate'>('manual')
   const [saving, setSaving] = useState(false)
@@ -46,6 +49,9 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
     setError('')
 
     const supabase = createClient()
+
+    // 対象（実務タブのどこの作業か）。戸籍は選んだ内容で新しい請求行を作ってから紐づける。
+    const sourceRid = await resolveTargetRid(caseId, target)
 
     // タスクは作った時点で常に着手OK（着手前で寝かせる運用はやめた）。
     // 外出タスクの印もここで ext_data に入れる。
@@ -70,6 +76,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
           sort_order: 99,
           created_by: currentMemberId,
           procedure_text: form.work.trim() || null,
+          source_rid: sourceRid,
           ext_data: readyExt,
         })
       if (taskErr) { setError(`追加に失敗しました: ${taskErr.message}`); setSaving(false); return }
@@ -93,6 +100,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
           sort_order: 99,
           created_by: currentMemberId,
           procedure_text: form.work.trim() || null,
+          source_rid: sourceRid,
           ext_data: readyExt,
         })
         .select('id')
@@ -119,8 +127,11 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
       // 続けて同じ業務のタスクを足すことが多いので、業務区分・担当区分は残す
       showToast('タスクを追加しました', 'success')
       setForm({ ...emptyNewTask(), roleKind: form.roleKind, gyomu: form.gyomu })
+      // 対象は毎回ちがう（別の役所・別の銀行）ので引き継がない
+      setTarget(emptyTarget())
     } else {
       setForm(emptyNewTask())
+      setTarget(emptyTarget())
       close()
     }
   }
@@ -175,6 +186,12 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
           defaultGyomu={defaultPhase}
           workRequired
         />
+
+        {/* 実務タブのどこの作業か（戸籍・不動産・金融資産・解約のみ）。
+            一括生成をやめて随時タスクを足す運用でも、実務タブへの導線を残すために置く。 */}
+        <div className="mt-3">
+          <TaskTargetPicker caseId={caseId} gyomu={form.gyomu} value={target} onChange={setTarget} />
+        </div>
       </div>
     </Modal>
   )

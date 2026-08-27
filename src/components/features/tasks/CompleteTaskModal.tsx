@@ -14,6 +14,7 @@ import { Loader2, CheckCircle2, ArrowRight, Plus, HelpCircle } from 'lucide-reac
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import NewTaskFields, { emptyNewTask, type NewTaskValue } from '@/components/features/tasks/NewTaskFields'
+import TaskTargetPicker, { emptyTarget, resolveTargetRid, type TaskTarget } from './TaskTargetPicker'
 import { showToast } from '@/components/ui/Toast'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrentMember } from '@/lib/useCurrentMember'
@@ -61,6 +62,8 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
 
   // 新規追加タスク。入力欄は「タスク追加」モーダルの新規作成タブと同じ部品を使う。
   const [newTask, setNewTask] = useState<NewTaskValue>(emptyNewTask)
+  // 実務タブのどこの作業か（任意）。入れると新しいタスクからその場所へ直接飛べる
+  const [newTarget, setNewTarget] = useState<TaskTarget>(emptyTarget)
   const newTitle = newTask.title
 
   // 管理担当ヘルプ（完了時は①次を教えて／②巻き取り）
@@ -152,6 +155,7 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
     //      管理担当/受注担当 → task_kind='system' で、その担当へ割当・通知
     if (newTitle.trim()) {
       const newExt = { ...extReady({}, task.id), ...(newTask.outing ? { outing: true } : {}) }
+      const newRid = await resolveTargetRid(task.case_id, newTarget)
       const isAssistant = newTask.roleKind === 'assistant'
       const gyomu = newTask.gyomu || task.phase || 'その他'
       const { data: created } = await supabase.from('tasks').insert({
@@ -166,6 +170,7 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
         priority: newTask.priority,
         due_date: newTask.dueDate || null,
         procedure_text: newTask.work.trim() || null,
+        source_rid: newRid,
         ext_data: newExt,
         sort_order: 99,
       }).select('id').single()
@@ -337,6 +342,9 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
               defaultGyomu={task.phase ?? undefined}
               compact
             />
+            <div className="mt-2">
+              <TaskTargetPicker caseId={task.case_id} gyomu={newTask.gyomu} value={newTarget} onChange={setNewTarget} compact />
+            </div>
           </div>
         </div>
       </div>

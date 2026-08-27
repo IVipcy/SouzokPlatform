@@ -21,6 +21,7 @@ import { TASK_STATUSES_V12, STATUS_FLOW_STEPS } from '@/lib/taskSectionDefs'
 import TaskDetailSidebar from './TaskDetailSidebar'
 import PrevTaskReviewSection from './PrevTaskReviewSection'
 import TaskCreatedDocsSection from './TaskCreatedDocsSection'
+import TaskTargetPicker, { TARGET_GYOMU, emptyTarget, resolveTargetRid, type TaskTarget } from './TaskTargetPicker'
 
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { useIsManager } from '@/components/providers/AuthProvider'
@@ -111,6 +112,8 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
   const [cautionBusy, setCautionBusy] = useState(false)
   const [checkingCaution, setCheckingCaution] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  // 後から対象（実務タブの作業場所）を紐づけるときの入力中の値
+  const [pendingTarget, setPendingTarget] = useState<TaskTarget>(emptyTarget)
   // このタスクについて送った相談（報連相）の状態。
   //   pending  … 回答待ち（タスクは確認中。完了させない）
   //   answered … 回答済み（完了できる）
@@ -452,6 +455,26 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                 {PRIORITIES.map(p => <option key={p.key} value={p.key}>{p.key}</option>)}
               </select>
             </div>
+            {/* 対象（実務タブのどこの作業か）。未設定のときだけ出す。
+                一括生成をやめた運用で、先にタスクだけ立てて後から役所・銀行が決まる流れを通すため。
+                すでに紐づいているタスクは、付け替えると導線がずれるのでここでは触らせない。 */}
+            {!task.source_rid && !isSystemTask && TARGET_GYOMU.includes((task.phase ?? '') as typeof TARGET_GYOMU[number]) && (
+              <div>
+                <div className="text-[10px] text-gray-400">対象</div>
+                <TaskTargetPicker
+                  caseId={task.case_id}
+                  gyomu={task.phase ?? ''}
+                  value={pendingTarget}
+                  onChange={async v => {
+                    setPendingTarget(v)
+                    const rid = await resolveTargetRid(task.case_id, v)
+                    if (rid) { await saveField('source_rid', rid); setPendingTarget(emptyTarget()) }
+                  }}
+                  compact
+                />
+              </div>
+            )}
+
             <div>
               <div className="text-[10px] text-gray-400">外出</div>
               <label className="flex items-center gap-1.5 text-[12.5px] text-gray-800 cursor-pointer">
