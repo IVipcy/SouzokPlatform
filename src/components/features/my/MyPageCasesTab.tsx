@@ -13,6 +13,7 @@ import { cascadeDeleteCase } from '@/lib/caseDelete'
 import { getCaseStatusLabel } from '@/lib/constants'
 import ManagerNames from '@/components/ui/ManagerNames'
 import { RemainCell } from '@/components/ui/RemainCell'
+import { FilterTabs } from '@/components/ui/FilterTabs'
 
 type CaseFlag = 'purple' | 'red' | 'yellow' | 'blue' | null
 
@@ -199,20 +200,11 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
   // ステータス絞り込みタブ（withStatusFilter 時のみ）
   const filterBar = withStatusFilter ? (
     <div className="flex items-center gap-1.5 mb-3">
-      {STATUS_TABS.map(t => {
-        const on = statusTab === t.key
-        return (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => { setStatusTab(t.key); setSelected(new Set()) }}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold border transition-colors ${on ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:border-brand-300'}`}
-          >
-            {t.label}
-            <span className={`inline-flex items-center justify-center min-w-[20px] px-1 h-5 rounded-full text-[11px] font-bold ${on ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-500'}`}>{tabCounts[t.key] ?? 0}</span>
-          </button>
-        )
-      })}
+      <FilterTabs
+        active={statusTab}
+        onChange={k => { setStatusTab(k as StatusTabKey); setSelected(new Set()) }}
+        tabs={STATUS_TABS.map(t => ({ key: t.key, label: t.label, count: tabCounts[t.key] ?? 0 }))}
+      />
       {/* 当月業完予定。今月中に終わらせる約束の案件だけを見たいとき用。 */}
       {statusTab === 'active' && (
         <>

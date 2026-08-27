@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
 import ProspectBadge from '@/components/ui/ProspectBadge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
@@ -13,6 +13,7 @@ import { cascadeDeleteCase } from '@/lib/caseDelete'
 import { CASE_STATUSES, getCaseStatusLabel } from '@/lib/constants'
 import ManagerNames from '@/components/ui/ManagerNames'
 import { AlertCell, type AlertChip } from '@/components/ui/AlertCell'
+import { FilterTabs, BulkSelectBar } from '@/components/ui/FilterTabs'
 
 export type ConsultCase = {
   id: string
@@ -207,52 +208,24 @@ export default function ConsultationCasesTable({ cases, manageMode = false, sele
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-[3px] overflow-hidden">
-      <div className="px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 flex-wrap">
-        <span className="text-[11px] text-gray-400 font-mono bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">
-          {sorted.length}件
-        </span>
-        {/* 案件管理ページではページ上部のステータス絞り込みを使うため、ここでは非表示 */}
-        {!manageMode && (
-          <div className="flex gap-1 ml-2 bg-gray-50 border border-gray-200 rounded-md p-0.5">
-            <FilterChip label="すべて" active={statusFilter === 'all'} onClick={() => setStatusFilter('all')} />
-            {statusFilters.map(s => (
-              <FilterChip
-                key={s}
-                label={getCaseStatusLabel(s)}
-                active={statusFilter === s}
-                onClick={() => setStatusFilter(s)}
-                count={cases.filter(c => c.status === s).length}
-              />
-            ))}
-          </div>
-        )}
-        {canSelect && selected.size > 0 ? (
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-[12px] font-semibold text-gray-600">{selected.size}件選択中</span>
-            <button
-              type="button"
-              onClick={() => setConfirmOpen(true)}
-              className="inline-flex items-center gap-1 px-3 py-1 text-[12px] font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md shadow-sm transition-colors"
-            >
-              <Trash2 className="w-3.5 h-3.5" strokeWidth={2} />
-              選択を削除
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelected(new Set())}
-              className="text-[12px] text-gray-400 hover:text-gray-600 px-1"
-            >
-              解除
-            </button>
-          </div>
-        ) : (
-          <span className="ml-auto text-[11px] text-gray-400">
-            お客様回答予定日が迫っているものが上
-          </span>
-        )}
-      </div>
-
+    <div>
+      {/* 絞り込みと「選択中」は、管理案件一覧と同じく表の外・上に置く。
+          表の見出し帯に件数や絞り込みを詰め込んでいたのをやめた（帯ごと廃止）。 */}
+      {!manageMode && (
+        <FilterTabs
+          className="mb-3"
+          active={statusFilter}
+          onChange={setStatusFilter}
+          tabs={[
+            { key: 'all', label: 'すべて', count: cases.length },
+            ...statusFilters.map(st => ({ key: st, label: getCaseStatusLabel(st), count: cases.filter(c => c.status === st).length })),
+          ]}
+        />
+      )}
+      {canSelect && (
+        <BulkSelectBar count={selected.size} onDelete={() => setConfirmOpen(true)} onClear={() => setSelected(new Set())} />
+      )}
+      <div className="bg-white border border-gray-200 rounded-[3px] overflow-hidden">
       {sorted.length === 0 ? (
         <div className="px-4 py-12 text-center text-[13px] text-gray-400">
           相談案件はありません
@@ -405,6 +378,7 @@ export default function ConsultationCasesTable({ cases, manageMode = false, sele
           </table>
         </div>
       )}
+      </div>
 
       <DeleteConfirmModal
         isOpen={confirmOpen}
@@ -417,22 +391,6 @@ export default function ConsultationCasesTable({ cases, manageMode = false, sele
   )
 }
 
-function FilterChip({ label, active, onClick, count }: { label: string; active: boolean; onClick: () => void; count?: number }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`px-2 py-0.5 rounded text-[11px] font-medium whitespace-nowrap transition-colors ${
-        active ? 'bg-brand-600 text-white font-semibold' : 'text-gray-600 hover:text-gray-900 hover:bg-white'
-      }`}
-    >
-      {label}
-      {count !== undefined && count > 0 && (
-        <span className={`ml-1 text-[10px] font-mono ${active ? 'opacity-80' : 'opacity-50'}`}>{count}</span>
-      )}
-    </button>
-  )
-}
 
 function SortableTh({
   label, sortKey, currentKey, order, onClick,

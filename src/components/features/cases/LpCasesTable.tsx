@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { AlertTriangle, Trash2, Download } from 'lucide-react'
+import { AlertTriangle, Download } from 'lucide-react'
+import { BulkSelectBar } from '@/components/ui/FilterTabs'
 import Badge from '@/components/ui/Badge'
 import ProspectBadge from '@/components/ui/ProspectBadge'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
@@ -151,30 +152,19 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-[3px] overflow-hidden">
-      <div className="px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 flex-wrap">
-        <span className="text-[11px] text-gray-400 font-mono bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">
-          {cases.length}件
-        </span>
-        {selectable && sel.selected.size > 0 ? (
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-[12px] font-semibold text-gray-600">{sel.selected.size}件選択中</span>
-            <button type="button" onClick={() => sel.setConfirmOpen(true)} className="inline-flex items-center gap-1 px-3 py-1 text-[12px] font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md shadow-sm transition-colors">
-              <Trash2 className="w-3.5 h-3.5" strokeWidth={2} /> 選択を削除
-            </button>
-            <button type="button" onClick={sel.clear} className="text-[12px] text-gray-400 hover:text-gray-600 px-1">解除</button>
-          </div>
-        ) : (
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-[11px] text-gray-400">受注ルートが「LP経由」の案件</span>
-            <button type="button" onClick={exportExcel} disabled={exporting || (allCases ?? cases).length === 0}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold rounded-md border border-brand-200 text-brand-700 bg-brand-50 hover:bg-brand-100 disabled:opacity-50 transition-colors">
-              <Download className="w-3.5 h-3.5" />{exporting ? '出力中...' : 'Excel出力'}
-            </button>
-          </div>
-        )}
+    <div>
+      {/* 「選択中」は管理案件一覧と同じく表の外・上に置く。表の見出し帯（件数の帯）は廃止した。 */}
+      {selectable && (
+        <BulkSelectBar count={sel.selected.size} onDelete={() => sel.setConfirmOpen(true)} onClear={sel.clear} />
+      )}
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-[11px] text-gray-400">受注ルートが「LP経由」の案件</span>
+        <button type="button" onClick={exportExcel} disabled={exporting || (allCases ?? cases).length === 0}
+          className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold rounded-md border border-brand-200 text-brand-700 bg-brand-50 hover:bg-brand-100 disabled:opacity-50 transition-colors">
+          <Download className="w-3.5 h-3.5" />{exporting ? '出力中...' : 'Excel出力'}
+        </button>
       </div>
-
+      <div className="bg-white border border-gray-200 rounded-[3px] overflow-hidden">
       {cases.length === 0 ? (
         <div className="px-4 py-12 text-center text-[13px] text-gray-400">LP案件はありません</div>
       ) : (
@@ -322,6 +312,7 @@ export default function LpCasesTable({ cases, allCases, selectable = false }: Pr
           </table>
         </div>
       )}
+      </div>
 
       <DeleteConfirmModal
         isOpen={sel.confirmOpen}

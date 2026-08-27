@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { ClipboardList, MessageSquare, Sparkles, Megaphone, Search, type LucideIcon } from 'lucide-react'
 import MyPageCasesTab, { type MyCaseRow } from '@/components/features/my/MyPageCasesTab'
+import { FilterTabs } from '@/components/ui/FilterTabs'
 import ConsultationCasesTable, { type ConsultCase } from '@/components/features/my/ConsultationCasesTable'
 import ReferralCasesTable, { type ReferralRow } from '@/components/features/my/ReferralCasesTable'
 import LpCasesTable, { type LpCaseRow } from '@/components/features/cases/LpCasesTable'
@@ -128,30 +129,18 @@ export default function CaseViewsClient({ managerRows, completedRows, consultRow
       {/* ステータス絞り込み ＋ 検索（管理案件一覧はステータス絞り込み非表示） */}
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         {view !== 'manage' && statusOptions.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[12px] font-semibold text-gray-500 mr-0.5">ステータス</span>
-            <button
-              type="button"
-              onClick={() => setStatusFilter('all')}
-              className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${effStatus === 'all' ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-            >
-              すべて
-            </button>
-            {statusOptions.map(key => {
-              const count = activeRows.filter(r => r.status === key).length
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setStatusFilter(key)}
-                  className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${effStatus === key ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-                >
-                  {getCaseStatusLabel(key)}
-                  <span className={`ml-1 text-[10px] font-mono ${effStatus === key ? 'opacity-80' : 'opacity-50'}`}>{count}</span>
-                </button>
-              )
-            })}
-          </div>
+          <FilterTabs
+            active={effStatus}
+            onChange={setStatusFilter}
+            tabs={[
+              { key: 'all', label: 'すべて', count: activeRows.length },
+              ...statusOptions.map(key => ({
+                key,
+                label: getCaseStatusLabel(key),
+                count: activeRows.filter(r => r.status === key).length,
+              })),
+            ]}
+          />
         )}
         <div className="ml-auto flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 w-[260px]">
           <Search className="w-3.5 h-3.5 text-gray-400" strokeWidth={2} />
@@ -176,18 +165,12 @@ export default function CaseViewsClient({ managerRows, completedRows, consultRow
         ]
         return (
         <div>
-          <div className="flex items-center gap-2 mb-3">
-            {subTabs.map(t => (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => setManageSub(t.key)}
-                className={`px-3 py-1.5 rounded-md text-[12px] font-semibold border transition-colors ${manageSub === t.key ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-              >
-                {t.label}<span className="ml-1 text-[10px] font-mono opacity-70">{t.count}</span>
-              </button>
-            ))}
-          </div>
+          <FilterTabs
+            className="mb-3"
+            active={manageSub}
+            onChange={k => setManageSub(k as typeof manageSub)}
+            tabs={subTabs.map(t => ({ key: t.key, label: t.label, count: t.count }))}
+          />
           {manageSub === 'active'
             ? <MyPageCasesTab memberId="" cases={filteredManager} selectable />
             : manageSub === 'businessComplete'
