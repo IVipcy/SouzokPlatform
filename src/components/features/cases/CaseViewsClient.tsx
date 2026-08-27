@@ -126,22 +126,11 @@ export default function CaseViewsClient({ managerRows, completedRows, consultRow
         })}
       </div>
 
-      {/* ステータス絞り込み ＋ 検索（管理案件一覧はステータス絞り込み非表示） */}
-      <div className="flex items-center gap-2 mb-3 flex-wrap">
-        {view !== 'manage' && statusOptions.length > 0 && (
-          <FilterTabs
-            active={effStatus}
-            onChange={setStatusFilter}
-            tabs={[
-              { key: 'all', label: 'すべて', count: activeRows.length },
-              ...statusOptions.map(key => ({
-                key,
-                label: getCaseStatusLabel(key),
-                count: activeRows.filter(r => r.status === key).length,
-              })),
-            ]}
-          />
-        )}
+      {/* 検索。どのタブでも同じ位置に出す。
+          絞り込みはこの行に同居させず、必ず下の独立した行に置く。
+          同居させていたせいで、管理案件一覧（絞り込みが別行）とそれ以外とで
+          タブから表までの間隔が食い違っていた。 */}
+      <div className="flex items-center gap-2 mb-3">
         <div className="ml-auto flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 w-[260px]">
           <Search className="w-3.5 h-3.5 text-gray-400" strokeWidth={2} />
           <input
@@ -153,6 +142,25 @@ export default function CaseViewsClient({ managerRows, completedRows, consultRow
           />
         </div>
       </div>
+
+      {/* ステータス絞り込み（管理案件一覧のサブタブと同じ位置・同じ間隔）。
+          0件のタブでも「すべて 0」を出す。ここを出したり消したりすると、
+          タブを切り替えるたびに表の位置が上下してしまう。 */}
+      {view !== 'manage' && (
+        <FilterTabs
+          className="mb-3"
+          active={effStatus}
+          onChange={setStatusFilter}
+          tabs={[
+            { key: 'all', label: 'すべて', count: activeRows.length },
+            ...statusOptions.map(key => ({
+              key,
+              label: getCaseStatusLabel(key),
+              count: activeRows.filter(r => r.status === key).length,
+            })),
+          ]}
+        />
+      )}
 
       {view === 'manage' && (() => {
         // 作業進行中＝対応中／業務完了＝完了／納品完了＝納品完了。
