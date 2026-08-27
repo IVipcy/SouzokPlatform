@@ -98,6 +98,10 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
 
 
 
+  // このタスクの作業場所（戸籍請求タブ等）。実務タブで行うタスクだけ値が入る。
+  // 導線カードの出し分けと、作成物セクションを出すかどうかの判断に使う。
+  const landing = (!caseData || currentStatus === '完了' || isSystemTask) ? null : resolveTaskLanding(task)
+
   // ─── ステータス進行 ───
   const [advancing, setAdvancing] = useState(false)
   // 完了ゲート（実施結果＋次に着手OKにするタスク選択）
@@ -482,28 +486,6 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
         </div>
       </div>
 
-      {/* 実務タブで作業する導線（構造化タスクのみ。B案：ヘッダー直下の全幅バナー） */}
-      {(() => {
-        if (!caseData || currentStatus === '完了' || isSystemTask) return null
-        const landing = resolveTaskLanding(task)
-        if (!landing) return null
-        return (
-          <div className="mb-5 flex items-center gap-3 bg-brand-50 border border-brand-200 rounded-xl px-4 py-3">
-            <ArrowRightCircle className="w-6 h-6 text-brand-600 flex-none" strokeWidth={2} />
-            <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-bold text-gray-900">このタスクの作業は実務タブで行います</div>
-              <div className="text-[12px] text-gray-500">前段を確認したら、{landing.label}の該当行で入力し、その場で完了できます</div>
-            </div>
-            <Link
-              href={taskLandingUrl(caseData.id, task.id, landing)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-bold text-white bg-brand-600 hover:bg-brand-700 shadow-sm flex-none"
-            >
-              <ExternalLink className="w-4 h-4" strokeWidth={2.25} />{landing.label}で作業する
-            </Link>
-          </div>
-        )
-      })()}
-
       {/* 3カラムレイアウト
           左:  前タスク紐づけ + 前段作業の確認        (時系列: 過去)
           中央: 基本情報・作業内容・実施結果・作成物 (時系列: 現在)
@@ -535,16 +517,41 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
             />
           )}
 
-          {/* 4. 作成物（documents テーブル。AI作成・アップロードともこのタスクに紐づく） */}
-          <TaskCreatedDocsSection
-            task={task}
-            caseData={(task as unknown as { cases?: CaseRow }).cases as CaseRow}
-            documents={createdDocuments}
-            tasks={caseTasks}
-            heirs={heirs}
-            properties={properties}
-            contractDocuments={contractDocuments}
-          />
+          {/* 実務タブへの導線。作業内容を読み終えた位置に置き、そのまま次の一手へ行けるようにする
+              （以前はヘッダー直下の細いバーで、読み終えた目線から遠かった）。 */}
+          {landing && caseData && (
+            <div className="flex items-center gap-3.5 rounded-xl border-2 border-brand-300 bg-brand-50 px-4 py-4">
+              <span className="flex-none w-9 h-9 rounded-full bg-brand-600 text-white flex items-center justify-center">
+                <ArrowRightCircle className="w-5 h-5" strokeWidth={2.25} />
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="text-[14px] font-bold text-brand-800">この作業は「{landing.label}」タブで行います</div>
+                <div className="text-[12px] text-brand-700/80 leading-relaxed">
+                  該当の行が開いた状態で移動します。そこで入力すると、このタスクはその場で完了します。
+                </div>
+              </div>
+              <Link
+                href={taskLandingUrl(caseData.id, task.id, landing)}
+                className="flex-none inline-flex items-center gap-1.5 h-10 px-4 rounded-lg text-[13.5px] font-bold text-white bg-brand-600 hover:bg-brand-700 shadow-sm"
+              >
+                <ExternalLink className="w-4 h-4" strokeWidth={2.25} />{landing.label}タブを開く
+              </Link>
+            </div>
+          )}
+
+          {/* 作成物（documents テーブル）。
+              実務タブで作業するタスクでは、AI書類作成もアップロードも向こうで行うので出さない。 */}
+          {!landing && (
+            <TaskCreatedDocsSection
+              task={task}
+              caseData={(task as unknown as { cases?: CaseRow }).cases as CaseRow}
+              documents={createdDocuments}
+              tasks={caseTasks}
+              heirs={heirs}
+              properties={properties}
+              contractDocuments={contractDocuments}
+            />
+          )}
         </div>
 
         {/* 右カラム — 案件サマリー・着手者履歴（アコーディオン）＋関連ドキュメント */}
