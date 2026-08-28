@@ -133,7 +133,9 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
   // 戸籍の追加は2通り。何が起きるかボタン名で言い切るため、モーダルも入口で分ける。
   //   new      … 戸籍を読んで出てきた人を足す（相続人一覧にも登録される）
   //   existing … 既にいる対象者の戸籍をもう1件足す（転籍先の役所など）
-  const [addTarget, setAddTarget] = useState<{ mode: 'new' } | { mode: 'existing'; person: string } | null>(null)
+  // 対象者の新規追加モーダル（戸籍を読んで出てきた人を足す）。
+  // 既にいる対象者の請求追加はモーダルを使わない（タブの「＋ 請求を追加」で直接足す）。
+  const [addOpen, setAddOpen] = useState(false)
   // 戸籍請求書を出す行。1行＝依頼書1枚なので、その行だけを入れて出力画面を開く。
   // 戸籍請求書のモーダル。1行ぶん（表のアイコン）でも、その人の分まとめて（見出しのボタン）でも開く。
   const [docRequests, setDocRequests] = useState<KosekiRequestRow[] | null>(null)
@@ -213,9 +215,29 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
       const rows = (mgrs ?? []).map(m => ({ member_id: (m as { id: string }).id, type: 'koseki_additional', case_id: caseId, title: '追加戸籍請求の承認依頼', body: `${form.target_person || '対象者未定'}／${form.request_to || '請求先未定'}：${form.reason}` }))
       if (rows.length) await supabase.from('notifications').insert(rows)
     }
-    setAddTarget(null)
+    setAddOpen(false)
     setSub((form.target_person || '').trim() || '__unset__')
     showToast(form.needsApproval ? '戸籍を追加しました（要承認・管理担当へ通知）' : '戸籍を追加しました', 'success')
+    onRefresh?.()
+  }
+
+  // 同じ対象者の戸籍をもう1件足す（転籍を遡るとき等）。
+  // 承認は要らない（当初想定の範囲内で、追加費用の承認対象ではない）ので、
+  // モーダルで何も聞かずに空の請求を作り、そのタブを開く。請求先はカードで入力する。
+  const addRequestForPerson = async (person: string) => {
+    const { data: planRow } = await supabase
+      .from('koseki_plans').select('range_text').eq('case_id', caseId).eq('person_name', person).maybeSingle()
+    const plan = planRow as { range_text: string | null } | null
+    const { data, error } = await supabase.from('koseki_requests')
+      .insert({
+        case_id: caseId, sort_order: requests.length,
+        target_person: person || null,
+        range_text: plan?.range_text ?? null,
+        submit_to: KOSEKI_SUBMIT_TO_DEFAULT,
+      })
+      .select('id').single()
+    if (error || !data) { showToast(`追加に失敗: ${error?.message ?? ''}`, 'error'); return }
+    setActiveReqId((data as { id: string }).id)
     onRefresh?.()
   }
 
@@ -408,7 +430,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
           )
         })}
         {/* 戸籍を読んで新しい人が出てきたとき。TOPを見ている最中でも押せるようにする。 */}
-        <button type="button" onClick={() => setAddTarget({ mode: 'new' })}
+        <button type="button" onClick={() => setAddOpen(true)}
           className="mt-1 text-left text-[11.5px] px-2.5 py-1.5 rounded-md border border-dashed border-brand-300 text-brand-700 hover:bg-brand-50 inline-flex items-start gap-1">
           <Plus className="w-3 h-3 flex-none mt-0.5" /><span className="leading-tight">対象者を新規追加して戸籍請求</span>
         </button>
@@ -446,7 +468,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                           {r.is_additional && <span className="ml-1 text-[10px] text-amber-600">追加</span>}
                           {(r.target_person ?? '').trim() && (
                             <button type="button" title={`${r.target_person} の戸籍を追加請求`}
-                              onClick={e => { e.stopPropagation(); setAddTarget({ mode: 'existing', person: (r.target_person ?? '').trim() }) }}
+                              onClick={e => { e.stopPropagation(); setSub((r.target_person ?? '').trim()); addRequestForPerson((r.target_person ?? '').trim()) }}
                               className="ml-1.5 align-middle text-[10px] px-1.5 py-0.5 rounded border border-brand-200 text-brand-700 bg-brand-50 opacity-0 group-hover/cell:opacity-100 transition-opacity">
                               ＋戸籍
                             </button>
@@ -497,8 +519,8 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
             <ProgressSummary caseId={caseId} scopeKey={`koseki_person_${activePerson || 'unset'}`} title={`進捗/結果（${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍）`}
               onSaved={v => setMemoByName(prev => ({ ...prev, [activePerson.trim()]: v.body }))} />
             <div className="bg-white border border-gray-200 rounded-lg p-3.5">
-              <SectionHeading title={`${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍（役所ごと・1行=1戸籍）`}
-                hint="取得区分が「依頼者」の行は、請求日・費用・ダブルチェックが「依頼者負担」になり、入力できません。追加戸籍請求（要承認）は、管理担当が承認したあとに編集できます。どの項目も表の上で直接編集できます。"
+              <SectionHeading title={`${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍（1タブ=1請求）`}
+                hint="上のタブが1回の請求です。転籍を遡るときは「＋ 請求を追加」でタブを足してください（承認は要りません）。取得区分が「依頼者」の請求は、請求日・費用・チェックが「依頼者負担」になり入力できません。追加戸籍請求（要承認）は、管理担当が承認したあとに編集できます。"
                 right={
                   <span className="flex items-center gap-2">
                     {/* 書類作成を経由せず、この人の請求そのままで戸籍請求書を出す */}
@@ -512,7 +534,15 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                 }
                 className="mb-2.5 pb-1.5 border-b border-gray-200" />
               {personRequests.length === 0 ? (
-                <div className="px-3 py-6 text-center text-[12px] text-gray-400">この対象者の戸籍請求がありません。下の「この対象者の戸籍を追加請求」から登録してください（転籍が判明したら役所を足していきます）。</div>
+                <div className="px-3 py-6 text-center text-[12px] text-gray-400">
+                  この対象者の戸籍請求がありません。
+                  {sub !== '__unset__' && (
+                    <button type="button" onClick={() => addRequestForPerson(activePerson)}
+                      className="ml-1.5 inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded-md hover:bg-brand-100">
+                      <Plus className="w-3.5 h-3.5" />請求を追加
+                    </button>
+                  )}
+                </div>
               ) : (
                 <div>
                   {/* 請求ごとのタブ。同じ人に2回目を出すとタブが増える。
@@ -536,6 +566,18 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                         </button>
                       )
                     })}
+                    {/* 同じ対象者の戸籍をもう1件。押すと空の請求タブが増えてそこが開く。
+                        請求先はカードの中で入力するので、ここでは何も聞かない。 */}
+                    {sub !== '__unset__' && (
+                      <button
+                        type="button"
+                        onClick={() => addRequestForPerson(activePerson)}
+                        title={`${activePerson} さんの戸籍をもう1件請求する`}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[12.5px] text-brand-700 hover:bg-brand-50 rounded-t-lg"
+                      >
+                        <Plus className="w-3.5 h-3.5" />請求を追加
+                      </button>
+                    )}
                   </div>
                   {(() => {
                     const cur = personRequests.find(r => r.id === activeReqId) ?? personRequests[0]
@@ -549,13 +591,6 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                   })()}
                 </div>
               )}
-              {/* 転籍で役所を遡るとき用。対象者は選択中の人で固定なので選び直さなくていい。 */}
-              {sub !== '__unset__' && (
-                <button type="button" onClick={() => setAddTarget({ mode: 'existing', person: activePerson })}
-                  className="mt-2.5 inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded-md hover:bg-brand-100">
-                  <Plus className="w-3.5 h-3.5" />この対象者の戸籍を追加請求
-                </button>
-              )}
             </div>
             {/* この人の戸籍のスキャン画像。アップロード直後に書き込むか聞く。 */}
             <div className="bg-white border border-gray-200 rounded-lg p-3.5">
@@ -564,7 +599,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
           </div>
         )}
       </div>
-      {addTarget && <AddKosekiModal mode={addTarget.mode} person={addTarget.mode === 'existing' ? addTarget.person : ''} onClose={() => setAddTarget(null)} onSubmit={submitAdd} />}
+      {addOpen && <AddKosekiModal onClose={() => setAddOpen(false)} onSubmit={submitAdd} />}
 
       {/* 戸籍請求書。この行の内容（請求先・対象者・種別・筆頭者・範囲）がそのまま入る */}
       {docRequests && (
@@ -633,16 +668,16 @@ function KosekiImageCell({ images, urls, onOpen, onAdd }: {
   )
 }
 
-// 戸籍の追加。入口は2つで、開いた時点で「誰の戸籍か」は決まっている。
-//   new      … 戸籍を読んで出てきた対象者を足す（相続人一覧にも登録される）
-//   existing … 既にいる対象者の戸籍をもう1件足す（転籍先の役所など）
-function AddKosekiModal({ mode, person, onClose, onSubmit }: {
-  mode: 'new' | 'existing'
-  person: string
+// 対象者の新規追加。戸籍を読むと知らない人が出てくるので、その場で足せるようにする。
+// 相続人一覧にも同時に登録される（続柄は分からなければ未設定のまま）。
+//
+// 既にいる対象者の請求をもう1件足すときはこのモーダルを通さない。
+// 転籍を遡るのは当初想定の範囲内で承認が要らず、聞くことが請求先だけになるため、
+// タブの「＋ 請求を追加」で空の請求を作り、請求先はカードで入力する。
+function AddKosekiModal({ onClose, onSubmit }: {
   onClose: () => void
   onSubmit: (form: { target_person: string; request_to: string; reason: string; needsApproval: boolean; isNewPerson: boolean; relationship: string }) => void
 }) {
-  // 戸籍を読んで出てきた人をその場で足す。相続人一覧にも同時に登録される。
   const [newName, setNewName] = useState('')
   const [newRel, setNewRel] = useState('')
   const [reqTo, setReqTo] = useState('')
@@ -650,36 +685,28 @@ function AddKosekiModal({ mode, person, onClose, onSubmit }: {
   const [needsApproval, setNeedsApproval] = useState(false)
   const [busy, setBusy] = useState(false)
   const inp = 'w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-[12.5px] outline-none focus:border-brand-400 bg-white'
-  const isNew = mode === 'new'
-  const personName = isNew ? newName.trim() : person.trim()
+  const personName = newName.trim()
   const canSubmit = !!personName && (!needsApproval || !!reason.trim())
   return (
-    <Modal isOpen onClose={onClose} title={isNew ? '対象者を新規追加して戸籍請求' : `${person} さんの戸籍を追加請求`}>
+    <Modal isOpen onClose={onClose} title="対象者を新規追加して戸籍請求">
       <div className="space-y-3">
-        {!isNew && (
-          <p className="text-[11.5px] text-brand-800 bg-brand-50 border border-brand-100 rounded-md px-3 py-2">
-            対象者は <strong>{person}</strong> さんで固定です。転籍が判明したときなど、同じ人の戸籍をもう1件足します。
-          </p>
-        )}
-        {isNew && (
-          <div className="rounded-md border border-brand-200 bg-brand-50/50 px-3 py-2.5 space-y-2">
-            <div>
-              <label className="block text-[11px] text-gray-500 mb-1">氏名</label>
-              <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="例: 土曜二郎" className={inp} autoFocus />
-            </div>
-            <div>
-              <label className="block text-[11px] text-gray-500 mb-1">続柄（あとで直せます）</label>
-              <select value={newRel} onChange={e => setNewRel(e.target.value)} className={inp}>
-                <option value="">未設定</option>
-                {HEIR_RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
-              <p className="text-[10.5px] text-gray-400 mt-1">
-                この対象者は相続人一覧にも登録されます。続柄が分からなければ未設定のままで構いません。
-                被代襲者や数次相続の被相続人など、相続人ではない人もここに入れてください。
-              </p>
-            </div>
+        <div className="rounded-md border border-brand-200 bg-brand-50/50 px-3 py-2.5 space-y-2">
+          <div>
+            <label className="block text-[11px] text-gray-500 mb-1">氏名</label>
+            <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="例: 土曜二郎" className={inp} autoFocus />
           </div>
-        )}
+          <div>
+            <label className="block text-[11px] text-gray-500 mb-1">続柄（あとで直せます）</label>
+            <select value={newRel} onChange={e => setNewRel(e.target.value)} className={inp}>
+              <option value="">未設定</option>
+              {HEIR_RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+            <p className="text-[10.5px] text-gray-400 mt-1">
+              この対象者は相続人一覧にも登録されます。続柄が分からなければ未設定のままで構いません。
+              被代襲者や数次相続の被相続人など、相続人ではない人もここに入れてください。
+            </p>
+          </div>
+        </div>
         <div><label className="block text-[11px] text-gray-500 mb-1">請求先（役所）</label><input value={reqTo} onChange={e => setReqTo(e.target.value)} placeholder="例: 江東区役所（転籍先など。後で入力も可）" className={inp} /></div>
         <label className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] text-amber-800 cursor-pointer">
           <input type="checkbox" checked={needsApproval} onChange={e => setNeedsApproval(e.target.checked)} className="w-4 h-4 accent-amber-500 mt-0.5" />
@@ -690,7 +717,7 @@ function AddKosekiModal({ mode, person, onClose, onSubmit }: {
         )}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-[12px] text-gray-600 hover:text-gray-800">キャンセル</button>
-          <button type="button" disabled={busy || !canSubmit} onClick={() => { setBusy(true); onSubmit({ target_person: personName, request_to: reqTo, reason: reason.trim(), needsApproval, isNewPerson: isNew, relationship: newRel }) }}
+          <button type="button" disabled={busy || !canSubmit} onClick={() => { setBusy(true); onSubmit({ target_person: personName, request_to: reqTo, reason: reason.trim(), needsApproval, isNewPerson: true, relationship: newRel }) }}
             className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-[12px] font-semibold text-white rounded-md disabled:opacity-50 ${needsApproval ? 'bg-amber-500 hover:bg-amber-600' : 'bg-brand-600 hover:bg-brand-700'}`}>
             {needsApproval ? <><ShieldCheck className="w-3.5 h-3.5" />申請する（要承認）</> : <><Plus className="w-3.5 h-3.5" />追加する</>}
           </button>
