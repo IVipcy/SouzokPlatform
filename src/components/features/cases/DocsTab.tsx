@@ -484,7 +484,7 @@ function LinkTaskModal({ item, caseId, tasks, onClose }: {
                     <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${on ? 'bg-brand-600 border-brand-600' : 'bg-white border-gray-300'}`}>
                       {on && <span className="text-white text-[10px] font-bold">✓</span>}
                     </span>
-                    {t.phase && <span className="text-[10px] font-semibold text-brand-700 bg-brand-50 px-1 rounded">{t.phase === 'system' ? '受注/管理担当' : t.phase.replace(/^Phase\d+[:：]\s*/, '')}</span>}
+                    {t.phase && <span className="text-[10px] font-semibold text-brand-700 bg-brand-50 px-1 rounded">{t.phase.replace(/^Phase\d+[:：]\s*/, '')}</span>}
                     <span className="text-[12px] truncate flex-1">{t.title}</span>
                     <span className="text-[10px] text-gray-400">{t.status}</span>
                   </button>
