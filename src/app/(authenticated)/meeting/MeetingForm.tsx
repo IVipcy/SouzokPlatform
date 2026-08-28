@@ -254,6 +254,16 @@ async function clearDbDraft(caseId: string) {
     .eq('id', caseId)
 }
 
+// 下書きを重ねたあとの補正。
+// 面談結果(meetingResult)とステータス(caseStatus)は対で入るが、古い下書きなど
+// 面談結果だけが戻ってくることがある。そのまま保存すると status が空→「検討中」に
+// 落ちて、受注にしたはずの案件が検討中になる。ここで面談結果から引き直す。
+function withCaseStatus(d: FormData): FormData {
+  if (d.caseStatus || !d.meetingResult) return d
+  const opt = getMeetingResultOption(d.meetingResult)
+  return { ...d, caseStatus: opt?.status ?? d.meetingResult, orderWinType: d.orderWinType || (opt?.winType ?? '') }
+}
+
 export default function MeetingForm({ selectedCase, currentMemberId, standalone = false, onBack, onDirtyChange, onSaved, lpLinked }: Props) {
   const router = useRouter()
   // LP連携案件は面談ルートを固定。統合入力アプリのOCドラフトはID≠'new'でもLPではないので lpLinked を明示的に見る。
@@ -319,7 +329,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
     }
     // 前回の入力途中があれば、初期値の上に重ねる（連携で来た値より本人の入力を優先）
     const draft = readDraft(selectedCase.id)
-    return draft ? { ...init, ...draft } : init
+    return draft ? withCaseStatus({ ...init, ...draft }) : init
   })
   // 復元したことを画面で知らせる（黙って戻すと「入れた覚えのない値」に見えるため）
   const [restored, setRestored] = useState(() => !!readDraft(selectedCase.id))
@@ -337,7 +347,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
     void (async () => {
       const found = await readDbDraft(selectedCase.id)
       if (!alive || !found || dirtyRef.current) return
-      setData(prev => ({ ...prev, ...found.data }))
+      setData(prev => withCaseStatus({ ...prev, ...found.data }))
       setRestored(true)
       setRestoredAt(found.at)
     })()
@@ -558,7 +568,14 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
       const casePayload = {
         client_id: clientId,
         deal_name: mainName || '無題',
-        status: formData.caseStatus || '検討中',
+        // ステータスは面談結果から決まる。caseStatus は面談結果を選んだときに一緒に入るが、
+        // 下書きから面談結果だけが戻ってきた場合など、面談結果はあるのに caseStatus が
+        // 空のまま保存されることがあった。黙って「検討中」に落とすと、受注にしたはずの案件が
+        // 検討中になってしまうので、面談結果から引き直したうえで最後の手段としてだけ既定値を使う。
+        status: formData.caseStatus
+          || getMeetingResultOption(formData.meetingResult)?.status
+          || formData.meetingResult
+          || '検討中',
         meeting_type: formData.meetingType || null,
         proposal_note: formData.proposalNote || null,
         proposal_judicial: formData.proposalJudicial || null,
