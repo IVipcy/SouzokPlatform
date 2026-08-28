@@ -135,8 +135,12 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   const showTrustSafe = progressMode && kind === '預貯金'
   const showFreezeFlag = !progressMode
   const showBalanceCols = progressMode || showConfirmed
-  // 取引明細の取得期間。取引明細の列を持つ種別（預金）の実務タブだけに出す。
-  const showTxPeriods = progressMode && cols.some(c => c.key === 'transaction_detail_required')
+  // 取引明細の取得期間。取引明細の列を持つ種別（預金）で出す。
+  // 実務タブだけでなくオーダーシートにも出す。いつからいつまで取るかは面談で聞いて
+  // オーダーシートに書く情報で、実務に入ってから思い出すものではないため。
+  const showTxPeriods = cols.some(c => c.key === 'transaction_detail_required')
+  // 残高証明の取得日（相続開始日＋任意の日付）も同じ理由でオーダーシートに出す。
+  const showBalanceCertDates = cols.some(c => c.key === 'balance_cert_required')
   const [safeDepositPrompt, setSafeDepositPrompt] = useState<{ bank: string } | null>(null)
 
   // 残高確定・凍結確認は「確認簿へ依頼 → 確認簿で確認」をやめ、この表でそのままチェックする。
@@ -243,8 +247,9 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   const colCount = 4 + cols.length
     + (showBalanceCols ? 3 : 0)     // 残高+根拠資料有無+根拠資料
     + (showTxPeriods ? 1 : 0)
+    + (showBalanceCertDates ? 1 : 0)
     + (showFreezeFlag ? 1 : 0)
-    + (progressMode ? 8 : 0)       // 凍結状態+凍結確認+残高証明取得日+請求+到着+受信+関連+備考結果
+    + (progressMode ? 7 : 0)       // 凍結状態+凍結確認+請求+到着+受信+関連+備考結果
     + (showConfirmed ? 1 : 0)
     + (showTrustSafe ? 1 : 0)
 
@@ -416,7 +421,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
             : <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold text-gray-400 bg-gray-50 border border-gray-200">未受信</span>}
         </CardRow>
       )}
-      {progressMode && <CardRow label="残高証明取得日">{renderBalanceCertCell(r)}</CardRow>}
+      {showBalanceCertDates && <CardRow label="残高証明取得日">{renderBalanceCertCell(r)}</CardRow>}
       {showTrustSafe && <CardRow label="投信/貸金庫">{renderTrustSafeCell(r)}</CardRow>}
       <CardRow label="調査禁止">{renderBanCell(r)}</CardRow>
       <CardRow label="備考"><TextInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="特記事項" /></CardRow>
@@ -440,7 +445,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
       <ContractReceivedBlock docs={contractDocs} caseId={caseId} onRefresh={onRefresh} />
       {/* 表示：PC(sm以上)は表・スマホはカード。案件詳細/オーダーシート共通（表に統一・横スクロール）。 */}
       <div className="hidden sm:block overflow-x-auto">
-        <table className="text-[13px] border-collapse" style={{ minWidth: progressMode ? 2820 : 1300, width: 'max-content' }}>
+        <table className="text-[13px] border-collapse" style={{ minWidth: progressMode ? 2820 : 1300 + (showTxPeriods ? 256 : 0) + (showBalanceCertDates ? 176 : 0), width: 'max-content' }}>
           <thead>
             <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
               {showFreezeFlag && <th className="px-2 py-2 text-left font-semibold w-28">凍結済み</th>}
@@ -453,7 +458,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
               {progressMode && <th className="px-2 py-2 text-center font-semibold w-24">凍結確認</th>}
               {showConfirmed && <th className="px-2 py-2 text-center font-semibold w-24">残高確定</th>}
               {showTxPeriods && <th className="px-2 py-2 text-left font-semibold w-64">取引明細の取得期間</th>}
-              {progressMode && <th className="px-2 py-2 text-left font-semibold w-44">残高証明取得日</th>}
+              {showBalanceCertDates && <th className="px-2 py-2 text-left font-semibold w-44">残高証明取得日</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">請求日</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-28">到着日</th>}
               {progressMode && <th className="px-2 py-2 text-left font-semibold w-20">受信</th>}
@@ -532,8 +537,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                   )}
                   {/* 取引明細の取得期間（複数本） */}
                   {showTxPeriods && <td className={`px-2 py-1.5 ${lock}`}>{renderTxPeriodsCell(r)}</td>}
-                  {/* 残高証明取得日（相続開始日のチェック＋任意の日付を何本でも）。実務タブのみ */}
-                  {progressMode && <td className="px-2 py-1.5">{renderBalanceCertCell(r)}</td>}
+                  {/* 残高証明取得日（相続開始日のチェック＋任意の日付を何本でも） */}
+                  {showBalanceCertDates && <td className="px-2 py-1.5">{renderBalanceCertCell(r)}</td>}
                   {progressMode && (
                     <td className={`px-2 py-1.5 ${lock}`}><input type="date" value={r.request_date ?? ''} onChange={e => setLocal(r.id, 'request_date', e.target.value)} onBlur={e => commit(r.id, 'request_date', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" /></td>
                   )}
