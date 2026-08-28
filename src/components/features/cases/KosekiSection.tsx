@@ -747,13 +747,16 @@ function KosekiFieldRow({ label, hint, sub, children, full = false }: {
   /** 値を横いっぱいに置く（選択肢が多い項目） */
   full?: boolean
 }) {
+  // full のときはラベル1列＋値3列＝4列で1行を使い切る。
+  // 値だけに col-span-3 を掛けると合計5列になり、4列の枠から溢れて
+  // 選択肢が次の行へ押し出されていた（住民票の基礎証明外事項で発覚）。
   return (
-    <div className={`contents`}>
+    <div className={`contents ${full ? 'sm:col-span-4' : ''}`}>
       <div className="bg-gray-50/80 border-r border-gray-100 px-3 py-2 flex flex-col justify-center text-[11.5px] font-semibold text-gray-600 leading-snug">
         <span className="inline-flex items-center gap-1">{label}{hint && <HintTip text={hint} />}</span>
         {sub && <span className="text-[10px] font-normal text-brand-700">{sub}</span>}
       </div>
-      <div className={`bg-white px-3 py-2 flex items-center gap-2 min-h-[42px] ${full ? 'sm:col-span-3' : ''}`}>
+      <div className={`bg-white px-3 py-2 flex items-center gap-2 flex-wrap min-h-[42px] ${full ? 'sm:col-span-3' : ''}`}>
         {children}
       </div>
     </div>
@@ -830,21 +833,23 @@ function KosekiCard({ r, meId, personNames = [], saveField, saveMany, onDelete, 
             )}
           </div>
         </KosekiFieldRow>
-        <KosekiFieldRow label="種別②" sub="戸籍のとき">
+        {/* 種別①で選んだものに応じて中身が変わる2つを、種別①の直後に続けて置く。
+            間に請求範囲や筆頭者を挟むと、住民票を選んだときに視線が飛ぶ。 */}
+        <KosekiFieldRow label="種別②" sub="戸籍のとき" full>
           {includesKoseki(r.doc_types)
             ? <MultiCell value={r.doc_form} options={[...KOSEKI_DOC_FORMS]} onChange={v => saveField(r.id, 'doc_form', v)} />
-            : muted}
+            : <span className="text-[11px] text-gray-400">—　<span className="text-[10.5px]">（種別①で戸籍を選ぶと謄本／抄本が出ます）</span></span>}
+        </KosekiFieldRow>
+        <KosekiFieldRow label="基礎証明外事項" sub="住民票のとき" full>
+          {includesJuminhyo(r.doc_types)
+            ? <MultiCell value={r.juminhyo_items} options={[...JUMINHYO_EXTRA_ITEMS]} onChange={v => saveField(r.id, 'juminhyo_items', v)} />
+            : <span className="text-[11px] text-gray-400">—　<span className="text-[10.5px]">（種別①で住民票を選ぶと項目が出ます）</span></span>}
         </KosekiFieldRow>
         <KosekiFieldRow label="請求範囲">
           <SelectOrTextField value={r.range_text} options={KOSEKI_RANGES} onSave={v => saveField(r.id, 'range_text', v)} placeholder="出生～死亡 等" />
         </KosekiFieldRow>
         <KosekiFieldRow label="筆頭者／世帯主">
           <SelectOrTextField value={r.head_person} options={personNames} onSave={v => saveField(r.id, 'head_person', v)} placeholder="筆頭者/世帯主" />
-        </KosekiFieldRow>
-        <KosekiFieldRow label="基礎証明外事項" sub="住民票のとき" full>
-          {includesJuminhyo(r.doc_types)
-            ? <MultiCell value={r.juminhyo_items} options={[...JUMINHYO_EXTRA_ITEMS]} onChange={v => saveField(r.id, 'juminhyo_items', v)} />
-            : muted}
         </KosekiFieldRow>
       </KosekiGroup>
 
