@@ -11,6 +11,7 @@ import { showToast } from '@/components/ui/Toast'
 import { useIsManager } from '@/components/providers/AuthProvider'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { SectionHeading } from '@/components/ui/InlineFields'
+import { PersonRoleChip, PersonRoleLegend, roleKindOf } from '@/components/ui/PersonRoleChip'
 import HintTip from '@/components/ui/HintTip'
 import {
   KOSEKI_REQUEST_TYPES, KOSEKI_RANGES, KOSEKI_REQUEST_REASONS,
@@ -349,6 +350,14 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
     const h = heirByName.get(name.trim())
     return (h?.relationship_type || h?.relationship || '').trim()
   }
+  // 戸籍画像のマーカーと同じ3区分。氏名より「誰なのか」で探すので、続柄を主に出す。
+  const kindOfPerson = (name: string) => roleKindOf({
+    isDeceasedPerson: name.trim() === (deceasedName ?? '').trim(),
+    isDeceasedHeir: heirByName.get(name.trim())?.is_deceased,
+  })
+  const isClientPerson = (name: string) => !!heirByName.get(name.trim())?.is_client
+  const roleLabel = (name: string) =>
+    name.trim() === (deceasedName ?? '').trim() ? '被相続人' : relOf(name)
   // タブで開いている請求。対象者を切り替えたら先頭の請求に戻す。
   // タスク詳細や上の一覧から ?focus={請求ID} で来たときは、その請求のタブを開く。
   const [activeReqId, setActiveReqId] = useState<string | null>(focusId)
@@ -407,14 +416,20 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
               <button type="button" onClick={() => setSub(t.id)}
                 className={`flex-1 min-w-0 text-left text-[12px] px-2.5 py-1.5 rounded-md flex items-center gap-1.5 ${sub === t.id ? 'bg-brand-50 text-brand-700 font-semibold shadow-[inset_2px_0_0_var(--color-brand-600)]' : 'text-gray-600 hover:bg-gray-50'}`}>
                 {isTop ? <Table2 className="w-3.5 h-3.5 flex-none" /> : pending ? <Lock className="w-3 h-3 flex-none text-amber-500" /> : <span className="w-3.5 h-3.5 flex-none" />}
-                <span className="flex-1 break-words leading-tight">
-                  {t.label}
-                  {/* 続柄は相続人だけ。被相続人は続柄を持たないので出さない
-                      （相続人一覧に居ない＝被相続人か自由入力の対象者。未設定とは違う） */}
-                  {!isTop && t.id !== '__unset__' && heirByName.has(t.id.trim()) && (
-                    <span className={`block text-[10px] font-normal leading-tight ${relOf(t.id) ? 'text-gray-400' : 'text-amber-600'}`}>
-                      {relOf(t.id) || '続柄 未設定'}
-                    </span>
+                <span className="flex-1 min-w-0">
+                  {isTop || t.id === '__unset__' ? (
+                    <span className="break-words leading-tight">{t.label}</span>
+                  ) : (
+                    /* 氏名より「誰なのか」で探すので、続柄を主・氏名を従にする。
+                       左の帯は戸籍画像のマーカーと同じ色。 */
+                    <PersonRoleChip
+                      role={roleLabel(t.id) || (heirByName.has(t.id.trim()) ? '続柄 未設定' : '')}
+                      name={t.id}
+                      kind={kindOfPerson(t.id)}
+                      isClient={isClientPerson(t.id)}
+                      note={heirByName.get(t.id.trim())?.is_deceased ? '死亡' : null}
+                      compact
+                    />
                   )}
                 </span>
                 {!isTop && <span className="text-[9px] font-semibold px-1 rounded flex-none bg-gray-100 text-gray-600">{reqs.length}</span>}
@@ -442,7 +457,8 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
           <div className="space-y-3.5">
             <ProgressSummary caseId={caseId} scopeKey="koseki" title="進捗/結果（戸籍調査 全体）" />
             <div>
-              <SectionHeading title="戸籍の取得状況" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <SectionHeading title="戸籍の取得状況" className="mb-1.5 pb-1.5 border-b border-gray-200" />
+              <PersonRoleLegend className="mb-2" />
               <div className="overflow-x-auto">
                 <table className="w-full text-[12px] border-collapse" style={{ minWidth: 620 }}>
                   <thead>
@@ -463,8 +479,17 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                       <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-brand-50/30 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`} title="この請求を開く"
                         onClick={() => { setSub((r.target_person ?? '').trim() || '__unset__'); setActiveReqId(r.id) }}>
                         {/* 対象者。ホバーで出る「＋戸籍」から、その人の戸籍をもう1件足せる（人を選び直さなくていい） */}
-                        <td className="px-2.5 py-2 font-medium text-gray-800 group/cell">
-                          {r.target_person || <span className="text-gray-300">—</span>}
+                        <td className="px-2.5 py-2 group/cell">
+                          {r.target_person
+                            ? <PersonRoleChip
+                                role={roleLabel(r.target_person)}
+                                name={r.target_person}
+                                kind={kindOfPerson(r.target_person)}
+                                isClient={isClientPerson(r.target_person)}
+                                note={heirByName.get((r.target_person ?? '').trim())?.is_deceased ? '死亡' : null}
+                                compact
+                              />
+                            : <span className="text-gray-300">—</span>}
                           {r.is_additional && <span className="ml-1 text-[10px] text-amber-600">追加</span>}
                           {(r.target_person ?? '').trim() && (
                             <button type="button" title={`${r.target_person} の戸籍を追加請求`}

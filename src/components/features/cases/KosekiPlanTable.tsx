@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import SelectOrTextField from './SelectOrTextField'
+import { PersonRoleChip, PersonRoleLegend, roleKindOf, type PersonRoleKind } from '@/components/ui/PersonRoleChip'
 import { KOSEKI_PLAN_RANGES, KOSEKI_PLAN_ADDRESS_DOCS, KOSEKI_AUTHORITIES } from '@/lib/constants'
 import HintTip from '@/components/ui/HintTip'
 import type { CaseRow, HeirRow, KosekiPlanRow } from '@/types'
@@ -35,9 +36,16 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
 
   // 対象者＝被相続人＋相続人。名前で対応づける（実務タブの請求対象者と同じキー）。
   // 依頼者は戸籍請求の起点（この人の戸籍から出す）なので、ここで分かるようにバッジを出す。
-  const people: { name: string; role: string; isClient?: boolean }[] = [
-    ...(caseData.deceased_name ? [{ name: caseData.deceased_name, role: '被相続人' }] : []),
-    ...heirs.filter(h => h.name).map(h => ({ name: h.name, role: h.relationship || '相続人', isClient: !!h.is_client })),
+  // 色は戸籍画像のマーカーと同じ3区分（被相続人＝黄／相続人＝緑／亡くなっている相続人＝水色）。
+  const people: { name: string; role: string; isClient?: boolean; kind: PersonRoleKind; dead?: boolean }[] = [
+    ...(caseData.deceased_name ? [{ name: caseData.deceased_name, role: '被相続人', kind: roleKindOf({ isDeceasedPerson: true }) }] : []),
+    ...heirs.filter(h => h.name).map(h => ({
+      name: h.name,
+      role: (h.relationship_type || h.relationship || '').trim() || '相続人',
+      isClient: !!h.is_client,
+      kind: roleKindOf({ isDeceasedHeir: h.is_deceased }),
+      dead: !!h.is_deceased,
+    })),
   ]
 
   useEffect(() => {
@@ -70,7 +78,9 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div>
+      <PersonRoleLegend className="mb-2" />
+      <div className="overflow-x-auto">
       <table className="w-full text-[12px] border-collapse" style={{ minWidth: 820 }}>
         <thead>
           <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
@@ -88,15 +98,9 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
             const plan = plans[p.name.trim()]
             return (
               <tr key={p.name} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                {/* 氏名より「誰なのか」で探すので、続柄を主・氏名を従にする */}
                 <td className="px-2 py-1.5">
-                  <span className="text-[12.5px] text-gray-800">{p.name}</span>
-                  <span className="flex items-center gap-1 mt-0.5">
-                    <span className="text-[10.5px] text-gray-400">{p.role}</span>
-                    {p.isClient && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-brand-50 text-brand-700 border border-brand-200"
-                        title="この案件を依頼した相続人。戸籍請求はこの人の分から出します">依頼者</span>
-                    )}
-                  </span>
+                  <PersonRoleChip role={p.role} name={p.name} kind={p.kind} isClient={p.isClient} note={p.dead ? '死亡' : null} compact />
                 </td>
                 <td className="px-2 py-1.5">
                   <SelectOrTextField
@@ -131,6 +135,7 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
           })}
         </tbody>
       </table>
+      </div>
       <p className="mt-2 text-[11px] text-gray-400">
         ここは「どんな戸籍が要りそうか」の見立てです。役所ごとの請求条件（筆頭者・謄本/抄本など）は、実務タブの戸籍請求で決めます。
       </p>

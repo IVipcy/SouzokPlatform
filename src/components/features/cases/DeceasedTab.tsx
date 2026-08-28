@@ -21,6 +21,7 @@ import { SubTabs } from '@/components/ui/SubTabs'
 import KosekiSection from './KosekiSection'
 import KosekiPlanTable from './KosekiPlanTable'
 import NameHint from '@/components/ui/NameHint'
+import { PersonRoleChip, PersonRoleLegend, roleKindOf } from '@/components/ui/PersonRoleChip'
 import { normalizePersonName } from '@/lib/personName'
 import AddressHint from '@/components/ui/AddressHint'
 import { normalizeAddress } from '@/lib/address'
@@ -433,12 +434,14 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
               相続人を追加してください
             </div>
           ) : (
-            <div className="hidden sm:block overflow-x-auto">
+            <div className="hidden sm:block">
+              <PersonRoleLegend className="mb-2" />
+              <div className="overflow-x-auto">
               <table className="w-full border-collapse" style={{ minWidth: 640 }}>
                 <thead>
                   <tr>
                     {/* オーダーシート（受注担当ざっくり）では詳細列(生年月日/住所/本籍)を隠し、実務タブ（管理担当詳細化）で表示。エクセルR42-44 */}
-                    {['氏名', '依頼者', '同居', '死亡', ...(orderSheetMode ? [] : ['生年月日', '住所', '本籍']), ''].map((h, hi) => (
+                    {['相続人', '依頼者', '同居', '死亡', ...(orderSheetMode ? [] : ['生年月日', '住所', '本籍']), ''].map((h, hi) => (
                       <th key={hi} className="text-left px-3 py-2 text-[11px] font-medium text-gray-600 tracking-[0.04em] bg-gray-50 border-b border-gray-300">{h}</th>
                     ))}
                   </tr>
@@ -447,13 +450,16 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                   {heirs.map(heir => (
                     <tr key={heir.id} className="border-b border-gray-100 last:border-b-0 hover:bg-[#FAFBFF] group">
                       <td className="px-3 py-2.5">
-                        <div className="text-xs font-semibold text-gray-900">{heir.name}</div>
+                        {/* 氏名より「誰なのか」で探すので、続柄を主・氏名を従にする。
+                            色は戸籍画像のマーカーと同じ（相続人＝緑／亡くなっている相続人＝水色）。 */}
+                        <PersonRoleChip
+                          role={(heir.relationship_type || heir.relationship || '').trim()}
+                          name={heir.name}
+                          kind={roleKindOf({ isDeceasedHeir: heir.is_deceased })}
+                          isClient={!!heir.is_client}
+                          compact
+                        />
                         <div className="flex items-center gap-1 flex-wrap mt-0.5">
-                          {(heir.relationship_type || heir.relationship) && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold border bg-brand-50 text-brand-600 border-brand-200">
-                              {heir.relationship_type ?? heir.relationship}
-                            </span>
-                          )}
                           {heir.is_legal_heir && (
                             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-600">法定相続人</span>
                           )}
@@ -527,6 +533,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 
