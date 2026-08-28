@@ -22,6 +22,13 @@ function normGyomu(phase: string | null | undefined): string {
 export type TimelineReceipt = {
   id: string
   received_date: string | null
+  // 郵便物の種類・未開封の一式かどうか・格納先。受信簿の表がそのまま出す項目。
+  // 取得クエリから漏らすと、受注担当の画面で種類が空欄になる。
+  postal_type?: string | null
+  is_parcel?: boolean | null
+  opened_at?: string | null
+  storage_team_id?: string | null
+  arrival_notified_at?: string | null
   started_by_member?: { name: string } | null
   started_task_id?: string | null
   items?: {

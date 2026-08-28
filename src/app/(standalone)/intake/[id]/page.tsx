@@ -54,7 +54,7 @@ export default async function IntakeCasePage({ params }: Props) {
     supabase.from('contract_documents').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
     supabase.from('sagyo_documents').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
     supabase.from('document_receipts')
-      .select('id, received_date, dual_checked_at, started_by_member_id, started_task_id, started_by_member:members!document_receipts_started_by_member_id_fkey(name), items:document_receipt_items(id, item_name, sort_order, uploaded_at, link_not_required, settlement_reflect, settlement_amount, linked_id, linked_kind, linked_field, case_document_id, case_document:case_documents!case_document_id(received_file_path, received_file_bucket, received_file_name), item_tasks:document_receipt_item_tasks(task:tasks(id, title)))')
+      .select('id, received_date, postal_type, is_parcel, opened_at, storage_team_id, arrival_notified_at, dual_checked_at, started_by_member_id, started_task_id, started_by_member:members!document_receipts_started_by_member_id_fkey(name), items:document_receipt_items(id, item_name, sort_order, uploaded_at, link_not_required, settlement_reflect, settlement_amount, linked_id, linked_kind, linked_field, case_document_id, case_document:case_documents!case_document_id(received_file_path, received_file_bucket, received_file_name), item_tasks:document_receipt_item_tasks(task:tasks(id, title)))')
       .eq('case_id', id).order('received_date', { ascending: true }),
     supabase.from('meeting_memos').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
     // その他財産／相続債務／その他費用。migration 224 未適用環境では error → 空配列で degrade。

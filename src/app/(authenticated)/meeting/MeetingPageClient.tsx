@@ -32,6 +32,9 @@ export type SelectedCase = {
   otherNeeds?: string | null
   meetingOtherNotes?: string | null
   considerationDeclineReasonDetail?: string | null
+  // 面談シート①で選んだ契約形態。②の初期値として引き継がないと、
+  // 保存時に空で上書きされてオーダーシートから消える。
+  contractType?: string | null
   // 面談シート①で選んだ受注区分。②面談結果登録の serviceCategories 初期値として引き継ぐ
   serviceCategories?: string[]
   // 面談シート①で選んだ実施業務(intake_roles)。②の init.intakeRoles として引き継がないと
