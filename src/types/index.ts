@@ -647,7 +647,8 @@ export type KosekiRequestRow = {
   expected_arrival_date: string | null // 到着予定日（見込み。migration 085）
   notes: string | null
   acquired_part: string | null    // 取得した受注区分パート（パート制。migration 128）
-  read_result: string | null      // 読込結果（migration 146）
+  read_result: string | null      // 読込結果の内容（migration 146）
+  read_status: string | null      // 読込結果のステータス（取得完了/一部不足。migration 261）
   // 費用（migration 148。確定費用＝予算−返金＝立替実費の実績）
   cost_budget: number | null
   cost_refund: number | null

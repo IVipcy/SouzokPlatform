@@ -50,13 +50,42 @@ const kosekiTabLabel = (r: KosekiRequestRow, i: number) => {
   const types = (r.doc_types ?? '').split('・').map(v => v.trim()).filter(Boolean)
   const type = types.length === 0 ? '' : types.length === 1 ? types[0] : `${types[0]} +${types.length - 1}`
   if (!dest && !type) return `新しい請求${i > 0 ? ` (${i + 1})` : ''}`
-  return [dest || '請求先未入力', type].filter(Boolean).join('　')
+  // 追加請求はタブ名側に出す。状態バッジ（未請求/請求中/…）とは別の軸で、
+  // 追加請求の行も当然「請求中」になるため、同じ枠には入れられない。
+  const extra = r.request_kind === '追加請求' || r.is_additional ? '（追加）' : ''
+  return `${[dest || '請求先未入力', type].filter(Boolean).join('　')}${extra}`
 }
+// 請求タブの状態バッジ。
+//
+// 色ではなく文字で状態を言う。この画面では色が「誰の戸籍か」（戸籍画像のマーカーと同じ
+// 黄＝被相続人／緑＝相続人／青＝亡くなっている相続人）で埋まっていて、そこに状態の色を
+// 足すと、1つの色が2つの質問に答えることになるため。
+// 色が付くのは「一部不足」だけ。タブの列に赤が1つあれば、そこが手を打つところ。
+// 濃さがそのまま仕事の順番になる（濃い＝確認待ち＝今やること／枠だけ＝待ち／薄い＝終わり）。
+/** 読込結果のステータス。カードの選択肢とタブのバッジで共通に使う。 */
+const KOSEKI_READ_STATUSES = ['取得完了', '一部不足'] as const
+
+const KOSEKI_TAB_STATUS = {
+  none:    { label: '未請求',   cls: 'text-gray-400 border border-gray-200' },
+  request: { label: '請求中',   cls: 'text-gray-500 border border-gray-300' },
+  check:   { label: '確認待ち', cls: 'text-white bg-gray-500' },
+  partial: { label: '一部不足', cls: 'text-red-700 bg-red-50 border border-red-200' },
+  done:    { label: '完了',     cls: 'text-gray-400 bg-gray-100' },
+} as const
+
+const kosekiTabStatus = (r: KosekiRequestRow): keyof typeof KOSEKI_TAB_STATUS => {
+  if (r.read_status === '一部不足') return 'partial'
+  if (r.read_status === '取得完了') return 'done'
+  if (r.arrival_date) return 'check'
+  return r.request_date ? 'request' : 'none'
+}
+
 // タブのホバーで出す全文（種別を省略せず並べる）
 const kosekiTabTitle = (r: KosekiRequestRow) => {
   const dest = (r.request_to ?? '').trim() || '請求先未入力'
   const types = (r.doc_types ?? '').split('・').map(v => v.trim()).filter(Boolean)
-  return types.length > 0 ? `${dest}／${types.join('・')}` : dest
+  const head = types.length > 0 ? `${dest}／${types.join('・')}` : dest
+  return `${head}（${KOSEKI_TAB_STATUS[kosekiTabStatus(r)].label}）`
 }
 const reqLabel = (r: KosekiRequestRow) => [r.request_to, r.target_person].filter(Boolean).join('・') || '新規請求'
 
@@ -502,7 +531,14 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                         <td className="px-2.5 py-2 text-gray-700">{r.request_to || <span className="text-gray-300">—</span>}</td>
                         <td className="px-2.5 py-2">{r.request_date?.slice(5).replace('-', '/') || '—'}</td>
                         <td className="px-2.5 py-2">{r.arrival_date?.slice(5).replace('-', '/') || '—'}</td>
-                        <td className="px-2.5 py-2 text-gray-500 text-[11px] max-w-[240px] truncate" title={r.read_result ?? ''}>{r.read_result || <span className="text-gray-300">—</span>}</td>
+                        {/* 読込結果。ステータス（取得完了/一部不足）を先に出し、内容を後ろに添える。
+                            一覧を上から見て「一部不足」を拾えるようにする。 */}
+                        <td className="px-2.5 py-2 text-gray-500 text-[11px] max-w-[240px] truncate" title={[r.read_status, r.read_result].filter(Boolean).join('：')}>
+                          {r.read_status && (
+                            <span className={`inline-block mr-1 text-[10px] px-1.5 py-[1px] rounded-full ${KOSEKI_TAB_STATUS[r.read_status === '一部不足' ? 'partial' : 'done'].cls}`}>{r.read_status}</span>
+                          )}
+                          {r.read_result || (!r.read_status && <span className="text-gray-300">—</span>)}
+                        </td>
                         <td className="px-2.5 py-2 text-right">{yen(effConfirmed(r))}</td>
                         {/* 戸籍画像：押すとビューアが開き、そこから全員ぶんを横送りできる */}
                         <td className="px-2.5 py-2" onClick={e => e.stopPropagation()}>
@@ -571,23 +607,25 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
               ) : (
                 <div>
                   {/* 請求ごとのタブ。同じ人に2回目を出すとタブが増える。
-                      左の点＝状態（緑=到着済／琥珀=請求中／灰=未請求）。 */}
+                      状態は色の点ではなく文字のバッジ（KOSEKI_TAB_STATUS）で出す。 */}
                   <div className="flex items-end gap-1 flex-wrap border-b border-gray-200 mb-3">
                     {personRequests.map((r, i) => {
                       const on = (activeReqId ?? personRequests[0]?.id) === r.id
-                      const dot = r.arrival_date ? 'bg-emerald-500' : r.request_date ? 'bg-amber-500' : 'bg-gray-300'
+                      const st = KOSEKI_TAB_STATUS[kosekiTabStatus(r)]
+                      const finished = kosekiTabStatus(r) === 'done'
                       return (
                         <button
                           key={r.id}
                           type="button"
                           onClick={() => setActiveReqId(r.id)}
                           title={kosekiTabTitle(r)}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] rounded-t-lg border border-b-0 -mb-px transition-colors ${
-                            on ? 'bg-white border-gray-200 text-gray-800 font-semibold' : 'bg-gray-50 border-transparent text-gray-500 hover:text-gray-800'
+                          className={`inline-flex items-center gap-2 px-3 py-1.5 text-[12.5px] rounded-t-lg border border-b-0 -mb-px transition-colors ${
+                            on ? 'bg-white border-gray-200 text-gray-800 font-semibold'
+                              : `bg-gray-50 border-transparent hover:text-gray-800 ${finished ? 'text-gray-400' : 'text-gray-500'}`
                           }`}
                         >
-                          <span className={`w-1.5 h-1.5 rounded-full flex-none ${dot}`} />
                           {kosekiTabLabel(r, i)}
+                          <span className={`text-[10px] tracking-wider px-2 py-[1px] rounded-full flex-none ${st.cls}`}>{st.label}</span>
                         </button>
                       )
                     })}
@@ -942,6 +980,41 @@ function KosekiCard({ r, meId, personNames = [], saveField, saveMany, onDelete, 
               {mistaken && <span className="text-[10px] text-purple-600">経費として集計</span>}
             </KosekiFieldRow>
           </>
+        )}
+      </KosekiGroup>
+
+      {/* 読込結果。届いた戸籍を開けて読んだ人が最後に書く。
+          「出生から死亡まで」で請求しても転籍を最後まで遡れないことがあり、それが分かるのは
+          ここまで来てから。受信簿で紐づけた時点では中を読んでいないので判定できない。
+          一部不足なら、残りは上の「＋ 請求を追加」で新しい請求を立てて取りに行く。
+          請求範囲は書き換えない（何を請求したかの記録が消えるため）。 */}
+      <KosekiGroup title="読込結果">
+        <KosekiFieldRow label="取得の結果" full>
+          <div className="inline-flex rounded-md border border-gray-200 overflow-hidden">
+            {KOSEKI_READ_STATUSES.map(s => {
+              const on = r.read_status === s
+              return (
+                <button key={s} type="button"
+                  onClick={() => saveField(r.id, 'read_status', on ? '' : s)}
+                  className={`px-3 py-1 text-[12px] font-semibold transition ${
+                    on ? (s === '一部不足' ? 'bg-red-600 text-white' : 'bg-gray-600 text-white')
+                       : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                  {s}
+                </button>
+              )
+            })}
+          </div>
+        </KosekiFieldRow>
+        <KosekiFieldRow label="内容" full>
+          <TxtCell value={r.read_result} onCommit={v => saveField(r.id, 'read_result', v)}
+            placeholder={r.read_status === '一部不足' ? '例：出生〜昭和30年まで取得。以降は本籍地の越谷市へ追加請求が必要' : '読んで分かったこと'} />
+        </KosekiFieldRow>
+        {r.read_status === '一部不足' && (
+          <KosekiFieldRow label="次にやること" full>
+            <span className="text-[12px] text-brand-700">
+              上の「＋ 請求を追加」で、この対象者の追加請求タブを作ってください（請求区分は「追加請求」）。
+            </span>
+          </KosekiFieldRow>
         )}
       </KosekiGroup>
     </div>
