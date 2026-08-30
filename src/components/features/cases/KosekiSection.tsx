@@ -28,7 +28,7 @@ import {
 const KIND_HINT = KOSEKI_REQUEST_KINDS.map(k => `${k}：${REQUEST_KIND_HELP[k]}`).join('\n')
 import ProgressSummary from './ProgressSummary'
 import KosekiImagePanel from './KosekiImagePanel'
-import { TxtCell, SelCell, MultiCell, DateCell, MoneyCell } from './PracticeTableCells'
+import { TxtCell, SelCell, MultiCell, DateCell, MoneyCell, TemplateTextField } from './PracticeTableCells'
 import SelectOrTextField from './SelectOrTextField'
 import KosekiRequestDocumentModal from './KosekiRequestDocumentModal'
 import { OFFICE_BRANCH_OPTIONS } from '@/lib/officeProfiles'
@@ -968,8 +968,9 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
 請求先（役所）＝取りに行く先とは別です。`}>
             <SelectOrTextField value={r.submit_to} options={KOSEKI_SUBMIT_TO_OPTIONS} onSave={v => saveField(r.id, 'submit_to', v)} placeholder={KOSEKI_SUBMIT_TO_DEFAULT} />
           </KosekiFieldRow>
-          <KosekiFieldRow label="使用目的" full hint="戸籍請求書の「使用目的」欄にそのまま入ります。選んでから直せます。">
-            <SelectOrTextField value={r.request_reason} options={KOSEKI_REQUEST_REASONS} onSave={v => saveField(r.id, 'request_reason', v)} placeholder="使用目的" />
+          <KosekiFieldRow label="使用目的" hint="戸籍請求書の「使用目的」欄にそのまま入ります。定型文を選んでから直せます。">
+            <TemplateTextField value={r.request_reason} options={KOSEKI_REQUEST_REASONS}
+              onSave={v => saveField(r.id, 'request_reason', v)} placeholder="使用目的" />
           </KosekiFieldRow>
         </>)}
       </KosekiGroup>
@@ -1018,15 +1019,16 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
           </KosekiFieldRow>
         </>)}
         <KosekiFieldRow label="請求範囲">
-          <SelectOrTextField value={r.range_text} options={KOSEKI_RANGES} onSave={v => saveField(r.id, 'range_text', v)} placeholder="出生～死亡 等" />
+          <TemplateTextField value={r.range_text} options={KOSEKI_RANGES}
+            onSave={v => saveField(r.id, 'range_text', v)} placeholder="出生～死亡 等" rows={1} />
         </KosekiFieldRow>
-        <KosekiFieldRow label="請求範囲詳細" full
+        <KosekiFieldRow label="請求範囲詳細"
           hint="戸籍請求書の「備考」欄にそのまま入ります。請求の種別に合う定型文を選んでから、日付などを直してください。">
-          <SelectOrTextField
+          <TemplateTextField
             value={r.range_detail}
             options={kosekiRangeDetailOptions(r.doc_types, r.target_person ?? '')}
             onSave={v => saveField(r.id, 'range_detail', v)}
-            placeholder="例：○○さまの出生〜死亡までの一連の戸籍が必要です。"
+            placeholder="定型文を選ぶか、そのまま書いてください"
           />
         </KosekiFieldRow>
       </KosekiGroup>

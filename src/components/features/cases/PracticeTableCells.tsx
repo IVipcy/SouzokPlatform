@@ -102,3 +102,48 @@ export function DcCell({ name, at, me, onSet, meId, workerId, isManager, disable
     <button type="button" onClick={press} className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10.5px] font-semibold text-gray-500 bg-white border border-gray-300 hover:border-emerald-400 hover:text-emerald-700"><UserCheck className="w-3 h-3" />未確認</button>
   )
 }
+
+/**
+ * 定型文から選んで、そのまま直せる入力欄。
+ *
+ * SelectOrTextField は「選ぶモード」と「自由入力モード」が別で、選んだ文章を直すには
+ * 鉛筆を押してモードを切り替える必要があった。使用目的や請求範囲詳細は
+ * 「定型文を出してから日付や言い回しを直す」のが普通の使い方なので、切り替えを無くす。
+ *
+ * 上の行で定型文を選ぶと下の入力欄に入る。あとは普通のテキストとして直せる。
+ * 定型文の一覧に無い文章もそのまま書ける。
+ */
+export function TemplateTextField({ value, options, onSave, placeholder, rows = 2 }: {
+  value: string | null
+  options: readonly string[]
+  onSave: (v: string) => void
+  placeholder?: string
+  rows?: number
+}) {
+  return (
+    <div className="w-full min-w-0 space-y-1">
+      {options.length > 0 && (
+        <select
+          value=""
+          onChange={e => { if (e.target.value) onSave(e.target.value) }}
+          style={{ fontFamily: 'inherit' }}
+          className="w-full px-1.5 py-1 text-[11.5px] text-gray-500 border border-gray-200 rounded bg-white outline-none focus:border-brand-500"
+        >
+          <option value="">定型文から選ぶ…</option>
+          {options.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+      )}
+      {/* key を値にすると、定型文を選んだときに入力欄の中身が入れ替わる
+          （defaultValue は最初の描画でしか効かないため） */}
+      <textarea
+        key={value ?? ''}
+        defaultValue={value ?? ''}
+        rows={rows}
+        onBlur={e => { if (e.target.value !== (value ?? '')) onSave(e.target.value) }}
+        placeholder={placeholder}
+        className="w-full px-1.5 py-1 text-[12.5px] border border-gray-200 rounded outline-none focus:border-brand-500 resize-y leading-snug"
+      />
+    </div>
+  )
+}
+
