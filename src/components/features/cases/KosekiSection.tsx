@@ -807,11 +807,14 @@ function KosekiFieldRow({ label, hint, sub, children, full = false }: {
   full?: boolean
 }) {
   // full のときはラベル1列＋値3列＝4列で1行を使い切る。
-  // 値だけに col-span-3 を掛けると合計5列になり、4列の枠から溢れて
-  // 選択肢が次の行へ押し出されていた（住民票の基礎証明外事項で発覚）。
+  //
+  // 外側の div は display:contents なので、そこに col-span を掛けても効かない
+  // （箱が作られないため）。効かせるのは中の2つだけ。
+  // さらにラベルに col-start-1 が要る。前の行が2列で終わっていると full の行が
+  // 3列目から始まり、値の3列が入りきらず次の行へ落ちる（使用目的・請求範囲詳細で発覚）。
   return (
-    <div className={`contents ${full ? 'sm:col-span-4' : ''}`}>
-      <div className="bg-gray-50/80 border-r border-gray-100 px-3 py-2 flex flex-col justify-center text-[11.5px] font-semibold text-gray-600 leading-snug">
+    <div className="contents">
+      <div className={`bg-gray-50/80 border-r border-gray-100 px-3 py-2 flex flex-col justify-center text-[11.5px] font-semibold text-gray-600 leading-snug ${full ? 'sm:col-start-1' : ''}`}>
         <span className="inline-flex items-center gap-1">{label}{hint && <HintTip text={hint} />}</span>
         {sub && <span className="text-[10px] font-normal text-brand-700">{sub}</span>}
       </div>
