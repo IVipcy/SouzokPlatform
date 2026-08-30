@@ -25,6 +25,12 @@ export type SeverityThresholds = { green: number; orange: number; red: number }
 export const THRESHOLDS_ASSETS: SeverityThresholds = { green: 3, orange: 5, red: 8 }
 /** 相続人調査（戸籍）。遅れが後工程を全部止めるので早めに色を上げる */
 export const THRESHOLDS_HEIRS: SeverityThresholds = { green: 3, orange: 4, red: 6 }
+/**
+ * 郵便（到着物から生まれたタスク）。届いた物は当日か翌営業日に開けて読むもので、
+ * 溜めると原本が机の上に積まれる。1営業日の超過でいきなり赤にする。
+ * 業務区分ではなく郵便タブという見え方に対するしきい値なので、業務からは引かない。
+ */
+export const THRESHOLDS_MAIL: SeverityThresholds = { green: 1, orange: 1, red: 1 }
 
 /** 業務区分 → しきい値。ここに無い業務は財産調査と同じ */
 const THRESHOLDS_BY_GYOMU: Record<string, SeverityThresholds> = {
@@ -63,11 +69,12 @@ export const SEVERITY_RANK: Record<TaskSeverity, number> = { red: 0, orange: 1, 
 /** 急ぎ・超急ぎ。日数とは別に、それだけで要注意へ回す */
 export const isUrgentTask = (t: SeverityInput) => t.priority === '急ぎ' || t.priority === '超急ぎ'
 
-export function taskSeverity(t: SeverityInput, today: string): TaskSeverity {
+/** override を渡すと業務区分ではなくそのしきい値で判定する（郵便タブ用） */
+export function taskSeverity(t: SeverityInput, today: string, override?: SeverityThresholds): TaskSeverity {
   // 急ぎ・超急ぎは日数を待たずに赤。期限にまだ余裕があっても先に手を付けてほしいもの。
   if (isUrgentTask(t)) return 'red'
   const over = t.due_date ? bizDaysOverdue(t.due_date, today) : 0
-  const th = thresholdsOf(t)
+  const th = override ?? thresholdsOf(t)
   if (over >= th.red) return 'red'
   if (over >= th.orange) return 'orange'
   if (over >= th.green) return 'green'

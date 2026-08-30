@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect, type ReactNode } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, User, X, CheckCircle2, Trash2, ListChecks, Compass, HelpCircle, ChevronDown, ChevronsUpDown, SlidersHorizontal } from 'lucide-react'
@@ -14,7 +14,7 @@ import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUSES, TASK_PRIORITIES, getWorkRoleDef } from '@/lib/constants'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { ASSISTANT_TASK_TABS, tabKeyOfGyomu, isHiddenForAssistant } from '@/lib/assistantTaskTabs'
-import { taskSeverity, SEVERITY_RANK, SEVERITY_TAB, SEVERITY_TAB_NOTE, SEVERITY_LABEL, type TaskSeverity } from '@/lib/taskSeverity'
+import { taskSeverity, THRESHOLDS_MAIL, SEVERITY_RANK, SEVERITY_TAB, SEVERITY_TAB_NOTE, SEVERITY_LABEL, type TaskSeverity } from '@/lib/taskSeverity'
 import { bizDaysUntil } from '@/lib/overdue'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { GyomuBadge } from '@/components/ui/KoteiBadge'
@@ -63,18 +63,15 @@ type Props = {
    */
   caseScope?: boolean
   /**
-   * 業務タブの「すべて」の右に差し込む追加タブ（事務管理ダッシュボードの郵便）。
-   * このタブを開いている間は、タスク用の絞り込み（ステータス・遅れ・優先度）は関係ないので隠す。
+   * 到着物受信簿の「対応」で作った／結んだタスクのID。
+   * 渡すと業務タブの先頭に「郵便」タブが出て、そのタスクだけを並べる。
+   *
+   * 郵便タブは業務区分（戸籍・不動産・金融…）で切らない。
+   * 区役所や法務局から返ってきた物を開けて読む、という一連の仕事は業務をまたぐし、
+   * 届いた物を放置しないことのほうが、どの業務のものかより先に来るため。
+   * しきい値も業務ではなく郵便のもの（1営業日の超過で赤）を使う。
    */
-  extraTab?: {
-    key: string
-    label: string
-    /** タブに出す件数（未対応の郵便物の数） */
-    count: number
-    /** タブの色。blue=当日 / green=翌営業日 / orange=2営業日以上そのまま */
-    tone: 'blue' | 'green' | 'orange'
-    content: ReactNode
-  }
+  mailTaskIds?: Set<string>
 }
 
 /** ダッシュボードのバナー →「すべて」タブを指定条件で絞った状態にする指示 */
@@ -165,14 +162,10 @@ function Chip({ label, note, tone, on, onClick }: {
   )
 }
 
-// 郵便タブの色。当日=青／翌営業日=緑／2営業日以上そのまま=オレンジ。
-const EXTRA_TAB_TONE = {
-  blue:   { text: 'text-brand-700',  dot: 'bg-brand-500',  badge: 'bg-brand-100 text-brand-700' },
-  green:  { text: 'text-emerald-700', dot: 'bg-emerald-500', badge: 'bg-emerald-100 text-emerald-700' },
-  orange: { text: 'text-orange-700', dot: 'bg-orange-500', badge: 'bg-orange-100 text-orange-700' },
-} as const
+/** 郵便タブのキー。業務タブのキー（heirs/realestate/…）とぶつからない名前にする。 */
+const MAIL_TAB = 'mail'
 
-export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [], roleScope = 'assistant', financeBlockedCaseIds = [], freezeAssetsByCase = {}, embedded = false, jump = null, caseScope = false, extraTab }: Props) {
+export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [], roleScope = 'assistant', financeBlockedCaseIds = [], freezeAssetsByCase = {}, embedded = false, jump = null, caseScope = false, mailTaskIds }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentMemberId = useCurrentMember(serverMemberId)
@@ -229,8 +222,8 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   }
 
   const today = new Date().toISOString().split('T')[0]
-  // 追加タブ（郵便）を開いているか。開いている間はタスクの絞り込みを出さない。
-  const onExtraTab = !!extraTab && taskTab === extraTab.key
+  /** 郵便タブに入るタスクか（到着物受信簿の「対応」で作った／結んだもの） */
+  const isMailTask = useCallback((t: TaskRow) => !!mailTaskIds?.has(t.id), [mailTaskIds])
 
   // 案件タスク（task_kind='case'）を担当区分(work_role)で振り分ける。
   // 受注/管理担当の初期タスク(task_kind='system')はどちらの一覧からも除外。
@@ -291,8 +284,10 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   }, [assistantTasks, statusFilter, filterMine, search, caseMap, currentMemberId, today, sevFilter, priFilter, outingOnly, caseScope, isReady, roleScope])
 
   const filtered = useMemo(() => {
-    // 業務タブ（'all' 以外は そのタブに属する業務のタスクだけ）
-    const result = taskTab === 'all' ? scopedTasks : scopedTasks.filter(t => tabKeyOfGyomu(gyomuOf(t)) === taskTab)
+    // 業務タブ（'all' 以外は そのタブに属する業務のタスクだけ）。郵便だけ業務では切らない。
+    const result = taskTab === 'all' ? scopedTasks
+      : taskTab === MAIL_TAB ? scopedTasks.filter(isMailTask)
+      : scopedTasks.filter(t => tabKeyOfGyomu(gyomuOf(t)) === taskTab)
     // 見出しで選んだ並び。期限なしは常に最後（並べる基準がないため）。
     if (sortKey !== 'default') {
       const sign = sortDir === 'asc' ? 1 : -1
@@ -325,7 +320,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       const bd = b.due_date ?? '9999-12-31'
       return ad.localeCompare(bd)
     })
-  }, [scopedTasks, taskTab, today, sortKey, sortDir])
+  }, [scopedTasks, taskTab, today, sortKey, sortDir, isMailTask])
 
   // 業務タブごとの件数と重さ。タブの並びは定義どおり固定で、0件でも出す
   // （「そのタブは今やることが無い」ことが分かるほうが探しやすい）。
@@ -337,17 +332,22 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     const m: Record<string, { count: number; sev: TaskSeverity }> = {}
     const touch = (k: string) => (m[k] ??= { count: 0, sev: 'blue' })
     touch('all')
+    if (mailTaskIds) touch(MAIL_TAB)
     for (const t of scopedTasks) {
       const done = normalizeStatus(t.status) === '完了'
-      const sev = taskSeverity(t, today)
-      for (const k of [tabKeyOfGyomu(gyomuOf(t)), 'all']) {
+      const keys = [tabKeyOfGyomu(gyomuOf(t)), 'all']
+      // 郵便は業務タブと排他ではない。戸籍のタスクが同時に郵便にも出る。
+      if (isMailTask(t)) keys.push(MAIL_TAB)
+      for (const k of keys) {
         const e = touch(k)
         e.count += 1
+        // 郵便だけ「1営業日の超過で赤」。業務ごとのしきい値は使わない。
+        const sev = taskSeverity(t, today, k === MAIL_TAB ? THRESHOLDS_MAIL : undefined)
         if (!done && SEVERITY_RANK[sev] < SEVERITY_RANK[e.sev]) e.sev = sev
       }
     }
     return m
-  }, [scopedTasks, today])
+  }, [scopedTasks, today, isMailTask, mailTaskIds])
 
   const kpis = useMemo(() => {
     const pre = assistantTasks.filter(t => normalizeStatus(t.status) === '着手前')
@@ -499,7 +499,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         )}
 
         {/* Toolbar: 大きいステータス（毎日押す）＋ 絞り込み（遅れ・優先度をたたむ）＋ 自分のタスク */}
-        <div className={`flex items-center gap-2.5 flex-wrap ${onExtraTab ? 'hidden' : ''}`}>
+        <div className="flex items-center gap-2.5 flex-wrap">
           {/* ステータス：よく見る「対応中・着手OK」を左に寄せ、押しやすいよう少し大きく。 */}
           <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
             <FilterTab label="着手OK"   count={kpis.todo}     active={statusFilter === '着手前'} onClick={() => setStatusFilter('着手前')} big />
@@ -537,21 +537,11 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 
         {/* 業務タブ（実務タブ・実施業務と同じ名前で分ける）。左の点＝そのタブでいちばん重いタスク。 */}
         <div className="flex items-center gap-0.5 flex-wrap mt-2.5 border-b border-gray-200 -mb-3">
-          {extraTab && (() => {
-            const on = taskTab === extraTab.key
-            const c = EXTRA_TAB_TONE[extraTab.tone]
-            return (
-              <button type="button" onClick={() => setTaskTab(extraTab.key)}
-                title="未対応の郵便物。当日=青／翌営業日=緑／2営業日以上そのまま=オレンジ"
-                className={`inline-flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold border-b-2 transition-colors order-1 ${
-                  on ? `border-brand-600 ${c.text}` : `border-transparent ${c.text} hover:text-gray-800`}`}>
-                <span className={`w-1.5 h-1.5 rounded-full flex-none ${c.dot}`} />
-                {extraTab.label}
-                <span className={`font-mono text-[11.5px] px-1.5 py-0.5 rounded-full ${c.badge}`}>{extraTab.count}</span>
-              </button>
-            )
-          })()}
-          {[{ key: 'all', label: 'すべて' }, ...ASSISTANT_TASK_TABS].map((t, i) => {
+          {[
+            { key: 'all', label: 'すべて' },
+            ...(mailTaskIds ? [{ key: MAIL_TAB, label: '郵便' }] : []),
+            ...ASSISTANT_TASK_TABS,
+          ].map((t, i) => {
             const on = taskTab === t.key
             const info = tabInfo[t.key]
             const n = info?.count ?? 0
@@ -559,8 +549,10 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
             const c = SEVERITY_TAB[sev]
             return (
               <button key={t.key} type="button" onClick={() => setTaskTab(t.key)}
-                title={SEVERITY_TAB_NOTE[sev]}
-                style={{ order: i === 0 ? 0 : i + 1 }}
+                title={t.key === MAIL_TAB
+                  ? `到着物受信簿の「対応」で作った／結んだタスク。業務区分は問いません。1営業日の超過で赤（${SEVERITY_TAB_NOTE[sev]}）`
+                  : SEVERITY_TAB_NOTE[sev]}
+                style={{ order: i }}
                 className={`inline-flex items-center gap-1.5 px-3 py-2 text-[13px] font-semibold border-b-2 transition-colors ${
                   on
                     ? `border-brand-600 ${sev === 'blue' ? 'text-brand-700' : c.text}`
@@ -578,7 +570,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         </div>
       </div>
 
-      {onExtraTab ? extraTab!.content : (
       <>
       {/* 一括操作バー（選択数 > 0 時のみ） */}
       {selectedIds.size > 0 && (
@@ -610,7 +601,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         caseScope={caseScope}
       />
       </>
-      )}
 
       {editTask && (
         <EditTaskModal

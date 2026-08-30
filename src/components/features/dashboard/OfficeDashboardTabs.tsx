@@ -7,7 +7,7 @@
 //   ①-a ファイル化待ち … ファイル化がまだの案件（前受金の入金は関係ない。事務が今すぐやれる仕事）
 //   ①-b 作業着手待ち  … ファイル化は済んだ案件（前受金の入金待ち、または着手できる状態）
 //   ② タスク     … 事務管理タスク一覧（既定。朝いちで一番見る画面なので最初に出す）
-//   ③ 郵便       … 前営業日と本日に届いて、まだ対応していない到着物（受信簿と同じ中身）
+//   ③ 郵便       … タスクタブの中の業務タブの1つ。到着物受信簿の「対応」で作った／結んだタスク
 //   ④ 報連相     … 自分が出した報告・連絡・相談と、その確認状況
 //
 // 上部には要注意／要確認のバナーを出す。自分の持ち場のタスクだけを見た判定なので、
@@ -15,7 +15,7 @@
 // バナーとタスクタブの色は同じ4段階（taskSeverity）で動く。何営業日で色が上がるかは業務ごとに違う。
 //   赤=大きく遅れ（＋急ぎ・超急ぎ）→ 要注意 ／ オレンジ=遅れが目立つ → 要確認 ／ 緑・青 → 色だけ
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ClipboardList, Mail, MessageSquare, PlayCircle, FolderPlus, ListChecks, AlertTriangle, AlertCircle, ArrowRight } from 'lucide-react'
@@ -32,21 +32,6 @@ import {
   taskSeverity, worstSeverity, SEVERITY_TAB, SEVERITY_TAB_NOTE, type TaskSeverity,
 } from '@/lib/taskSeverity'
 import type { TaskRow, MemberRow } from '@/types'
-
-export type MailRow = {
-  id: string
-  caseId: string
-  caseNumber: string
-  dealName: string
-  receivedDate: string        // 'YYYY-MM-DD'。本日でなければ「前営業日」と出す
-  numberText: string          // 受信簿と同じ「0513/001」形式
-  location: string | null
-  postalType: string | null
-  sender: string | null
-  isParcel: boolean
-  opened: boolean
-  items: Array<{ name: string; quantity: number | null }>
-}
 
 export type HourenSouRow = {
   id: string
@@ -103,13 +88,13 @@ function TabBtn({ v, label, icon: Icon, count, current, onSelect, sev, alwaysCou
 }
 
 export default function OfficeDashboardTabs({
-  startRows, currentMemberId, currentMemberName, mails, hourenSou,
+  startRows, currentMemberId, currentMemberName, mailTaskIds, hourenSou,
   tasks, caseMap, allMembers, receipts, financeBlockedCaseIds, freezeAssetsByCase, today,
 }: {
   startRows: OfficeRow[]
   currentMemberId: string | null
   currentMemberName: string | null
-  mails: MailRow[]
+  mailTaskIds: string[]
   hourenSou: HourenSouRow[]
   tasks: TaskRow[]
   caseMap: Record<string, CaseInfo>
@@ -161,16 +146,8 @@ export default function OfficeDashboardTabs({
     selectTab('tasks')
   }
 
-  // 郵便タブの色。未対応のうち「いちばん古いもの」で決める。
-  //   当日に届いた分だけ＝青／翌営業日まで来た＝緑／2営業日以上そのまま＝オレンジ
-  const mailTone: 'blue' | 'green' | 'orange' = (() => {
-    let worst = 0
-    for (const m of mails) {
-      const d = m.receivedDate ? bizDaysOverdue(m.receivedDate, today) : 0
-      if (d > worst) worst = d
-    }
-    return worst >= 2 ? 'orange' : worst === 1 ? 'green' : 'blue'
-  })()
+  // 郵便タブに入れるタスク。件数と色は TaskListClient 側が他の業務タブと同じ作りで出す。
+  const mailIdSet = useMemo(() => new Set(mailTaskIds), [mailTaskIds])
 
   // 情報共有＝見ておいてもらうもの／要対応＝回答が要るもの。タブを分ける。
   const shareSent = hourenSou.filter(h => h.kind !== '要対応')
@@ -229,10 +206,7 @@ export default function OfficeDashboardTabs({
           tasks={tasks} caseMap={caseMap} allMembers={allMembers} currentMemberId={currentMemberId}
           receipts={receipts} financeBlockedCaseIds={financeBlockedCaseIds} freezeAssetsByCase={freezeAssetsByCase}
           roleScope="assistant" jump={jump}
-          extraTab={{
-            key: 'mail', label: '郵便', count: mails.length, tone: mailTone,
-            content: <MailTab rows={mails} today={today} />,
-          }}
+          mailTaskIds={mailIdSet}
         />
       )}
 
@@ -251,105 +225,6 @@ export default function OfficeDashboardTabs({
   )
 }
 
-// ── 郵便：前営業日と本日に届いて、まだ対応していない到着物。中身は受信簿と同じ並び。 ──
-function MailTab({ rows, today }: { rows: MailRow[]; today: string }) {
-  const TH = 'px-2.5 py-2 text-left font-semibold whitespace-nowrap'
-  return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-      <div className="px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 flex-wrap">
-        <span className="text-[14px] font-bold text-gray-900">郵便（未対応）</span>
-        <span className="text-[12px] font-normal text-gray-400">{rows.length}件</span>
-        <HelpHint title="ここに出るもの">
-          <span className="block mb-1.5">
-            直近30日に届いた到着物のうち、<b className="font-bold text-gray-900">まだ対応していないもの</b>です。
-            受信簿で受信の確定をすると、ここから消えます。
-          </span>
-          <span className="block text-gray-500">
-            タブの色は、いちばん古い未対応で決まります。
-            <b className="font-bold text-brand-700">青</b>＝本日届いたぶんだけ／
-            <b className="font-bold text-emerald-700">緑</b>＝翌営業日まで来た／
-            <b className="font-bold text-orange-700">オレンジ</b>＝2営業日以上そのまま。
-            それより前のものは受信簿で探してください。
-          </span>
-        </HelpHint>
-        <Link href="/documents" className="ml-auto text-[12px] font-semibold text-brand-700 hover:underline">受信簿を開く</Link>
-      </div>
-      {rows.length === 0 ? (
-        <div className="px-4 py-12 text-center text-[13px] text-gray-400">未対応の郵便はありません</div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-[12.5px] border-collapse" style={{ minWidth: 980 }}>
-            <thead className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
-              <tr>
-                <th className={TH}>番号</th>
-                <th className={TH}>拠点</th>
-                <th className={TH}>案件管理番号</th>
-                <th className={TH}>案件名</th>
-                <th className={TH}>〒種類</th>
-                <th className={TH}>差出人</th>
-                <th className={TH}>到着物</th>
-                <th className={`${TH} text-center`}>通数</th>
-                <th className={`${TH} text-center`}>放置<span className="block text-[10px] font-normal text-brand-700">対応するまでの日数</span></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {rows.map(r => {
-                // 対応（受信の確定）を押さずに何営業日ほったらかしか。タスクの「◯日超過」と同じ見た目。
-                const left = r.receivedDate ? bizDaysOverdue(r.receivedDate, today) : 0
-                const rowRed = left >= 3
-                return (
-                <tr key={r.id} className={`${rowRed ? 'bg-red-50/60 hover:bg-red-50' : r.isParcel && !r.opened ? 'bg-amber-50/60 hover:bg-amber-50' : 'hover:bg-gray-50/60'}`}>
-                  <td className="px-2.5 py-2 font-mono text-gray-600 whitespace-nowrap">
-                    {r.numberText}
-                    {r.receivedDate !== today && (
-                      <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10.5px] font-sans font-semibold bg-gray-100 text-gray-600">前営業日</span>
-                    )}
-                  </td>
-                  <td className="px-2.5 py-2 text-gray-700">{r.location ?? <span className="text-gray-300">—</span>}</td>
-                  <td className="px-2.5 py-2 font-mono text-gray-500">{r.caseNumber}</td>
-                  <td className="px-2.5 py-2">
-                    <Link href={`/cases/${r.caseId}`} className="font-semibold text-gray-800 hover:text-brand-600 hover:underline">{r.dealName}</Link>
-                  </td>
-                  <td className="px-2.5 py-2">
-                    {r.isParcel && !r.opened
-                      ? <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-300">一式・未開封</span>
-                      : r.postalType
-                        ? <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200">{r.postalType}</span>
-                        : <span className="text-gray-300">—</span>}
-                  </td>
-                  <td className="px-2.5 py-2 text-gray-700">{r.sender || <span className="text-gray-300">—</span>}</td>
-                  <td className="px-2.5 py-2 text-gray-800">
-                    {r.items.length === 0 ? <span className="text-gray-300">—</span> : r.items.map(i => i.name).join(' / ')}
-                  </td>
-                  <td className="px-2.5 py-2 text-center font-mono text-gray-700">
-                    {r.items.some(i => i.quantity != null)
-                      ? `${r.items.reduce((s, i) => s + (i.quantity ?? 0), 0)}通`
-                      : <span className="text-gray-300">—</span>}
-                  </td>
-                  <td className="px-2.5 py-2 text-center whitespace-nowrap">
-                    {left <= 0
-                      ? <span className="text-[13px] text-gray-400">本日</span>
-                      : (
-                        <span className={`inline-flex items-baseline gap-0.5 ${left >= 3 ? 'text-red-600' : 'text-amber-700'}`}>
-                          <span className="text-[19px] font-bold leading-none tabular-nums">{left}</span>
-                          <span className="text-[11px] font-bold">営業日{left >= 3 ? '放置' : ''}</span>
-                        </span>
-                      )}
-                  </td>
-                </tr>
-              )})}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  )
-}
-
-
-// ── 要注意／要確認のバナー ──
-// 期限が近い順に5件だけ出す。バナーで全部を並べると画面が埋まってタブに届かないので、
-// 続きは「一覧で見る」でタスクタブへ飛び、同じ条件で絞られた状態から見る。
 const BANNER_PREVIEW = 5
 
 function TaskBanner({ tone, title, note, tasks, caseMap, today, onJump }: {

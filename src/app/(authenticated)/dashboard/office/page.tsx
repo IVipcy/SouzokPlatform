@@ -1,26 +1,18 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { loadTaskListData } from '@/lib/loadTaskListData'
-import OfficeDashboardTabs, { type MailRow, type HourenSouRow } from '@/components/features/dashboard/OfficeDashboardTabs'
+import OfficeDashboardTabs, { type HourenSouRow } from '@/components/features/dashboard/OfficeDashboardTabs'
 import type { OfficeRow } from '@/components/features/dashboard/OfficeManagerDashboard'
 
 // 事務管理担当ダッシュボード。
 //   ① ファイル化待ち／作業着手待ち … status=作業着手準備 の案件を、ファイル化の済／未で2タブに割る
-//   ② 郵便       … 前営業日と本日に届いて、まだ対応していない到着物
+//   ② 郵便       … タスクタブの中の業務タブ。到着物受信簿の「対応」で作った／結んだタスク
 //   ③ タスク     … 事務管理タスク一覧（既定タブ）
 //   ④ 報連相     … 自分が出した報告・連絡・相談
 export default async function OfficeDashboardPage() {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
   const today = new Date().toLocaleDateString('sv-SE')
-  // 郵便は「まだ対応していないもの」を全部出す（放置されたぶんを消さない）。
-  // 30日より前のものは受信簿で探す想定。
-  const mailFrom = (() => {
-    const d = new Date(today + 'T00:00:00')
-    d.setDate(d.getDate() - 30)
-    return d.toLocaleDateString('sv-SE')
-  })()
-
   const { data: casesData } = await supabase
     .from('cases')
     .select('id, case_number, deal_name, status, filing_status, order_sheet_completed_at, order_sheet_finalized_at, updated_at, order_received_date, case_members(role, members(name, team_id))')
@@ -39,16 +31,10 @@ export default async function OfficeDashboardPage() {
   const [invRes, teamsRes, mailRes, reportRes, memberRes, taskData] = await Promise.all([
     caseIds.length ? supabase.from('invoices').select('case_id, invoice_type, status').in('case_id', caseIds) : Promise.resolve({ data: [] }),
     supabase.from('teams').select('id, name'),
-    // 郵便：直近30日に届いた到着物のうち、対応（started_at）が付いていないもの。
-    // タブの色は「いちばん古い未対応」で決める（当日=青／翌営業日=緑／2営業日以上=オレンジ）。
-    supabase
-      .from('document_receipts')
-      .select('id, case_id, received_date, sequence_no, location, postal_type, is_parcel, opened_at, started_at, items:document_receipt_items(item_name, quantity, received_from, sort_order), case:cases(case_number, deal_name)')
-      .gte('received_date', mailFrom)
-      .lte('received_date', today)
-      .is('started_at', null)
-      .order('received_date')
-      .order('sequence_no'),
+    // 郵便タブ：到着物受信簿の「対応」で作った／結んだタスクのID。
+    // 受注/管理宛の郵送物一式（is_parcel・本人が開封する）はここに出てこない。
+    // 中身を開けていない＝タスクが1本も結ばれていないため、除外の条件分岐は要らない。
+    supabase.from('document_receipt_item_tasks').select('task_id'),
     // 報連相：自分が出したもの（新しい順）
     currentUser?.memberId
       ? supabase
@@ -82,31 +68,7 @@ export default async function OfficeDashboardPage() {
     }
   })
 
-  // 受信簿と同じ「0513/001」形式
-  const receiptNumber = (ymd: string, seq: number) => `${ymd.slice(5, 7)}${ymd.slice(8, 10)}/${String(seq).padStart(3, '0')}`
-
-  const mails: MailRow[] = ((mailRes.data ?? []) as unknown as Array<{
-    id: string; case_id: string; received_date: string; sequence_no: number
-    location: string | null; postal_type: string | null; is_parcel: boolean | null; opened_at: string | null
-    items?: Array<{ item_name: string; quantity: number | null; received_from: string | null; sort_order: number | null }> | null
-    case?: { case_number: string; deal_name: string } | null
-  }>).map(r => {
-    const items = [...(r.items ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-    return {
-      id: r.id,
-      caseId: r.case_id,
-      caseNumber: r.case?.case_number ?? '—',
-      dealName: r.case?.deal_name ?? '—',
-      receivedDate: r.received_date,
-      numberText: receiptNumber(r.received_date, r.sequence_no),
-      location: r.location ?? null,
-      postalType: r.postal_type ?? null,
-      sender: [...new Set(items.map(i => (i.received_from ?? '').trim()).filter(Boolean))].join(' / ') || null,
-      isParcel: !!r.is_parcel,
-      opened: !!r.opened_at,
-      items: items.map(i => ({ name: i.item_name, quantity: i.quantity ?? null })),
-    }
-  })
+  const mailTaskIds = [...new Set(((mailRes.data ?? []) as Array<{ task_id: string }>).map(r => r.task_id))]
 
   const memberName = new Map(((memberRes.data ?? []) as Array<{ id: string; name: string }>).map(m => [m.id, m.name]))
   const hourenSou: HourenSouRow[] = ((reportRes.data ?? []) as unknown as Array<{
@@ -133,7 +95,7 @@ export default async function OfficeDashboardPage() {
       startRows={startRows}
       currentMemberId={currentUser?.memberId ?? null}
       currentMemberName={currentUser?.memberName ?? null}
-      mails={mails}
+      mailTaskIds={mailTaskIds}
       hourenSou={hourenSou}
       tasks={taskData.tasks}
       caseMap={taskData.caseMap}
