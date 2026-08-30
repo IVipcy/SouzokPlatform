@@ -631,6 +631,8 @@ export type KosekiRequestRow = {
   request_to: string | null       // 請求先（市区町村/本籍地役所）
   target_person: string | null    // 対象者（誰の戸籍か。被相続人/相続人から選択）
   range_text: string | null       // 範囲（出生から死亡まで/現在戸籍 等。migration 099）
+  range_detail: string | null     // 請求範囲詳細（請求書の備考欄。定型文から選んで編集。migration 262）
+  honseki_address: string | null  // 本籍・住所（請求書の本籍・住所欄。migration 262）
   doc_types: string | null        // 請求の種別①（戸籍/除籍/原戸籍/住民票/除票/戸籍の附票。複数は「・」区切り）
   // 依頼書1枚ぶんの請求条件（migration 241）
   request_firm: string | null     // 請求法人（行政/司法/いきいき）

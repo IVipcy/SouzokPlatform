@@ -19,6 +19,8 @@ import {
   mixesKosekiAndJuminhyo, includesKoseki, includesJuminhyo,
   KOSEKI_REQUEST_KINDS, REQUEST_KIND_HELP, isMistakenRequest,
   HEIR_RELATIONSHIPS,
+  KOSEKI_AUTHORITIES,
+  kosekiRangeDetailOptions,
 } from '@/lib/constants'
 
 // 請求区分の説明（列見出しの「?」）。定義は constants.ts の1か所。
@@ -582,17 +584,6 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
             <div className="bg-white border border-gray-200 rounded-lg p-3.5">
               <SectionHeading title={`${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍（1タブ=1請求）`}
                 hint="上のタブが1回の請求です。転籍を遡るときは「＋ 請求を追加」でタブを足してください（承認は要りません）。取得区分が「依頼者」の請求は、請求日・費用・チェックが「依頼者負担」になり入力できません。追加戸籍請求（要承認）は、管理担当が承認したあとに編集できます。"
-                right={
-                  <span className="flex items-center gap-2">
-                    {/* 書類作成を経由せず、この人の請求そのままで戸籍請求書を出す */}
-                    <button type="button" disabled={personRequests.length === 0}
-                      onClick={() => setDocRequests(personRequests)}
-                      title={personRequests.length === 0 ? '戸籍請求を登録すると作成できます' : `下の表の${personRequests.length}件がそのまま請求書の行になります`}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded-md hover:bg-brand-100 disabled:opacity-40 disabled:cursor-not-allowed">
-                      <FileText className="w-3.5 h-3.5" />戸籍請求書を作成
-                    </button>
-                  </span>
-                }
                 className="mb-2.5 pb-1.5 border-b border-gray-200" />
               {personRequests.length === 0 ? (
                 <div className="px-3 py-6 text-center text-[12px] text-gray-400">
@@ -826,11 +817,12 @@ function KosekiFieldRow({ label, hint, sub, children, full = false }: {
   )
 }
 
-function KosekiGroup({ title, children }: { title: string; children: React.ReactNode }) {
+function KosekiGroup({ no, title, children }: { no?: string; title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-gray-200 overflow-hidden">
       <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border-b border-gray-200">
         <span className="inline-block w-[3px] h-3 bg-brand-500 rounded-[1px]" />
+        {no && <span className="text-[10.5px] font-semibold text-brand-700 bg-brand-50 border border-brand-100 rounded px-1.5">{no}</span>}
         <span className="text-[12px] font-semibold text-gray-600">{title}</span>
       </div>
       <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-[8.5rem_minmax(0,1fr)_8.5rem_minmax(0,1fr)] gap-px bg-gray-100">
@@ -862,6 +854,11 @@ function KosekiCard({ r, meId, personNames = [], saveField, saveMany, onDelete, 
   }
 
   const isClient = r.acquirer === '依頼者'   // 依頼者取得＝請求日・費用・チェックは依頼者負担
+  // 職務上請求は所定の用紙に手書きするので、システムで戸籍請求書を作らない。
+  // 請求書の中身にあたる欄（種別・本籍・筆頭者・請求に係る者・基礎証明外事項・使用目的・
+  // 請求法人・提出先）は出さず、案件管理に要る欄だけ残す。
+  // 入力済みの値は消さない。あとから委任状に切り替えたときに戻ってくる。
+  const isShokumujo = r.acquisition_authority === '職務上請求'
   const mistaken = isMistakenRequest(r.request_kind)  // 誤請求＝自社の経費
   const muted = <span className="text-[11px] text-gray-400">—</span>
 
@@ -880,69 +877,136 @@ function KosekiCard({ r, meId, personNames = [], saveField, saveMany, onDelete, 
         <button type="button" onClick={onDelete} title="この請求を削除" className="text-gray-300 hover:text-red-500 px-1"><Trash2 className="w-4 h-4" /></button>
       </div>
 
-      <KosekiGroup title="何を・どこへ請求するか">
+      <KosekiGroup no="Step1" title="誰が・何のために">
+        <KosekiFieldRow label="取得区分">
+          <SelCell value={r.acquirer} options={ACQUIRERS} onChange={v => saveField(r.id, 'acquirer', v)} />
+        </KosekiFieldRow>
+        <KosekiFieldRow label="取得方法" hint={`委任状か職務上請求かで、このあと入力するものが変わります。
+
+委任状 … 戸籍請求書をシステムで作るので、種別・本籍・筆頭者・使用目的まで入力します。
+職務上請求 … 所定の用紙に手書きするため請求書を作りません。請求先・範囲・費用・到着・読込結果だけ入力します。`}>
+          <SelCell value={r.acquisition_authority ?? null} options={[...KOSEKI_AUTHORITIES]} onChange={v => saveField(r.id, 'acquisition_authority', v)} />
+        </KosekiFieldRow>
+        {isShokumujo && (
+          <KosekiFieldRow label="職務上請求番号" full>
+            <input
+              type="text"
+              inputMode="numeric"
+              defaultValue={r.authority_form_no ?? ''}
+              onBlur={e => {
+                // 半角数字だけ残す（全角で打たれても事件簿に載る形に直す）
+                const v = e.target.value.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[^0-9]/g, '')
+                e.target.value = v
+                if (v !== (r.authority_form_no ?? '')) saveField(r.id, 'authority_form_no', v)
+              }}
+              placeholder="123456"
+              className="px-2 py-1 text-[12.5px] border border-gray-300 rounded outline-none focus:border-brand-400 w-40 tabular-nums"
+            />
+            <span className="text-[10.5px] text-gray-400">半角数字。職務上請求用紙の番号です</span>
+          </KosekiFieldRow>
+        )}
+        {!isShokumujo && (<>
+          <KosekiFieldRow label="請求法人">
+            <SelCell value={r.request_firm} options={[...KOSEKI_FIRMS]} onChange={v => saveField(r.id, 'request_firm', v)} />
+          </KosekiFieldRow>
+          <KosekiFieldRow label="提出先" hint={`取り寄せた戸籍を、最後にどこへ出すか（＝この戸籍の行き先）です。
+
+既定は「${KOSEKI_SUBMIT_TO_DEFAULT}」。法務局・金融機関・家庭裁判所など、原本を提出する先が決まっているときに書き換えてください。
+請求先（役所）＝取りに行く先とは別です。`}>
+            <SelectOrTextField value={r.submit_to} options={KOSEKI_SUBMIT_TO_OPTIONS} onSave={v => saveField(r.id, 'submit_to', v)} placeholder={KOSEKI_SUBMIT_TO_DEFAULT} />
+          </KosekiFieldRow>
+          <KosekiFieldRow label="使用目的" full hint="戸籍請求書の「使用目的」欄にそのまま入ります。">
+            <SelCell value={r.request_reason} options={[...KOSEKI_REQUEST_REASONS]} onChange={v => saveField(r.id, 'request_reason', v)} />
+          </KosekiFieldRow>
+        </>)}
+        <KosekiFieldRow label="特記" full>
+          <TxtCell value={r.notes} onCommit={v => saveField(r.id, 'notes', v)} placeholder="特記" />
+        </KosekiFieldRow>
+      </KosekiGroup>
+
+      <KosekiGroup no="Step2" title="何を・どこへ請求するか">
         <KosekiFieldRow label="請求先（役所）">
           <TxtCell value={r.request_to} onCommit={v => saveField(r.id, 'request_to', v)} placeholder="役所名" />
         </KosekiFieldRow>
         <KosekiFieldRow label="請求区分" hint={KIND_HINT}>
           <SelCell value={r.request_kind ?? '通常請求'} options={[...KOSEKI_REQUEST_KINDS]} onChange={v => saveField(r.id, 'request_kind', v)} />
         </KosekiFieldRow>
-        <KosekiFieldRow label="請求の種別①" full
-          hint="依頼書1枚で何を頼むか。戸籍と戸籍の附票は1枚で請求できますが、戸籍と住民票は1枚では請求できません（請求を分けてください）。">
-          <div className="min-w-0">
-            <MultiCell value={r.doc_types} options={[...KOSEKI_REQUEST_TYPES]} onChange={v => saveField(r.id, 'doc_types', v)} />
-            {mixesKosekiAndJuminhyo(r.doc_types) && (
-              <p className="mt-1 text-[10.5px] text-amber-700 leading-snug">戸籍と住民票は1枚で請求できません。請求を分けてください</p>
-            )}
-          </div>
-        </KosekiFieldRow>
-        {/* 種別①で選んだものに応じて中身が変わる2つを、種別①の直後に続けて置く。
-            間に請求範囲や筆頭者を挟むと、住民票を選んだときに視線が飛ぶ。 */}
-        <KosekiFieldRow label="種別②" sub="戸籍のとき" full>
-          {includesKoseki(r.doc_types)
-            ? <MultiCell value={r.doc_form} options={[...KOSEKI_DOC_FORMS]} onChange={v => saveField(r.id, 'doc_form', v)} />
-            : <span className="text-[11px] text-gray-400">—　<span className="text-[10.5px]">（種別①で戸籍を選ぶと謄本／抄本が出ます）</span></span>}
-        </KosekiFieldRow>
-        <KosekiFieldRow label="基礎証明外事項" sub="住民票のとき" full>
-          {includesJuminhyo(r.doc_types)
-            ? <MultiCell value={r.juminhyo_items} options={[...JUMINHYO_EXTRA_ITEMS]} onChange={v => saveField(r.id, 'juminhyo_items', v)} />
-            : <span className="text-[11px] text-gray-400">—　<span className="text-[10.5px]">（種別①で住民票を選ぶと項目が出ます）</span></span>}
-        </KosekiFieldRow>
+        {!isShokumujo && (<>
+          <KosekiFieldRow label="請求の種別" full
+            hint="依頼書1枚で何を頼むか。戸籍と戸籍の附票は1枚で請求できますが、戸籍と住民票は1枚では請求できません（請求を分けてください）。">
+            <div className="min-w-0">
+              <MultiCell value={r.doc_types} options={[...KOSEKI_REQUEST_TYPES]} onChange={v => saveField(r.id, 'doc_types', v)} />
+              {mixesKosekiAndJuminhyo(r.doc_types) && (
+                <p className="mt-1 text-[10.5px] text-amber-700 leading-snug">戸籍と住民票は1枚で請求できません。請求を分けてください</p>
+              )}
+            </div>
+          </KosekiFieldRow>
+          {/* 種別で選んだものに応じて中身が変わる2つを、種別の直後に続けて置く。
+              間に請求範囲や筆頭者を挟むと、住民票を選んだときに視線が飛ぶ。 */}
+          <KosekiFieldRow label="種別②" sub="戸籍のとき" full>
+            {includesKoseki(r.doc_types)
+              ? <MultiCell value={r.doc_form} options={[...KOSEKI_DOC_FORMS]} onChange={v => saveField(r.id, 'doc_form', v)} />
+              : <span className="text-[11px] text-gray-400">—　<span className="text-[10.5px]">（請求の種別で戸籍を選ぶと謄本／抄本が出ます）</span></span>}
+          </KosekiFieldRow>
+          <KosekiFieldRow label="本籍・住所" full
+            hint="戸籍請求書の「本籍・住所」欄に入ります。請求に係る者ご本人のものを入れてください（住民票・除票のときは住所、それ以外は本籍）。">
+            <TxtCell value={r.honseki_address} onCommit={v => saveField(r.id, 'honseki_address', v)} placeholder="例：神奈川県相模原市南区上鶴間本町２丁目２０番１－１１５号" />
+          </KosekiFieldRow>
+          <KosekiFieldRow label="筆頭主／世帯主">
+            <SelectOrTextField value={r.head_person} options={personNames} onSave={v => saveField(r.id, 'head_person', v)} placeholder="筆頭主/世帯主" />
+          </KosekiFieldRow>
+          <KosekiFieldRow label="請求に係る者の氏名">
+            <SelectOrTextField value={r.target_person} options={personNames} onSave={v => saveField(r.id, 'target_person', v)} placeholder="誰の戸籍か" />
+          </KosekiFieldRow>
+          <KosekiFieldRow label="基礎証明外事項" sub="住民票のとき" full
+            hint="戸籍請求の住基法12条の3第7項による基礎証明事項以外の事項に選択したものを記載してください。">
+            {includesJuminhyo(r.doc_types)
+              ? <MultiCell value={r.juminhyo_items} options={[...JUMINHYO_EXTRA_ITEMS]} onChange={v => saveField(r.id, 'juminhyo_items', v)} />
+              : <span className="text-[11px] text-gray-400">—　<span className="text-[10.5px]">（請求の種別で住民票を選ぶと項目が出ます）</span></span>}
+          </KosekiFieldRow>
+        </>)}
         <KosekiFieldRow label="請求範囲">
           <SelectOrTextField value={r.range_text} options={KOSEKI_RANGES} onSave={v => saveField(r.id, 'range_text', v)} placeholder="出生～死亡 等" />
         </KosekiFieldRow>
-        <KosekiFieldRow label="筆頭者／世帯主">
-          <SelectOrTextField value={r.head_person} options={personNames} onSave={v => saveField(r.id, 'head_person', v)} placeholder="筆頭者/世帯主" />
+        <KosekiFieldRow label="請求範囲詳細" full
+          hint="戸籍請求書の「備考」欄にそのまま入ります。請求の種別に合う定型文を選んでから、日付などを直してください。">
+          <SelectOrTextField
+            value={r.range_detail}
+            options={kosekiRangeDetailOptions(r.doc_types, r.target_person ?? '')}
+            onSave={v => saveField(r.id, 'range_detail', v)}
+            placeholder="例：○○さまの出生〜死亡までの一連の戸籍が必要です。"
+          />
         </KosekiFieldRow>
       </KosekiGroup>
 
-      <KosekiGroup title="誰が・何のために">
-        <KosekiFieldRow label="取得区分">
-          <SelCell value={r.acquirer} options={ACQUIRERS} onChange={v => saveField(r.id, 'acquirer', v)} />
-        </KosekiFieldRow>
-        <KosekiFieldRow label="請求法人">
-          <SelCell value={r.request_firm} options={[...KOSEKI_FIRMS]} onChange={v => saveField(r.id, 'request_firm', v)} />
-        </KosekiFieldRow>
-        <KosekiFieldRow label="提出先" hint={`取り寄せた戸籍を、最後にどこへ出すか（＝この戸籍の行き先）です。
-
-既定は「${KOSEKI_SUBMIT_TO_DEFAULT}」。法務局・金融機関・家庭裁判所など、原本を提出する先が決まっているときに書き換えてください。
-請求先（役所）＝取りに行く先とは別です。`}>
-          <SelectOrTextField value={r.submit_to} options={KOSEKI_SUBMIT_TO_OPTIONS} onSave={v => saveField(r.id, 'submit_to', v)} placeholder={KOSEKI_SUBMIT_TO_DEFAULT} />
-        </KosekiFieldRow>
-        <KosekiFieldRow label="戸籍請求理由">
-          <SelCell value={r.request_reason} options={[...KOSEKI_REQUEST_REASONS]} onChange={v => saveField(r.id, 'request_reason', v)} />
-        </KosekiFieldRow>
-        <KosekiFieldRow label="特記" full>
-          <TxtCell value={r.notes} onCommit={v => saveField(r.id, 'notes', v)} placeholder="特記" />
-        </KosekiFieldRow>
+      <KosekiGroup no="Step3" title="費用">
+        {isClient ? (
+          <KosekiFieldRow label="費用" full>
+            <span className="text-[11px] text-gray-400">依頼者負担（依頼者取得のため、費用は入力しません）</span>
+          </KosekiFieldRow>
+        ) : (
+          <>
+            <KosekiFieldRow label="費用予算" hint="戸籍請求書の「同封小為替」欄に入ります。封筒に入れる小為替の額です。">
+              <MoneyCell value={r.cost_budget} onCommit={v => saveField(r.id, 'cost_budget', v === '' ? null : Number(v))} />
+            </KosekiFieldRow>
+            <KosekiFieldRow label="返金">
+              <MoneyCell value={r.cost_refund} onCommit={v => saveField(r.id, 'cost_refund', v === '' ? null : Number(v))} />
+            </KosekiFieldRow>
+            <KosekiFieldRow label="確定費用" full>
+              <span className={`inline-block px-2 py-1 rounded text-[12px] font-semibold border ${mistaken ? 'text-purple-700 bg-purple-50 border-purple-200' : 'text-emerald-700 bg-emerald-50 border-emerald-200'}`}
+                title={mistaken ? '誤請求のため、お客様への立替実費ではなく自社の経費として集計します' : undefined}>{yen(effConfirmed(r))}</span>
+              {mistaken && <span className="text-[10px] text-purple-600">経費として集計</span>}
+            </KosekiFieldRow>
+          </>
+        )}
       </KosekiGroup>
 
-      <KosekiGroup title="進捗">
+      <KosekiGroup no="Step4" title="進捗">
         <KosekiFieldRow label="請求日">
           {isClient ? <span className="text-[11px] text-gray-400">依頼者取得</span>
             : <DateCell value={r.request_date} onCommit={v => saveMany(r.id, { request_date: v || null, ...(v && !r.request_done_by ? { request_done_by: meId } : {}) })} />}
         </KosekiFieldRow>
-        <KosekiFieldRow label="到着日">
+        <KosekiFieldRow label="到着日" hint="到着物受信簿のW-Check（受信確定）で自動的に入ります。手で直すこともできます。">
           <DateCell value={r.arrival_date} onCommit={v => saveMany(r.id, { arrival_date: v || null, ...(v && !r.receipt_done_by ? { receipt_done_by: meId } : {}) })} />
         </KosekiFieldRow>
         <KosekiFieldRow label="発送チェック" sub="確認簿で確認">
@@ -961,34 +1025,12 @@ function KosekiCard({ r, meId, personNames = [], saveField, saveMany, onDelete, 
         </KosekiFieldRow>
       </KosekiGroup>
 
-      <KosekiGroup title="費用">
-        {isClient ? (
-          <KosekiFieldRow label="費用" full>
-            <span className="text-[11px] text-gray-400">依頼者負担（依頼者取得のため、費用は入力しません）</span>
-          </KosekiFieldRow>
-        ) : (
-          <>
-            <KosekiFieldRow label="費用予算">
-              <MoneyCell value={r.cost_budget} onCommit={v => saveField(r.id, 'cost_budget', v === '' ? null : Number(v))} />
-            </KosekiFieldRow>
-            <KosekiFieldRow label="返金">
-              <MoneyCell value={r.cost_refund} onCommit={v => saveField(r.id, 'cost_refund', v === '' ? null : Number(v))} />
-            </KosekiFieldRow>
-            <KosekiFieldRow label="確定費用" full>
-              <span className={`inline-block px-2 py-1 rounded text-[12px] font-semibold border ${mistaken ? 'text-purple-700 bg-purple-50 border-purple-200' : 'text-emerald-700 bg-emerald-50 border-emerald-200'}`}
-                title={mistaken ? '誤請求のため、お客様への立替実費ではなく自社の経費として集計します' : undefined}>{yen(effConfirmed(r))}</span>
-              {mistaken && <span className="text-[10px] text-purple-600">経費として集計</span>}
-            </KosekiFieldRow>
-          </>
-        )}
-      </KosekiGroup>
-
-      {/* 読込結果。届いた戸籍を開けて読んだ人が最後に書く。
+      {/* Step5 読込結果。届いた戸籍を開けて読んだ人が最後に書く。
           「出生から死亡まで」で請求しても転籍を最後まで遡れないことがあり、それが分かるのは
           ここまで来てから。受信簿で紐づけた時点では中を読んでいないので判定できない。
           一部不足なら、残りは上の「＋ 請求を追加」で新しい請求を立てて取りに行く。
           請求範囲は書き換えない（何を請求したかの記録が消えるため）。 */}
-      <KosekiGroup title="読込結果">
+      <KosekiGroup no="Step5" title="読込結果">
         <KosekiFieldRow label="取得の結果" full>
           <div className="inline-flex rounded-md border border-gray-200 overflow-hidden">
             {KOSEKI_READ_STATUSES.map(s => {

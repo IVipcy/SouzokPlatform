@@ -1,12 +1,22 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { Trash2 } from 'lucide-react'
+// 戸籍・住民票等請求書の出力画面。
+//
+// ここは「入力する場所」ではなく「確認して出す場所」。
+// 紙に載る中身（請求先・本籍・筆頭主・請求に係る者・種別・使用目的・備考・同封小為替）は
+// 全部、実務タブの戸籍カードに書いたものが入る。ここで直せてしまうと、紙とカードの中身が
+// 食い違って、あとから「何を頼んだのか」がカードを見ても分からなくなる。
+//
+// この画面で選ぶのは、今回この紙をどう出すかだけ（様式・請求日・拠点・事業部・通数）。
+// どれも案件の情報ではないのでカードには持たせない。
+//
+// 1タブ＝1請求＝1枚。請求先を足したいときは戸籍タブの「＋ 請求を追加」でタブを足す。
+
+import { useEffect, useState } from 'react'
 import Modal from '@/components/ui/Modal'
 import { showToast } from '@/components/ui/Toast'
 import {
   KOSEKI_VARIANT_PRESETS,
-  KOSEKI_PURPOSES,
   OFFICE_BRANCH_OPTIONS,
   divisionsOf,
   findBranch,
@@ -15,242 +25,129 @@ import {
   type KosekiVariant,
   type KosekiAgentOfficeId,
 } from '@/lib/officeProfiles'
-import { KOSEKI_REQUEST_TYPES, KOSEKI_DOC_FORMS, includesJuminhyo } from '@/lib/constants'
+import { KOSEKI_REQUEST_TYPES, KOSEKI_DOC_FORMS, KOSEKI_PURPOSES, includesJuminhyo } from '@/lib/constants'
 import type { CaseRow, TaskRow, HeirRow, KosekiRequestRow } from '@/types'
 
 type Props = {
   isOpen: boolean
   onClose: () => void
   caseData: CaseRow
-  tasks: TaskRow[]
+  /** 使っていないが、書類作成メニューが同じ形で渡してくる */
+  tasks?: TaskRow[]
   heirs: HeirRow[]
-  /** 戸籍請求一覧（相続人調査タブ）。あれば出力の初期行をここからプリセット。 */
+  /**
+   * 出力する戸籍請求。カードの「この内容で請求書を作る」からは1件。
+   * 書類作成メニューからは案件の全件が来るので、その場合だけどれを出すか選ばせる。
+   */
   kosekiRequests?: KosekiRequestRow[]
   /** タスク詳細から作成する際に紐づけるタスクID */
   defaultTaskId?: string
 }
 
-// 請求書で選べる種別＝実務タブの種別①（戸籍/除籍/…）＋種別②（謄本/抄本）。
-// 種別を①②に分けたあとも、請求書は1枚の様式に両方を印字するのでここでは並べて扱う。
+// 請求書に印字する種別＝実務タブの請求の種別（戸籍/除籍/…）＋種別②（謄本/抄本）。
 const DOC_CHOICES = [...KOSEKI_REQUEST_TYPES, ...KOSEKI_DOC_FORMS] as const
 
-/** 実務タブの種別（①②）から請求種別を拾う。マッチしなければ空＝未選択。
- *  勝手に「戸籍・謄本」を付けない。 */
+/** 実務タブの種別から請求種別を拾う。マッチしなければ空＝未選択。 */
 function parseRequestTypes(...docTypes: (string | null | undefined)[]): string[] {
   const joined = docTypes.filter(Boolean).join('・')
   return DOC_CHOICES.filter(t => joined.includes(t))
 }
 
-// 全角→半角、数字以外を除去
 const toDigits = (s: string) => s.replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0)).replace(/[^\d]/g, '')
 
-type RequestRow = {
-  id: string
-  municipality: string            // 提出先市区町村名（●●市 等）
-  honseki: string                 // 本籍・住所
-  hittousha: string               // 筆頭者氏名／世帯主氏名
-  targetName: string              // 請求に係る者の氏名
-  requestTypes: string[]          // 戸籍/除籍/原戸籍/謄本/抄本/住民票/除票/附票
-  copyCount: number               // 通数
-  kogawaseAmount: number | ''     // 同封小為替（円）
-  notes: string                   // 備考フリーテキスト
-}
-
-const NEW_ID = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-
-function createRow(partial: Partial<RequestRow> = {}): RequestRow {
-  return {
-    id: NEW_ID(),
-    municipality: '',
-    honseki: '',
-    hittousha: '',
-    targetName: '',
-    requestTypes: [],  // ① デフォルト解除（勝手に「戸籍・謄本」を付けない）
-    copyCount: 1,
-    kogawaseAmount: '',
-    notes: '',
-    ...partial,
-  }
-}
-
-export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, tasks, heirs, kosekiRequests = [], defaultTaskId }: Props) {
+export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, heirs, kosekiRequests = [], defaultTaskId }: Props) {
   const [variant, setVariant] = useState<KosekiVariant>(defaultKosekiVariant(caseData.contract_type))
   const [requestDate, setRequestDate] = useState<string>(new Date().toISOString().slice(0, 10))
-  const [purpose, setPurpose] = useState<string>(KOSEKI_PURPOSES[0])  // 使用目的
+  const [copyCount, setCopyCount] = useState<number>(1)
   const [agentOffice, setAgentOffice] = useState<KosekiAgentOfficeId>('kyodo')  // 上記代理人の所在地（拠点）
   // 事業部。同じ拠点でも事業部で電話が変わる（共同ビルの第一／第二）ため、拠点とセットで選ぶ。
   const [division, setDivision] = useState<string>(IKIIKI_DEFAULT_BRANCH.division)
   const branch = findBranch(agentOffice, division)
-  const [rows, setRows] = useState<RequestRow[]>([])
   const [generating, setGenerating] = useState(false)
-
-  // 戸籍請求タスク（koseki_request_create）の ext_data.submissions から市区町村リストを初期ロード
-  const prefilledCities = useMemo(() => {
-    const kosekiTask = tasks.find(t => t.template_key === 'koseki_request_create')
-    if (!kosekiTask) return [] as string[]
-    const ext = (kosekiTask.ext_data ?? {}) as Record<string, unknown>
-    const submissions = Array.isArray(ext.submissions) ? (ext.submissions as Array<{ city?: string }>) : []
-    return submissions.map(s => s.city ?? '').filter(Boolean)
-  }, [tasks])
-
-  // 実務タブの1行 → 請求書の1行。
-  // 本籍・住所は「請求対象者本人のもの」を入れる。被相続人のものを相続人の請求書に入れると
-  // 役所に出せない紙になるので、分からなければ空欄のままにする。
-  //   戸籍・除籍・原戸籍・附票 … その人の本籍
-  //   住民票・除票             … その人の住所
-  const rowFromRequest = (k: KosekiRequestRow): RequestRow => {
-    const who = (k.target_person ?? '').trim() || (caseData.deceased_name ?? '')
-    const isDeceased = !!caseData.deceased_name && who === caseData.deceased_name
-    const heir = isDeceased ? undefined : heirs.find(h => (h.name ?? '').trim() === who)
-    const wantsAddress = includesJuminhyo(k.doc_types)
-    const honseki = wantsAddress
-      ? (isDeceased ? (caseData.deceased_address ?? '') : (heir?.address ?? ''))
-      : (isDeceased ? (caseData.deceased_registered_address ?? '') : (heir?.registered_address ?? ''))
-    const rangeNote = k.range_text ? `${who}さまの${k.range_text}の一連の戸籍が必要です。` : ''
-    return createRow({
-      municipality: k.request_to ?? '',
-      honseki,
-      // 筆頭者／世帯主は実務タブの入力が最優先。無ければ被相続人のときだけ本人名を入れる。
-      hittousha: (k.head_person ?? '').trim() || (isDeceased ? (caseData.deceased_name ?? '') : ''),
-      targetName: who,
-      requestTypes: parseRequestTypes(k.doc_types, k.doc_form),
-      notes: [rangeNote, k.request_reason, k.request_reason_other, k.notes].filter(Boolean).join(' ') || '',
-    })
-  }
+  // どの請求を出すか。1件だけ渡されたときは選ばせない。
+  const [pick, setPick] = useState(0)
 
   useEffect(() => {
     if (!isOpen) return
-    // モーダルを開くたびにリセット
     setVariant(defaultKosekiVariant(caseData.contract_type))
     setRequestDate(new Date().toISOString().slice(0, 10))
-    setPurpose(KOSEKI_PURPOSES[0])
-    const honseki = caseData.deceased_registered_address ?? ''
-    const hittousha = caseData.deceased_name ?? ''
-    if (kosekiRequests.length > 0) {
-      // 戸籍請求一覧（誰の・どこに・どの種別）から初期行を作成。本籍・筆頭者は被相続人からプリセット。
-      setRows(kosekiRequests.map(k => rowFromRequest(k)))
-    } else if (prefilledCities.length > 0) {
-      setRows(prefilledCities.map(city => createRow({ municipality: city, honseki, hittousha, targetName: caseData.deceased_name ?? '' })))
-    } else {
-      setRows([createRow({ honseki, hittousha, targetName: caseData.deceased_name ?? '' })])
-    }
-  }, [isOpen, prefilledCities, kosekiRequests, caseData.contract_type, caseData.deceased_name, caseData.deceased_registered_address])
+    setCopyCount(1)
+    setPick(0)
+  }, [isOpen, caseData.contract_type])
 
   const preset = KOSEKI_VARIANT_PRESETS[variant]
+  const k = kosekiRequests[pick] ?? kosekiRequests[0] ?? null
 
-  // ② 「請求に係る者」プルダウン用の候補（被相続人＋相続人＋その他）。
-  //   選ぶと本籍・筆頭者もその人のものにセットする（違えば手で直せる）。
-  type TargetOption = { key: string; label: string; name: string; honseki: string; hittousha: string }
-  const deceasedOpt: TargetOption | null = caseData.deceased_name
-    ? { key: 'deceased', label: `${caseData.deceased_name}（被相続人）`, name: caseData.deceased_name, honseki: caseData.deceased_registered_address ?? '', hittousha: caseData.deceased_name }
-    : null
-  const heirOpts: TargetOption[] = heirs
-    .filter(h => (h.name ?? '').trim())
-    .map(h => ({
-      key: `heir:${h.id}`,
-      label: `${h.name}${h.relationship_type ? `（${h.relationship_type}）` : h.relationship ? `（${h.relationship}）` : ''}`,
-      name: h.name!,
-      // 相続人が結婚済で自分の戸籍を持っていれば本人が筆頭者。分からなければ本人名にしておき、手で直せるようにする。
-      honseki: h.registered_address ?? '',
-      hittousha: h.name!,
-    }))
-  const targetOptions: TargetOption[] = [...(deceasedOpt ? [deceasedOpt] : []), ...heirOpts]
-  const findTargetKey = (row: RequestRow): string => {
-    const hit = targetOptions.find(o => o.name === row.targetName)
-    return hit ? hit.key : (row.targetName ? 'other' : '')
-  }
-  const pickTarget = (id: string, key: string) => {
-    if (key === 'other' || key === '') { updateRow(id, { targetName: '' }); return }
-    const opt = targetOptions.find(o => o.key === key)
-    if (!opt) return
-    // 対象者を選んだら本籍・筆頭者もその人のものに合わせる（違えば手で直せる）。
-    updateRow(id, { targetName: opt.name, honseki: opt.honseki, hittousha: opt.hittousha })
-  }
+  // 紙に載る中身。すべてカードの値。
+  // 本籍・住所だけ、カード未入力のときに人（被相続人・相続人）の登録住所で補う。
+  // 住民票・除票は住所、それ以外は本籍。
+  const who = (k?.target_person ?? '').trim() || (caseData.deceased_name ?? '')
+  const isDeceased = !!caseData.deceased_name && who === caseData.deceased_name
+  const heir = isDeceased ? undefined : heirs.find(h => (h.name ?? '').trim() === who)
+  const fallbackHonseki = includesJuminhyo(k?.doc_types)
+    ? (isDeceased ? (caseData.deceased_address ?? '') : (heir?.address ?? ''))
+    : (isDeceased ? (caseData.deceased_registered_address ?? '') : (heir?.registered_address ?? ''))
 
-  const addRow = () => setRows(r => [...r, createRow({
-    honseki: caseData.deceased_registered_address ?? '',
-    hittousha: caseData.deceased_name ?? '',
-    targetName: caseData.deceased_name ?? '',
-  })])
-
-  const updateRow = (id: string, patch: Partial<RequestRow>) =>
-    setRows(r => r.map(row => row.id === id ? { ...row, ...patch } : row))
-
-  const deleteRow = (id: string) =>
-    setRows(r => r.filter(row => row.id !== id))
-
-  const toggleRequestType = (id: string, type: string) => {
-    const row = rows.find(r => r.id === id)
-    if (!row) return
-    const has = row.requestTypes.includes(type)
-    updateRow(id, {
-      requestTypes: has ? row.requestTypes.filter(t => t !== type) : [...row.requestTypes, type],
-    })
+  const doc = {
+    municipality: (k?.request_to ?? '').trim(),
+    honseki: (k?.honseki_address ?? '').trim() || fallbackHonseki,
+    hittousha: (k?.head_person ?? '').trim() || (isDeceased ? (caseData.deceased_name ?? '') : ''),
+    targetName: who,
+    requestTypes: parseRequestTypes(k?.doc_types, k?.doc_form),
+    purpose: (k?.request_reason ?? '').trim() || KOSEKI_PURPOSES[0],
+    notes: (k?.range_detail ?? '').trim(),
+    // 同封小為替＝費用予算。封筒に入れる小為替はこの金額。
+    // 返金・確定費用は戸籍が届いた後の数字なので、出す時点ではまだ存在しない。
+    kogawase: k?.cost_budget ?? null,
   }
 
   const handleGenerate = async () => {
-    if (rows.length === 0) {
-      showToast('請求先を1件以上追加してください', 'error')
-      return
-    }
+    if (!k) { showToast('出力する戸籍請求がありません', 'error'); return }
     if (!caseData.clients?.name || !caseData.clients?.address) {
       showToast('依頼者の氏名・住所が未入力です', 'error')
       return
     }
-
     setGenerating(true)
     try {
-      const normalizedRows = rows.map(r => ({
-        municipality: r.municipality.trim(),
-        honseki: r.honseki.trim(),
-        hittousha: r.hittousha.trim(),
-        targetName: r.targetName.trim(),
-        requestTypes: r.requestTypes,
-        copyCount: Number(r.copyCount) || 1,
-        kogawaseAmount: r.kogawaseAmount === '' ? null : Number(r.kogawaseAmount),
-        notes: r.notes.trim(),
-      }))
-
-      // 請求先ごとに1xlsxを生成 → 順次ダウンロード
-      for (let i = 0; i < normalizedRows.length; i++) {
-        const res = await fetch('/api/documents/koseki-request', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            caseId: caseData.id,
-            variant,
-            requestDate,
-            purpose,
-            rows: normalizedRows,
-            rowIndex: i,
-            taskId: defaultTaskId ?? null,
-            agentOffice,
-            division,
-          }),
-        })
-
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({ error: '生成に失敗しました' }))
-          showToast(`${i + 1}件目の生成に失敗: ${err.error ?? '不明なエラー'}`, 'error')
-          return
-        }
-
-        const blob = await res.blob()
-        const cityLabel = normalizedRows[i].municipality || `請求${i + 1}`
-        const filename = `戸籍請求書_${caseData.case_number ?? ''}_${cityLabel}_${requestDate}.xlsx`
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = filename
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
-        // 連続ダウンロードで抑制されないよう少し待機
-        if (i < normalizedRows.length - 1) await new Promise(r => setTimeout(r, 300))
+      const res = await fetch('/api/documents/koseki-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          caseId: caseData.id,
+          variant,
+          requestDate,
+          purpose: doc.purpose,
+          rows: [{
+            municipality: doc.municipality,
+            honseki: doc.honseki,
+            hittousha: doc.hittousha,
+            targetName: doc.targetName,
+            requestTypes: doc.requestTypes,
+            copyCount: Number(copyCount) || 1,
+            kogawaseAmount: doc.kogawase,
+            notes: doc.notes,
+          }],
+          rowIndex: 0,
+          taskId: defaultTaskId ?? null,
+          agentOffice,
+          division,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: '生成に失敗しました' }))
+        showToast(`生成に失敗: ${err.error ?? '不明なエラー'}`, 'error')
+        return
       }
-
-      showToast(`${normalizedRows.length}件の戸籍請求書を生成しました`, 'success')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `戸籍請求書_${caseData.case_number ?? ''}_${doc.municipality || '請求'}_${requestDate}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      showToast('戸籍請求書を生成しました', 'success')
       onClose()
     } catch (e) {
       showToast(`通信エラー: ${(e as Error).message}`, 'error')
@@ -259,41 +156,33 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
     }
   }
 
+  const sel = 'w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400'
+  const lab = 'block text-xs font-semibold text-gray-700 mb-1'
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title="戸籍・住民票等請求書 を作成"
-      maxWidth="max-w-5xl"
+      maxWidth="max-w-3xl"
       footer={
         <>
-          <button
-            onClick={onClose}
-            disabled={generating}
-            className="px-4 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
-          >
+          <button onClick={onClose} disabled={generating}
+            className="px-4 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50">
             キャンセル
           </button>
-          <button
-            onClick={handleGenerate}
-            disabled={generating}
-            className="px-4 py-2 text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors disabled:opacity-50"
-          >
+          <button onClick={handleGenerate} disabled={generating || !k}
+            className="px-4 py-2 text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors disabled:opacity-50">
             {generating ? '生成中…' : 'Excelで出力'}
           </button>
         </>
       }
     >
       <div className="space-y-4">
-        {/* 基本設定 */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">様式バリエーション</label>
-            <select
-              value={variant}
-              onChange={e => setVariant(e.target.value as KosekiVariant)}
-              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400"
-            >
+            <label className={lab}>様式バリエーション</label>
+            <select value={variant} onChange={e => setVariant(e.target.value as KosekiVariant)} className={sel}>
               {(Object.keys(KOSEKI_VARIANT_PRESETS) as KosekiVariant[]).map(key => (
                 <option key={key} value={key}>{KOSEKI_VARIANT_PRESETS[key].label}</option>
               ))}
@@ -301,46 +190,31 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
             <p className="text-[12px] text-gray-400 mt-1">契約形態：{caseData.contract_type ?? '未設定'}</p>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">請求日</label>
-            <input
-              type="date"
-              value={requestDate}
-              onChange={e => setRequestDate(e.target.value)}
-              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400"
-            />
+            <label className={lab}>請求日</label>
+            <input type="date" value={requestDate} onChange={e => setRequestDate(e.target.value)}
+              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400" />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">使用目的</label>
-            <select
-              value={purpose}
-              onChange={e => setPurpose(e.target.value)}
-              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400"
-            >
-              {KOSEKI_PURPOSES.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
+            <label className={lab}>通数</label>
+            <input type="text" inputMode="numeric" value={copyCount ? String(copyCount) : ''}
+              onChange={e => { const n = Number(toDigits(e.target.value)); setCopyCount(n > 0 ? n : 1) }}
+              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 text-right focus:outline-none focus:border-brand-400" />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">拠点</label>
-            <select
-              value={agentOffice}
+            <label className={lab}>拠点</label>
+            <select value={agentOffice} className={sel}
               onChange={e => {
                 const next = e.target.value as KosekiAgentOfficeId
                 setAgentOffice(next)
                 // 拠点を変えたら、その拠点にある事業部の先頭に寄せる（無い事業部が残らないように）
                 setDivision(divisionsOf(next)[0] ?? '')
-              }}
-              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400"
-            >
+              }}>
               {OFFICE_BRANCH_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">事業部</label>
-            <select
-              value={division}
-              onChange={e => setDivision(e.target.value)}
-              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:border-brand-400"
-            >
+            <label className={lab}>事業部</label>
+            <select value={division} onChange={e => setDivision(e.target.value)} className={sel}>
               {divisionsOf(agentOffice).map(d => <option key={d} value={d}>{d}</option>)}
             </select>
             {branch && (
@@ -352,208 +226,52 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
           </div>
         </section>
 
-        {/* プリセット内容表示 */}
-        <section className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs space-y-1">
-          <div className="flex gap-3">
-            <span className="text-gray-500 w-24">請求者欄:</span>
-            <span className="text-gray-800">{preset.requesterLabel}</span>
-          </div>
-          <div className="flex gap-3">
-            <span className="text-gray-500 w-24">代理人欄:</span>
-            <span className="text-gray-800">{preset.agentLabel ?? '（表示なし）'}</span>
-          </div>
-          <div className="flex gap-3">
-            <span className="text-gray-500 w-24">使用目的:</span>
-            <span className="text-gray-800">{purpose}</span>
-          </div>
-          <div className="flex gap-3">
-            <span className="text-gray-500 w-24">依頼者:</span>
-            <span className="text-gray-800">{caseData.clients?.name ?? '（未設定）'} / {caseData.clients?.address ?? '（住所未設定）'}</span>
-          </div>
-          <div className="flex gap-3">
-            <span className="text-gray-500 w-24">被相続人:</span>
-            <span className="text-gray-800">{caseData.deceased_name ?? '（未設定）'}</span>
-          </div>
-        </section>
-
-        {/* 請求先一覧 */}
         <section>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-gray-700">請求先一覧（{rows.length}件）</h3>
-            <div className="flex gap-2">
-              <button
-                onClick={addRow}
-                className="text-[13px] font-medium text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-1 rounded-md transition-colors"
-              >
-                ＋ 請求先を追加
-              </button>
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">この内容で請求書を作成します</h3>
+          {kosekiRequests.length > 1 && (
+            <div className="mb-2">
+              <label className={lab}>どの請求を出しますか</label>
+              <select value={pick} onChange={e => setPick(Number(e.target.value))} className={sel}>
+                {kosekiRequests.map((q, i) => (
+                  <option key={q.id} value={i}>
+                    {[q.request_to || '請求先未入力', q.target_person, q.doc_types].filter(Boolean).join('／')}
+                  </option>
+                ))}
+              </select>
             </div>
-          </div>
-
-          <div className="space-y-3">
-            {rows.map((row, idx) => (
-              <div key={row.id} className="bg-white border border-gray-200 rounded-lg p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-gray-600">請求先 #{idx + 1}</span>
-                  <button
-                    onClick={() => deleteRow(row.id)}
-                    className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-500"
-                    title="この請求先を削除"
-                  >
-                    <Trash2 className="w-3 h-3" strokeWidth={1.75} />
-                    削除
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
-                  <Field label="提出先市区町村">
-                    <input
-                      type="text"
-                      value={row.municipality}
-                      onChange={e => updateRow(row.id, { municipality: e.target.value })}
-                      placeholder="例: 横浜市西区"
-                      className="input-base"
-                    />
-                  </Field>
-                  <Field label="通数">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={row.copyCount ? String(row.copyCount) : ''}
-                      onChange={e => { const n = Number(toDigits(e.target.value)); updateRow(row.id, { copyCount: n > 0 ? n : 1 }) }}
-                      className="input-base"
-                      style={{ textAlign: 'right' }}
-                    />
-                  </Field>
-                  <Field label="本籍・住所">
-                    <input
-                      type="text"
-                      value={row.honseki}
-                      onChange={e => updateRow(row.id, { honseki: e.target.value })}
-                      className="input-base"
-                    />
-                  </Field>
-                  <Field label="筆頭者の氏名">
-                    <input
-                      type="text"
-                      value={row.hittousha}
-                      onChange={e => updateRow(row.id, { hittousha: e.target.value })}
-                      className="input-base"
-                    />
-                  </Field>
-                  <Field label="請求に係る者">
-                    {targetOptions.length > 0 ? (
-                      <>
-                        <select
-                          value={findTargetKey(row)}
-                          onChange={e => {
-                            const k = e.target.value
-                            if (k === 'other') updateRow(row.id, { targetName: '' })
-                            else pickTarget(row.id, k)
-                          }}
-                          className="input-base"
-                          style={{ background: 'white' }}
-                        >
-                          <option value="">— 選択 —</option>
-                          {targetOptions.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
-                          <option value="other">その他（自由入力）</option>
-                        </select>
-                        {findTargetKey(row) === 'other' && (
-                          <input
-                            type="text"
-                            value={row.targetName}
-                            onChange={e => updateRow(row.id, { targetName: e.target.value })}
-                            placeholder="氏名を入力"
-                            className="input-base"
-                            style={{ marginTop: 4 }}
-                          />
-                        )}
-                      </>
-                    ) : (
-                      <input
-                        type="text"
-                        value={row.targetName}
-                        onChange={e => updateRow(row.id, { targetName: e.target.value })}
-                        className="input-base"
-                      />
-                    )}
-                  </Field>
-                  <Field label="同封小為替（円）">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={row.kogawaseAmount === '' ? '' : Number(row.kogawaseAmount).toLocaleString('en-US')}
-                      onChange={e => { const d = toDigits(e.target.value); updateRow(row.id, { kogawaseAmount: d === '' ? '' : Number(d) }) }}
-                      placeholder="例: 750"
-                      className="input-base"
-                      style={{ textAlign: 'right' }}
-                    />
-                  </Field>
-                </div>
-                <Field label="請求の種別（複数選択可）">
-                  <div className="flex flex-wrap gap-1.5">
-                    {DOC_CHOICES.map(type => {
-                      const on = row.requestTypes.includes(type)
-                      return (
-                        <button
-                          key={type}
-                          type="button"
-                          onClick={() => toggleRequestType(row.id, type)}
-                          className={`text-[13px] px-2 py-1 rounded-md border transition-colors ${
-                            on
-                              ? 'bg-brand-600 text-white border-brand-600'
-                              : 'bg-white text-gray-700 border-gray-300 hover:border-brand-400'
-                          }`}
-                        >
-                          {type}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </Field>
-                <Field label="備考（例：出生〜死亡まで、現在戸籍と附票、等）">
-                  <textarea
-                    value={row.notes}
-                    onChange={e => updateRow(row.id, { notes: e.target.value })}
-                    rows={2}
-                    className="input-base resize-none"
-                    placeholder="例：○○さまの出生〜死亡までの一連の戸籍が必要です。"
-                  />
-                </Field>
-              </div>
-            ))}
-          </div>
+          )}
+          {!k ? (
+            <div className="px-3 py-6 text-center text-[12px] text-gray-400">出力する戸籍請求がありません</div>
+          ) : (
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <ConfRow label="提出先市区町村" value={doc.municipality} />
+              <ConfRow label="本籍・住所" value={doc.honseki} />
+              <ConfRow label="筆頭主／世帯主" value={doc.hittousha} />
+              <ConfRow label="請求に係る者" value={doc.targetName} />
+              <ConfRow label="請求の種別" value={doc.requestTypes.join('・')} />
+              <ConfRow label="使用目的" value={doc.purpose} />
+              <ConfRow label="備考" value={doc.notes} />
+              <ConfRow label="同封小為替" value={doc.kogawase == null ? '' : `¥${doc.kogawase.toLocaleString('ja-JP')}`} />
+              <ConfRow label="請求者欄" value={preset.requesterLabel} />
+              <ConfRow label="代理人欄" value={preset.agentLabel ?? '（表示なし）'} last />
+            </div>
+          )}
+          <p className="text-[12px] text-gray-500 mt-2">内容に問題なければ、Excelで出力ボタンを押下してください。</p>
         </section>
-
-        {heirs.length > 0 && (
-          <p className="text-[12px] text-gray-400 text-center">
-            ※ 相続人 {heirs.length} 名登録済み。続柄別の戸籍請求が必要な場合は請求先を追加して設定してください。
-          </p>
-        )}
       </div>
-
-      <style jsx>{`
-        :global(.input-base) {
-          width: 100%;
-          font-size: 13px;
-          border: 1px solid #d1d5db;
-          border-radius: 4px;
-          padding: 6px 8px;
-          background: white;
-          outline: none;
-        }
-        :global(.input-base:focus) {
-          border-color: #60a5fa;
-        }
-      `}</style>
     </Modal>
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+/** 確認行。空欄は赤く「未入力」と出す。出したあとに気づくと紙を捨てることになるため。 */
+function ConfRow({ label, value, last = false }: { label: string; value: string; last?: boolean }) {
+  const empty = !value.trim()
   return (
-    <label className="block">
-      <span className="block text-[13px] font-semibold text-gray-600 mb-0.5">{label}</span>
-      {children}
-    </label>
+    <div className={`grid grid-cols-[9rem_minmax(0,1fr)] ${last ? '' : 'border-b border-gray-100'}`}>
+      <div className="bg-gray-50/80 border-r border-gray-100 px-3 py-2 text-[12px] font-semibold text-gray-600">{label}</div>
+      <div className={`px-3 py-2 text-[13px] break-words ${empty ? 'text-red-500' : 'text-gray-800'}`}>
+        {empty ? '未入力' : value}
+      </div>
+    </div>
   )
 }

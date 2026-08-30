@@ -445,11 +445,15 @@ export const ADDITIONAL_SERVICES = ['相続税申告', '不動産売却', '生�
 export const TAX_FILING_OPTIONS = ['要', '不要', '確認中'] as const
 
 // === 戸籍請求理由 ===
-export const KOSEKI_REQUEST_REASONS = [
-  '正確な相続人の把握と相続関係図の作成',
-  '遺言書作成の前段として推定相続人の調査',
-  'その他',
+export const KOSEKI_PURPOSES = [
+  '相続人調査・相関図作成',
+  '遺言書作成のため',
+  '信託契約書作成のため',
 ] as const
+
+// 使用目的（旧・戸籍請求理由）。戸籍請求書の「使用目的」欄にそのまま印字する。
+// 実務タブで選んだものが紙に載るので、出力画面では選び直さない。
+export const KOSEKI_REQUEST_REASONS = KOSEKI_PURPOSES
 
 // === 戸籍請求書パターン（実費負担者） ===
 export const KOSEKI_REQUEST_PATTERNS = ['司法書士', '行政書士', 'いきいき'] as const
@@ -519,11 +523,6 @@ export const REWARD_ITEM_OPTIONS = ['手続き一式', '相続登記', '遺産�
 
 // === 戸籍の取得目的 ===
 // 戸籍の取得目的＝戸籍請求書の使用目的（出力でそのまま反映）
-export const KOSEKI_PURPOSES = [
-  '相続人調査・相関図作成',
-  '遺言書作成のため',
-  '信託契約書作成のため',
-] as const
 
 // 戸籍の範囲（どこからどこまでの戸籍か）。戸籍請求書の備考にプリセット。
 export const KOSEKI_RANGES = [
@@ -533,6 +532,45 @@ export const KOSEKI_RANGES = [
   '改製から現在まで',
   'その他',
 ] as const
+
+/**
+ * 請求範囲詳細の定型文。戸籍請求書の「備考」欄にそのまま入る。
+ *
+ * {name} には請求に係る者の氏名が入る。選んだあとは自由に直せる（日付を埋める等）。
+ * 候補は請求の種別（doc_types）で出し分ける。何を頼むかで書きぶりが決まっているため。
+ * 種別が決まっていなければ全部出す。
+ */
+export const KOSEKI_RANGE_DETAILS: Array<{ types: string[]; texts: string[] }> = [
+  { types: ['戸籍の附票'], texts: ['{name}さまの附票が必要です。'] },
+  { types: ['住民票', '除票'], texts: ['{name}さまの住民票が必要です。'] },
+  {
+    types: ['戸籍'],
+    texts: [
+      '{name}さまの現在戸籍が必要です。転籍等により除籍となっている場合にはその旨わかる戸籍のみ送付願います。',
+      '{name}さまの現在戸籍と附票が必要です。転籍等により除籍となっている場合にはその旨わかる戸籍のみ送付願います。',
+    ],
+  },
+  {
+    // 出生から死亡までを集めているとき。日付は選んだあとに手で埋める。
+    types: ['戸籍', '除籍', '原戸籍'],
+    texts: [
+      '{name}さまの出生〜死亡までの一連の戸籍が必要です。',
+      '{name}さまの出生〜Ｈ××.△.◆◆婚姻するまでの一連の戸籍が必要です。',
+      '{name}さまの改製（H××.△.◆◆）から婚姻（R××.△.◆◆）までの一連の戸籍が必要です。',
+    ],
+  },
+]
+
+/** 請求の種別（「・」区切り）から、請求範囲詳細の候補を作る。 */
+export function kosekiRangeDetailOptions(docTypes: string | null | undefined, name: string): string[] {
+  const selected = (docTypes ?? '').split('・').map(v => v.trim()).filter(Boolean)
+  const who = name.trim() || '○○'
+  const hit = selected.length === 0
+    ? KOSEKI_RANGE_DETAILS
+    : KOSEKI_RANGE_DETAILS.filter(d => d.types.some(t => selected.includes(t)))
+  const out = (hit.length > 0 ? hit : KOSEKI_RANGE_DETAILS).flatMap(d => d.texts.map(t => t.replace('{name}', who)))
+  return [...new Set(out)]
+}
 
 // 被相続人との続柄（相続人視点）。法定相続人＋代襲相続まで網羅。いとこ等は除外。
 export const HEIR_RELATIONSHIPS = [
