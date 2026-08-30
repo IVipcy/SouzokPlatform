@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import FloatingWindow from '@/components/ui/FloatingWindow'
 import Button from '@/components/ui/Button'
 import NewTaskFields, { emptyNewTask, type NewTaskValue } from '@/components/features/tasks/NewTaskFields'
 import TaskTargetPicker, { emptyTarget, resolveTargetRid, type TaskTarget } from '@/components/features/tasks/TaskTargetPicker'
 import { useCurrentMember } from '@/lib/useCurrentMember'
+import { buildInstitutionAlert, type InstitutionAlert, type KosekiProgress } from '@/lib/institutionAlert'
 import { showToast } from '@/components/ui/Toast'
 import type { MemberRow } from '@/types'
 
@@ -31,11 +32,40 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
   const [tab, setTab] = useState<'manual' | 'candidate'>('manual')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  // 金融機関マスタ照合の材料（戸籍の進み具合・一覧図・口座の凍結）。開いたときに1回だけ取る。
+  const [ctx, setCtx] = useState<{ koseki: KosekiProgress; hasLegalInfo: boolean; assets: Array<{ institution_name: string | null; freeze_confirmed: boolean | null }> } | null>(null)
+  // 出した注意喚起。「このまま追加する」を押すまで保存しない。
+  const [alert, setAlert] = useState<InstitutionAlert | null>(null)
 
   const patch = (p: Partial<NewTaskValue>) => setForm(prev => ({ ...prev, ...p }))
-  const close = () => { setTab('manual'); onClose() }
+  const close = () => { setTab('manual'); setAlert(null); onClose() }
 
-  const handleSubmit = async (keepOpen = false) => {
+  useEffect(() => {
+    if (!isOpen) return
+    let alive = true
+    ;(async () => {
+      const supabase = createClient()
+      const [ko, cs, fa] = await Promise.all([
+        supabase.from('koseki_requests').select('read_status').eq('case_id', caseId),
+        supabase.from('cases').select('family_tree_obtain_date').eq('id', caseId).single(),
+        supabase.from('financial_assets').select('institution_name, freeze_confirmed').eq('case_id', caseId),
+      ])
+      if (!alive) return
+      const rows = (ko.data ?? []) as Array<{ read_status: string | null }>
+      setCtx({
+        koseki: {
+          total: rows.length,
+          done: rows.filter(r => r.read_status === '取得完了').length,
+          partial: rows.filter(r => r.read_status === '一部不足').length,
+        },
+        hasLegalInfo: !!(cs.data as { family_tree_obtain_date: string | null } | null)?.family_tree_obtain_date,
+        assets: (fa.data ?? []) as Array<{ institution_name: string | null; freeze_confirmed: boolean | null }>,
+      })
+    })()
+    return () => { alive = false }
+  }, [isOpen, caseId])
+
+  const handleSubmit = async (keepOpen = false, skipAlert = false) => {
     if (!form.title.trim()) {
       setError('タスク名は必須です')
       return
@@ -43,6 +73,19 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
     if (!form.work.trim()) {
       setError('作業内容は必須です')
       return
+    }
+
+    // 金融機関マスタと突き合わせて、要件を満たしていなければ一度止めて知らせる。
+    // 止めるのは1回だけで、「このまま追加する」を押せば作れる（マスタは判断材料であって決まりではない）。
+    if (!skipAlert && ctx && target.kind === 'name') {
+      const a = buildInstitutionAlert({
+        gyomu: form.gyomu,
+        institutionName: target.name,
+        koseki: ctx.koseki,
+        hasLegalInfo: ctx.hasLegalInfo,
+        accounts: ctx.assets.filter(x => (x.institution_name ?? '').trim() === target.name.trim()),
+      })
+      if (a) { setAlert(a); return }
     }
 
     setSaving(true)
@@ -122,6 +165,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
     }
 
     setSaving(false)
+    setAlert(null)
     onSaved()
     if (keepOpen) {
       // 続けて同じ業務のタスクを足すことが多いので、業務区分・担当区分は残す
@@ -148,7 +192,12 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
       height={560}
       resizable
       footer={
-        tab === 'candidate' ? (
+        alert ? (
+          <>
+            <Button variant="secondary" onClick={() => setAlert(null)}>やめる</Button>
+            <Button variant="primary" onClick={() => handleSubmit(false, true)} loading={saving}>このまま追加する</Button>
+          </>
+        ) : tab === 'candidate' ? (
           <>
             <span className="text-[12px] text-gray-400 mr-auto">チェックしたものが追加されます</span>
             <Button variant="secondary" onClick={close}>閉じる</Button>
@@ -166,6 +215,26 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
         )
       }
     >
+      {/* 金融機関マスタとの突き合わせ結果。要件を満たしていないときだけ出る。
+          止めるのは1回だけで、「このまま追加する」で作れる。 */}
+      {alert ? (
+        <div className="space-y-3">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 overflow-hidden">
+            <div className="px-3 py-2 border-b border-amber-200 text-[13px] font-semibold text-amber-800">{alert.title}</div>
+            <ul className="px-4 py-3 space-y-1.5 list-disc list-inside">
+              {alert.lines.map((l, i) => <li key={i} className="text-[12.5px] text-amber-900 leading-relaxed">{l}</li>)}
+            </ul>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 space-y-1">
+            <div className="text-[11.5px] font-semibold text-gray-600">{alert.institution.name}の相続手続き（参考）</div>
+            {([['相続窓口', alert.institution.counter], ['連絡先', alert.institution.contact], ['所定様式', alert.institution.formName], ['標準処理日数', alert.institution.leadTime]] as const).map(([k, v]) => (
+              <div key={k} className="flex gap-2 text-[11.5px]"><span className="text-gray-400 w-20 flex-none">{k}</span><span className="text-gray-600">{v || '—'}</span></div>
+            ))}
+            <div className="text-[10.5px] text-gray-400 pt-1">出典：{alert.institution.sourceUrl.split(' ')[0]}　／　情報の確かさ：{alert.institution.confidence}</div>
+          </div>
+        </div>
+      ) : (
+      <>
       {candidates && (
         <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden mb-3.5">
           {([['manual', '新規作成'], ['candidate', '候補から選択']] as const).map(([k, label]) => (
@@ -198,6 +267,8 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
           <TaskTargetPicker caseId={caseId} gyomu={form.gyomu} value={target} onChange={setTarget} />
         </div>
       </div>
+      </>
+      )}
     </FloatingWindow>
   )
 }

@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Briefcase, Play, CheckCircle2, ExternalLink, ChevronDown, ChevronUp, Check, Package, PackageCheck, HelpCircle, ArrowRightCircle } from 'lucide-react'
+import { Briefcase, Play, CheckCircle2, ExternalLink, ChevronDown, ChevronUp, Check, Package, PackageCheck, HelpCircle, ArrowRightCircle, Landmark } from 'lucide-react'
 import { resolveTaskLanding, taskLandingUrl } from '@/lib/taskLanding'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -26,6 +26,7 @@ import TaskTargetPicker, { TARGET_GYOMU, emptyTarget, resolveTargetRid, type Tas
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { useIsManager } from '@/components/providers/AuthProvider'
 import type { TaskRow, MemberRow, CaseRow, CaseDocumentRow, CaseActivityRow, TaskDependencyRow, TaskTemplateRow, DocumentRow, HeirRow, RealEstatePropertyRow, ContractDocumentRow } from '@/types'
+import { institutionGuide } from '@/lib/institutionAlert'
 
 type Props = {
   task: TaskRow
@@ -547,6 +548,33 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
               saveField={saveField}
             />
           )}
+
+          {/* 金融機関の相続手続きの案内。作業するときに手元にあると助かるものだけ出す。
+              マスタ（18行）に載っている機関のときだけ。載っていなければ何も出さない。 */}
+          {(() => {
+            const bank = (task.source_rid ?? '').match(/^(?:fin|cancel):(.+)$/)?.[1]
+            const guide = institutionGuide(task.phase, bank)
+            if (!guide) return null
+            return (
+              <div className="rounded-xl border border-brand-200 bg-brand-50/60 overflow-hidden">
+                <div className="px-4 py-2 border-b border-brand-200 flex items-center gap-2 flex-wrap">
+                  <Landmark className="w-4 h-4 text-brand-600" strokeWidth={2} />
+                  <span className="text-[13px] font-bold text-brand-800">{guide.inst.name}の相続手続き</span>
+                  <span className="text-[10.5px] text-brand-600/80">情報の確かさ：{guide.inst.confidence}</span>
+                  <a href={guide.inst.sourceUrl.split(' ')[0]} target="_blank" rel="noreferrer"
+                    className="ml-auto text-[11px] text-brand-700 underline hover:text-brand-900">公式ページ</a>
+                </div>
+                <div className="px-4 py-2.5 grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-1">
+                  {guide.items.map(([k, v]) => (
+                    <div key={k} className="flex gap-2 text-[12px] leading-relaxed">
+                      <span className="text-brand-700/70 w-28 flex-none">{k}</span>
+                      <span className="text-gray-700 min-w-0">{v || '—'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
 
           {/* 実務タブへの導線。作業内容を読み終えた位置に置き、そのまま次の一手へ行けるようにする
               （以前はヘッダー直下の細いバーで、読み終えた目線から遠かった）。 */}
