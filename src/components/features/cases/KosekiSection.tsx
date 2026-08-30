@@ -386,10 +386,11 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
     const h = heirByName.get(name.trim())
     return (h?.relationship_type || h?.relationship || '').trim()
   }
-  // 戸籍画像のマーカーと同じ3区分。氏名より「誰なのか」で探すので、続柄を主に出す。
+  // 戸籍画像のマーカーと同じ3区分＋相続人でない人。氏名より「誰なのか」で探すので、続柄を主に出す。
   const kindOfPerson = (name: string) => roleKindOf({
     isDeceasedPerson: name.trim() === (deceasedName ?? '').trim(),
     isDeceasedHeir: heirByName.get(name.trim())?.is_deceased,
+    isLegalHeir: heirByName.get(name.trim())?.is_legal_heir,
   })
   const isClientPerson = (name: string) => !!heirByName.get(name.trim())?.is_client
   const roleLabel = (name: string) =>

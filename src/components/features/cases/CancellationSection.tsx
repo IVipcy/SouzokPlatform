@@ -13,8 +13,8 @@ import ProgressSummary from './ProgressSummary'
 import { LeftRail } from './LeftRail'
 import type { FinancialAssetRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
+import { cancelOptionsOf } from '@/lib/constants'
 
-const CANCEL = ['有', '無', '確認中']
 const collator = new Intl.Collator('ja')
 
 export default function CancellationSection({ caseId, financialAssets, onRefresh, focus }: {
@@ -117,7 +117,7 @@ export default function CancellationSection({ caseId, financialAssets, onRefresh
                             {locked
                               ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold text-amber-700 bg-amber-50 border border-amber-200" title="凍結確認済になると解約手続を編集できます"><Lock className="w-3 h-3" strokeWidth={2} />凍結確認待ち</span>
                               : <select value={r.cancellation_required ?? ''} onChange={e => save(r.id, 'cancellation_required', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
-                                  <option value="">—</option>{CANCEL.map(o => <option key={o} value={o}>{o}</option>)}
+                                  <option value="">—</option>{cancelOptionsOf(r.asset_type).map(o => <option key={o} value={o}>{o}</option>)}
                                 </select>}
                           </td>
                           <td className="px-2.5 py-1.5">

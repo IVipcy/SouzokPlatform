@@ -10,23 +10,31 @@
 
 import { MARKER_COLORS } from '@/lib/imageAnnotations'
 
-export type PersonRoleKind = 'deceased' | 'heir' | 'deceasedHeir'
+export type PersonRoleKind = 'deceased' | 'heir' | 'deceasedHeir' | 'nonHeir'
 
 const CSS = Object.fromEntries(MARKER_COLORS.map(c => [c.key, c.css])) as Record<string, string>
 
-/** 区分 → マーカー色。use（被相続人/相続人/亡くなっている相続人）で引くので定義がずれない。 */
+/**
+ * 区分 → マーカー色。use（被相続人/相続人/亡くなっている相続人）で引くので定義がずれない。
+ * 相続人でない人（前妻など。相関図を描くために登録しているだけ）はマーカーの3色を使わない。
+ * 戸籍画像に塗る色は相続関係の3区分にしか無く、そこへ混ぜると意味がぼやけるため。
+ */
 export const ROLE_COLOR: Record<PersonRoleKind, string> = {
   deceased: CSS.yellow,
   heir: CSS.green,
   deceasedHeir: CSS.blue,
+  nonHeir: '#9ca3af',
 }
 
-/** 被相続人か・相続人が亡くなっているかで区分を決める */
-export function roleKindOf({ isDeceasedPerson, isDeceasedHeir }: {
+/** 被相続人か・相続人か・相続人が亡くなっているかで区分を決める */
+export function roleKindOf({ isDeceasedPerson, isDeceasedHeir, isLegalHeir }: {
   isDeceasedPerson?: boolean
   isDeceasedHeir?: boolean | null
+  /** 法定相続人か。false のときだけ「相続人でない人」（未指定は相続人として扱う） */
+  isLegalHeir?: boolean | null
 }): PersonRoleKind {
   if (isDeceasedPerson) return 'deceased'
+  if (isLegalHeir === false) return 'nonHeir'
   return isDeceasedHeir ? 'deceasedHeir' : 'heir'
 }
 
@@ -88,6 +96,11 @@ export function PersonRoleLegend({ className = '' }: { className?: string }) {
           {c.use}
         </span>
       ))}
+      {/* 前妻など。相関図のために登録しているだけで、戸籍画像のマーカーには対応する色が無い */}
+      <span className="inline-flex items-center gap-1">
+        <span className="inline-block w-3 h-3 rounded-[3px]" style={{ background: ROLE_COLOR.nonHeir }} />
+        相続人でない人
+      </span>
     </div>
   )
 }

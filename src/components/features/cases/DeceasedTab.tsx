@@ -453,11 +453,12 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                     <tr key={heir.id} className="border-b border-gray-100 last:border-b-0 hover:bg-[#FAFBFF] group">
                       <td className="px-3 py-2.5">
                         {/* 氏名より「誰なのか」で探すので、続柄を主・氏名を従にする。
-                            色は戸籍画像のマーカーと同じ（相続人＝緑／亡くなっている相続人＝水色）。 */}
+                            色は戸籍画像のマーカーと同じ（相続人＝緑／亡くなっている相続人＝水色）。
+                            前妻など相続人でない人は、マーカーに対応する色が無いので無彩色。 */}
                         <PersonRoleChip
                           role={(heir.relationship_type || heir.relationship || '').trim()}
                           name={heir.name}
-                          kind={roleKindOf({ isDeceasedHeir: heir.is_deceased })}
+                          kind={roleKindOf({ isDeceasedHeir: heir.is_deceased, isLegalHeir: heir.is_legal_heir })}
                           isClient={!!heir.is_client}
                           compact
                         />

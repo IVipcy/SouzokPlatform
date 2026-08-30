@@ -31,18 +31,18 @@ type Col = { key: keyof FinancialAssetRow; label: string; type: ColType; width?:
 
 // 種別ごとの列定義（取得区分・調査禁止は左端固定・残高証明取得日・備考・進捗列は共通で末尾に付与）
 const COLUMNS: Record<Kind, Col[]> = {
+  // 解約有無（cancellation_required）はここに置かない。解約セクションで選ぶ。
+  // 同じ行を共有していて2か所で選べると食い違うため、入口を解約セクション1か所にする。
   '預貯金': [
     { key: 'institution_name', label: '金融機関名', type: 'text' },
     { key: 'branch_name', label: '支店', type: 'text', width: 'w-28' },
-    { key: 'account_type', label: '口座種別', type: 'accountType', width: 'w-24' },
-    // 財産目録の表記に使う（「みずほ銀行 渋谷支店 1234567」の形）
+    // 財産目録の表記に使う（「みずほ銀行 渋谷支店 普通 1234567」の形）
     { key: 'account_number', label: '口座番号', type: 'text', width: 'w-32' },
+    { key: 'account_type', label: '口座種別', type: 'accountType', width: 'w-24' },
     { key: 'all_branch_survey', label: '全店調査', type: 'req', width: 'w-24' },
     { key: 'balance_cert_required', label: '残高証明', type: 'req', width: 'w-24' },
     { key: 'accrued_interest_required', label: '経過利息', type: 'req', width: 'w-24' },
     { key: 'transaction_detail_required', label: '取引明細', type: 'req', width: 'w-24' },  // エクセルR79・NEW
-    // 解約有無（cancellation_required）。同じ行を解約タブと共有するため、ここで「有」にすると解約手続タブに出る。
-    { key: 'cancellation_required', label: '解約', type: 'cancel', width: 'w-24' },
   ],
   '証券': [
     { key: 'institution_name', label: '証券会社', type: 'text' },
@@ -50,14 +50,12 @@ const COLUMNS: Record<Kind, Col[]> = {
     { key: 'stock_name', label: '銘柄名', type: 'text' },
     { key: 'all_branch_survey', label: '全店調査', type: 'req', width: 'w-24' },  // エクセルR96・NEW
     { key: 'balance_cert_required', label: '残高証明', type: 'req', width: 'w-24' },
-    { key: 'cancellation_required', label: '解約有無', type: 'cancel', width: 'w-24' },  // エクセルR98・NEW（取引明細は削除）
   ],
   '信託銀行': [
     { key: 'institution_name', label: '信託銀行名', type: 'text' },
     { key: 'stock_name', label: '銘柄名', type: 'text' },
     { key: 'share_cert_required', label: '所有株式数証明', type: 'req', width: 'w-28' },
     { key: 'unclaimed_dividend_required', label: '未受領配当金', type: 'req', width: 'w-28' },
-    { key: 'cancellation_required', label: '解約有無', type: 'cancel', width: 'w-24' },  // エクセルR112・NEW
   ],
 }
 
@@ -122,8 +120,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const [busy, setBusy] = useState(false)
-  // 口座種別・口座番号は実務タブのみ（オーダーシートでは非表示）。エクセルR74-75。
-  const cols = COLUMNS[kind].filter(c => progressMode || c.key !== 'account_type')
+  // 口座種別は面談で聞く情報なのでオーダーシートにも出す（実務に入ってから思い出すものではない）。
+  const cols = COLUMNS[kind]
   // institutionFilter（左レールのキー）は trim 済み。r.institution_name もtrimして比較しないと、
   // 名称に前後空白があるとレール(=trim)には出るのに口座一覧(=非trim比較)が0件になる不整合が起きる。
   const visibleRows = accountId != null ? rows.filter(r => r.id === accountId)

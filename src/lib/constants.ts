@@ -1156,3 +1156,16 @@ export const NON_TAXABLE_EXPENSE_CATEGORIES = [
 ] as const
 export const inferExpenseTaxable = (category: string | null | undefined): boolean =>
   !(NON_TAXABLE_EXPENSE_CATEGORIES as readonly string[]).includes(category ?? '')
+
+/**
+ * 解約有無の選択肢。証券だけ言葉が違う。
+ * 証券は「解約」ではなく、相続人の口座へ動かす（移管）か、売って現金にする（換価）かで
+ * そのあとの手続きが変わるため、最初にどちらかを決めておく。
+ */
+export const CANCEL_OPTIONS_BY_KIND: Record<string, string[]> = {
+  '預貯金': ['有', '無', '確認中'],
+  '証券': ['移管', '換価', '無', '確認中'],
+  '信託銀行': ['有', '無', '確認中'],
+}
+export const cancelOptionsOf = (kind: string | null | undefined) =>
+  CANCEL_OPTIONS_BY_KIND[(kind ?? '').trim()] ?? ['有', '無', '確認中']

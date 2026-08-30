@@ -12,8 +12,9 @@ import CancellationSection from './CancellationSection'
 import type { FinancialAssetRow, CaseRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 import { PriorityCell } from './PracticeTableCells'
+import { cancelOptionsOf } from '@/lib/constants'
 
-const CANCEL = ['有', '無', '確認中']
+
 
 const SUBTABS: { key: string; kind: string; label: string }[] = [
   { key: 'deposit', kind: '預貯金', label: '預金' },
@@ -93,7 +94,7 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
                     <td className="px-2.5 py-1.5">
                       <select value={r.cancellation_required ?? ''} onChange={e => save(r.id, 'cancellation_required', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
                         <option value="">—</option>
-                        {CANCEL.map(o => <option key={o} value={o}>{o}</option>)}
+                        {cancelOptionsOf(st.kind).map(o => <option key={o} value={o}>{o}</option>)}
                       </select>
                     </td>
                     <TextCell value={r.cancellation_restrictions} onSave={v => save(r.id, 'cancellation_restrictions', v)} placeholder="例：相続人全員の同意が必要 等" />
@@ -109,7 +110,7 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
                 <div className="text-[15px] font-semibold text-gray-900 mb-2.5">{r.institution_name || '未入力'}</div>
                 <div className="space-y-2.5">
                   <div><div className="text-[13px] font-medium text-slate-600 mb-1">優先度</div><PriorityCell value={r.cancel_priority} onChange={v => save(r.id, 'cancel_priority', v)} /></div>
-                  <div><div className="text-[13px] font-medium text-slate-600 mb-1">解約有無</div><select value={r.cancellation_required ?? ''} onChange={e => save(r.id, 'cancellation_required', e.target.value)} className="w-full h-10 px-3 text-[13px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500"><option value="">—</option>{CANCEL.map(o => <option key={o} value={o}>{o}</option>)}</select></div>
+                  <div><div className="text-[13px] font-medium text-slate-600 mb-1">解約有無</div><select value={r.cancellation_required ?? ''} onChange={e => save(r.id, 'cancellation_required', e.target.value)} className="w-full h-10 px-3 text-[13px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500"><option value="">—</option>{cancelOptionsOf(st.kind).map(o => <option key={o} value={o}>{o}</option>)}</select></div>
                   <div><div className="text-[13px] font-medium text-slate-600 mb-1">備考</div><input type="text" defaultValue={r.cancellation_restrictions ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_restrictions ?? '')) save(r.id, 'cancellation_restrictions', e.target.value) }} placeholder="例：相続人全員の同意が必要 等" className="w-full h-10 px-3 text-[13px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white" /></div>
                 </div>
               </div>

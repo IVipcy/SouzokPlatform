@@ -40,7 +40,9 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
   // 色は戸籍画像のマーカーと同じ3区分（被相続人＝黄／相続人＝緑／亡くなっている相続人＝水色）。
   const people: { name: string; role: string; isClient?: boolean; kind: PersonRoleKind; dead?: boolean }[] = [
     ...(caseData.deceased_name ? [{ name: caseData.deceased_name, role: '被相続人', kind: roleKindOf({ isDeceasedPerson: true }) }] : []),
-    ...heirs.filter(h => h.name).map(h => ({
+    // 前妻など相続人でない人は戸籍の取得計画に出さない。相関図のために登録しているだけで、
+    // その人の戸籍を出生から集める必要が無いため（必要なら実務タブで個別に請求を足せる）。
+    ...heirs.filter(h => h.name && h.is_legal_heir !== false).map(h => ({
       name: h.name,
       role: (h.relationship_type || h.relationship || '').trim() || '相続人',
       isClient: !!h.is_client,
