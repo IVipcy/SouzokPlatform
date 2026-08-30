@@ -25,7 +25,7 @@ import {
   type KosekiVariant,
   type KosekiAgentOfficeId,
 } from '@/lib/officeProfiles'
-import { KOSEKI_REQUEST_TYPES, KOSEKI_DOC_FORMS, KOSEKI_PURPOSES, includesJuminhyo } from '@/lib/constants'
+import { KOSEKI_REQUEST_TYPES, KOSEKI_DOC_FORMS, defaultKosekiPurpose, includesJuminhyo } from '@/lib/constants'
 import type { CaseRow, TaskRow, HeirRow, KosekiRequestRow } from '@/types'
 
 type Props = {
@@ -93,9 +93,11 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
   const who = (k?.target_person ?? '').trim() || (caseData.deceased_name ?? '')
   const isDeceased = !!caseData.deceased_name && who === caseData.deceased_name
   const heir = isDeceased ? undefined : heirs.find(h => (h.name ?? '').trim() === who)
+  // 住民票・除票のときだけ住所で補う。戸籍の本籍は転籍のたびに変わるので、
+  // 人に持たせた値で補うと古い本籍が紙に載る。カードで手入力したものだけを使う。
   const fallbackHonseki = includesJuminhyo(k?.doc_types)
     ? (isDeceased ? (caseData.deceased_address ?? '') : (heir?.address ?? ''))
-    : (isDeceased ? (caseData.deceased_registered_address ?? '') : (heir?.registered_address ?? ''))
+    : ''
 
   const doc = {
     municipality: (k?.request_to ?? '').trim(),
@@ -103,7 +105,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
     hittousha: (k?.head_person ?? '').trim() || (isDeceased ? (caseData.deceased_name ?? '') : ''),
     targetName: who,
     requestTypes: parseRequestTypes(k?.doc_types, k?.doc_form),
-    purpose: (k?.request_reason ?? '').trim() || KOSEKI_PURPOSES[0],
+    purpose: (k?.request_reason ?? '').trim() || defaultKosekiPurpose(caseData.service_category, caseData.service_category_2),
     notes: (k?.range_detail ?? '').trim(),
     // 同封小為替＝費用予算。封筒に入れる小為替はこの金額。
     // 返金・確定費用は戸籍が届いた後の数字なので、出す時点ではまだ存在しない。

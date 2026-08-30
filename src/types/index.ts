@@ -76,6 +76,7 @@ export type CaseRow = {
   difficulty_reasons: string[] | null              // migration 195: 難しい理由（複数選択）
   difficulty_reason_other: string | null           // migration 195: その他難しい理由（自由記述）
   procedure_type: string[] | null
+  expense_billing_firm: string | null  // 実費請求法人（行政/司法/いきいき。migration 264）
   service_category: string | null  // 受注区分①（後方互換＝先頭パート。migration 090）
   service_category_2: string | null  // 受注区分②（後方互換＝2つ目パート。migration 093）
   service_parts: { key: string; order: number; status: string }[] | null  // 受注区分パート（順序＋status。migration 127）

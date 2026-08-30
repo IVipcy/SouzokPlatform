@@ -51,8 +51,9 @@ const CELL_MAP: Record<KosekiVariant, {
   requestDate: string[]
   requesterAddress: string | null   // F5など。検認時は null（テンプレに協会情報既設）
   requesterName: string | null      // F6
-  typeCell: string                  // 請求種別「戸籍・除籍・原戸籍」（選択種別を〇で囲う）
-  tohonCell: string                 // 「謄本・抄本」（同上）
+  typeCell: string                  // 請求種別の1行目「戸籍・除籍・原戸籍」
+  juminhyoCell: string              // 請求種別の2行目「住民票・除票・戸籍の附票」
+  tohonCell: string                 // 「謄本・抄本」
   copyCount: string                 // 通数
   honseki: string                   // 本籍・住所
   hittousha: string                 // 筆頭者氏名
@@ -69,6 +70,7 @@ const CELL_MAP: Record<KosekiVariant, {
     requesterAddress: 'F5',
     requesterName: 'F6',
     typeCell: 'C18',
+    juminhyoCell: 'C19',
     tohonCell: 'F18',
     copyCount: 'H18',
     honseki: 'C20',
@@ -86,6 +88,7 @@ const CELL_MAP: Record<KosekiVariant, {
     requesterAddress: 'F5',
     requesterName: 'F6',
     typeCell: 'C17',
+    juminhyoCell: 'C18',
     tohonCell: 'F17',
     copyCount: 'H17',
     honseki: 'C19',
@@ -104,6 +107,7 @@ const CELL_MAP: Record<KosekiVariant, {
     requesterAddress: 'F5',
     requesterName: 'F6',
     typeCell: 'C14',
+    juminhyoCell: 'C15',
     tohonCell: 'F14',
     copyCount: 'H14',
     honseki: 'C16',
@@ -149,27 +153,19 @@ function setCell(ws: ExcelJS.Worksheet, addr: string, value: string | number | D
  * 「戸籍」は「原戸籍」「戸籍の附票」の一部でもあるので、長い名前から順に処理し、
  * 既に囲んだところは二重に囲まない。
  */
-function markTypes(ws: ExcelJS.Worksheet, addr: string, selected: Set<string>) {
+/**
+ * 種別の欄に、頼むものだけを書く。
+ *
+ * 以前はひな型の「戸籍　・　除籍　・　原戸籍」をそのまま残し、選んだものを【】で囲っていた。
+ * 頼んでいないものが紙に残るうえ、【】のぶん字が伸びて読みにくかった。
+ * いまは行ごと書き換えて、選んだものだけを「・」でつないで書く。
+ *
+ * 何も選んでいなければ空にする。ひな型の例がそのまま役所へ出るのを防ぐため。
+ */
+function writeTypes(ws: ExcelJS.Worksheet, addr: string, candidates: readonly string[], selected: Set<string>) {
+  const picked = candidates.filter(c => selected.has(c))
   const cell = ws.getCell(addr)
-  const cur = cell.value
-  if (typeof cur !== 'string' || cur.trim() === '') return
-
-  let text = cur
-  const names = [...selected].filter(Boolean).sort((a, b) => b.length - a.length)
-  for (const name of names) {
-    if (text.includes(`【${name}】`)) continue
-    const idx = text.indexOf(name)
-    if (idx < 0) continue
-    // 既に囲んだ語の内側（例：【戸籍の附票】の中の「戸籍」）は触らない
-    const before = text.slice(0, idx)
-    if ((before.match(/【/g)?.length ?? 0) > (before.match(/】/g)?.length ?? 0)) continue
-    text = `${before}【${name}】${text.slice(idx + name.length)}`
-  }
-  if (text === cur) return
-  cell.value = text
-
-  // 【】のぶん文字が伸びるが、フォントは落とさない（他の欄より小さくなって読めなくなるため）。
-  // 幅に収める必要があるときは Excel の「縮小して全体を表示」に任せる。
+  cell.value = picked.join('　・　')
   cell.alignment = { ...(cell.alignment ?? {}), shrinkToFit: true }
 }
 
@@ -257,10 +253,11 @@ export async function POST(request: NextRequest) {
     setCell(ws, map.hittousha, row.hittousha)
     setCell(ws, map.targetName, row.targetName)
 
-    // 請求種別: 選択された種別を 〇 で囲って表示
+    // 請求種別: 頼むものだけを書く。3行に分かれている（戸籍系／住民票系／謄本・抄本）。
     const selectedTypes = new Set(row.requestTypes ?? [])
-    markTypes(ws, map.typeCell, selectedTypes)
-    markTypes(ws, map.tohonCell, selectedTypes)
+    writeTypes(ws, map.typeCell, ['戸籍', '除籍', '原戸籍'], selectedTypes)
+    writeTypes(ws, map.juminhyoCell, ['住民票', '除票', '戸籍の附票'], selectedTypes)
+    writeTypes(ws, map.tohonCell, ['謄本', '抄本'], selectedTypes)
 
     // 使用目的: 出力画面で選択された目的を優先（未指定はプリセット）
     setCell(ws, map.purpose, body.purpose || preset.purpose)

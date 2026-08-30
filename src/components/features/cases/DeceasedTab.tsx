@@ -440,8 +440,10 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
               <table className="w-full border-collapse" style={{ minWidth: 640 }}>
                 <thead>
                   <tr>
-                    {/* オーダーシート（受注担当ざっくり）では詳細列(生年月日/住所/本籍)を隠し、実務タブ（管理担当詳細化）で表示。エクセルR42-44 */}
-                    {['相続人', '依頼者', '同居', '死亡', ...(orderSheetMode ? [] : ['生年月日', '住所', '本籍']), ''].map((h, hi) => (
+                    {/* オーダーシート（受注担当ざっくり）では詳細列(生年月日/住所)を隠し、実務タブ（管理担当詳細化）で表示。エクセルR42-44
+                        本籍は持たせない。転籍のたびに変わるので人に1つ持たせると必ず古くなる。
+                        戸籍請求ごとに、その請求の本籍を戸籍タブで手入力する。 */}
+                    {['相続人', '依頼者', '同居', '死亡', ...(orderSheetMode ? [] : ['生年月日', '住所']), ''].map((h, hi) => (
                       <th key={hi} className="text-left px-3 py-2 text-[11px] font-medium text-gray-600 tracking-[0.04em] bg-gray-50 border-b border-gray-300">{h}</th>
                     ))}
                   </tr>
@@ -512,7 +514,6 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                               className="w-full px-1.5 py-1 text-[12.5px] text-gray-700 bg-transparent border border-transparent hover:border-gray-200 focus:border-brand-500 focus:bg-white rounded outline-none transition-colors"
                             />
                           </td>
-                          <td className="px-3 py-2.5 text-[13px] text-gray-600">{heir.registered_address ?? '—'}</td>
                         </>
                       )}
                       <td className="px-3 py-2.5">
@@ -580,7 +581,6 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                       <>
                         <div className="flex gap-2"><span className="text-gray-400 w-16 flex-none">生年月日</span><span>{heir.birth_date ? <>{heir.birth_date}{toWareki(heir.birth_date) && <span className="text-gray-400 ml-1">{toWareki(heir.birth_date)}</span>}</> : '—'}</span></div>
                         <div className="flex gap-2"><span className="text-gray-400 w-16 flex-none">住所</span><span>{heir.address ?? '—'}</span></div>
-                        <div className="flex gap-2"><span className="text-gray-400 w-16 flex-none">本籍</span><span>{heir.registered_address ?? '—'}</span></div>
                       </>
                     )}
                   </div>
@@ -697,24 +697,6 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                     className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
                   />
                   <AddressHint value={heirForm.address} />
-                </FormField>
-                <FormField label="本籍">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={heirForm.registered_address}
-                      onChange={e => setHeirForm(f => ({ ...f, registered_address: e.target.value }))}
-                      onBlur={e => setAndSave({ registered_address: normalizeAddress(e.target.value) })}
-                      placeholder="埼玉県さいたま市大宮区1-4-1"
-                      className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
-                    />
-                    <button
-                      type="button"
-                      disabled={!heirForm.address.trim()}
-                      onClick={() => setAndSave({ registered_address: heirForm.address })}
-                      className="flex-none inline-flex items-center text-[12px] font-semibold text-brand-600 hover:text-brand-700 px-2.5 py-1.5 rounded-md border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                    >住所と同じ</button>
-                  </div>
                 </FormField>
               </div>
               )}

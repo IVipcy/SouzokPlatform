@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { Section, FieldGrid, FieldRow, InlineSelect, InlineDate } from '@/components/ui/InlineFields'
 import SelectChip from '@/components/ui/SelectChip'
-import { CONTRACT_TYPES, DIFFICULTY_LEVELS, DIFFICULTY_REASONS } from '@/lib/constants'
+import { CONTRACT_TYPES, KOSEKI_FIRMS, DIFFICULTY_LEVELS, DIFFICULTY_REASONS } from '@/lib/constants'
 import {
   REFERRAL_ONLY_CATEGORY,
   ORDER_CATEGORY_ROWS, CATEGORY_AUTO_GYOMU, GYOMU_SELECTOR_ROWS,
@@ -207,6 +207,10 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
 
         <FieldGrid>
           <InlineSelect label="契約形態" value={caseData.contract_type} options={[...CONTRACT_TYPES]} onSave={v => save('contract_type', v)} />
+          {/* 実費（戸籍の小為替など）を誰の名義で請求するか。案件で1つ決まるので、
+              戸籍請求ごとには選ばせず、戸籍タブの「請求法人」にこの値を出す。
+              契約形態とは別。連名契約でも実費はどちらか一方の法人で請求する。 */}
+          <InlineSelect label="実費請求法人" value={caseData.expense_billing_firm} options={[...KOSEKI_FIRMS]} onSave={v => save('expense_billing_firm', v)} />
           {!meetingSheetMode && <InlineDate label="契約日" value={caseData.contract_date} onSave={v => save('contract_date', v)} />}
           {!meetingSheetMode && <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => save('expected_completion_date', v || null)} hint="目安：手続き一式＝4ヵ月＋延長1ヵ月／遺産承継＝4ヵ月＋延長2ヵ月で設定してください。" />}
         </FieldGrid>

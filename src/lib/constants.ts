@@ -453,7 +453,21 @@ export const KOSEKI_PURPOSES = [
 
 // 使用目的（旧・戸籍請求理由）。戸籍請求書の「使用目的」欄にそのまま印字する。
 // 実務タブで選んだものが紙に載るので、出力画面では選び直さない。
-export const KOSEKI_REQUEST_REASONS = KOSEKI_PURPOSES
+// 選択＋自由入力なので、役所の紙に短く書きたいときはその場で直せる。
+export const KOSEKI_REQUEST_REASONS = [
+  '正確な相続人の把握と相続関係図の作成',
+  '遺言書作成の前段として推定相続人の調査',
+  'その他',
+] as const
+
+/**
+ * 使用目的の既定。受注区分が遺言かどうかで変える。
+ * 遺言案件は「まだ亡くなっていない人の推定相続人を調べる」ので、目的の書きぶりが違う。
+ */
+export function defaultKosekiPurpose(...serviceCategories: (string | null | undefined)[]): string {
+  const isWill = serviceCategories.some(c => (c ?? '').includes('遺言'))
+  return isWill ? KOSEKI_REQUEST_REASONS[1] : KOSEKI_REQUEST_REASONS[0]
+}
 
 // === 戸籍請求書パターン（実費負担者） ===
 export const KOSEKI_REQUEST_PATTERNS = ['司法書士', '行政書士', 'いきいき'] as const

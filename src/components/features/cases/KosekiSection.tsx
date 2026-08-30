@@ -21,6 +21,7 @@ import {
   HEIR_RELATIONSHIPS,
   KOSEKI_AUTHORITIES,
   kosekiRangeDetailOptions,
+  defaultKosekiPurpose,
 } from '@/lib/constants'
 
 // 請求区分の説明（列見出しの「?」）。定義は constants.ts の1か所。
@@ -259,14 +260,17 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
   // モーダルで何も聞かずに空の請求を作り、そのタブを開く。請求先はカードで入力する。
   const addRequestForPerson = async (person: string) => {
     const { data: planRow } = await supabase
-      .from('koseki_plans').select('range_text').eq('case_id', caseId).eq('person_name', person).maybeSingle()
-    const plan = planRow as { range_text: string | null } | null
+      .from('koseki_plans').select('range_text, acquisition_authority').eq('case_id', caseId).eq('person_name', person).maybeSingle()
+    const plan = planRow as { range_text: string | null; acquisition_authority: string | null } | null
     const { data, error } = await supabase.from('koseki_requests')
       .insert({
         case_id: caseId, sort_order: requests.length,
         target_person: person || null,
         range_text: plan?.range_text ?? null,
+        // 取得方法はオーダーシートの取得計画から引き継ぐ（まとめて設定した内容がそのまま入る）
+        acquisition_authority: plan?.acquisition_authority ?? null,
         submit_to: KOSEKI_SUBMIT_TO_DEFAULT,
+        request_reason: defaultKosekiPurpose(caseData.service_category, caseData.service_category_2),
       })
       .select('id').single()
     if (error || !data) { showToast(`追加に失敗: ${error?.message ?? ''}`, 'error'); return }
@@ -639,7 +643,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                     if (!cur) return null
                     return (
                       <KosekiCard key={cur.id} r={cur} meId={memberId}
-                        personNames={personNames}
+                        personNames={personNames} caseData={caseData} heirs={heirs}
                         saveField={saveField} saveMany={saveMany}
                         onDelete={() => delRequest(cur)} onCopy={() => copyRequest(cur)} onMakeDoc={() => setDocRequests([cur])} />
                     )
@@ -833,16 +837,45 @@ function KosekiGroup({ no, title, children }: { no?: string; title: string; chil
   )
 }
 
-function KosekiCard({ r, meId, personNames = [], saveField, saveMany, onDelete, onCopy, onMakeDoc }: {
+function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField, saveMany, onDelete, onCopy, onMakeDoc }: {
   r: KosekiRequestRow
   meId: string | null
   personNames?: string[]
+  caseData: CaseRow
+  heirs?: HeirRow[]
   saveField: (id: string, field: keyof KosekiRequestRow, value: unknown) => Promise<void>
   saveMany: (id: string, patch: Partial<KosekiRequestRow>) => Promise<void>
   onDelete: () => void
   onCopy: () => void
   onMakeDoc: () => void
 }) {
+  const wantsJuminhyo = includesJuminhyo(r.doc_types)
+
+  // 既定値は「まだ何も入っていないとき」だけ入れる。
+  // 承認待ちで編集させない請求にも同じ順番でフックを通す必要があるので、早期returnより前に置く。
+  // 一度でも触ったもの（基礎証明外事項を1つだけ外した／抄本に変えた）を、
+  // 種別を選び直したせいで既定へ戻すと、直した内容が黙って消えるため。
+  useEffect(() => {
+    // 承認待ちの追加請求は編集させないので、既定値も入れない
+    if (r.is_additional && !r.additional_approved_at) return
+    const patch: Partial<KosekiRequestRow> = {}
+    if (wantsJuminhyo && !(r.juminhyo_items ?? '').trim()) patch.juminhyo_items = JUMINHYO_EXTRA_ITEMS.join('・')
+    if (includesKoseki(r.doc_types) && !(r.doc_form ?? '').trim()) patch.doc_form = '謄本'
+    if (!(r.submit_to ?? '').trim()) patch.submit_to = KOSEKI_SUBMIT_TO_DEFAULT
+    if (!(r.request_reason ?? '').trim()) patch.request_reason = defaultKosekiPurpose(caseData.service_category, caseData.service_category_2)
+    // 住民票・除票は住所を請求するので、相続人一覧の住所を入れる。
+    // 戸籍・除籍・原戸籍・附票の本籍は請求のたびに変わるので自動では入れない（手入力）。
+    if (wantsJuminhyo && !(r.honseki_address ?? '').trim()) {
+      const who = (r.target_person ?? '').trim()
+      const addr = who && who === (caseData.deceased_name ?? '').trim()
+        ? (caseData.deceased_address ?? '')
+        : (heirs.find(h => (h.name ?? '').trim() === who)?.address ?? '')
+      if (addr.trim()) patch.honseki_address = addr.trim()
+    }
+    if (Object.keys(patch).length > 0) void saveMany(r.id, patch)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [r.id, r.doc_types])
+
   // 予定外の追加（要承認・未承認）は帯だけ出して編集させない。
   if (r.is_additional && !r.additional_approved_at) {
     return (
@@ -860,6 +893,7 @@ function KosekiCard({ r, meId, personNames = [], saveField, saveMany, onDelete, 
   // 請求法人・提出先）は出さず、案件管理に要る欄だけ残す。
   // 入力済みの値は消さない。あとから委任状に切り替えたときに戻ってくる。
   const isShokumujo = r.acquisition_authority === '職務上請求'
+
   const mistaken = isMistakenRequest(r.request_kind)  // 誤請求＝自社の経費
   const muted = <span className="text-[11px] text-gray-400">—</span>
 
@@ -907,6 +941,11 @@ function KosekiCard({ r, meId, personNames = [], saveField, saveMany, onDelete, 
           </KosekiFieldRow>
         )}
         {!isShokumujo && (<>
+          <KosekiFieldRow label="請求法人" hint="実費を誰の名義で請求するかです。案件で1つ決まるものなので、変えるときはオーダーシートの「実費請求法人」で変えてください。">
+            {(caseData.expense_billing_firm ?? '').trim()
+              ? <span className="text-[12.5px] text-gray-700">{caseData.expense_billing_firm}</span>
+              : <span className="text-[11px] text-gray-400">未設定　<span className="text-[10.5px]">（オーダーシートの実費請求法人で設定します）</span></span>}
+          </KosekiFieldRow>
           <KosekiFieldRow label="拠点" hint="戸籍請求書の代理人欄に出る住所・電話が、この拠点のものになります。">
             {/* 保存するのは拠点ID（kyodo 等）で、画面に出すのは拠点名。
                 SelCell は値＝表示名の前提なので、ここだけ select を直に書く。 */}
@@ -926,13 +965,10 @@ function KosekiCard({ r, meId, personNames = [], saveField, saveMany, onDelete, 
 請求先（役所）＝取りに行く先とは別です。`}>
             <SelectOrTextField value={r.submit_to} options={KOSEKI_SUBMIT_TO_OPTIONS} onSave={v => saveField(r.id, 'submit_to', v)} placeholder={KOSEKI_SUBMIT_TO_DEFAULT} />
           </KosekiFieldRow>
-          <KosekiFieldRow label="使用目的" full hint="戸籍請求書の「使用目的」欄にそのまま入ります。">
-            <SelCell value={r.request_reason} options={[...KOSEKI_REQUEST_REASONS]} onChange={v => saveField(r.id, 'request_reason', v)} />
+          <KosekiFieldRow label="使用目的" full hint="戸籍請求書の「使用目的」欄にそのまま入ります。選んでから直せます。">
+            <SelectOrTextField value={r.request_reason} options={KOSEKI_REQUEST_REASONS} onSave={v => saveField(r.id, 'request_reason', v)} placeholder="使用目的" />
           </KosekiFieldRow>
         </>)}
-        <KosekiFieldRow label="特記" full>
-          <TxtCell value={r.notes} onCommit={v => saveField(r.id, 'notes', v)} placeholder="特記" />
-        </KosekiFieldRow>
       </KosekiGroup>
 
       <KosekiGroup no="Step2" title="何を・どこへ請求するか">
@@ -960,8 +996,10 @@ function KosekiCard({ r, meId, personNames = [], saveField, saveMany, onDelete, 
               : <span className="text-[11px] text-gray-400">—　<span className="text-[10.5px]">（請求の種別で戸籍を選ぶと謄本／抄本が出ます）</span></span>}
           </KosekiFieldRow>
           <KosekiFieldRow label="本籍・住所" full
-            hint="戸籍請求書の「本籍・住所」欄に入ります。請求に係る者ご本人のものを入れてください（住民票・除票のときは住所、それ以外は本籍）。">
-            <TxtCell value={r.honseki_address} onCommit={v => saveField(r.id, 'honseki_address', v)} placeholder="例：神奈川県相模原市南区上鶴間本町２丁目２０番１－１１５号" />
+            hint={wantsJuminhyo
+              ? '戸籍請求書の「本籍・住所」欄に入ります。住民票・除票なので住所です。相続人一覧の住所が入ります（直せます）。'
+              : '戸籍請求書の「本籍・住所」欄に入ります。戸籍なので本籍です。本籍は転籍のたびに変わるため自動では入れません。手で入れてください。'}>
+            <TxtCell value={r.honseki_address} onCommit={v => saveField(r.id, 'honseki_address', v)} />
           </KosekiFieldRow>
           <KosekiFieldRow label="筆頭主／世帯主">
             <SelectOrTextField value={r.head_person} options={personNames} onSave={v => saveField(r.id, 'head_person', v)} placeholder="筆頭主/世帯主" />

@@ -72,6 +72,35 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
     if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
   }
 
+  /**
+   * 取得方法を全員にまとめて入れる。
+   * 委任状で通す案件・職務上で通す案件は最初に決まっていることが多く、
+   * 相続人が10人いると同じ選択を10回することになるため。
+   *
+   * 既に作ってある戸籍請求カードにも入れるが、空のものだけにする。
+   * 1件だけ職務上に変えてあるものを上書きすると、直した内容が黙って消えるため。
+   */
+  const setAuthorityForAll = async (value: string) => {
+    if (!value) return
+    const names = people.map(p => p.name.trim()).filter(Boolean)
+    if (names.length === 0) return
+    setPlans(prev => {
+      const next = { ...prev }
+      for (const n of names) next[n] = { ...(next[n] ?? {} as KosekiPlanRow), person_name: n, acquisition_authority: value } as KosekiPlanRow
+      return next
+    })
+    const supabase = createClient()
+    const { error } = await supabase.from('koseki_plans')
+      .upsert(names.map(n => ({ case_id: caseId, person_name: n, acquisition_authority: value })), { onConflict: 'case_id,person_name' })
+    if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
+    const { error: reqErr } = await supabase.from('koseki_requests')
+      .update({ acquisition_authority: value })
+      .eq('case_id', caseId)
+      .is('acquisition_authority', null)
+    if (reqErr) { showToast(`戸籍請求への反映に失敗しました: ${reqErr.message}`, 'error'); return }
+    showToast(`取得方法を「${value}」にまとめて設定しました`, 'success')
+  }
+
   if (loading) return <div className="text-[12px] text-gray-400 py-3">読み込み中…</div>
   if (people.length === 0) {
     return <div className="text-[12px] text-gray-400 py-3">被相続人・相続人を登録すると、ここに取得計画の表が出ます。</div>
@@ -79,7 +108,18 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
 
   return (
     <div>
-      <PersonRoleLegend className="mb-2" />
+      <div className="flex items-center gap-2 flex-wrap mb-2">
+        <PersonRoleLegend />
+        <span className="flex-1" />
+        <span className="text-[11.5px] text-gray-500">取得方法をまとめて設定</span>
+        {KOSEKI_AUTHORITIES.map(o => (
+          <button key={o} type="button" onClick={() => setAuthorityForAll(o)}
+            title={`全員の取得方法を「${o}」にします。戸籍請求カードは、取得方法が空のものにだけ入ります`}
+            className="px-2.5 py-1 text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded-md hover:bg-brand-100">
+            {o}
+          </button>
+        ))}
+      </div>
       <div className="overflow-x-auto">
       <table className="w-full text-[12px] border-collapse" style={{ minWidth: 820 }}>
         <thead>
