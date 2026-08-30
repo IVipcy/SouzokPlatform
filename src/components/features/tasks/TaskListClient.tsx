@@ -18,6 +18,7 @@ import { taskSeverity, SEVERITY_RANK, SEVERITY_TAB, SEVERITY_TAB_NOTE, SEVERITY_
 import { bizDaysUntil } from '@/lib/overdue'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { GyomuBadge } from '@/components/ui/KoteiBadge'
+import { RemainCell } from '@/components/ui/RemainCell'
 import { getStartSignal, type ReadinessReceipt } from '@/lib/taskReadiness'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { showToast } from '@/components/ui/Toast'
@@ -247,7 +248,11 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   /** 着手前のうち、いま着手できるか。案件詳細では「未着手」と「着手OK」を分けるのに使う。 */
   const isReady = useCallback((t: TaskRow) => getStartSignal(t, receipts).ready, [receipts])
 
-  const filtered = useMemo(() => {
+  // 業務タブ「以外」の絞り込みを全部かけたもの。
+  // 表もタブの件数・色もここから作る。母集団を分けていたせいで
+  //「着手OKを選んでいるのに、対応中の超急ぎタスクでタブだけ赤くなる」
+  //「事務管理の表には出さない相続登記タスクで『すべて』が赤くなる」が起きていた。
+  const scopedTasks = useMemo(() => {
     let result = assistantTasks
     if (statusFilter === 'notReady') result = result.filter(t => normalizeStatus(t.status) === '着手前' && !isReady(t))
     else if (statusFilter === '着手前') result = result.filter(t => normalizeStatus(t.status) === '着手前' && (!caseScope || isReady(t)))
@@ -261,10 +266,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     // 相続登記は相続登記チームの持ち場。事務管理の一覧には出さない（案件詳細では出す）。
     if (roleScope === 'assistant' && !caseScope) {
       result = result.filter(t => !isHiddenForAssistant(gyomuOf(t)))
-    }
-    // 業務タブ（'all' 以外は そのタブに属する業務のタスクだけ）
-    if (taskTab !== 'all') {
-      result = result.filter(t => tabKeyOfGyomu(gyomuOf(t)) === taskTab)
     }
     // 遅れ・優先度の絞り込み（業務タブに関係なく効く）
     if (sevFilter !== 'all') {
@@ -286,6 +287,12 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
                caseNumber.toLowerCase().includes(q)
       })
     }
+    return result
+  }, [assistantTasks, statusFilter, filterMine, search, caseMap, currentMemberId, today, sevFilter, priFilter, outingOnly, caseScope, isReady, roleScope])
+
+  const filtered = useMemo(() => {
+    // 業務タブ（'all' 以外は そのタブに属する業務のタスクだけ）
+    const result = taskTab === 'all' ? scopedTasks : scopedTasks.filter(t => tabKeyOfGyomu(gyomuOf(t)) === taskTab)
     // 見出しで選んだ並び。期限なしは常に最後（並べる基準がないため）。
     if (sortKey !== 'default') {
       const sign = sortDir === 'asc' ? 1 : -1
@@ -318,29 +325,29 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       const bd = b.due_date ?? '9999-12-31'
       return ad.localeCompare(bd)
     })
-  }, [assistantTasks, statusFilter, filterMine, taskTab, search, caseMap, currentMemberId, today, sevFilter, priFilter, outingOnly, sortKey, sortDir, caseScope, isReady])
+  }, [scopedTasks, taskTab, today, sortKey, sortDir])
 
   // 業務タブごとの件数と重さ。タブの並びは定義どおり固定で、0件でも出す
   // （「そのタブは今やることが無い」ことが分かるほうが探しやすい）。
   //
-  // 数字 … 着手OK（いま手をつけられるもの）だけ。対応中は数えない。
-  // 色   … そのタブの未完了タスクのいちばん重い段階。判定はダッシュボード上部のバナーと同じ。
+  // 数字 … そのタブを押したときに表に出る件数
+  // 色   … そのうち未完了のいちばん重い段階（完了は急がせる意味がないので数えない）
+  // どちらも scopedTasks＝表と同じ母集団で数える。ここを分けるとズレが必ず出る。
   const tabInfo = useMemo(() => {
-    const m: Record<string, { ready: number; sev: TaskSeverity }> = {}
-    const touch = (k: string) => (m[k] ??= { ready: 0, sev: 'blue' })
+    const m: Record<string, { count: number; sev: TaskSeverity }> = {}
+    const touch = (k: string) => (m[k] ??= { count: 0, sev: 'blue' })
     touch('all')
-    for (const t of assistantTasks) {
-      if (normalizeStatus(t.status) === '完了') continue
+    for (const t of scopedTasks) {
+      const done = normalizeStatus(t.status) === '完了'
       const sev = taskSeverity(t, today)
-      const isReady = normalizeStatus(t.status) === '着手前'
       for (const k of [tabKeyOfGyomu(gyomuOf(t)), 'all']) {
         const e = touch(k)
-        if (isReady) e.ready += 1
-        if (SEVERITY_RANK[sev] < SEVERITY_RANK[e.sev]) e.sev = sev
+        e.count += 1
+        if (!done && SEVERITY_RANK[sev] < SEVERITY_RANK[e.sev]) e.sev = sev
       }
     }
     return m
-  }, [assistantTasks, today])
+  }, [scopedTasks, today])
 
   const kpis = useMemo(() => {
     const pre = assistantTasks.filter(t => normalizeStatus(t.status) === '着手前')
@@ -547,7 +554,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           {[{ key: 'all', label: 'すべて' }, ...ASSISTANT_TASK_TABS].map((t, i) => {
             const on = taskTab === t.key
             const info = tabInfo[t.key]
-            const n = info?.ready ?? 0
+            const n = info?.count ?? 0
             const sev = info?.sev ?? 'blue'
             const c = SEVERITY_TAB[sev]
             return (
@@ -669,14 +676,16 @@ function ListView({
 }) {
   // 列は運用の指定どおり：タスク上げ日／案件番号／依頼者名／業務分類／タスク内容／
   // 優先度／管理担当／タスク起票者／タスク詳細（＋選択・操作・削除）。
-  // 担当区分・ステータス・着手OK理由・期限・残り・実施結果・受注担当は出さない
+  // 担当区分・ステータス・着手OK理由・実施結果・受注担当は出さない
   // （ステータスと着手OK理由は「作った時点で着手OK」の運用でほぼ一定になった）。
+  // 期限と期限超過は優先度の右に出す。行の色（赤・琥珀）が何で付いているのかを
+  // 表の上で確かめられないと、いちいちタスクを開くことになるため。
   // 列幅は固定。ドラッグでの変更はやめた（人によって幅が変わり、
   // 日付や案件番号が「2026-0…」「2608SD0…」と切れる事故が起きていた）。
   // 幅は中身の実測（日付90px／案件番号101px）＋左右余白24pxで決めている。
   const widths = {
     select: 44, createdAt: 120, caseNo: 132, clientName: 150, gyomu: 110, title: 300,
-    priority: 104, manager: 124, creator: 116, work: 284, ops: 40,
+    priority: 104, dueDate: 118, overdue: 104, manager: 124, creator: 116, work: 284, ops: 40,
   } as const
   // sort を持つ列は見出しを押すと並び替えできる。
   const HEADERS: Array<{ key: keyof typeof widths; label: string; sort?: SortKey }> = [
@@ -689,6 +698,8 @@ function ListView({
     { key: 'gyomu',      label: '業務分類' },
     { key: 'title',      label: 'タスク内容' },
     { key: 'priority',   label: '優先度', sort: 'priority' },
+    { key: 'dueDate',    label: '期限' },
+    { key: 'overdue',    label: '期限超過', sort: 'remain' },
     { key: 'manager',    label: '管理担当' },
     { key: 'creator',    label: 'タスク起票者' },
     { key: 'work',       label: '作業内容' },
@@ -895,6 +906,18 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onDelete, onSe
         >
           {['通常', '急ぎ', '超急ぎ'].map(p => <option key={p} value={p}>{p}</option>)}
         </select>
+      </td>
+
+      {/* 期限 */}
+      <td className="px-3.5 py-2.5">
+        {task.due_date
+          ? <span className={`text-[12.5px] font-mono ${isOverdue ? 'text-red-600' : 'text-gray-500'}`}>{task.due_date}</span>
+          : <span className="text-[12px] text-gray-300">—</span>}
+      </td>
+
+      {/* 期限超過（営業日）。完了した行は急がせる意味がないので色を付けない。 */}
+      <td className="px-3.5 py-2.5">
+        <RemainCell days={task.due_date ? bizDaysUntil(task.due_date, today) : null} muted={status === '完了'} />
       </td>
 
       {/* 管理担当 */}
