@@ -2,23 +2,20 @@
 
 import { useState, useEffect, useRef, useMemo, useTransition, Fragment, type ChangeEvent } from 'react'
 import Link from 'next/link'
-import { Check, Hand, Loader2, Play, Link2, Folder, FolderUp, Target, Trash2, X } from 'lucide-react'
+import { Check, Hand, Loader2, Link2, Folder, FolderUp, Trash2, X } from 'lucide-react'
 import HankoStamp from '@/components/ui/HankoStamp'
 import HintTip from '@/components/ui/HintTip'
 import { createClient } from '@/lib/supabase/client'
 import { uploadFilesToCaseFolder } from '@/lib/caseFolder'
 import { showToast } from '@/components/ui/Toast'
 import { deliverableLinkLabel } from '@/lib/deliverables'
-import { ACQUISITION_ITEMS } from '@/lib/constants'
-import { GYOMU_ALL } from '@/lib/serviceMaster'
-import { koteiOf, KOTEI_GYOMU, KOTEI_ORDER } from '@/lib/kotei'
-import { normalizeTaskStatus, READY_REASON_DOC } from '@/lib/taskReadiness'
-import { TantoKubunBadge } from '@/components/ui/TantoKubunBadge'
+import { READY_REASON_DOC } from '@/lib/taskReadiness'
+import NewTaskFields, { emptyNewTask, type NewTaskValue } from '@/components/features/tasks/NewTaskFields'
+import TaskTargetPicker, { emptyTarget, resolveTargetRid, type TaskTarget } from '@/components/features/tasks/TaskTargetPicker'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { useCanOperateReceipts } from '@/components/providers/AuthProvider'
 import type { DocumentReceiptRow, MemberRow } from '@/types'
-import type { RoleRow } from '@/components/features/cases/ProcedureIntakeSection'
 
 type ReceiptFileMap = Record<string, { bucket: string; path: string; name: string | null }>
 
@@ -47,9 +44,9 @@ const W_CHECK_HELP = [
 ].join('\n\n')
 
 const TAIOU_HELP = [
-  '届いた物を、どのタスクの成果物として扱うかを決める場所です。押した人の認印が残ります。',
-  '「対応」を押すと案件のタスクと結びつき、そのタスクが作業進行中になります。結ぶタスクが無ければ「タスクなしで完了」も選べます（契約書類など）。案件の着手OK判定にも反映されます。',
-  'W-Checkが済むまで押せません。取り消すとタスクの結びつけと着手OKが戻ります（タスク自体は消えません）。',
+  '届いた物で次に何を進めるかを決める場所です。押した人の認印が残ります。',
+  '到着物ごとに「タスクを新規追加」か「タスクなしで完了」を選びます。入力欄はタスク追加モーダルと同じです。ここで作ったタスクは、事務管理ダッシュボードの郵便タブに並びます。',
+  'W-Checkが済むまで押せません。取り消すと結びつけが戻ります（作ったタスク自体は消えません）。',
 ].join('\n\n')
 
 // 「0513/001」形式の番号を生成
@@ -323,256 +320,139 @@ const CONTRACT_CATEGORY_GYOMU: Record<string, string[]> = {
   '財産': ['金融資産', '解約', '不動産'], // 旧データ（金融/不動産分割前の区分=財産）
 }
 
-// 着手＝書類到着でタスク開始のトリガー。受信簿に着手記録を付け、選択した案件タスクを「対応中」にする。
+// 到着物の「対応」＝届いた物ごとに、次に進めるタスクを決める。
+//
+// 選べるのは2つだけ。
+//   ① タスクを新規追加 … 入力欄はタスク追加モーダルと同じ（同じ NewTaskFields を使う）
+//   ② タスクなしで完了 … 契約書類など、タスクを作る必要がない物
+//
+// 以前は「既存タスクから選ぶ」「実施タスクの候補チップ」も出していたが外した。
+// タスクはこの場で作る運用になり、あらかじめ作っておいたタスクが無いため、
+// 候補を並べても空振りするだけだった。
 function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   receipt: DocumentReceiptRow
   currentMemberId: string | null
   onClose: () => void
   onDone: () => void
 }) {
-  const [tasks, setTasks] = useState<Array<{ id: string; title: string; status: string; source_rid: string | null; phase: string | null; task_kind: string | null }>>([])
-  const [intakeRoles, setIntakeRoles] = useState<RoleRow[]>([])
-  // 筆頭候補（到着物の対応読込タスク）を source_rid で特定するための元データ。
-  const [finAssets, setFinAssets] = useState<Array<{ id: string; institution_name: string | null }>>([])
-  const [acquisitions, setAcquisitions] = useState<Array<{ id: string; item_type: string | null; target_property_id: string | null; target_municipality: string | null }>>([])
-  const [properties, setProperties] = useState<Array<{ id: string; municipality: string | null; address: string | null }>>([])
-  // 契約時受領書類 id → 区分(category)。区分で結べるタスクを出し分ける。
+  // 契約時受領書類 id → 区分(category)。既定の業務区分と「タスク不要」の判定に使う。
   const [contractCat, setContractCat] = useState<Map<string, string | null>>(new Map())
-  // 到着物(item)ごとに結ぶ既存タスクid集合 / 新規タスク名
-  const [itemSel, setItemSel] = useState<Record<string, Set<string>>>({})
-  const [itemNew, setItemNew] = useState<Record<string, string>>({})
-  // 到着物(item)ごとに、自由入力で作る新規タスクの工程・業務区分
-  const [itemKotei, setItemKotei] = useState<Record<string, string>>({})
-  const [itemGyomu, setItemGyomu] = useState<Record<string, string>>({})
-  // 到着物(item)ごとに「関係しない業務のタスクも表示」を開いているか
-  const [showAll, setShowAll] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  // 紐付けボタン押下後の「着手OKにするか」確認ステップ
-  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [error, setError] = useState('')
+
+  // 到着物ごとの入力。mode='none' なら何も作らずに閉じるだけ。
+  const [mode, setMode] = useState<Record<string, 'task' | 'none'>>({})
+  const [forms, setForms] = useState<Record<string, NewTaskValue>>({})
+  const [targets, setTargets] = useState<Record<string, TaskTarget>>({})
 
   const items = (receipt.items ?? []).slice().sort((a, b) => a.sort_order - b.sort_order)
 
   useEffect(() => {
     const supabase = createClient()
     ;(async () => {
-      const [tk, cs, cd, fa, ac, re] = await Promise.all([
-        // 全件取得（完了含む）。完了は候補に出さないが、「＋作成」候補の重複判定に使う。
-        supabase.from('tasks').select('id,title,status,source_rid,phase,task_kind').eq('case_id', receipt.case_id).order('sort_order').order('created_at'),
-        supabase.from('cases').select('service_category, service_category_2, intake_roles').eq('id', receipt.case_id).single(),
-        supabase.from('contract_documents').select('id, category').eq('case_id', receipt.case_id),
-        supabase.from('financial_assets').select('id, institution_name').eq('case_id', receipt.case_id),
-        supabase.from('real_estate_acquisitions').select('id, item_type, target_property_id, target_municipality').eq('case_id', receipt.case_id),
-        supabase.from('real_estate_properties').select('id, municipality, address').eq('case_id', receipt.case_id),
-      ])
-      setTasks((tk.data ?? []) as Array<{ id: string; title: string; status: string; source_rid: string | null; phase: string | null; task_kind: string | null }>)
-      const c = cs.data as { service_category: string | null; service_category_2: string | null; intake_roles: RoleRow[] | null } | null
-      setIntakeRoles((c?.intake_roles ?? []) as RoleRow[])
-      setContractCat(new Map(((cd.data ?? []) as Array<{ id: string; category: string | null }>).map(d => [d.id, d.category])))
-      setFinAssets((fa.data ?? []) as Array<{ id: string; institution_name: string | null }>)
-      setAcquisitions((ac.data ?? []) as Array<{ id: string; item_type: string | null; target_property_id: string | null; target_municipality: string | null }>)
-      setProperties((re.data ?? []) as Array<{ id: string; municipality: string | null; address: string | null }>)
+      const { data } = await supabase.from('contract_documents').select('id, category').eq('case_id', receipt.case_id)
+      setContractCat(new Map(((data ?? []) as Array<{ id: string; category: string | null }>).map(d => [d.id, d.category])))
       setLoading(false)
     })()
   }, [receipt.case_id])
 
-  // タスク候補。役割分担で定義した作業は作業区分(作業/請求・受領)を問わず全部出す
-  // （戸籍請求書を作って請求する・名寄帳を請求する等、請求・受領も立派なタスクのため）。
-  const taskRoles = intakeRoles.filter(r => r.sagyou?.trim() && r.owner !== '不要')
-  // 既にタスク化済みの作業名（完了/対応中問わず）。「＋作成」候補から除外して二重作成・完了済の再掲を防ぐ。
-  const existingTaskTitles = new Set(tasks.map(t => t.title))
-  // 契約時受領書類の区分（戸籍/評価証明等は調査系）。区分=契約/その他のみタスク不要。
+  // 契約時受領書類の区分（戸籍・評価証明などは調査系）。区分=契約/その他だけタスク不要。
   const contractGyomuFor = (it: { linked_kind: string | null; linked_id: string | null }): string[] | undefined =>
     CONTRACT_CATEGORY_GYOMU[contractCat.get(it.linked_id ?? '') ?? '']
-  // 到着物の種類 → 関係する業務区分の集合。判定できないときは undefined（＝絞り込み不可）。
   const gyomuForItem = (it: { linked_kind: string | null; linked_id: string | null }): string[] | undefined => {
     if (it.linked_kind === 'contract_doc') return contractGyomuFor(it)
     return it.linked_kind ? KIND_GYOMU[it.linked_kind] : undefined
   }
-  // 到着物ごとに、関係する業務の実施タスクだけ候補に出す。
-  // 関係業務が判定できない到着物（自由入力等）は候補を出さず、自由入力に任せる（ダンプ防止）。
-  const candidateNamesForItem = (it: { linked_kind: string | null; linked_id: string | null }): string[] => {
-    if (it.linked_kind === 'contract_doc' && !contractGyomuFor(it)) return [] // 区分=契約/その他 ＝ タスク不要
-    const gy = gyomuForItem(it)
-    if (!gy) return []
-    // 既にタスク化済みの作業は除外（対応中＝既存ピルで選ぶ／完了＝再掲しない）。
-    const rs = taskRoles.filter(r => gy.includes(r.gyomu) && !existingTaskTitles.has(r.sagyou))
-    return [...new Set(rs.map(r => r.sagyou))]
-  }
-  // 既存タスクの業務区分（phase の "PhaseN:" 接頭辞を除く）
-  const gyomuOfTask = (t: { phase: string | null }) => (t.phase ?? '').replace(/^Phase\d+[:：]\s*/, '')
-  // タスク不要＝区分が調査系にマップされない契約書類のみ。
+  /** タスクを作る必要がない到着物（区分=契約/その他の契約書類）。既定を「タスクなし」にする。 */
   const isTaskFree = (it: { linked_kind: string | null; linked_id: string | null }): boolean =>
     it.linked_kind === 'contract_doc' && !contractGyomuFor(it)
 
-  // 到着物の「対応読込タスク」の source_rid を推定（筆頭候補の特定用）。
-  // 読込タスクに入っている source_rid と同じキーを組み立てる:
-  //   戸籍  → koseki-read:{請求ID}（linked_idが請求IDそのもの・確実）
-  //   金融  → fin-read:{金融機関名}
-  //   不動産 → re-read:{市区町村}（物件→市区町村を推定・ベストエフォート）
-  const muniOfProp = (p: { municipality: string | null; address: string | null }): string => {
-    const m = (p.municipality ?? '').trim()
-    if (m) return m
-    const a = (p.address ?? '').trim()
-    const match = a.match(/^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)?(.+?[市区町村])/)
-    return match ? `${match[1] ?? ''}${match[2]}` : ''
-  }
-  const expectedReadRid = (it: { linked_kind: string | null; linked_id: string | null }): string | null => {
-    if (!it.linked_id) return null
-    if (it.linked_kind === 'koseki') return `koseki-read:${it.linked_id}`
-    if (it.linked_kind === 'legal_info') return 'family-tree-recv'  // 法定相続情報一覧図の受領タスク（案件単位1本）
-    if (it.linked_kind === 'financial_asset') {
-      const name = (finAssets.find(a => a.id === it.linked_id)?.institution_name ?? '').trim()
-      return name ? `fin-read:${name}` : null
-    }
-    if (it.linked_kind === 'real_estate_acquisition') {
-      const a = acquisitions.find(x => x.id === it.linked_id)
-      if (!a || !a.item_type) return null
-      let muni = ''
-      if (a.target_property_id) { const p = properties.find(x => x.id === a.target_property_id); if (p) muni = muniOfProp(p) }
-      if (!muni) muni = (a.target_municipality ?? '').trim()
-      if (!muni) return null
-      // 読込タスクは市区町村ごと1本（①市区町村役場=re-muni-read / ②法務局=re-houmu-read）。取得物の種別から系統を判定。
-      const meta = ACQUISITION_ITEMS.find(i => i.key === a.item_type)
-      if (!meta || meta.method === '参照') return null   // 路線価など参照は読込タスクなし
-      const office = meta.target === '物件' ? 'houmu' : 'muni'
-      return `re-${office}-read:${muni}`
-    }
-    return null
-  }
+  const modeOf = (it: { id: string; linked_kind: string | null; linked_id: string | null }) =>
+    mode[it.id] ?? (isTaskFree(it) ? 'none' : 'task')
+  const formOf = (id: string) => forms[id] ?? emptyNewTask()
+  const patchForm = (id: string, p: Partial<NewTaskValue>) =>
+    setForms(prev => ({ ...prev, [id]: { ...(prev[id] ?? emptyNewTask()), ...p } }))
 
-  const toggle = (itemId: string, taskId: string) => setItemSel(prev => {
-    const cur = new Set(prev[itemId] ?? [])
-    if (cur.has(taskId)) cur.delete(taskId); else cur.add(taskId)
-    return { ...prev, [itemId]: cur }
-  })
+  const taskItems = items.filter(it => modeOf(it) === 'task')
 
-  // 筆頭候補（この到着物の対応タスク）は最初から選択済みで開く（チェック漏れ防止）。
-  // ユーザーが後で外した場合はその意思を尊重するため、まだ触っていない item だけに適用。
-  useEffect(() => {
-    if (loading) return
-    setItemSel(prev => {
-      const next = { ...prev }
-      let changed = false
-      for (const it of items) {
-        if (prev[it.id]) continue  // 既に選択操作がある item は触らない
-        const wantRid = expectedReadRid(it)
-        if (!wantRid) continue
-        const top = tasks.find(t => t.task_kind !== 'system' && t.status !== '完了' && t.status !== 'キャンセル' && t.source_rid === wantRid)
-        if (!top) continue
-        next[it.id] = new Set([top.id]); changed = true
-      }
-      return changed ? next : prev
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, tasks, items.length])
-
-  const totalLinks = items.reduce((n, it) => n + (itemSel[it.id]?.size ?? 0) + ((itemNew[it.id] ?? '').trim() ? 1 : 0), 0)
-  // 確認ステップで一覧表示する、紐付け対象タスク名。
-  const linkedLabels: string[] = (() => {
-    const out: string[] = []
-    const titleById = new Map(tasks.map(t => [t.id, t.title]))
-    for (const it of items) {
-      for (const tid of itemSel[it.id] ?? []) { const t = titleById.get(tid); if (t) out.push(t) }
-      const nt = (itemNew[it.id] ?? '').trim(); if (nt) out.push(nt)
-    }
-    return out
-  })()
-
-  const confirm = async (markReady: boolean) => {
+  const confirm = async () => {
     if (!currentMemberId) { showToast('ログイン情報が取得できませんでした', 'error'); return }
+    // タスクを作る到着物には、タスク追加モーダルと同じ必須（タスク名・作業内容）を課す。
+    for (const it of taskItems) {
+      const f = formOf(it.id)
+      if (!f.title.trim()) { setError(`「${it.item_name}」のタスク名を入れてください`); return }
+      if (!f.work.trim()) { setError(`「${it.item_name}」の作業内容を入れてください`); return }
+    }
     setSaving(true)
+    setError('')
     const supabase = createClient()
-    const nowIso = new Date().toISOString()
 
-    // 受信簿に着手記録
-    await supabase.from('document_receipts').update({ started_by_member_id: currentMemberId, started_at: nowIso }).eq('id', receipt.id)
+    await supabase.from('document_receipts')
+      .update({ started_by_member_id: currentMemberId, started_at: new Date().toISOString() })
+      .eq('id', receipt.id)
 
     const joinRows: { receipt_item_id: string; task_id: string }[] = []
     let firstTaskId: string | null = null
-    // 「着手OKにする」がチェックされた到着物に結んだタスク（必要書類受領済として着手OK旗を立てる）
-    const readyTaskIds = new Set<string>()
 
-    // 実施タスク行のrid採番（作成時に更新）／既存タスクの rid→id（重複生成防止）
-    const roles = [...intakeRoles]
-    let rolesChanged = false
-    const ridToTaskId = new Map(tasks.filter(t => t.source_rid).map(t => [t.source_rid as string, t.id]))
+    for (const it of taskItems) {
+      const f = formOf(it.id)
+      // 対象（実務タブのどこの作業か）。戸籍は選んだ内容で新しい請求行を作ってから紐づける。
+      const sourceRid = await resolveTargetRid(receipt.case_id, targets[it.id] ?? emptyTarget())
+      // タスクは作った時点で常に着手OK。ext_data もタスク追加モーダルと同じ。
+      const readyExt: Record<string, unknown> = {
+        ready_reason: '着手OK', ready_on_receipt: false,
+        ...(f.outing ? { outing: true } : {}),
+      }
+      const isAssistant = f.roleKind === 'assistant'
+      const { data: nt, error: taskErr } = await supabase.from('tasks').insert({
+        case_id: receipt.case_id,
+        task_kind: isAssistant ? 'case' : 'system',
+        ...(isAssistant ? {} : { assign_role: f.roleKind, work_role: f.roleKind }),
+        title: f.title.trim(),
+        phase: isAssistant ? f.gyomu : (f.gyomu || 'その他'),
+        category: isAssistant ? f.gyomu : '',
+        status: '着手前',
+        priority: f.priority,
+        due_date: f.dueDate || null,
+        sort_order: 99,
+        created_by: currentMemberId,
+        procedure_text: f.work.trim() || null,
+        source_rid: sourceRid,
+        ext_data: readyExt,
+      }).select('id').single()
+      if (taskErr || !nt) { setSaving(false); setError(`タスクの追加に失敗しました: ${taskErr?.message ?? ''}`); return }
+      const taskId = (nt as { id: string }).id
+      joinRows.push({ receipt_item_id: it.id, task_id: taskId })
+      firstTaskId = firstTaskId ?? taskId
 
-    // 到着物ごとに：新規タスク作成（実施タスク候補に一致すれば source_rid 連携）＋既存タスク紐付け。
-    // ※ ここでは「着手」しない。紐付けた人と実際に着手する人が異なるため、未着手(着手前)で保存する。
-    for (const it of items) {
-      const linkedThisItem: string[] = []
-      const newTitle = (itemNew[it.id] ?? '').trim()
-      if (newTitle) {
-        // 実施タスク（作業）に一致したら rid を採番して紐付け。一致時はその業務区分、
-        // 自由入力時はユーザーが選んだ業務区分を使う。
-        const idx = roles.findIndex(r => r.sagyou === newTitle && r.owner !== '不要')
-        let sourceRid: string | null = null
-        let gyomu = ''
-        if (idx >= 0) {
-          gyomu = roles[idx].gyomu
-          let rid = roles[idx].rid
-          if (!rid) { rid = crypto.randomUUID(); roles[idx] = { ...roles[idx], rid }; rolesChanged = true }
-          sourceRid = rid
-        } else {
-          // ユーザー選択 → 無ければ到着物の種類から推定した既定業務区分
-          gyomu = (itemGyomu[it.id] ?? gyomuForItem(it)?.[0] ?? '').trim()
-        }
-        const existingId = sourceRid ? ridToTaskId.get(sourceRid) : undefined
-        if (existingId) {
-          // その実施タスクのタスクが既にある → 新規作成せず結ぶ
-          joinRows.push({ receipt_item_id: it.id, task_id: existingId })
-          firstTaskId = firstTaskId ?? existingId
-          linkedThisItem.push(existingId)
-        } else {
-          const { data: nt, error } = await supabase.from('tasks')
-            .insert({ case_id: receipt.case_id, title: newTitle, task_kind: 'case', phase: gyomu || 'phase1', category: gyomu || '', status: '着手前', priority: '通常', source_rid: sourceRid, sort_order: 99 })
-            .select('id').single()
-          if (!error && nt) {
-            const id = (nt as { id: string }).id
-            if (sourceRid) ridToTaskId.set(sourceRid, id)
-            joinRows.push({ receipt_item_id: it.id, task_id: id })
-            firstTaskId = firstTaskId ?? id
-            linkedThisItem.push(id)
-          }
+      // 管理担当/受注担当タスクは、案件のその担当へ割当＋通知（タスク追加モーダルと同じ）
+      if (!isAssistant) {
+        const { data: cm } = await supabase.from('case_members').select('member_id').eq('case_id', receipt.case_id).eq('role', f.roleKind).limit(1)
+        const assignee = ((cm ?? []) as Array<{ member_id: string }>)[0]?.member_id
+        if (assignee) {
+          await supabase.from('task_assignees').insert({ task_id: taskId, member_id: assignee, role: 'primary' })
+          await supabase.from('notifications').insert({
+            member_id: assignee,
+            type: 'task_assigned',
+            case_id: receipt.case_id,
+            title: f.roleKind === 'manager' ? '管理担当タスクが追加されました' : '受注担当タスクが追加されました',
+            body: f.title.trim(),
+          })
         }
       }
-      for (const taskId of itemSel[it.id] ?? []) {
-        joinRows.push({ receipt_item_id: it.id, task_id: taskId })
-        firstTaskId = firstTaskId ?? taskId
-        linkedThisItem.push(taskId)
-      }
-      if (markReady) for (const id of linkedThisItem) readyTaskIds.add(id)
     }
 
-    if (rolesChanged) await supabase.from('cases').update({ intake_roles: roles }).eq('id', receipt.case_id)
     if (joinRows.length > 0) {
-      const { error } = await supabase.from('document_receipt_item_tasks').upsert(joinRows, { onConflict: 'receipt_item_id,task_id', ignoreDuplicates: true })
-      if (error) { setSaving(false); showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
+      const { error: joinErr } = await supabase.from('document_receipt_item_tasks')
+        .upsert(joinRows, { onConflict: 'receipt_item_id,task_id', ignoreDuplicates: true })
+      if (joinErr) { setSaving(false); setError(`保存に失敗しました: ${joinErr.message}`); return }
     }
     // 後方互換：受信単位の代表タスク
     if (firstTaskId) await supabase.from('document_receipts').update({ started_task_id: firstTaskId }).eq('id', receipt.id)
 
-    // 着手OK旗を立てる（着手前のみ）。対象は2通り:
-    //   ・「着手OKにする」がチェックされたタスク
-    //   ・「受領次第OK」で待っていたタスク（受領が紐づいた＝着手OKへ自動昇格）
-    const linkedTaskIds = [...new Set(joinRows.map(j => j.task_id))]
-    if (linkedTaskIds.length > 0) {
-      const { data: rows } = await supabase.from('tasks').select('id, ext_data, status').in('id', linkedTaskIds)
-      for (const row of (rows ?? []) as Array<{ id: string; ext_data: Record<string, unknown> | null; status: string }>) {
-        if (normalizeTaskStatus(row.status) !== '着手前') continue
-        const ext = (row.ext_data ?? {}) as Record<string, unknown>
-        const checked = readyTaskIds.has(row.id)
-        const waitingReceipt = ext.ready_on_receipt === true && !(typeof ext.ready_reason === 'string' && ext.ready_reason.trim())
-        if (!checked && !waitingReceipt) continue
-        const next = { ...ext, ready_reason: READY_REASON_DOC, ready_on_receipt: false, ready_wait_note: null }
-        await supabase.from('tasks').update({ ext_data: next }).eq('id', row.id)
-      }
-    }
-
     setSaving(false)
-    showToast(totalLinks > 0 ? `${totalLinks}件のタスクに紐付けました（未着手）` : '処理済みにしました', 'success')
-    // タスク詳細へは遷移しない（受信簿の流れを止めない）。
+    showToast(joinRows.length > 0 ? `${joinRows.length}件のタスクを追加しました` : '処理済みにしました', 'success')
     onDone()
   }
 
@@ -580,185 +460,69 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
     <Modal
       isOpen
       onClose={onClose}
-      title="タスクを結ぶ（到着物ごと）"
-      maxWidth="max-w-lg"
+      title="到着物の対応"
+      maxWidth="max-w-2xl"
       footer={
-        confirmOpen ? (
-          <>
-            <Button variant="secondary" onClick={() => setConfirmOpen(false)} disabled={saving}>戻る</Button>
-            <Button variant="secondary" onClick={() => confirm(false)} loading={saving}>着手OKにせず紐付け</Button>
-            <Button variant="primary" onClick={() => confirm(true)} loading={saving}>着手OKにして紐付け</Button>
-          </>
-        ) : (
-          <>
-            <Button variant="secondary" onClick={onClose} disabled={saving}>キャンセル</Button>
-            <Button variant="primary" onClick={() => (totalLinks > 0 ? setConfirmOpen(true) : confirm(false))} loading={saving}>
-              {totalLinks > 0 ? `タスクを紐付け (${totalLinks})` : 'タスクなしで完了'}
-            </Button>
-          </>
-        )
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={saving}>キャンセル</Button>
+          <Button variant="primary" onClick={confirm} loading={saving}>
+            {taskItems.length > 0 ? `タスクを追加して完了 (${taskItems.length})` : '対応を完了'}
+          </Button>
+        </>
       }
     >
       <div className="space-y-3">
-        {confirmOpen ? (
-          <div className="space-y-3">
-            <p className="text-[13px] text-gray-600">次の <span className="font-semibold">{totalLinks}件</span> のタスクを紐付けます（未着手で保存）。</p>
-            <div className="border border-gray-200 rounded-lg p-2.5 bg-gray-50 max-h-56 overflow-y-auto space-y-1">
-              {linkedLabels.map((l, i) => (
-                <div key={i} className="flex items-center gap-1.5 text-[12.5px] text-gray-700"><Link2 className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />{l}</div>
-              ))}
-            </div>
-            <div className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-2.5">
-              <div className="text-[13px] text-brand-800">これらを<span className="font-semibold">着手OK</span>にしますか？</div>
-              <div className="text-[11.5px] text-brand-600 mt-0.5 leading-relaxed">着手OK＝必要書類が届いたので、担当者がすぐ着手できる状態（理由：{READY_REASON_DOC}）。「着手OKにせず」でも未着手のまま紐付けは完了します。</div>
-            </div>
-          </div>
-        ) : (
-        <>
         <p className="text-[13px] text-gray-600">
-          届いた到着物ごとに、進めるタスクを結びます（戸籍→相続人調査、通帳コピー→金融資産調査 のように）。既存タスクが無くても、実施タスクから選ぶ／自由入力で<strong>その場で作成</strong>できます。紐付けたタスクは<strong>未着手のまま</strong>保存され、シフトの担当者があとから着手します。契約書類などタスク不要なものは、何も選ばず<strong>「タスクなしで完了」</strong>（受信を処理済みとして閉じるだけ）でOK。
+          届いた物ごとに、次に進めるタスクを作ります。契約書類のようにタスクが要らない物は<strong>「タスクなしで完了」</strong>を選んでください（受信を処理済みとして閉じるだけです）。
         </p>
+        {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">{error}</div>}
         {loading ? (
           <div className="py-6 text-center text-[12px] text-gray-400"><Loader2 className="w-4 h-4 animate-spin inline mr-1" />読み込み中…</div>
         ) : items.length === 0 ? (
           <div className="py-6 text-center text-[12px] text-gray-400">到着物がありません</div>
         ) : (
-          <div className="space-y-3 max-h-[28rem] overflow-y-auto">
+          <div className="space-y-3 max-h-[30rem] overflow-y-auto">
             {items.map(it => {
-              const cand = candidateNamesForItem(it)
-              const isContract = isTaskFree(it)
-              // この到着物に関係する業務区分。判定できれば既存タスクを「関係する業務」だけに絞る。
-              const gy = gyomuForItem(it)
-              // 全担当区分(事務管理/受注管理/相続登記チーム)のうち、未完了のものを候補に（完了/キャンセルは出さない）。
-              // 区分はバッジで判別。状態は normalizeTaskStatus で正規化して判定（'キャンセル'→'完了' 等の表記ゆれを吸収）。
-              const linkable = tasks.filter(t => normalizeTaskStatus(t.status) !== '完了')
-              const relevant = gy ? linkable.filter(t => gy.includes(gyomuOfTask(t))) : []
-              const relevantIds = new Set(relevant.map(t => t.id))
-              const others = linkable.filter(t => !relevantIds.has(t.id))
-              // 筆頭候補＝この到着物の請求と1対1で対応する読込タスク（source_rid一致）。
-              const wantRid = expectedReadRid(it)
-              const topTask = wantRid ? relevant.find(t => t.source_rid === wantRid) : undefined
-              // 関係業務が判定できない（自由入力の到着物等）ときは絞り込めないので全件 others 扱いで畳む
-              const primary = topTask ? relevant.filter(t => t.id !== topTask.id) : relevant
-              const showOthers = !!showAll[it.id]
-              const renderPill = (t: { id: string; title: string; task_kind?: string | null }) => {
-                const on = itemSel[it.id]?.has(t.id)
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => toggle(it.id, t.id)}
-                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-[12px] cursor-pointer transition-colors ${on ? 'bg-brand-600 border-brand-600 text-white font-semibold' : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-brand-300 hover:bg-white hover:text-brand-700'}`}
-                  >
-                    {on ? <Play className="w-3 h-3" strokeWidth={2.5} /> : <TantoKubunBadge task={t} size="xs" iconOnly />}{t.title}
-                  </button>
-                )
-              }
+              const m = modeOf(it)
+              const f = formOf(it.id)
               return (
-              <div key={it.id} className="border border-gray-200 rounded-lg p-3">
-                <div className="text-[13px] font-semibold text-gray-800 mb-1.5">{it.item_name}</div>
-                {linkable.length === 0 ? (
-                  <p className="text-[11px] text-gray-400 mb-2">未完了の既存タスクはありません（下で作成できます）</p>
-                ) : (
-                  <div className="mb-2">
-                    {/* 筆頭候補＝この到着物の対応読込タスク（請求と1対1）。強調表示のみ・選択は手動。 */}
-                    {topTask && (
-                      <div className="mb-2 rounded-lg border border-brand-300 bg-brand-50 p-2">
-                        <div className="text-[10.5px] font-semibold text-brand-700 mb-1 flex items-center gap-1">
-                          <Target className="w-3 h-3" />この到着物の対応タスク
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">{renderPill(topTask)}</div>
-                      </div>
-                    )}
-                    {/* 同じ業務の他タスク */}
-                    {primary.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {topTask && <span className="w-full text-[10px] text-gray-400">同じ業務の他タスク</span>}
-                        {primary.map(renderPill)}
-                      </div>
-                    )}
-                    {/* それ以外のタスク（折りたたみ） */}
-                    {others.length > 0 && (
-                      showOthers ? (
-                        <div className="flex flex-wrap gap-1.5 mt-1.5">
-                          {(topTask || primary.length > 0) && <span className="w-full text-[10px] text-gray-400">その他の業務のタスク</span>}
-                          {others.map(renderPill)}
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setShowAll(prev => ({ ...prev, [it.id]: true }))}
-                          className="mt-1.5 text-[11px] text-brand-600 hover:text-brand-700 font-semibold cursor-pointer"
-                        >
-                          {(topTask || primary.length > 0) ? `＋ 他の業務のタスクも表示（${others.length}）` : `既存タスクから選ぶ（${others.length}）`}
-                        </button>
-                      )
-                    )}
+                <div key={it.id} className="border border-gray-200 rounded-lg p-3">
+                  <div className="text-[13px] font-semibold text-gray-800 mb-2">{it.item_name}</div>
+                  <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden mb-3">
+                    {([['task', 'タスクを新規追加'], ['none', 'タスクなしで完了']] as const).map(([k, label]) => (
+                      <button key={k} type="button" onClick={() => setMode(prev => ({ ...prev, [it.id]: k }))}
+                        className={`px-3.5 py-1.5 text-[12.5px] font-semibold transition ${m === k ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                        {label}
+                      </button>
+                    ))}
                   </div>
-                )}
-                {isContract ? (
-                  <p className="text-[11px] text-gray-400">契約書類はタスク不要（W-Checkで確定済み）。結ぶ必要はありません。</p>
-                ) : (
-                  <>
-                    {cand.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mb-2">
-                        {cand.map(n => {
-                          const on = (itemNew[it.id] ?? '') === n
-                          return (
-                            <button
-                              key={n}
-                              type="button"
-                              onClick={() => setItemNew(prev => ({ ...prev, [it.id]: on ? '' : n }))}
-                              className={`inline-flex items-center px-2 py-1 rounded-full border text-[12px] cursor-pointer transition-colors ${on ? 'bg-brand-600 border-brand-600 text-white font-semibold' : 'bg-white border-dashed border-gray-300 text-gray-600 hover:border-brand-400 hover:text-brand-700'}`}
-                            >＋{n}</button>
-                          )
-                        })}
+                  {m === 'task' ? (
+                    <>
+                      <NewTaskFields
+                        caseId={receipt.case_id}
+                        value={f}
+                        onChange={p => patchForm(it.id, p)}
+                        defaultGyomu={gyomuForItem(it)?.[0]}
+                        compact
+                        workRequired
+                      />
+                      <div className="mt-3">
+                        <TaskTargetPicker
+                          caseId={receipt.case_id}
+                          gyomu={f.gyomu}
+                          value={targets[it.id] ?? emptyTarget()}
+                          onChange={v => setTargets(prev => ({ ...prev, [it.id]: v }))}
+                          compact
+                        />
                       </div>
-                    )}
-                    <input
-                      type="text"
-                      value={itemNew[it.id] ?? ''}
-                      onChange={e => setItemNew(prev => ({ ...prev, [it.id]: e.target.value }))}
-                      placeholder={cand.length > 0 ? '＋自由入力で作成（任意）' : '＋新規タスクを作成して結ぶ（任意）'}
-                      className="w-full px-2.5 py-1.5 text-[12px] border border-gray-200 rounded-lg outline-none focus:border-brand-400"
-                    />
-                    {/* 自由入力で作る新規タスクの業務区分（候補一致時は自動なので不要） */}
-                    {(() => {
-                      const newVal = (itemNew[it.id] ?? '').trim()
-                      if (!newVal || cand.includes(newVal)) return null
-                      const defaultGy = gy?.[0] ?? ''
-                      const curKotei = itemKotei[it.id] ?? koteiOf(itemGyomu[it.id] ?? defaultGy)
-                      const koteiList = KOTEI_ORDER
-                      const gyomuList = curKotei ? (KOTEI_GYOMU[curKotei] ?? GYOMU_ALL) : GYOMU_ALL
-                      return (
-                        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                          <span className="text-[11px] text-gray-500">工程</span>
-                          <select
-                            value={curKotei}
-                            onChange={e => { const k = e.target.value; setItemKotei(prev => ({ ...prev, [it.id]: k })); setItemGyomu(prev => ({ ...prev, [it.id]: (KOTEI_GYOMU[k] ?? [])[0] ?? '' })) }}
-                            className="px-2 py-1 text-[12px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-400"
-                          >
-                            {koteiList.map(k => <option key={k} value={k}>{k}</option>)}
-                          </select>
-                          <span className="text-[11px] text-gray-500">業務区分</span>
-                          <select
-                            value={itemGyomu[it.id] ?? defaultGy}
-                            onChange={e => setItemGyomu(prev => ({ ...prev, [it.id]: e.target.value }))}
-                            className="flex-1 px-2 py-1 text-[12px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-400"
-                          >
-                            <option value="">未設定</option>
-                            {gyomuList.map(g => <option key={g} value={g}>{g}</option>)}
-                          </select>
-                        </div>
-                      )
-                    })()}
-                  </>
-                )}
-              </div>
-            )})}
+                    </>
+                  ) : (
+                    <p className="text-[11.5px] text-gray-400">この到着物ではタスクを作りません。W-Checkで受領日は各タブに反映済みです。</p>
+                  )}
+                </div>
+              )
+            })}
           </div>
-        )}
-        </>
         )}
       </div>
     </Modal>
