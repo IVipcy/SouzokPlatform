@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import Modal from '@/components/ui/Modal'
+import FloatingWindow from '@/components/ui/FloatingWindow'
 import Button from '@/components/ui/Button'
 import NewTaskFields, { emptyNewTask, type NewTaskValue } from '@/components/features/tasks/NewTaskFields'
 import TaskTargetPicker, { emptyTarget, resolveTargetRid, type TaskTarget } from '@/components/features/tasks/TaskTargetPicker'
@@ -137,11 +137,16 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
   }
 
   return (
-    <Modal
+    // 暗幕を出さないフローティングウィンドウ（報連相と同じ部品）。
+    // オーダーシートを読みながら／スクロールしながらタスクを書けるようにするため。
+    // 暗幕が無いので背景クリックとEscでは閉じない。閉じるのは ✕ とキャンセルだけ。
+    <FloatingWindow
       isOpen={isOpen}
       onClose={close}
       title="＋ タスク追加"
-      maxWidth="max-w-2xl"
+      width={672}
+      height={560}
+      resizable
       footer={
         tab === 'candidate' ? (
           <>
@@ -193,6 +198,6 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
           <TaskTargetPicker caseId={caseId} gyomu={form.gyomu} value={target} onChange={setTarget} />
         </div>
       </div>
-    </Modal>
+    </FloatingWindow>
   )
 }
