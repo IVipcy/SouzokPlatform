@@ -439,13 +439,17 @@ function MuniDocTable({ rows, muni, itemType, years, onPatch, onDelete, onToggle
 }) {
   return (
     <div className="overflow-x-auto bg-white border border-gray-200 rounded-[3px]">
-      <table className="w-full text-[13px] border-collapse" style={{ minWidth: 736 }}>
+      <table className="w-full text-[13px] border-collapse" style={{ minWidth: 916 }}>
         <thead>
           <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
             <th className="px-2.5 py-2 text-left font-semibold w-24">優先度</th>
             <th className="px-2.5 py-2 text-left font-semibold w-28">取得区分</th>
             <th className="px-2.5 py-2 text-left font-semibold w-40">所在地</th>
             <th className="px-2.5 py-2 text-left font-semibold w-32">年度</th>
+            {/* 請求日・費用予算は実務タブにもあるが、同じ行を見ている。
+                名寄帳は面談の場で請求まで決めることがあるので、ここでも入れられるようにする。 */}
+            <th className="px-2.5 py-2 text-left font-semibold w-32">請求日</th>
+            <th className="px-2.5 py-2 text-right font-semibold w-28">費用予算</th>
             <th className="px-2.5 py-2 text-left font-semibold w-32">面談時に受領</th>
             <th className="px-2.5 py-2 text-left font-semibold">備考</th>
             <th className="px-2.5 py-2 w-10" />
@@ -453,7 +457,7 @@ function MuniDocTable({ rows, muni, itemType, years, onPatch, onDelete, onToggle
         </thead>
         <tbody>
           {rows.length === 0 ? (
-            <tr><td colSpan={7} className="px-3 py-4 text-center text-[12px] text-gray-400">「＋ 追加」で行を作成してください</td></tr>
+            <tr><td colSpan={9} className="px-3 py-4 text-center text-[12px] text-gray-400">「＋ 追加」で行を作成してください</td></tr>
           ) : rows.map((row, i) => {
             const acquirer = row.acquirer ?? '自社'
             const yr = row.doc_year ?? ''
@@ -473,6 +477,23 @@ function MuniDocTable({ rows, muni, itemType, years, onPatch, onDelete, onToggle
                     {years.map(o => <option key={o} value={o}>{o}</option>)}
                     {yr && !years.includes(yr) && <option value="__other__">{yr}</option>}
                   </select>
+                </td>
+                <td className="px-2.5 py-1.5">
+                  <input type="date" defaultValue={row.request_date ?? ''}
+                    onBlur={e => { if (e.target.value !== (row.request_date ?? '')) onPatch(row.id, { request_date: e.target.value || null }) }}
+                    className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded outline-none focus:border-brand-500" />
+                </td>
+                <td className="px-2.5 py-1.5">
+                  <input type="text" inputMode="numeric" defaultValue={row.cost_budget != null ? String(row.cost_budget) : ''}
+                    onBlur={e => {
+                      // 全角で打たれても拾えるよう半角へ寄せてから数値にする
+                      const digits = e.target.value.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[^0-9]/g, '')
+                      const next = digits === '' ? null : Number(digits)
+                      e.target.value = next != null ? String(next) : ''
+                      if (next !== (row.cost_budget ?? null)) onPatch(row.id, { cost_budget: next })
+                    }}
+                    placeholder="円"
+                    className="w-full px-1.5 py-1.5 text-[12px] text-right border border-gray-200 rounded outline-none focus:border-brand-500" />
                 </td>
                 <td className="px-2.5 py-2">
                   <label className="inline-flex items-center gap-1.5 text-[12px]">

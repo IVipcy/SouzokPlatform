@@ -169,6 +169,27 @@ function writeTypes(ws: ExcelJS.Worksheet, addr: string, candidates: readonly st
   cell.alignment = { ...(cell.alignment ?? {}), shrinkToFit: true }
 }
 
+/**
+ * 代理人欄の代表者名。テンプレの数式（F11）が法人名から引いていた対応表と同じ。
+ * 数式のままだと生成した xlsx で空欄になるため、値で書き込む。
+ */
+const KOSEKI_REPRESENTATIVE: Record<KosekiVariant, string> = {
+  gyosei: '代表社員　黒田　美菜子',
+  shiho: '代表社員　山田　哲',
+  ikiiki: '代表理事　黒田　美菜子',
+}
+
+/** 拠点が選ばれていないときに使う電話（テンプレの既定値と同じ） */
+const KOSEKI_DEFAULT_TEL: Record<KosekiVariant, string> = {
+  gyosei: '045-548-9172',
+  shiho: '045-548-9172',
+  ikiiki: '045-620-6600',
+}
+
+/** 電話番号を全角にする（テンプレの他の行が全角のため揃える） */
+const toZenkakuTel = (tel: string) =>
+  tel.replace(/[0-9]/g, d => String.fromCharCode(d.charCodeAt(0) + 0xFEE0)).replace(/-/g, '－')
+
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as Body
@@ -235,17 +256,20 @@ export async function POST(request: NextRequest) {
     if (map.requesterAddress) setCell(ws, map.requesterAddress, clientAddress)
     if (map.requesterName) setCell(ws, map.requesterName, clientName)
 
-    // 上記代理人の所在地（拠点＋事業部）。選択時は住所と電話を上書き（未選択はテンプレ既定）。
-    // 同じ拠点でも事業部で電話が変わるので、電話まで差し替える。
-    if (body.agentOffice) {
-      const branch = findBranch(body.agentOffice, body.division)
+    // 上記代理人の欄（住所2行・代表者・電話）。
+    //
+    // 代表者と電話はテンプレでは数式（F11/F12）で法人名から引く作りだったが、
+    // 生成した xlsx には計算結果が入らないため、開くと空欄のまま出ていた。
+    // どちらもこちらが持っている情報なので、数式に頼らず値で書き込む。
+    // 電話は選んだ拠点・事業部のもの（同じ拠点でも事業部で番号が変わる）。
+    {
+      const branch = body.agentOffice ? findBranch(body.agentOffice, body.division) : undefined
       if (branch) {
         ws.getCell('F8').value = branch.line1
         ws.getCell('F9').value = branch.line2
-        // 電話はテンプレ側が数式（F12）で法人名から引いている行があるため、
-        // いきいきのように数式で拾えないものだけ直接入れる。
-        if (variant === 'ikiiki') ws.getCell('F12').value = `ＴＥＬ　${branch.tel}`
       }
+      ws.getCell('F11').value = KOSEKI_REPRESENTATIVE[variant]
+      ws.getCell('F12').value = `ＴＥＬ　${toZenkakuTel(branch?.tel ?? KOSEKI_DEFAULT_TEL[variant])}`
     }
 
     setCell(ws, map.copyCount, `${row.copyCount}　通`)
