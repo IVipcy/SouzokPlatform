@@ -58,15 +58,20 @@ export function PersonRoleChip({ role, name, kind, isClient = false, note, compa
         className={`inline-flex flex-col min-w-0 rounded-md ${compact ? 'px-2 py-0.5' : 'px-2.5 py-1'}`}
         style={{ borderLeft: `4px solid ${ROLE_COLOR[kind]}`, background: roleBg(kind) }}
       >
-        <span className={`${compact ? 'text-[12px]' : 'text-[13px]'} font-semibold text-gray-900 leading-tight truncate`}>{head}</span>
+        {/* 折り返す。1行に収めて「被…」と切ると、続柄で人を探せなくなる（狭いレールで発覚）。
+            続柄も氏名も短いので、2行あれば足りる。 */}
+        <span className={`${compact ? 'text-[12px]' : 'text-[13px]'} font-semibold text-gray-900 leading-tight break-words`}>{head}</span>
         {(sub || note) && (
-          <span className="text-[10.5px] text-gray-500 leading-tight truncate">
+          <span className="text-[10.5px] text-gray-500 leading-tight break-words">
             {sub}{sub && note ? ' ・ ' : ''}{note}
           </span>
         )}
       </span>
+      {/* 狭いところ（左レール・表のセル）では小さくする。
+          このバッジが横幅を取るせいで、続柄が「被相 続人」と2行に折れていた。 */}
       {isClient && (
-        <span className="flex-none text-[10px] font-semibold px-1.5 py-0.5 rounded bg-brand-50 text-brand-700 border border-brand-100">依頼者</span>
+        <span className={`flex-none font-semibold rounded bg-brand-50 text-brand-700 border border-brand-100 ${
+          compact ? 'text-[9px] px-1' : 'text-[10px] px-1.5 py-0.5'}`}>依頼者</span>
       )}
     </span>
   )

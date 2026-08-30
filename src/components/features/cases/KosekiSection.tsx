@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Plus, Table2, Lock, ShieldCheck, Trash2, Inbox, Copy, FileText } from 'lucide-react'
+import { Plus, Table2, Lock, ShieldCheck, Trash2, Copy, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useIsManager } from '@/components/providers/AuthProvider'
@@ -439,8 +439,9 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
       )}
 
     <div className="flex gap-3 items-start">
-      {/* 左レール（対象者＝人ごと）。案件の色が透けないよう白いカードに載せる。 */}
-      <div className="flex-none w-52 flex flex-col gap-0.5 bg-white border border-gray-200 rounded-lg p-1.5 self-start">
+      {/* 左レール（対象者＝人ごと）。案件の色が透けないよう白いカードに載せる。
+          幅は「被相続人」＋依頼者バッジ＋件数＋到着が1行に収まる実測値。狭くすると続柄が折れる。 */}
+      <div className="flex-none w-60 flex flex-col gap-0.5 bg-white border border-gray-200 rounded-lg p-1.5 self-start">
         {railTabs.map(t => {
           const isTop = t.id === 'top'
           const person = t.id === '__unset__' ? '' : t.id
@@ -469,7 +470,8 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                   )}
                 </span>
                 {!isTop && <span className="text-[9px] font-semibold px-1 rounded flex-none bg-gray-100 text-gray-600">{reqs.length}</span>}
-                {received && <Inbox className="w-3 h-3 flex-none text-emerald-600" aria-label="受信済あり" />}
+                {/* アイコンだと何の印か分からない（封筒＝受信済、が伝わらなかった）ので文字で出す */}
+                {received && <span title="この人の戸籍が1件以上届いています" className="text-[9px] font-semibold px-1 rounded flex-none bg-emerald-50 text-emerald-700 border border-emerald-200">到着</span>}
               </button>
               {!isTop && reqs.length > 0 && (
                 <button type="button" onClick={() => deletePersonGroup(t.id)} title="この人の戸籍請求を一括削除"
@@ -496,21 +498,28 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
               <SectionHeading title="戸籍の取得状況" className="mb-1.5 pb-1.5 border-b border-gray-200" />
               <PersonRoleLegend className="mb-2" />
               <div className="overflow-x-auto">
-                <table className="w-full text-[12px] border-collapse" style={{ minWidth: 620 }}>
+                {/* 何を・どこへ頼んで、どうなったかを1行で追えるようにする。
+                    字は切らない（切ると結局カードを開くことになる）ので、
+                    横に長くなるぶんは横スクロールに任せる。 */}
+                <table className="w-full text-[12px] border-collapse" style={{ minWidth: 1180 }}>
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
-                      <th className="px-2.5 py-2 text-left font-semibold w-28">対象者</th>
-                      <th className="px-2.5 py-2 text-left font-semibold">請求先</th>
-                      <th className="px-2.5 py-2 text-left font-semibold w-20">請求日</th>
-                      <th className="px-2.5 py-2 text-left font-semibold w-20">到着日</th>
-                      <th className="px-2.5 py-2 text-left font-semibold">進捗/メモ</th>
-                      <th className="px-2.5 py-2 text-right font-semibold w-28">確定費用</th>
-                      <th className="px-2.5 py-2 text-left font-semibold w-24">戸籍画像</th>
+                      <th className="px-2.5 py-2 text-left font-semibold w-[150px]">対象者</th>
+                      <th className="px-2.5 py-2 text-left font-semibold w-[120px]">請求先</th>
+                      <th className="px-2.5 py-2 text-left font-semibold w-[84px]">取得方法</th>
+                      <th className="px-2.5 py-2 text-left font-semibold w-[132px]">請求種別</th>
+                      <th className="px-2.5 py-2 text-left font-semibold w-[120px]">請求範囲</th>
+                      <th className="px-2.5 py-2 text-left font-semibold w-[72px]">請求日</th>
+                      <th className="px-2.5 py-2 text-left font-semibold w-[72px]">到着日</th>
+                      <th className="px-2.5 py-2 text-left font-semibold w-[84px]">取得の結果</th>
+                      <th className="px-2.5 py-2 text-left font-semibold">読込内容</th>
+                      <th className="px-2.5 py-2 text-right font-semibold w-[88px]">確定費用</th>
+                      <th className="px-2.5 py-2 text-left font-semibold w-[80px]">戸籍画像</th>
                     </tr>
                   </thead>
                   <tbody>
                     {requests.length === 0 ? (
-                      <tr><td colSpan={7} className="px-3 py-6 text-center text-gray-400">戸籍請求がありません。左下の「対象者を新規追加して戸籍請求」から登録してください。</td></tr>
+                      <tr><td colSpan={11} className="px-3 py-6 text-center text-gray-400">戸籍請求がありません。左下の「対象者を新規追加して戸籍請求」から登録してください。</td></tr>
                     ) : requests.map((r, i) => (
                       <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-brand-50/30 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`} title="この請求を開く"
                         onClick={() => { setSub((r.target_person ?? '').trim() || '__unset__'); setActiveReqId(r.id) }}>
@@ -535,18 +544,26 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                             </button>
                           )}
                         </td>
-                        <td className="px-2.5 py-2 text-gray-700">{r.request_to || <span className="text-gray-300">—</span>}</td>
-                        <td className="px-2.5 py-2">{r.request_date?.slice(5).replace('-', '/') || '—'}</td>
-                        <td className="px-2.5 py-2">{r.arrival_date?.slice(5).replace('-', '/') || '—'}</td>
-                        {/* 読込結果。ステータス（取得完了/一部不足）を先に出し、内容を後ろに添える。
-                            一覧を上から見て「一部不足」を拾えるようにする。 */}
-                        <td className="px-2.5 py-2 text-gray-500 text-[11px] max-w-[240px] truncate" title={[r.read_status, r.read_result].filter(Boolean).join('：')}>
-                          {r.read_status && (
-                            <span className={`inline-block mr-1 text-[10px] px-1.5 py-[1px] rounded-full ${KOSEKI_TAB_STATUS[r.read_status === '一部不足' ? 'partial' : 'done'].cls}`}>{r.read_status}</span>
-                          )}
-                          {r.read_result || (!r.read_status && <span className="text-gray-300">—</span>)}
+                        <td className="px-2.5 py-2 text-gray-700 break-words">{r.request_to || <span className="text-gray-300">—</span>}</td>
+                        <td className="px-2.5 py-2 text-gray-600 break-words">{r.acquisition_authority || <span className="text-gray-300">—</span>}</td>
+                        {/* 請求種別＝種別（戸籍/除籍/…）と種別②（謄本/抄本）。紙1枚で何を頼んだか */}
+                        <td className="px-2.5 py-2 text-gray-600 break-words">
+                          {[r.doc_types, r.doc_form].map(v => (v ?? '').trim()).filter(Boolean).join('／') || <span className="text-gray-300">—</span>}
                         </td>
-                        <td className="px-2.5 py-2 text-right">{yen(effConfirmed(r))}</td>
+                        <td className="px-2.5 py-2 text-gray-600 break-words">{r.range_text || <span className="text-gray-300">—</span>}</td>
+                        <td className="px-2.5 py-2 whitespace-nowrap">{r.request_date?.slice(5).replace('-', '/') || '—'}</td>
+                        <td className="px-2.5 py-2 whitespace-nowrap">{r.arrival_date?.slice(5).replace('-', '/') || '—'}</td>
+                        {/* 取得の結果。一覧を上から見て「一部不足」を拾えるようにする */}
+                        <td className="px-2.5 py-2">
+                          {r.read_status
+                            ? <span className={`inline-block text-[10px] px-1.5 py-[1px] rounded-full ${KOSEKI_TAB_STATUS[r.read_status === '一部不足' ? 'partial' : 'done'].cls}`}>{r.read_status}</span>
+                            : <span className="text-gray-300">—</span>}
+                        </td>
+                        {/* 読込内容は切らずに全文出す。切ると結局カードを開くことになる */}
+                        <td className="px-2.5 py-2 text-gray-500 text-[11px] break-words">
+                          {r.read_result || <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="px-2.5 py-2 text-right whitespace-nowrap">{yen(effConfirmed(r))}</td>
                         {/* 戸籍画像：押すとビューアが開き、そこから全員ぶんを横送りできる */}
                         <td className="px-2.5 py-2" onClick={e => e.stopPropagation()}>
                           <KosekiImageCell
@@ -561,7 +578,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                   </tbody>
                   <tfoot>
                     <tr className="bg-gray-50 font-semibold text-gray-700">
-                      <td className="px-2.5 py-2 text-right" colSpan={5}>確定費用 合計（立替実費の実績）</td>
+                      <td className="px-2.5 py-2 text-right" colSpan={9}>確定費用 合計（立替実費の実績）</td>
                       <td className="px-2.5 py-2 text-right text-emerald-700">{yen(confirmedTotal)}</td>
                       <td />
                     </tr>
