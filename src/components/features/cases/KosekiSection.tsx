@@ -15,7 +15,7 @@ import { PersonRoleChip, PersonRoleLegend, roleKindOf } from '@/components/ui/Pe
 import HintTip from '@/components/ui/HintTip'
 import {
   KOSEKI_REQUEST_TYPES, KOSEKI_RANGES, KOSEKI_REQUEST_REASONS,
-  KOSEKI_DOC_FORMS, KOSEKI_FIRMS, JUMINHYO_EXTRA_ITEMS, KOSEKI_SUBMIT_TO_DEFAULT, KOSEKI_SUBMIT_TO_OPTIONS,
+  KOSEKI_DOC_FORMS, JUMINHYO_EXTRA_ITEMS, KOSEKI_SUBMIT_TO_DEFAULT, KOSEKI_SUBMIT_TO_OPTIONS,
   mixesKosekiAndJuminhyo, includesKoseki, includesJuminhyo,
   KOSEKI_REQUEST_KINDS, REQUEST_KIND_HELP, isMistakenRequest,
   HEIR_RELATIONSHIPS,
@@ -30,6 +30,7 @@ import KosekiImagePanel from './KosekiImagePanel'
 import { TxtCell, SelCell, MultiCell, DateCell, MoneyCell } from './PracticeTableCells'
 import SelectOrTextField from './SelectOrTextField'
 import KosekiRequestDocumentModal from './KosekiRequestDocumentModal'
+import { OFFICE_BRANCH_OPTIONS } from '@/lib/officeProfiles'
 import CheckRequestControl from './CheckRequestControl'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import AnnotatedImage from './AnnotatedImage'
@@ -906,8 +907,18 @@ function KosekiCard({ r, meId, personNames = [], saveField, saveMany, onDelete, 
           </KosekiFieldRow>
         )}
         {!isShokumujo && (<>
-          <KosekiFieldRow label="請求法人">
-            <SelCell value={r.request_firm} options={[...KOSEKI_FIRMS]} onChange={v => saveField(r.id, 'request_firm', v)} />
+          <KosekiFieldRow label="拠点" hint="戸籍請求書の代理人欄に出る住所・電話が、この拠点のものになります。">
+            {/* 保存するのは拠点ID（kyodo 等）で、画面に出すのは拠点名。
+                SelCell は値＝表示名の前提なので、ここだけ select を直に書く。 */}
+            <select
+              value={r.branch_office ?? ''}
+              onChange={e => saveField(r.id, 'branch_office', e.target.value)}
+              style={{ fontFamily: 'inherit' }}
+              className="px-2 py-1 text-[12.5px] border border-gray-300 rounded bg-white outline-none focus:border-brand-400"
+            >
+              <option value="">—</option>
+              {OFFICE_BRANCH_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+            </select>
           </KosekiFieldRow>
           <KosekiFieldRow label="提出先" hint={`取り寄せた戸籍を、最後にどこへ出すか（＝この戸籍の行き先）です。
 

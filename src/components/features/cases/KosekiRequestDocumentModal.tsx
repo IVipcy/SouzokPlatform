@@ -59,13 +59,20 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
   const [variant, setVariant] = useState<KosekiVariant>(defaultKosekiVariant(caseData.contract_type))
   const [requestDate, setRequestDate] = useState<string>(new Date().toISOString().slice(0, 10))
   const [copyCount, setCopyCount] = useState<number>(1)
-  const [agentOffice, setAgentOffice] = useState<KosekiAgentOfficeId>('kyodo')  // 上記代理人の所在地（拠点）
-  // 事業部。同じ拠点でも事業部で電話が変わる（共同ビルの第一／第二）ため、拠点とセットで選ぶ。
+  // 事業部。同じ拠点でも事業部で電話が変わる（共同ビルの第一／第二）ため、拠点とセットで決まる。
+  // 拠点はカード（Step1の拠点）が持つので、ここでは事業部だけ選ぶ。
   const [division, setDivision] = useState<string>(IKIIKI_DEFAULT_BRANCH.division)
-  const branch = findBranch(agentOffice, division)
   const [generating, setGenerating] = useState(false)
   // どの請求を出すか。1件だけ渡されたときは選ばせない。
   const [pick, setPick] = useState(0)
+
+  const preset = KOSEKI_VARIANT_PRESETS[variant]
+  const k = kosekiRequests[pick] ?? kosekiRequests[0] ?? null
+
+  // 上記代理人の所在地（拠点）。カードに入っていなければ共同ビル。
+  const agentOffice = (OFFICE_BRANCH_OPTIONS.find(o => o.id === k?.branch_office)?.id ?? 'kyodo') as KosekiAgentOfficeId
+  const agentOfficeLabel = OFFICE_BRANCH_OPTIONS.find(o => o.id === agentOffice)?.label ?? ''
+  const branch = findBranch(agentOffice, division)
 
   useEffect(() => {
     if (!isOpen) return
@@ -75,8 +82,10 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
     setPick(0)
   }, [isOpen, caseData.contract_type])
 
-  const preset = KOSEKI_VARIANT_PRESETS[variant]
-  const k = kosekiRequests[pick] ?? kosekiRequests[0] ?? null
+  // 拠点が変わったら、その拠点にある事業部の先頭に寄せる（無い事業部が残らないように）
+  useEffect(() => {
+    setDivision(prev => (divisionsOf(agentOffice).includes(prev) ? prev : divisionsOf(agentOffice)[0] ?? ''))
+  }, [agentOffice])
 
   // 紙に載る中身。すべてカードの値。
   // 本籍・住所だけ、カード未入力のときに人（被相続人・相続人）の登録住所で補う。
@@ -201,18 +210,6 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
               className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 text-right focus:outline-none focus:border-brand-400" />
           </div>
           <div>
-            <label className={lab}>拠点</label>
-            <select value={agentOffice} className={sel}
-              onChange={e => {
-                const next = e.target.value as KosekiAgentOfficeId
-                setAgentOffice(next)
-                // 拠点を変えたら、その拠点にある事業部の先頭に寄せる（無い事業部が残らないように）
-                setDivision(divisionsOf(next)[0] ?? '')
-              }}>
-              {OFFICE_BRANCH_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-            </select>
-          </div>
-          <div>
             <label className={lab}>事業部</label>
             <select value={division} onChange={e => setDivision(e.target.value)} className={sel}>
               {divisionsOf(agentOffice).map(d => <option key={d} value={d}>{d}</option>)}
@@ -252,6 +249,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
               <ConfRow label="使用目的" value={doc.purpose} />
               <ConfRow label="備考" value={doc.notes} />
               <ConfRow label="同封小為替" value={doc.kogawase == null ? '' : `¥${doc.kogawase.toLocaleString('ja-JP')}`} />
+              <ConfRow label="拠点" value={agentOfficeLabel} />
               <ConfRow label="請求者欄" value={preset.requesterLabel} />
               <ConfRow label="代理人欄" value={preset.agentLabel ?? '（表示なし）'} last />
             </div>

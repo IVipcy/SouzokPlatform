@@ -635,7 +635,8 @@ export type KosekiRequestRow = {
   honseki_address: string | null  // 本籍・住所（請求書の本籍・住所欄。migration 262）
   doc_types: string | null        // 請求の種別①（戸籍/除籍/原戸籍/住民票/除票/戸籍の附票。複数は「・」区切り）
   // 依頼書1枚ぶんの請求条件（migration 241）
-  request_firm: string | null     // 請求法人（行政/司法/いきいき）
+  request_firm: string | null     // 旧・請求法人（行政/司法/いきいき）。画面には出さない。migration 263 で拠点へ置き換え
+  branch_office: string | null    // 拠点（kyodo/kureator/fujisawa/shibuya。migration 263）
   doc_form: string | null         // 請求の種別②（謄本/抄本。戸籍請求のときだけ）
   head_person: string | null      // 筆頭者／世帯主
   juminhyo_items: string | null   // 住民票記載の基礎証明外事項（複数は「・」区切り）
