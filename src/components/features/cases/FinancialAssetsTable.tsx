@@ -44,10 +44,13 @@ const COLUMNS: Record<Kind, Col[]> = {
     { key: 'accrued_interest_required', label: '経過利息', type: 'req', width: 'w-24' },
     { key: 'transaction_detail_required', label: '取引明細', type: 'req', width: 'w-24' },  // エクセルR79・NEW
   ],
+  // 証券は1行＝1銘柄。同じ証券会社でも銘柄によって株主名簿管理人（信託銀行）が違い、
+  // どこへ何を出すかが変わる。資料の到着日も銘柄ごとに違うので、行を分けて持つ。
   '証券': [
     { key: 'institution_name', label: '証券会社', type: 'text' },
     { key: 'branch_name', label: '支店名', type: 'text', width: 'w-28' },
     { key: 'stock_name', label: '銘柄名', type: 'text' },
+    { key: 'registrar', label: '信託銀行／株主名簿管理人', type: 'text', width: 'w-48' },
     { key: 'all_branch_survey', label: '全店調査', type: 'req', width: 'w-24' },  // エクセルR96・NEW
     { key: 'balance_cert_required', label: '残高証明', type: 'req', width: 'w-24' },
   ],
@@ -223,8 +226,15 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
 
   const addRow = async () => {
     setBusy(true)
+    // 左で機関を選んでいるときは、その機関名と支店名を引き継ぐ。
+    // 証券は同じ会社に銘柄を足していくのが普通で、毎回会社名を打ち直すのが手間だった。
+    const sameInst = institutionFilter ? rows.find(r => (r.institution_name ?? '').trim() === institutionFilter.trim()) : undefined
     // 取得区分の既定は常に「自社取得」。役割分担には引っ張られない。
-    const { data, error } = await supabase.from('financial_assets').insert({ case_id: caseId, asset_type: kind, institution_name: institutionFilter ?? '', acquirer: '自社' }).select('*').single()
+    const { data, error } = await supabase.from('financial_assets').insert({
+      case_id: caseId, asset_type: kind, acquirer: '自社',
+      institution_name: institutionFilter ?? '',
+      branch_name: sameInst?.branch_name ?? null,
+    }).select('*').single()
     setBusy(false)
     if (error || !data) { showToast(`追加に失敗しました: ${error?.message ?? ''}`, 'error'); return }
     addedRef.current.add((data as FinancialAssetRow).id)
@@ -589,7 +599,10 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
 
       <div className="mt-2">
         <button type="button" onClick={addRow} disabled={busy} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[12.5px] font-semibold text-white bg-brand-600 hover:bg-brand-700 transition-colors disabled:opacity-50">
-          <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> {kind === '証券' ? '証券を追加' : kind === '信託銀行' ? '信託を追加' : '口座を追加'}
+          <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+          {institutionFilter
+            ? `この${kind === '証券' ? '証券会社に銘柄' : kind === '信託銀行' ? '信託銀行に銘柄' : '金融機関に口座'}を追加`
+            : kind === '証券' ? '証券を追加' : kind === '信託銀行' ? '信託を追加' : '口座を追加'}
         </button>
       </div>
 

@@ -65,7 +65,7 @@ export default function MailingConfirmationModal({ isOpen, onClose, caseData, co
   useEffect(() => {
     if (!isOpen) return
     const names = contractDocuments.filter(d => d.status !== '不要').map(d => (d.name ?? '').trim()).filter(Boolean)
-    setReturnDocs(names.length ? names : ['契約書', '委任状', '本人確認書類', '印鑑証明書'])
+    setReturnDocs(names.length ? names : ['契約書', '委任状', '本人確認書類の写し', '印鑑登録証明書'])
     setSendDocs(['契約書一式'])
     setShipDate(''); setClientStaff('')
   }, [isOpen, contractDocuments])

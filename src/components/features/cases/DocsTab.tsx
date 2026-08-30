@@ -43,6 +43,8 @@ type ReceiptItemRow = {
   realItemId: string | null   // document_receipt_items.id（更新用。synthetic の場合 null）
   itemName: string
   receivedDate: string | null
+  /** 郵便物の種類（レターパック等）。受信簿で事務管理が選んだもの */
+  postalType: string | null
   uploadedAt: string | null   // 共有フォルダにアップ済か（migration 137）
   sortOrder: number
   caseDocumentId: string | null
@@ -106,6 +108,7 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
           realItemId: it.id ?? null,
           itemName: it.item_name,
           receivedDate: r.received_date,
+          postalType: r.postal_type ?? null,
           uploadedAt: it.uploaded_at ?? null,
           sortOrder: it.sort_order,
           caseDocumentId: it.case_document_id ?? null,
@@ -212,6 +215,7 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
             <table className="w-full text-[13px] border-collapse">
               <colgroup>
                 <col style={{ width: 240 }} />
+                <col style={{ width: 110 }} />
                 <col style={{ width: 100 }} />
                 <col style={{ width: 110 }} />
                 <col />
@@ -220,6 +224,9 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
                   <th className="px-3 py-2 text-left font-semibold w-44">到着物</th>
+                  {/* 郵便物の種類。受信簿で事務管理が選んだものをそのまま出す。
+                      受注担当が封筒を開ける前に「何で届いたか」を知りたいため */}
+                  <th className="px-3 py-2 text-left font-semibold w-28">種類</th>
                   <th className="px-3 py-2 text-left font-semibold w-24">受領日</th>
                   <th className="px-3 py-2 text-left font-semibold w-24">アップ状況</th>
                   <th className="px-3 py-2 text-left font-semibold">着手可能タスク<span className="block text-[10px] font-normal text-brand-700">紐づけ＝着手可能に</span></th>
@@ -230,6 +237,11 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
                 {rows.map(row => (
                   <tr key={row.itemId} className="border-b border-gray-100 hover:bg-gray-50/40 align-top">
                     <td className="px-3 py-2 text-gray-800 font-medium">{row.itemName}</td>
+                    <td className="px-3 py-2">
+                      {row.postalType
+                        ? <span className="inline-flex items-center whitespace-nowrap px-1.5 py-0.5 rounded text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200">{row.postalType}</span>
+                        : <span className="text-gray-300">—</span>}
+                    </td>
                     <td className="px-3 py-2 font-mono text-[12px] text-gray-600">{row.receivedDate ?? '—'}</td>
                     <td className="px-3 py-2">
                       {row.file ? (

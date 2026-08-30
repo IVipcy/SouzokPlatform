@@ -880,6 +880,7 @@ export type FinancialAssetRow = {
   // 優先度（通常/急ぎ/超急ぎ。migration 265）。資料の取得と解約は同じ行を見ているので別々に持つ
   survey_priority: string | null
   cancel_priority: string | null
+  registrar: string | null            // 信託銀行／株主名簿管理人（証券の銘柄ごと。migration 267）
   asset_type: string
   institution_name: string
   branch_name: string | null

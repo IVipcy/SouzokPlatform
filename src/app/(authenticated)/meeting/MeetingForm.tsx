@@ -616,8 +616,12 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         deceased_address: formData.deceasedAddress.trim() || null,
         deceased_registered_address: formData.deceasedRegisteredAddress.trim() || null,
         deceased_has_special_chars: formData.deceasedHasSpecialChars,
-        // 契約形態（検討中段階で設定 → 契約書・委任状のFMT推奨に使用）
-        contract_type: formData.contractType || null,
+        // 契約形態（検討中段階で設定 → 契約書・委任状のFMT推奨に使用）。
+        // 空のときは書き込まない。①面談シートで入れた値を消してしまうため。
+        // 案件を開いたときに読み込んではいるが、下書き（meeting_form_draft）が
+        // そのあとに重なるので、下書きを取った時点で空だと空に戻る。
+        // 入口ごとに順番を直すと別の道が残るので、最後の書き込みの側で守る。
+        ...(formData.contractType ? { contract_type: formData.contractType } : {}),
         follow_up_call_needed: formData.followUpCallNeeded === '要' ? true : formData.followUpCallNeeded === '不要' ? false : null,
         // 受注の獲得区分（即受注/面談なし受注）。互換のため instant_order も維持（即受注のとき true）。
         order_win_type: formData.orderWinType || null,

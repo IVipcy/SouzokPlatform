@@ -65,7 +65,7 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
     let r: DocumentReceiptRow | undefined
     if (rid) r = receipts.find(x => x.id === rid)
     else if (pcase) r = receipts.find(x => x.case_id === pcase && x.is_parcel && !x.opened_at)
-    if (r) { setEditReceipt({ id: r.id, caseId: r.case_id, location: r.location ?? null }); setLocation(r.location ?? '__none__') }
+    if (r) { setEditReceipt({ id: r.id, caseId: r.case_id, location: r.location ?? null, postalType: r.postal_type ?? null }); setLocation(r.location ?? '__none__') }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
@@ -180,7 +180,7 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
         teams={teams}
         onChanged={refresh}
         operableCaseIds={operableCaseIds}
-        onReRegister={r => setEditReceipt({ id: r.id, caseId: r.case_id, location: r.location ?? null })}
+        onReRegister={r => setEditReceipt({ id: r.id, caseId: r.case_id, location: r.location ?? null, postalType: r.postal_type ?? null })}
         singleDay={!!dateFilter}
       />
 

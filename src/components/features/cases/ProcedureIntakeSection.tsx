@@ -81,8 +81,8 @@ const GYOMU_PRESET: Record<string, string[]> = {
 export const DEFAULT_DOCS: DocRow[] = [
   { name: '契約書', status: '後日郵送', arrival_date: null, note: '', category: '契約' },
   { name: '委任状', status: '後日郵送', arrival_date: null, note: '', category: '契約' },
-  { name: '本人確認書類', status: '後日郵送', arrival_date: null, note: '', category: '契約' },
-  { name: '印鑑証明書', status: '後日郵送', arrival_date: null, note: '', category: '契約' },
+  { name: '本人確認書類の写し', status: '後日郵送', arrival_date: null, note: '', category: '契約' },
+  { name: '印鑑登録証明書', status: '後日郵送', arrival_date: null, note: '', category: '契約' },
 ]
 // 役割分担は業務を選択してから作業を展開するため、初期値は空。
 export const DEFAULT_ROLES: RoleRow[] = []

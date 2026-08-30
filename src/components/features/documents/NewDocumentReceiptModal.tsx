@@ -10,7 +10,13 @@ import { notifyParcelArrival } from '@/lib/arrivalParcel'
 import { buildDeliverableOptions, type DeliverableOption } from '@/lib/deliverables'
 
 // 再登録（開封）モード：既存の郵送物一式レコードを開いて中身を本登録し直す
-export type EditReceiptInfo = { id: string; caseId: string; location: string | null }
+export type EditReceiptInfo = {
+  id: string
+  caseId: string
+  location: string | null
+  /** 事務管理が一式を登録したときに選んだ郵便物の種類。開封して再登録するときも引き継ぐ */
+  postalType: string | null
+}
 import type { FinancialAssetRow, RealEstatePropertyRow, KosekiRequestRow, ContractDocumentRow, RealEstateAcquisitionRow, AgreementDispatchRow, HeirRow } from '@/types'
 
 type CaseLite = {
@@ -135,6 +141,8 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
     if (!isOpen) return
     if (editReceipt) {
       setLocation(editReceipt.location ?? '')
+      // 種類を戻さないと、開封して再登録した時点で null に上書きされて消える
+      setPostalType(editReceipt.postalType ?? '')
       setParcelMode(false)
       void selectCase(editReceipt.caseId)
     } else {
