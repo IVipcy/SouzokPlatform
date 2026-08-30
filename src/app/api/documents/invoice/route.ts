@@ -14,6 +14,7 @@ import ExcelJS from 'exceljs'
 import { repairXlsx } from '@/lib/xlsxRepair'
 import { getInvoiceVariant, INVOICE_FIELDS } from '@/lib/invoiceVariants'
 import { STAMP_FILES } from '@/lib/ininjoVariants'
+import { toWarekiParts } from '@/lib/wareki'
 import { KOSEKI_AGENT_OFFICES, findBranch, type OfficeBranchId } from '@/lib/officeProfiles'
 
 type Body = {
@@ -128,6 +129,37 @@ export async function POST(request: NextRequest) {
 
     // 金額（前受金は消費税対象外＝合計も同額）
     for (const c of F.amount) setCell(ws, c, amount)
+
+    // 「小計」の見出しを中央に寄せる（結合セルの左端に寄っていた）
+    {
+      const cell = ws.getCell(F.subtotalCell)
+      cell.alignment = { ...(cell.alignment ?? {}), horizontal: 'center', vertical: 'middle' }
+    }
+
+    // 発行年月日。請求書だけ入れる。領収書の日付は入金の日で、作った日とは限らないため。
+    if (def.docType === '請求書') {
+      const w = toWarekiParts(new Date().toISOString().slice(0, 10))
+      if (w) {
+        setCell(ws, F.issueDate.era, w.era)
+        for (const [addr, v] of [[F.issueDate.year, w.year], [F.issueDate.month, w.month], [F.issueDate.day, w.day]] as const) {
+          setCell(ws, addr, v)
+          const cell = ws.getCell(addr)
+          cell.alignment = { ...(cell.alignment ?? {}), horizontal: 'center', vertical: 'middle' }
+        }
+      }
+    }
+
+    // 口座番号。数値のままだと幅が足りないときに Excel が #### や指数表記へ切り替えて
+    // 桁が読めなくなる。文字列にすればその切り替えは起きない。値そのものは変えない。
+    // （結合セルなので「縮小して全体を表示」は効かない。文字列化で直らなければ結合幅を広げる）
+    {
+      const cell = ws.getCell(F.bankAccountCell)
+      const raw = cell.value
+      if (raw !== null && raw !== undefined && raw !== '') {
+        cell.value = String(raw)
+        cell.numFmt = '@'
+      }
+    }
 
     // 社印（行＝行政／司＝司法）
     try {
