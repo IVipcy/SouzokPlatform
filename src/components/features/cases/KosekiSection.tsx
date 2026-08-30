@@ -961,11 +961,6 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
           </KosekiFieldRow>
         )}
         {!isShokumujo && (<>
-          <KosekiFieldRow label="請求法人" hint="実費を誰の名義で請求するかです。案件で1つ決まるものなので、変えるときはオーダーシートの「実費請求法人」で変えてください。">
-            {(caseData.expense_billing_firm ?? '').trim()
-              ? <span className="text-[12.5px] text-gray-700">{caseData.expense_billing_firm}</span>
-              : <span className="text-[11px] text-gray-400">未設定　<span className="text-[10.5px]">（オーダーシートの実費請求法人で設定します）</span></span>}
-          </KosekiFieldRow>
           <KosekiFieldRow label="拠点" hint="戸籍請求書の代理人欄に出る住所・電話が、この拠点のものになります。">
             {/* 保存するのは拠点ID（kyodo 等）で、画面に出すのは拠点名。
                 SelCell は値＝表示名の前提なので、ここだけ select を直に書く。 */}
@@ -985,9 +980,9 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
 請求先（役所）＝取りに行く先とは別です。`}>
             <SelectOrTextField value={r.submit_to} options={KOSEKI_SUBMIT_TO_OPTIONS} onSave={v => saveField(r.id, 'submit_to', v)} placeholder={KOSEKI_SUBMIT_TO_DEFAULT} />
           </KosekiFieldRow>
-          <KosekiFieldRow label="使用目的" hint="戸籍請求書の「使用目的」欄にそのまま入ります。定型文を選んでから直せます。">
+          <KosekiFieldRow label="使用目的" full hint="戸籍請求書の「使用目的」欄にそのまま入ります。右の ⌄ から定型文を選ぶと、この欄に入ってそのまま直せます。">
             <TemplateTextField value={r.request_reason} options={KOSEKI_REQUEST_REASONS}
-              onSave={v => saveField(r.id, 'request_reason', v)} placeholder="使用目的" />
+              onSave={v => saveField(r.id, 'request_reason', v)} placeholder="使用目的" rows={1} />
           </KosekiFieldRow>
         </>)}
       </KosekiGroup>
@@ -1000,7 +995,7 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
           <SelCell value={r.request_kind ?? '通常請求'} options={[...KOSEKI_REQUEST_KINDS]} onChange={v => saveField(r.id, 'request_kind', v)} />
         </KosekiFieldRow>
         {!isShokumujo && (<>
-          <KosekiFieldRow label="請求の種別" full
+          <KosekiFieldRow label="請求の種別"
             hint="依頼書1枚で何を頼むか。戸籍と戸籍の附票は1枚で請求できますが、戸籍と住民票は1枚では請求できません（請求を分けてください）。">
             <div className="min-w-0">
               <MultiCell value={r.doc_types} options={[...KOSEKI_REQUEST_TYPES]} onChange={v => saveField(r.id, 'doc_types', v)} />
@@ -1011,7 +1006,7 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
           </KosekiFieldRow>
           {/* 種別で選んだものに応じて中身が変わる2つを、種別の直後に続けて置く。
               間に請求範囲や筆頭者を挟むと、住民票を選んだときに視線が飛ぶ。 */}
-          <KosekiFieldRow label="種別②" sub="戸籍のとき" full>
+          <KosekiFieldRow label="種別②" sub="戸籍のとき">
             {includesKoseki(r.doc_types)
               ? <MultiCell value={r.doc_form} options={[...KOSEKI_DOC_FORMS]} onChange={v => saveField(r.id, 'doc_form', v)} />
               : <span className="text-[11px] text-gray-400">—　<span className="text-[10.5px]">（請求の種別で戸籍を選ぶと謄本／抄本が出ます）</span></span>}
@@ -1036,11 +1031,10 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
           </KosekiFieldRow>
         </>)}
         <KosekiFieldRow label="請求範囲">
-          <TemplateTextField value={r.range_text} options={KOSEKI_RANGES}
-            onSave={v => saveField(r.id, 'range_text', v)} placeholder="出生～死亡 等" rows={1} />
+          <SelCell value={r.range_text} options={[...KOSEKI_RANGES]} onChange={v => saveField(r.id, 'range_text', v)} />
         </KosekiFieldRow>
         <KosekiFieldRow label="請求範囲詳細"
-          hint="戸籍請求書の「備考」欄にそのまま入ります。請求の種別に合う定型文を選んでから、日付などを直してください。">
+          hint="戸籍請求書の「備考」欄にそのまま入ります。右の ⌄ から請求の種別に合う定型文を選ぶと、この欄に入ってそのまま直せます（日付などを打ち替えてください）。">
           <TemplateTextField
             value={r.range_detail}
             options={kosekiRangeDetailOptions(r.doc_types, r.target_person ?? '')}
