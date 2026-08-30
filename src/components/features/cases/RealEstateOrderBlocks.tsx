@@ -22,6 +22,7 @@ import { municipalityOf } from './RealEstateSection'
 import { useRowsFrom } from '@/lib/useRowsFrom'
 import RealEstateTable from './RealEstateTable'
 import type { RealEstateAcquisitionRow, RealEstatePropertyRow } from '@/types'
+import { PriorityCell } from './PracticeTableCells'
 
 /** 登記情報/法務局ブロックの請求先の既定値 */
 const RE_REQUEST_TO_DEFAULT = '民事法務協会'
@@ -311,6 +312,7 @@ export default function RealEstateOrderBlocks({ caseId, properties, acquisitions
                     <table className="w-full text-[13px] border-collapse" style={{ minWidth: 680 }}>
                       <thead>
                         <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
+                          <th className="px-2.5 py-2 text-left font-semibold w-24">優先度</th>
                           <th className="px-2.5 py-2 text-left font-semibold w-28">取得区分</th>
                           <th className="px-2.5 py-2 text-left font-semibold w-36">請求先</th>
                           <th className="px-2.5 py-2 text-left font-semibold w-52">対象物件</th>
@@ -331,6 +333,7 @@ export default function RealEstateOrderBlocks({ caseId, properties, acquisitions
                             const toggle = (item: string) => row ? toggleRowItem(row, item) : togglePropItem(p, item)
                             return (
                               <tr key={row?.id ?? `new-${p.id}`} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                                <td className="px-2.5 py-1.5"><PriorityCell value={row?.priority} onChange={v => write({ priority: v || null })} /></td>
                                 <td className="px-2.5 py-1.5">
                                   <select value={acquirer} onChange={e => write({ acquirer: e.target.value })} className={acqSelectCls}>
                                     {RE_ACQUIRERS.map(a => <option key={a} value={a}>{reAcquirerLabel(a)}</option>)}
@@ -436,9 +439,10 @@ function MuniDocTable({ rows, muni, itemType, years, onPatch, onDelete, onToggle
 }) {
   return (
     <div className="overflow-x-auto bg-white border border-gray-200 rounded-[3px]">
-      <table className="w-full text-[13px] border-collapse" style={{ minWidth: 640 }}>
+      <table className="w-full text-[13px] border-collapse" style={{ minWidth: 736 }}>
         <thead>
           <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
+            <th className="px-2.5 py-2 text-left font-semibold w-24">優先度</th>
             <th className="px-2.5 py-2 text-left font-semibold w-28">取得区分</th>
             <th className="px-2.5 py-2 text-left font-semibold w-40">所在地</th>
             <th className="px-2.5 py-2 text-left font-semibold w-32">年度</th>
@@ -449,12 +453,14 @@ function MuniDocTable({ rows, muni, itemType, years, onPatch, onDelete, onToggle
         </thead>
         <tbody>
           {rows.length === 0 ? (
-            <tr><td colSpan={6} className="px-3 py-4 text-center text-[12px] text-gray-400">「＋ 追加」で行を作成してください</td></tr>
+            <tr><td colSpan={7} className="px-3 py-4 text-center text-[12px] text-gray-400">「＋ 追加」で行を作成してください</td></tr>
           ) : rows.map((row, i) => {
             const acquirer = row.acquirer ?? '自社'
             const yr = row.doc_year ?? ''
             return (
               <tr key={row.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                {/* どれから手を付けてほしいかの見立て。事務管理がタスクを作るときに見る */}
+                <td className="px-2.5 py-1.5"><PriorityCell value={row.priority} onChange={v => onPatch(row.id, { priority: v || null })} /></td>
                 <td className="px-2.5 py-1.5">
                   <select value={acquirer} onChange={e => onPatch(row.id, { acquirer: e.target.value })} className={ACQ_SELECT}>
                     {RE_ACQUIRERS.map(a => <option key={a} value={a}>{reAcquirerLabel(a)}</option>)}

@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import SelectOrTextField from './SelectOrTextField'
+import { PriorityCell } from './PracticeTableCells'
 import { PersonRoleChip, PersonRoleLegend, roleKindOf, type PersonRoleKind } from '@/components/ui/PersonRoleChip'
 import { KOSEKI_PLAN_RANGES, KOSEKI_PLAN_ADDRESS_DOCS, KOSEKI_AUTHORITIES } from '@/lib/constants'
 import HintTip from '@/components/ui/HintTip'
@@ -62,7 +63,7 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
   }, [caseId])
 
   // 1マス変えるたびに保存（人ごとに1行。無ければ作る）
-  const save = async (name: string, field: 'range_text' | 'address_doc' | 'note' | 'acquisition_authority', value: string) => {
+  const save = async (name: string, field: 'range_text' | 'address_doc' | 'note' | 'acquisition_authority' | 'priority', value: string) => {
     const key = name.trim()
     const v = value.trim() || null
     setPlans(prev => ({ ...prev, [key]: { ...(prev[key] ?? {} as KosekiPlanRow), person_name: key, [field]: v } as KosekiPlanRow }))
@@ -121,9 +122,10 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
         ))}
       </div>
       <div className="overflow-x-auto">
-      <table className="w-full text-[12px] border-collapse" style={{ minWidth: 820 }}>
+      <table className="w-full text-[12px] border-collapse" style={{ minWidth: 920 }}>
         <thead>
           <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
+            <th className="px-2 py-2 text-left font-semibold w-24">優先度</th>
             <th className="px-2 py-2 text-left font-semibold w-48">対象者</th>
             <th className="px-2 py-2 text-left font-semibold w-40">戸籍の取得範囲</th>
             <th className="px-2 py-2 text-left font-semibold w-40">住所関係書類</th>
@@ -138,6 +140,10 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
             const plan = plans[p.name.trim()]
             return (
               <tr key={p.name} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                {/* どれから手を付けてほしいかの見立て。事務管理がタスクを作るときに見る */}
+                <td className="px-2 py-1.5">
+                  <PriorityCell value={plan?.priority} onChange={v => save(p.name, 'priority', v)} />
+                </td>
                 {/* 氏名より「誰なのか」で探すので、続柄を主・氏名を従にする */}
                 <td className="px-2 py-1.5">
                   <PersonRoleChip role={p.role} name={p.name} kind={p.kind} isClient={p.isClient} note={p.dead ? '死亡' : null} compact />

@@ -206,3 +206,32 @@ export function TemplateTextField({ value, options, onSave, placeholder, rows = 
     </div>
   )
 }
+
+/**
+ * 行ごとの優先度（通常/急ぎ/超急ぎ）。オーダーシートの各表の一番左に置く。
+ *
+ * 受注担当が「どれから手を付けてほしいか」の見立てを書いておく欄で、
+ * ここを見て事務管理担当がタスクの優先度を決める。
+ * タスクの優先度を自動で書き換えることはしない（決めるのは作る人）。
+ */
+export function PriorityCell({ value, onChange }: { value: string | null | undefined; onChange: (v: string) => void }) {
+  const v = value ?? ''
+  // 色は style で当てる。globals.css が select の背景・枠を無レイヤーで指定していて、
+  // Tailwind のクラス（bg-red-50 等）では上書きできないため。
+  const tone = v === '超急ぎ' ? { background: '#fee2e2', color: '#b91c1c', borderColor: '#fca5a5', fontWeight: 700 }
+    : v === '急ぎ' ? { background: '#fef3c7', color: '#b45309', borderColor: '#fcd34d', fontWeight: 600 }
+    : { background: '#f3f5f8', color: '#6b7280', borderColor: 'transparent' }
+  return (
+    <select
+      value={v}
+      onChange={e => onChange(e.target.value)}
+      title="優先度（タスクを作るときの目安）"
+      style={{ fontFamily: 'inherit', ...tone }}
+      className="w-full px-1.5 py-1 text-[12px] border rounded outline-none focus:border-brand-500"
+    >
+      <option value="">通常</option>
+      <option value="急ぎ">急ぎ</option>
+      <option value="超急ぎ">超急ぎ</option>
+    </select>
+  )
+}

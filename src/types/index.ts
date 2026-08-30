@@ -826,6 +826,7 @@ export type RealEstatePropertyRow = {
 export type RealEstateAcquisitionRow = {
   id: string
   case_id: string
+  priority: string | null             // 優先度（通常/急ぎ/超急ぎ。migration 265）
   request_kind: string | null         // 請求区分（通常請求/誤請求/追加請求/再請求。migration 234）
   item_type: string | null            // 登記情報/公図/地積測量図/評価証明/名寄帳/路線価 ※互換用（新規は item_types を使う）
   item_types: string[] | null         // 1宛先＝1請求＋資料は複数選択（migration 183）。表示は item_types 優先。
@@ -876,6 +877,9 @@ export type RealEstateAcquisitionRow = {
 export type FinancialAssetRow = {
   id: string
   case_id: string
+  // 優先度（通常/急ぎ/超急ぎ。migration 265）。資料の取得と解約は同じ行を見ているので別々に持つ
+  survey_priority: string | null
+  cancel_priority: string | null
   asset_type: string
   institution_name: string
   branch_name: string | null
@@ -1286,4 +1290,5 @@ export type KosekiPlanRow = {
   created_at: string
   updated_at: string
   acquisition_authority?: string | null  // 取得方法の見立て（委任状／職務上請求。migration 254）
+  priority?: string | null               // 優先度（通常/急ぎ/超急ぎ。migration 265）
 }

@@ -16,6 +16,7 @@ import type { TimelineReceipt } from './CaseTimeline'
 import { receiptFilesFor } from '@/lib/relatedTasks'
 import OpenStorageFile from '@/components/features/documents/OpenStorageFile'
 import ContractReceivedBlock from './ContractReceivedBlock'
+import { PriorityCell } from './PracticeTableCells'
 
 const REQ = ['要', '不要', '確認中']
 const CANCEL = ['有', '無', '確認中']
@@ -243,8 +244,8 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
     onRefresh?.()
   }
 
-  // 列数（空表示のcolspan用）。取得区分+調査禁止+備考+削除=4 固定 ＋cols＋各条件列。
-  const colCount = 4 + cols.length
+  // 列数（空表示のcolspan用）。優先度+取得区分+調査禁止+備考+削除=5 固定 ＋cols＋各条件列。
+  const colCount = 5 + cols.length
     + (showBalanceCols ? 3 : 0)     // 残高+根拠資料有無+根拠資料
     + (showTxPeriods ? 1 : 0)
     + (showBalanceCertDates ? 1 : 0)
@@ -378,6 +379,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
   const renderCard = (r: FinancialAssetRow) => { const banned = isSurveyBanned(r); return (
     <div key={r.id} className={`rounded-xl border ${banned ? 'border-gray-300 bg-gray-50' : 'border-gray-200 bg-white'}`}>
       {banned && <div className="px-3 py-1.5 text-[11px] font-semibold text-gray-600 bg-gray-100 border-b border-gray-200 flex items-center gap-1"><Lock className="w-3 h-3" strokeWidth={2} />財産調査 ホールド中（調査禁止指定あり）調査は編集できません</div>}
+      <CardRow label="優先度"><PriorityCell value={r.survey_priority} onChange={v => save(r.id, 'survey_priority', v)} /></CardRow>
       {showFreezeFlag && <CardRow label="凍結済み（事前凍結）">{renderFreezeFlagCell(r)}</CardRow>}
       {progressMode && (
         <CardRow label="凍結可否">
@@ -445,9 +447,11 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
       <ContractReceivedBlock docs={contractDocs} caseId={caseId} onRefresh={onRefresh} />
       {/* 表示：PC(sm以上)は表・スマホはカード。案件詳細/オーダーシート共通（表に統一・横スクロール）。 */}
       <div className="hidden sm:block overflow-x-auto">
-        <table className="text-[13px] border-collapse" style={{ minWidth: progressMode ? 2820 : 1300 + (showTxPeriods ? 256 : 0) + (showBalanceCertDates ? 176 : 0), width: 'max-content' }}>
+        <table className="text-[13px] border-collapse" style={{ minWidth: (progressMode ? 2820 : 1300) + 96 + (showTxPeriods ? 256 : 0) + (showBalanceCertDates ? 176 : 0), width: 'max-content' }}>
           <thead>
             <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
+              {/* 資料の取得（残高証明など）の優先度。解約の優先度は解約手続タブで別に持つ */}
+              <th className="px-2 py-2 text-left font-semibold w-24">優先度</th>
               {showFreezeFlag && <th className="px-2 py-2 text-left font-semibold w-28">凍結済み</th>}
               {progressMode && <th className="px-2 py-2 text-center font-semibold w-24">凍結可否</th>}
               <th className="px-2 py-2 text-left font-semibold w-28">取得区分</th>
@@ -478,6 +482,7 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
               // 中央ぞろえのままだと他のセルだけ下がって、上の行の続きに見えてしまう。
               visibleRows.map(r => { const banned = isSurveyBanned(r); const lock = banned ? 'pointer-events-none opacity-50' : ''; return (
                 <tr key={r.id} className={`border-b border-gray-200 last:border-b-0 [&>td]:align-top ${banned ? 'bg-gray-100/70' : progressMode && !r.freeze_confirmed ? 'bg-amber-50/30' : ''}`}>
+                  <td className="px-2 py-1.5"><PriorityCell value={r.survey_priority} onChange={v => save(r.id, 'survey_priority', v)} /></td>
                   {/* 凍結確認済フラグ（オーダーシート・事前凍結） */}
                   {showFreezeFlag && <td className="px-2 py-1.5">{renderFreezeFlagCell(r)}</td>}
                   {/* 凍結状態バッジ（左端・目視用。依頼ボタンは右側の「凍結確認」列に別途配置） */}

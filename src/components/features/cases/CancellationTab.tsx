@@ -11,6 +11,7 @@ import { WorkContentField } from './WorkContentField'
 import CancellationSection from './CancellationSection'
 import type { FinancialAssetRow, CaseRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
+import { PriorityCell } from './PracticeTableCells'
 
 const CANCEL = ['有', '無', '確認中']
 
@@ -74,6 +75,7 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
             <table className="w-full text-[13px] border-collapse" style={{ minWidth: 900 }}>
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
+                  <th className="px-2.5 py-2 text-left font-semibold w-24">優先度</th>
                   <th className="px-2.5 py-2 text-left font-semibold">{st.kind === '預貯金' ? '金融機関名' : st.kind === '証券' ? '証券会社' : '信託銀行名'}</th>
                   <th className="px-2.5 py-2 text-left font-semibold w-24">解約有無</th>
                   <th className="px-2.5 py-2 text-left font-semibold">備考</th>
@@ -82,6 +84,11 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
               <tbody>
                 {klist.map((r, i) => (
                   <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                    {/* 解約の優先度。資料の取得（財産調査）とは別に持つ。
+                        「残高証明は普通でいいが解約は急ぎ」が実際にあるため */}
+                    <td className="px-2.5 py-1.5">
+                      <PriorityCell value={r.cancel_priority} onChange={v => save(r.id, 'cancel_priority', v)} />
+                    </td>
                     <td className="px-2.5 py-2 font-semibold text-gray-800">{r.institution_name || <span className="text-gray-300">—</span>}</td>
                     <td className="px-2.5 py-1.5">
                       <select value={r.cancellation_required ?? ''} onChange={e => save(r.id, 'cancellation_required', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
@@ -101,6 +108,7 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
               <div key={r.id} className="border border-gray-200 rounded-xl p-3">
                 <div className="text-[15px] font-semibold text-gray-900 mb-2.5">{r.institution_name || '未入力'}</div>
                 <div className="space-y-2.5">
+                  <div><div className="text-[13px] font-medium text-slate-600 mb-1">優先度</div><PriorityCell value={r.cancel_priority} onChange={v => save(r.id, 'cancel_priority', v)} /></div>
                   <div><div className="text-[13px] font-medium text-slate-600 mb-1">解約有無</div><select value={r.cancellation_required ?? ''} onChange={e => save(r.id, 'cancellation_required', e.target.value)} className="w-full h-10 px-3 text-[13px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500"><option value="">—</option>{CANCEL.map(o => <option key={o} value={o}>{o}</option>)}</select></div>
                   <div><div className="text-[13px] font-medium text-slate-600 mb-1">備考</div><input type="text" defaultValue={r.cancellation_restrictions ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_restrictions ?? '')) save(r.id, 'cancellation_restrictions', e.target.value) }} placeholder="例：相続人全員の同意が必要 等" className="w-full h-10 px-3 text-[13px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white" /></div>
                 </div>
