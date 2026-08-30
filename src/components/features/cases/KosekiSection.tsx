@@ -441,8 +441,9 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
 
     <div className="flex gap-3 items-start">
       {/* 左レール（対象者＝人ごと）。案件の色が透けないよう白いカードに載せる。
-          幅は「被相続人」＋依頼者バッジ＋件数＋到着が1行に収まる実測値。狭くすると続柄が折れる。 */}
-      <div className="flex-none w-60 flex flex-col gap-0.5 bg-white border border-gray-200 rounded-lg p-1.5 self-start">
+          幅は「被相続人」＋依頼者バッジ＋件数＋到着＋削除ボタンが1行に収まる実測値（288px）。
+          240pxだと削除ボタンのぶんが効いて「被相 続人」と折れる。 */}
+      <div className="flex-none w-72 flex flex-col gap-0.5 bg-white border border-gray-200 rounded-lg p-1.5 self-start">
         {railTabs.map(t => {
           const isTop = t.id === 'top'
           const person = t.id === '__unset__' ? '' : t.id

@@ -20,6 +20,7 @@ import { koteiOf, koteiRank } from '@/lib/kotei'
 import { GyomuBadge } from '@/components/ui/KoteiBadge'
 import { RemainCell } from '@/components/ui/RemainCell'
 import { getStartSignal, type ReadinessReceipt } from '@/lib/taskReadiness'
+import { isTaskFreezeBlocked } from '@/lib/financeFreeze'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { showToast } from '@/components/ui/Toast'
 import type { TaskRow, MemberRow } from '@/types'
@@ -373,6 +374,23 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     : 0
 
   // 優先度は一覧のその場で変えられる（急ぎ・超急ぎは行の色が変わり、先頭に持ち上がる）
+  /**
+   * 一覧から着手する。タスク詳細の「着手する」と同じ（対応中にして、着手者と時刻を残す）。
+   * 開いて押す手間を1回ぶん減らすためのもの。
+   * 押すと対応中になるので、既定の「着手OK」の一覧からはその行が消える。
+   */
+  const startTask = useCallback(async (task: TaskRow) => {
+    if (!currentMemberId) { showToast('ログイン情報が取得できませんでした', 'error'); return }
+    const { error } = await createClient().from('tasks').update({
+      status: '対応中',
+      started_by: currentMemberId,
+      started_at: new Date().toISOString(),
+    }).eq('id', task.id)
+    if (error) { showToast(`着手に失敗しました: ${error.message}`, 'error'); return }
+    showToast(`「${task.title}」に着手しました（対応中へ移りました）`, 'success')
+    router.refresh()
+  }, [currentMemberId, router])
+
   const setPriority = useCallback(async (task: TaskRow, priority: string) => {
     const { error } = await createClient().from('tasks').update({ priority }).eq('id', task.id)
     if (error) { showToast(`優先度の変更に失敗: ${error.message}`, 'error'); return }
@@ -591,6 +609,8 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         onEdit={setEditTask}
         onDelete={setDeleteTask}
         onSetPriority={setPriority}
+        onStart={startTask}
+        freezeAssetsByCase={freezeAssetsByCase}
         selectedIds={selectedIds}
         onToggleSelect={toggleSelect}
         onToggleSelectAll={toggleSelectAll}
@@ -639,6 +659,8 @@ function ListView({
   onEdit: _onEdit,
   onDelete,
   onSetPriority,
+  onStart,
+  freezeAssetsByCase,
   selectedIds,
   onToggleSelect,
   onToggleSelectAll,
@@ -655,6 +677,9 @@ function ListView({
   onEdit: (task: TaskRow) => void
   onDelete: (task: TaskRow) => void
   onSetPriority: (task: TaskRow, priority: string) => void
+  onStart: (task: TaskRow) => void
+  /** 案件ID→金融資産（機関名・凍結確認）。解約タスクは凍結が済むまで着手させない */
+  freezeAssetsByCase: Record<string, Array<{ institution_name?: string | null; freeze_confirmed?: boolean | null }>>
   selectedIds: Set<string>
   onToggleSelect: (taskId: string) => void
   onToggleSelectAll: (visibleIds: string[]) => void
@@ -674,12 +699,13 @@ function ListView({
   // 日付や案件番号が「2026-0…」「2608SD0…」と切れる事故が起きていた）。
   // 幅は中身の実測（日付90px／案件番号101px）＋左右余白24pxで決めている。
   const widths = {
-    select: 44, createdAt: 120, caseNo: 132, clientName: 150, gyomu: 110, title: 300,
+    select: 44, start: 92, createdAt: 120, caseNo: 132, clientName: 150, gyomu: 110, title: 300,
     priority: 104, dueDate: 118, overdue: 104, manager: 124, creator: 116, work: 284, ops: 40,
   } as const
   // sort を持つ列は見出しを押すと並び替えできる。
   const HEADERS: Array<{ key: keyof typeof widths; label: string; sort?: SortKey }> = [
     { key: 'select',     label: '' },
+    { key: 'start',      label: '着手' },
     { key: 'createdAt',  label: 'タスク起票日' },
     ...(!caseScope ? [
       { key: 'caseNo' as const,     label: '案件番号' },
@@ -766,6 +792,8 @@ function ListView({
                 today={today}
                 onDelete={onDelete}
                 onSetPriority={onSetPriority}
+                onStart={onStart}
+                freezeAssets={freezeAssetsByCase[task.case_id] ?? []}
                 selected={selectedIds.has(task.id)}
                 onToggleSelect={() => onToggleSelect(task.id)}
                 roleScope={roleScope}
@@ -781,13 +809,15 @@ function ListView({
 }
 
 // ─── 1行 ───
-function TaskRow({ task, caseMap, allMembers: _allMembers, today, onDelete, onSetPriority, selected, onToggleSelect, roleScope, caseScope }: {
+function TaskRow({ task, caseMap, allMembers: _allMembers, today, onDelete, onSetPriority, onStart, freezeAssets, selected, onToggleSelect, roleScope, caseScope }: {
   task: TaskRow
   caseMap: Record<string, CaseInfo>
   allMembers: MemberRow[]
   today: string
   onDelete: (task: TaskRow) => void
   onSetPriority: (task: TaskRow, priority: string) => void
+  onStart: (task: TaskRow) => void
+  freezeAssets: Array<{ institution_name?: string | null; freeze_confirmed?: boolean | null }>
   selected: boolean
   onToggleSelect: () => void
   roleScope: 'assistant' | 'manager'
@@ -815,6 +845,36 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onDelete, onSe
           aria-label={`タスク「${task.title}」を選択`}
           className="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-400 cursor-pointer"
         />
+      </td>
+
+      {/* 着手。押すと対応中になり、着手者が記録される（タスク詳細の「着手する」と同じ）。
+          解約タスクは口座の凍結が済むまで押せない（凍結前にお金を動かさないため）。 */}
+      <td className="px-2 py-2.5">
+        {status === '着手前' ? (() => {
+          const blocked = isTaskFreezeBlocked(task, freezeAssets)
+          return (
+            <button
+              type="button"
+              disabled={blocked}
+              onClick={() => onStart(task)}
+              title={blocked ? '口座の凍結確認が済むまで着手できません' : 'このタスクに着手する（対応中になります）'}
+              className={`w-full px-2 py-1 rounded-md text-[11.5px] font-semibold transition-colors ${
+                blocked
+                  ? 'bg-white text-gray-300 border border-gray-200 cursor-not-allowed'
+                  : 'bg-brand-600 text-white hover:bg-brand-700'}`}
+            >
+              着手
+            </button>
+          )
+        })() : status === '完了' ? (
+          <span className="inline-block px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-emerald-50 text-emerald-700">完了</span>
+        ) : (
+          <span className="inline-flex flex-col leading-tight">
+            <span className={`inline-block px-2 py-0.5 rounded-full text-[10.5px] font-semibold ${
+              status === '確認中' ? 'bg-gray-100 text-gray-600' : 'bg-amber-50 text-amber-700'}`}>{status}</span>
+            {task.started_by_member?.name && <span className="text-[10px] text-gray-400 mt-0.5 truncate">{task.started_by_member.name}</span>}
+          </span>
+        )}
       </td>
 
       {/* タスク上げ日（起票日） */}
