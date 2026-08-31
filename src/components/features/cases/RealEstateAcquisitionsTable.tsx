@@ -17,8 +17,22 @@ const ACQUIRER_HINT = [
   '依頼者取得：依頼者が取ってきます（請求日・費用は入れません）',
   '受領済：もう手元にあります。契約手続きタブに「その場で受領」で自動追加されます',
 ].join('\n')
-const acquirerOf = (r: { acquirer: string | null; received_at_meeting?: boolean }) =>
-  r.received_at_meeting ? '受領済' : ((r.acquirer ?? '').trim() || '自社取得')
+/**
+ * 画面に出す取得区分。
+ *
+ * DBに入っているのは '自社' / '依頼者'（lib/acquirer.ts の ACQUIRERS）。
+ * この画面だけ '自社取得' / '依頼者取得' というラベルで持っていたため、
+ * オーダーシートから作った行（'自社'）が「自社取得ではない」と判定され、
+ * 請求日・費用が「依頼者負担」になって入力できなくなっていた。
+ * 表記ゆれを吸収して、'依頼者' でなければ自社取得として扱う。
+ */
+const acquirerOf = (r: { acquirer: string | null; received_at_meeting?: boolean }) => {
+  if (r.received_at_meeting) return '受領済'
+  const a = (r.acquirer ?? '').trim()
+  return a === '依頼者' || a === '依頼者取得' ? '依頼者取得' : '自社取得'
+}
+/** 画面のラベル → DBに入れる値。'自社' / '依頼者' に揃える。 */
+const acquirerValue = (label: string) => (label === '依頼者取得' ? '依頼者' : '自社')
 
 // 年度を持つ資料。登記情報・公図・地積測量図・路線価には年度がない。
 const YEAR_ITEMS = ['名寄帳', '評価証明']
@@ -30,7 +44,7 @@ import { receiptFilesFor } from '@/lib/relatedTasks'
 import OpenStorageFile from '@/components/features/documents/OpenStorageFile'
 import ContractReceivedBlock from './ContractReceivedBlock'
 import CheckRequestControl from './CheckRequestControl'
-import { MoneyCell } from './PracticeTableCells'
+import { MoneyCell, PriorityCell } from './PracticeTableCells'
 import HintTip from '@/components/ui/HintTip'
 import { municipalityOf } from './RealEstateSection'
 
@@ -58,6 +72,11 @@ type Props = {
   additionsNeedApproval?: boolean
   // 承認待ちの取得資料を足したとき（親が管理担当へ通知を出す）
   onAdditionalPending?: () => void
+  /**
+   * 見せ方。'table'=16列の表（従来）／'cards'=1タブ＝1請求のカード。
+   * 実務タブは cards。1件の請求を横スクロールせずに読めるようにするため。
+   */
+  layout?: 'table' | 'cards'
 }
 
 const itemMeta = (key: string | null) => ACQUISITION_ITEMS.find(i => i.key === key)
@@ -65,17 +84,332 @@ const propLabel = (p: RealEstatePropertyRow) => p.address || p.lot_number || p.p
 // selectのoption表示は先頭に[土地]/[建物]を付けて、同じ住所の物件を判別可能に。
 const propLabelWithType = (p: RealEstatePropertyRow) => `${p.property_type ? `[${p.property_type}] ` : ''}${propLabel(p)}`
 
+/** 読込結果のステータス。戸籍と同じ2つに揃える（内容は自由欄に書く）。 */
+const RE_READ_STATUSES = ['取得完了', '一部不足'] as const
+
+/**
+ * タブの状態バッジ。色ではなく文字で言う。
+ * 完了は薄く沈め、手を打つ必要がある「一部不足」だけ色を付ける。
+ */
+const RE_TAB_STATUS = {
+  none:    { label: '未請求',   cls: 'text-gray-400 border border-gray-200' },
+  request: { label: '請求中',   cls: 'text-gray-500 border border-gray-300' },
+  check:   { label: '確認待ち', cls: 'text-white bg-gray-500' },
+  partial: { label: '一部不足', cls: 'text-red-700 bg-red-50 border border-red-200' },
+  done:    { label: '完了',     cls: 'text-gray-400 bg-gray-100' },
+} as const
+
+const reTabStatus = (r: RealEstateAcquisitionRow): keyof typeof RE_TAB_STATUS => {
+  if (r.read_status === '一部不足') return 'partial'
+  if (r.read_status === '取得完了') return 'done'
+  if (r.arrival_date) return 'check'
+  return r.request_date ? 'request' : 'none'
+}
+
+/** タブ名。役所ぶんは「資料＋年度」、法務局ぶんは「物件＋資料」。 */
+function reTabLabel(
+  r: RealEstateAcquisitionRow,
+  properties: RealEstatePropertyRow[],
+  itemsOf: (r: RealEstateAcquisitionRow) => string[],
+  rowScopeOf: (r: RealEstateAcquisitionRow) => 'municipality' | 'property' | null,
+): string {
+  const items = itemsOf(r)
+  const head = items.length === 0 ? '資料 未選択' : items.length === 1 ? items[0] : `${items[0]} +${items.length - 1}`
+  if (rowScopeOf(r) === 'property') {
+    const p = properties.find(x => x.id === r.target_property_id)
+    const who = p ? (p.lot_number || p.address || p.property_type || '物件') : '物件 未選択'
+    return `${who}　${head}`
+  }
+  const y = (r.doc_year ?? r.myna_year ?? '').replace('年度', '')
+  return y ? `${head} ${y}` : head
+}
+
+/** カードの1行。ラベル左・値右。full は横いっぱい（col-start-1 が無いと前の行の途中から始まる）。 */
+function ReRow({ label, sub, children, full = false }: {
+  label: string; sub?: string; children: React.ReactNode; full?: boolean
+}) {
+  return (
+    <div className="contents">
+      <div className={`bg-gray-50/80 border-r border-gray-100 px-3 py-2 flex flex-col justify-center text-[11.5px] font-semibold text-gray-600 leading-snug ${full ? 'sm:col-start-1' : ''}`}>
+        <span>{label}</span>
+        {sub && <span className="text-[10px] font-normal text-brand-700">{sub}</span>}
+      </div>
+      <div className={`bg-white px-3 py-2 flex items-center gap-2 flex-wrap min-h-[42px] ${full ? 'sm:col-span-3' : ''}`}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function ReGroup({ no, title, children }: { no: string; title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-gray-200 overflow-hidden">
+      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border-b border-gray-200">
+        <span className="inline-block w-[3px] h-3 bg-brand-500 rounded-[1px]" />
+        <span className="text-[10.5px] font-semibold text-brand-700 bg-brand-50 border border-brand-100 rounded px-1.5">{no}</span>
+        <span className="text-[12px] font-semibold text-gray-600">{title}</span>
+      </div>
+      <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-[8.5rem_minmax(0,1fr)_8.5rem_minmax(0,1fr)] gap-px bg-gray-100">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+type AcquisitionCardsProps = {
+  rows: RealEstateAcquisitionRow[]
+  properties: RealEstatePropertyRow[]
+  muniProps: RealEstatePropertyRow[]
+  activeId: string | null
+  setActiveId: (id: string) => void
+  itemsOf: (r: RealEstateAcquisitionRow) => string[]
+  rowScopeOf: (r: RealEstateAcquisitionRow) => 'municipality' | 'property' | null
+  officeDefault: (muni?: string | null, propId?: string | null) => string
+  save: (id: string, field: keyof RealEstateAcquisitionRow, value: unknown) => void
+  saveMany: (id: string, patch: Partial<RealEstateAcquisitionRow>) => void
+  toggleItem: (id: string, key: string) => void
+  addRow: (forScope?: 'municipality' | 'property') => void
+  delRow: (id: string) => void
+  reqCheck: (r: RealEstateAcquisitionRow, kind: 'request' | 'receipt') => void
+  cancelCheck: (r: RealEstateAcquisitionRow, kind: 'request' | 'receipt') => void
+  setAcquirer: (r: RealEstateAcquisitionRow, v: string) => void
+  receipts: TimelineReceipt[]
+  meId: string | null
+  fullCost: boolean
+  confirmedOf: (r: RealEstateAcquisitionRow) => number | null
+}
+
+/**
+ * カード表示（1タブ＝1請求）。表をやめて、戸籍タブと同じ形にしたもの。
+ *
+ * 16列の表を横スクロールしながら読むのをやめ、1件の請求を1画面で見る。
+ * 役所への請求（名寄帳・評価証明）と法務局への請求（登記情報など）は、
+ * 「請求先が違う」というだけで同じ請求なので、タブは1本にまとめて並び順で分ける。
+ * タブ列を2本並べる形は見慣れないという指摘があったため。
+ */
+function AcquisitionCards({
+  rows, properties, muniProps, activeId, setActiveId, itemsOf, rowScopeOf, officeDefault,
+  save, saveMany, toggleItem, addRow, delRow, reqCheck, cancelCheck, setAcquirer,
+  receipts, meId, fullCost, confirmedOf,
+}: AcquisitionCardsProps) {
+  const cur = rows.find(r => r.id === activeId) ?? rows[0] ?? null
+
+  return (
+    <div>
+      {/* 請求ごとのタブ。役所ぶんが先、法務局ぶんが後ろ（rows は既にその順で並んでいる）。 */}
+      <div className="flex items-end gap-1 flex-wrap border-b border-gray-200 mb-3">
+        {rows.map(r => {
+          const on = cur?.id === r.id
+          const st = RE_TAB_STATUS[reTabStatus(r)]
+          const finished = reTabStatus(r) === 'done'
+          const isProp = rowScopeOf(r) === 'property'
+          return (
+            <button key={r.id} type="button" onClick={() => setActiveId(r.id)}
+              title={`${isProp ? '法務局へ請求' : '役所へ請求'}／${st.label}`}
+              className={`inline-flex items-center gap-2 px-3 py-1.5 text-[12.5px] rounded-t-lg border border-b-0 -mb-px transition-colors ${
+                on ? 'bg-white border-gray-200 text-gray-800 font-semibold'
+                  : `bg-gray-50 border-transparent hover:text-gray-800 ${finished ? 'text-gray-400' : 'text-gray-500'}`}`}>
+              <span className={`text-[9.5px] px-1.5 rounded flex-none ${isProp ? 'bg-gray-100 text-gray-500' : 'bg-brand-50 text-brand-700'}`}>
+                {isProp ? '法務局' : '役所'}
+              </span>
+              {reTabLabel(r, properties, itemsOf, rowScopeOf)}
+              <span className={`text-[10px] tracking-wider px-2 py-[1px] rounded-full flex-none ${st.cls}`}>{st.label}</span>
+            </button>
+          )
+        })}
+        {/* 追加はどちらへの請求か聞く。タブを1本にしたぶん、ここで宛先を決める。 */}
+        <span className="inline-flex items-center gap-1 ml-1.5">
+          <span className="text-[11px] text-gray-400">＋ 請求を追加</span>
+          <button type="button" onClick={() => addRow('municipality')}
+            className="px-2 py-1 text-[11.5px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded hover:bg-brand-100">役所へ</button>
+          <button type="button" onClick={() => addRow('property')}
+            className="px-2 py-1 text-[11.5px] font-semibold text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50">法務局へ</button>
+        </span>
+      </div>
+
+      {!cur ? (
+        <div className="px-4 py-8 text-center">
+          <div className="text-[13px] text-gray-600 mb-1">取得資料はまだ登録されていません</div>
+          <div className="text-[11.5px] text-gray-400 leading-relaxed">上の「＋ 請求を追加」から、役所（名寄帳・評価証明）か法務局（登記情報・公図など）を選んで作ってください。</div>
+        </div>
+      ) : (() => {
+        const r = cur
+        const items = itemsOf(r)
+        const isRef = items.length > 0 && items.every(x => itemMeta(x)?.method === '参照')
+        const isProp = (rowScopeOf(r) ?? (itemMeta(items[0])?.target === '物件' ? 'property' : 'municipality')) === 'property'
+        const availableItems = ACQUISITION_ITEMS.filter(x => x.target === (isProp ? '物件' : '市区町村')).map(x => x.key)
+        const acq = acquirerOf(r)
+        const noRequest = acq !== '自社取得'
+        const muted = <span className="text-[11px] text-gray-400">{acq === '受領済' ? '受領済' : '依頼者負担'}</span>
+        const dateCls = 'px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white'
+        const selCls = 'px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500'
+        return (
+          <div className={`space-y-2.5 ${isMistakenRequest(r.request_kind) ? 'ring-1 ring-red-200 rounded-lg p-2 bg-red-50/30' : ''}`}>
+            <div className="flex items-center justify-end">
+              <button type="button" onClick={() => delRow(r.id)} title="この請求を削除"
+                className="text-gray-300 hover:text-red-500 px-1"><Trash2 className="w-4 h-4" /></button>
+            </div>
+
+            <ReGroup no="Step1" title="何を・どこへ請求するか">
+              <ReRow label="優先度"><PriorityCell value={r.priority} onChange={v => save(r.id, 'priority', v || null)} /></ReRow>
+              <ReRow label="請求区分">
+                <select value={r.request_kind ?? '通常請求'} onChange={e => save(r.id, 'request_kind', e.target.value)} className={selCls}>
+                  {RE_REQUEST_KINDS.map(k => <option key={k} value={k}>{k}</option>)}
+                </select>
+              </ReRow>
+              <ReRow label="取得区分">
+                <select value={acq} onChange={e => setAcquirer(r, e.target.value)} className={selCls}>
+                  {ACQUIRERS.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </ReRow>
+              <ReRow label="請求先">
+                {isRef ? <span className="text-[11px] text-gray-300">— 参照 —</span>
+                  : <input key={r.request_to ?? ''} type="text" defaultValue={r.request_to ?? ''}
+                      onBlur={e => { if (e.target.value !== (r.request_to ?? '')) save(r.id, 'request_to', e.target.value || null) }}
+                      placeholder={officeDefault(r.target_municipality, r.target_property_id) || itemMeta(items[0])?.office || '請求先'} className={`${dateCls} w-full`} />}
+              </ReRow>
+              <ReRow label="対象" full>
+                {isProp ? (
+                  <select value={r.target_property_id ?? ''} onChange={e => save(r.id, 'target_property_id', e.target.value || null)} className={`${selCls} w-full max-w-md`}>
+                    <option value="">— 物件を選択 —</option>
+                    {muniProps.map(p => <option key={p.id} value={p.id}>{propLabelWithType(p)}</option>)}
+                  </select>
+                ) : (
+                  <input type="text" defaultValue={r.target_municipality ?? ''}
+                    onBlur={e => { if (e.target.value !== (r.target_municipality ?? '')) save(r.id, 'target_municipality', e.target.value || null) }}
+                    placeholder="例: 名古屋市中区" className={`${dateCls} w-full max-w-md`} />
+                )}
+              </ReRow>
+              <ReRow label="取得する資料" full sub="1宛先＝1請求">
+                <div className="flex flex-wrap gap-1">
+                  {availableItems.map(key => {
+                    const on = items.includes(key)
+                    return (
+                      <button key={key} type="button" onClick={() => toggleItem(r.id, key)}
+                        className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[11.5px] font-medium border transition-colors ${
+                          on ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-500 border-gray-200 hover:border-brand-300 hover:text-brand-700'}`}>
+                        {on && '✓'}{key}
+                      </button>
+                    )
+                  })}
+                </div>
+                {r.is_additional && !r.additional_approved_at && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">追加・承認待ち</span>
+                )}
+              </ReRow>
+              <ReRow label="年度" sub="名寄帳・評価証明のとき" full>
+                {items.some(x => YEAR_ITEMS.includes(x)) ? (
+                  <select value={r.doc_year ?? r.myna_year ?? ''} onChange={e => saveMany(r.id, { doc_year: e.target.value || null, myna_year: e.target.value || null })} className={selCls}>
+                    <option value="">—</option>
+                    {yearOptions().map(o => <option key={o} value={o}>{o}</option>)}
+                    {(r.doc_year ?? r.myna_year) && !yearOptions().includes((r.doc_year ?? r.myna_year) as string) &&
+                      <option value={(r.doc_year ?? r.myna_year) as string}>{r.doc_year ?? r.myna_year}</option>}
+                  </select>
+                ) : <span className="text-[11px] text-gray-400">—　<span className="text-[10.5px]">（名寄帳・評価証明を選ぶと年度が出ます）</span></span>}
+              </ReRow>
+            </ReGroup>
+
+            <ReGroup no="Step2" title="費用">
+              {noRequest || isRef ? (
+                <ReRow label="費用" full>{isRef ? <span className="text-[11px] text-gray-400">参照のみ（費用なし）</span> : muted}</ReRow>
+              ) : (
+                <>
+                  <ReRow label="費用予算"><MoneyCell value={r.cost_budget} onCommit={v => saveMany(r.id, { cost_budget: v === '' ? null : Number(v) })} /></ReRow>
+                  {fullCost && <ReRow label="返金"><MoneyCell value={r.cost_refund} onCommit={v => saveMany(r.id, { cost_refund: v === '' ? null : Number(v) })} /></ReRow>}
+                  <ReRow label="確定費用" full>
+                    {fullCost
+                      ? <span className={`inline-block px-2 py-1 rounded text-[12px] font-semibold border ${isMistakenRequest(r.request_kind) ? 'text-purple-700 bg-purple-50 border-purple-200' : 'text-emerald-700 bg-emerald-50 border-emerald-200'}`}>{yen(confirmedOf(r))}</span>
+                      : <MoneyCell value={r.cost_confirmed} onCommit={v => saveMany(r.id, { cost_confirmed: v === '' ? null : Number(v) })} />}
+                    {isMistakenRequest(r.request_kind) && <span className="text-[10px] text-purple-600">経費として集計</span>}
+                  </ReRow>
+                </>
+              )}
+            </ReGroup>
+
+            <ReGroup no="Step3" title="進捗">
+              <ReRow label="請求日">
+                {isRef || noRequest ? (noRequest ? muted : <span className="text-[11px] text-gray-300">—</span>)
+                  : <input type="date" defaultValue={r.request_date ?? ''}
+                      onBlur={e => { const v = e.target.value; if (v !== (r.request_date ?? '')) saveMany(r.id, { request_date: v || null, ...(v && !r.request_done_by ? { request_done_by: meId } : {}) }) }} className={dateCls} />}
+              </ReRow>
+              <ReRow label="到着日">
+                {isRef ? <span className="text-[11px] text-gray-300">—</span>
+                  : <input type="date" defaultValue={r.arrival_date ?? ''}
+                      onBlur={e => { const v = e.target.value; if (v !== (r.arrival_date ?? '')) saveMany(r.id, { arrival_date: v || null, ...(v && !r.receipt_done_by ? { receipt_done_by: meId } : {}) }) }} className={dateCls} />}
+              </ReRow>
+              <ReRow label="発送チェック" sub="確認簿で確認">
+                {isRef ? <span className="text-[11px] text-gray-300">—</span> : r.request_date
+                  ? <CheckRequestControl label="発送チェックを依頼" requestedAt={r.request_check_requested_at} checkedAt={r.request_check_at} checkedName={r.request_check_name} onRequest={() => reqCheck(r, 'request')} onCancel={() => cancelCheck(r, 'request')} />
+                  : <span className="text-[11px] text-gray-300">請求日待ち</span>}
+              </ReRow>
+              <ReRow label="到着チェック" sub="確認簿で確認">
+                {isRef ? <span className="text-[11px] text-gray-300">—</span> : r.arrival_date
+                  ? <CheckRequestControl label="到着チェックを依頼" requestedAt={r.receipt_check_requested_at} checkedAt={r.receipt_check_at} checkedName={r.receipt_check_name} onRequest={() => reqCheck(r, 'receipt')} onCancel={() => cancelCheck(r, 'receipt')} />
+                  : <span className="text-[11px] text-gray-300">到着待ち</span>}
+              </ReRow>
+              <ReRow label="受領ファイル" full>
+                {(() => {
+                  const files = receiptFilesFor(receipts, 'real_estate_acquisition', r.id)
+                  return files.length > 0
+                    ? <div className="flex flex-wrap gap-2">{files.map((f, k) => <OpenStorageFile key={k} bucket={f.bucket} path={f.path} name={f.name} label="受領ファイル" />)}</div>
+                    : <span className="text-[11px] text-gray-300">—</span>
+                })()}
+              </ReRow>
+            </ReGroup>
+
+            {/* 届いた資料を読んだ結果。名寄帳は「この市区町村の物件を洗い出す」ために取るので、
+                読んで何が見つかったかを残さないと、私道の持分などを見落としたまま先へ進んでしまう。 */}
+            <ReGroup no="Step4" title="読込結果">
+              <ReRow label="取得の結果" full>
+                <div className="inline-flex rounded-md border border-gray-200 overflow-hidden">
+                  {RE_READ_STATUSES.map(s => {
+                    const on = r.read_status === s
+                    return (
+                      <button key={s} type="button" onClick={() => save(r.id, 'read_status', on ? null : s)}
+                        className={`px-3 py-1 text-[12px] font-semibold transition ${
+                          on ? (s === '一部不足' ? 'bg-red-600 text-white' : 'bg-gray-600 text-white') : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                        {s}
+                      </button>
+                    )
+                  })}
+                </div>
+              </ReRow>
+              <ReRow label="内容" full>
+                <input type="text" defaultValue={r.read_result ?? ''}
+                  onBlur={e => { if (e.target.value !== (r.read_result ?? '')) save(r.id, 'read_result', e.target.value || null) }}
+                  placeholder={isProp ? '読んで分かったこと' : '例：私道の持分が2筆あった。物件一覧へ追加済み'}
+                  className={`${dateCls} w-full`} />
+              </ReRow>
+              {r.read_status === '一部不足' && (
+                <ReRow label="次にやること" full>
+                  <span className="text-[12px] text-brand-700">
+                    {isProp
+                      ? '足りなかった資料について、上の「＋ 請求を追加」で法務局への請求を作ってください。'
+                      : '見つかった物件を上の物件一覧に足したうえで、「＋ 請求を追加」で法務局への請求を作ってください。'}
+                  </span>
+                </ReRow>
+              )}
+            </ReGroup>
+          </div>
+        )
+      })()}
+    </div>
+  )
+}
+
 /**
  * 不動産の取得資料管理（戸籍請求一覧と同じ思想）。1行＝1取得物。
  * 何を（取得物）・どこに（請求先）・いつ請求し・受け取れたか（到着日/取得済）を管理。
  * 路線価は「参照」なので請求先・日付はグレーアウトし、取得済のみ管理。
  * 物件単位（登記情報/公図/地積/路線価）は対象物件を選択、市区町村単位（評価証明/名寄帳）は市区町村を入力。
  */
-export default function RealEstateAcquisitionsTable({ caseId, acquisitions, properties, onRefresh, orderSheetMode = false, receipts = [], contractDocs = [], scope = 'all', municipalityFilter, onAfterAddRow, additionsNeedApproval = false, onAdditionalPending }: Props) {
+export default function RealEstateAcquisitionsTable({ caseId, acquisitions, properties, onRefresh, orderSheetMode = false, receipts = [], contractDocs = [], scope = 'all', municipalityFilter, onAfterAddRow, additionsNeedApproval = false, onAdditionalPending, layout = 'table' }: Props) {
   const supabase = createClient()
   const authUser = useAuth()
   const meId = authUser?.memberId ?? null
   const [rows, setRows] = useState<RealEstateAcquisitionRow[]>(acquisitions)
+  // カード表示で開いている請求。null なら先頭を開く。
+  const [activeId, setActiveId] = useState<string | null>(null)
   useEffect(() => { setRows(acquisitions) }, [acquisitions])
   const progressMode = !orderSheetMode
   const costMode = scope === 'property' ? 'confirmedOnly' : 'full'  // 物件取得=印紙(確定のみ)、市区町村請求=小為替(予算/返金/確定)
@@ -95,14 +429,14 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
         .insert({ case_id: caseId, name: `${label}（${where}${yr}）`, category: '不動産', status: 'その場で受領', arrival_date: new Date().toLocaleDateString('sv-SE'), sort_order: 0 })
         .select('id').single()
       if (error || !data) { showToast(`契約手続きへの追加に失敗: ${error?.message ?? ''}`, 'error'); return }
-      await saveMany(r.id, { acquirer: '自社取得', received_at_meeting: true, contract_document_id: (data as { id: string }).id })
+      await saveMany(r.id, { acquirer: '自社', received_at_meeting: true, contract_document_id: (data as { id: string }).id })
       return
     }
     // 受領済 → それ以外に戻すときは、足した書類を消す
     if (cur === '受領済' && r.contract_document_id) {
       await supabase.from('contract_documents').delete().eq('id', r.contract_document_id)
     }
-    await saveMany(r.id, { acquirer: next, received_at_meeting: false, contract_document_id: null })
+    await saveMany(r.id, { acquirer: acquirerValue(next), received_at_meeting: false, contract_document_id: null })
   }
 
   // 請求先の既定値：①市区町村役場＝「{市区町村}役所」（都道府県プレフィックスは省く）、②法務局＝物件の管轄法務局（registration_office）。
@@ -175,7 +509,9 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
     if (municipalityFilter == null) return true
     if (scope === 'municipality') return (r.target_municipality ?? '') === municipalityFilter
     if (scope === 'property') return (r.target_property_id != null && muniPropIds.has(r.target_property_id)) || (r.target_property_id == null && (r.target_municipality ?? '') === municipalityFilter)
-    return true
+    // scope='all'（カード表示）。役所ぶんも法務局ぶんも、この市区町村のものを全部出す。
+    return (r.target_municipality ?? '') === municipalityFilter
+      || (r.target_property_id != null && muniPropIds.has(r.target_property_id))
   })
   // 並び順：①市区町村役場 → ②法務局 の順にまとめ、法務局内は物件ごとにまとまるよう物件IDでソート。
   //   scope 未設定の行は item_type の対象から推定して②扱いに寄せる。
@@ -215,9 +551,11 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
     if (fallbackOffice && !row.request_to) await supabase.from('real_estate_acquisitions').update({ request_to: fallbackOffice }).eq('id', id).is('request_to', null)
   }
 
-  const addRow = async () => {
+  const addRow = async (forScope?: 'municipality' | 'property') => {
     const init: Partial<RealEstateAcquisitionRow> = { case_id: caseId, sort_order: rows.length }
-    if (scope === 'municipality' || scope === 'property') init.scope = scope
+    // カード表示はタブが1本なので、押したボタンで宛先（役所／法務局）を受け取る。
+    const sc = forScope ?? (scope === 'municipality' || scope === 'property' ? scope : undefined)
+    if (sc) init.scope = sc
     // 新規行をこの市区町村タブに固定（②物件はあとで物件を選ぶ）＋請求先の既定値をセット
     if (municipalityFilter != null) { init.target_municipality = municipalityFilter; const o = officeDefault(municipalityFilter); if (o) init.request_to = o }
     // 初期生成後に事務が足す＝承認ゲート対象（承認までタスクは作らない）
@@ -242,6 +580,28 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
 
   // 状態列は撤去（作業状態は tasks.status に一本化・行状態は請求日/到着日/W-Checkから自明）
   const colCount = progressMode ? (fullCost ? 15 : 13) : 4  // 請求区分/取得区分/対象/請求先/取得資料/年度(+日付/費用/W-Check/受領)/削除
+
+  // 1タブ＝1請求のカード表示。16列の表を横に流して読む形をやめる。
+  if (layout === 'cards') {
+    return (
+      <>
+        <ContractReceivedBlock docs={contractDocs} caseId={caseId} onRefresh={onRefresh} />
+        <AcquisitionCards
+          rows={visibleRows} properties={properties} muniProps={muniProps}
+          activeId={activeId} setActiveId={setActiveId}
+          itemsOf={itemsOf} rowScopeOf={rowScopeOf} officeDefault={officeDefault}
+          save={save} saveMany={saveMany} toggleItem={toggleItem} addRow={addRow} delRow={delRow}
+          reqCheck={reqCheck} cancelCheck={cancelCheck} setAcquirer={setAcquirer}
+          receipts={receipts} meId={meId} fullCost={fullCost} confirmedOf={confirmedOf}
+        />
+        {visibleRows.length > 0 && (
+          <p className="mt-2 text-[11.5px] text-gray-500 text-right">
+            確定費用 合計（立替実費の実績）<span className="ml-2 font-semibold text-emerald-700">{yen(confirmedTotal)}</span>
+          </p>
+        )}
+      </>
+    )
+  }
 
   return (
     <div>
@@ -411,7 +771,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
           )}
         </table>
       </div>
-      <button type="button" onClick={addRow} className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[12.5px] font-semibold text-white bg-brand-600 hover:bg-brand-700 transition-colors">
+      <button type="button" onClick={() => addRow()} className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[12.5px] font-semibold text-white bg-brand-600 hover:bg-brand-700 transition-colors">
         <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> 取得資料を追加
       </button>
     </div>

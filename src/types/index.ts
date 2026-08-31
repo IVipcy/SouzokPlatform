@@ -849,6 +849,9 @@ export type RealEstateAcquisitionRow = {
   cost_budget: number | null
   cost_refund: number | null
   cost_confirmed: number | null
+  // 読込結果（取得完了/一部不足＋内容。migration 268）。名寄帳で物件を洗い出した結果を残す
+  read_status: string | null
+  read_result: string | null
   request_check_name: string | null
   request_check_at: string | null
   receipt_check_name: string | null
