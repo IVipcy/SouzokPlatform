@@ -13,6 +13,7 @@ import { READY_REASON_DOC } from '@/lib/taskReadiness'
 import NewTaskFields, { emptyNewTask, type NewTaskValue } from '@/components/features/tasks/NewTaskFields'
 import TaskTargetPicker, { emptyTarget, resolveTargetRid, type TaskTarget } from '@/components/features/tasks/TaskTargetPicker'
 import Modal from '@/components/ui/Modal'
+import FloatingWindow from '@/components/ui/FloatingWindow'
 import Button from '@/components/ui/Button'
 import { useCanOperateReceipts } from '@/components/providers/AuthProvider'
 import type { DocumentReceiptRow, MemberRow } from '@/types'
@@ -457,11 +458,16 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   }
 
   return (
-    <Modal
+    // 暗幕を出さないフローティングウィンドウ（報連相・タスク追加と同じ部品）。
+    // 受信簿の一覧を見ながら／スクロールしながら、届いた物とタスクを結べるようにするため。
+    // 暗幕が無いので背景クリックとEscでは閉じない。閉じるのは ✕ とキャンセルだけ。
+    <FloatingWindow
       isOpen
       onClose={onClose}
       title="到着物の対応"
-      maxWidth="max-w-2xl"
+      width={672}
+      height={560}
+      resizable
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={saving}>キャンセル</Button>
@@ -525,7 +531,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
           </div>
         )}
       </div>
-    </Modal>
+    </FloatingWindow>
   )
 }
 

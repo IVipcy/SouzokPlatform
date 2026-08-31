@@ -13,7 +13,7 @@
 // 1タブ＝1請求＝1枚。請求先を足したいときは戸籍タブの「＋ 請求を追加」でタブを足す。
 
 import { useEffect, useState } from 'react'
-import Modal from '@/components/ui/Modal'
+import FloatingWindow from '@/components/ui/FloatingWindow'
 import { showToast } from '@/components/ui/Toast'
 import {
   KOSEKI_VARIANT_PRESETS,
@@ -171,11 +171,15 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
   const lab = 'block text-xs font-semibold text-gray-700 mb-1'
 
   return (
-    <Modal
+    // 暗幕なしのフローティングウィンドウ。戸籍カードの中身を見比べながら確認できるようにする。
+    // 閉じるのは ✕ とキャンセルだけ（背景クリック・Escでは閉じない）。
+    <FloatingWindow
       isOpen={isOpen}
       onClose={onClose}
       title="戸籍・住民票等請求書 を作成"
-      maxWidth="max-w-3xl"
+      width={768}
+      height={600}
+      resizable
       footer={
         <>
           <button onClick={onClose} disabled={generating}
@@ -259,7 +263,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
           <p className="text-[12px] text-gray-500 mt-2">内容に問題なければ、Excelで出力ボタンを押下してください。</p>
         </section>
       </div>
-    </Modal>
+    </FloatingWindow>
   )
 }
 
