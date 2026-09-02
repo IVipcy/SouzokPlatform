@@ -35,6 +35,8 @@ type Props = {
   focusOffice?: 'muni' | 'houmu' | null  // 着地元タスクの系統：①市区町村役場/②法務局。該当表を点滅。
   focusIsRead?: boolean                  // 着地元が「読込」タスクか。読込のときだけ物件一覧もハイライト（請求段階では物件未確定）。
   addressSuggestions?: string[]  // 所在地の予測住所（被相続人の住所・本籍など）
+  /** 被相続人の最後の住所（戸籍の読込結果で確定する）。名寄請求の市区町村の当たりに使う */
+  deceasedLastAddress?: string | null
 }
 
 const yen = (n: number | null) => (n == null ? '—' : `¥${Math.round(n).toLocaleString('ja-JP')}`)
@@ -93,7 +95,7 @@ export function municipalityOf(p: { municipality: string | null; address: string
   return match ? `${match[1] ?? ''}${match[2]}` : ''
 }
 
-export default function RealEstateSection({ caseId, properties, acquisitions, onRefresh, receipts = [], tasks = [], contractDocs = [], focus, focusOffice, focusIsRead = false, addressSuggestions = [] }: Props) {
+export default function RealEstateSection({ caseId, properties, acquisitions, onRefresh, receipts = [], tasks = [], contractDocs = [], focus, focusOffice, focusIsRead = false, addressSuggestions = [], deceasedLastAddress = null }: Props) {
   const supabase = createClient()
   const [sub, setSub] = useState<string>(() => (focus && properties.some(p => municipalityOf(p) === focus)) ? focus : 'top')
   // TOPの一覧は財産目録と同じ土地／建物の並び。種別が未設定の物件は土地側に出す（見落とさないように）。
@@ -247,8 +249,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
 
   // 「＋市区町村」：アプリ内モーダルで名称入力 → 物件を1件作成 → そのままタスク作成モーダルへ（承認なし）。
   const openAddMuni = () => { setNewMuniName(''); setAddMuniOpen(true) }
-  const submitAddMuni = async () => {
-    const name = newMuniName.trim()
+  const addMuni = async (name: string) => {
     if (!name) return
     setAddingMuni(true)
     const { error } = await supabase.from('real_estate_properties').insert({ case_id: caseId, municipality: name })
@@ -261,6 +262,14 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
     if (!hasMuniTasks(name)) setTaskPrompt({ muni: name, offices: ['muni', 'houmu'] })
     else onRefresh?.()
   }
+  const submitAddMuni = () => addMuni(newMuniName.trim())
+
+  // 戸籍の読込結果で分かった「被相続人の最後の住所」から市区町村を取り出す。
+  // 名寄せはこの市区町村へ請求するので、まだタブが無ければ1押しで立てられるようにする。
+  // （住所そのものは案件の被相続人情報に入っていて、ここでは持たない）
+  const lastAddress = (deceasedLastAddress ?? '').trim()
+  const lastMuni = municipalityOf({ municipality: null, address: lastAddress })
+  const suggestLastMuni = !!lastMuni && !munis.includes(lastMuni)
 
   // グループ一括削除：その市区町村の物件と、それに紐づく取得資料をまとめて削除
   const deleteMunicipality = async (key: string) => {
@@ -288,6 +297,21 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
         </button>
       } />
       <div className="flex-1 min-w-0 space-y-3.5">
+
+      {/* 戸籍の読込結果で被相続人の最後の住所が分かったら、その市区町村を名寄せの請求先として提案する。
+          押すとタブが立ち、そのまま名寄帳・評価証明のタスク作成へ進む。 */}
+      {suggestLastMuni && (
+        <div className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 flex items-center gap-2 flex-wrap">
+          <span className="text-[12.5px] text-gray-700">
+            戸籍から分かった被相続人の最後の住所は <strong className="font-semibold">{lastAddress}</strong> です。
+            名寄せの請求先として <strong className="font-semibold">{lastMuni}</strong> を追加しますか。
+          </span>
+          <button type="button" onClick={() => addMuni(lastMuni)} disabled={addingMuni}
+            className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-50">
+            <Plus className="w-3.5 h-3.5" />{lastMuni} を追加
+          </button>
+        </div>
+      )}
 
       {/* 承認待ちの市区町村追加（案件全体）。管理担当が承認すると名寄帳・登記のタスクを生成。 */}
       {pendingMunis.length > 0 && (

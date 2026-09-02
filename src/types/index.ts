@@ -653,6 +653,7 @@ export type KosekiRequestRow = {
   acquired_part: string | null    // 取得した受注区分パート（パート制。migration 128）
   read_result: string | null      // 読込結果の内容（migration 146）
   read_status: string | null      // 読込結果のステータス（取得完了/一部不足。migration 261）
+  relation_koseki_done: boolean   // 被相続人との関係戸籍 取得完了（migration 270）
   // 費用（migration 148。確定費用＝予算−返金＝立替実費の実績）
   cost_budget: number | null
   cost_refund: number | null

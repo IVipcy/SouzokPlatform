@@ -32,6 +32,7 @@ import { TxtCell, SelCell, MultiCell, DateCell, MoneyCell, TemplateTextField } f
 import SelectOrTextField from './SelectOrTextField'
 import KosekiRequestDocumentModal from './KosekiRequestDocumentModal'
 import { OFFICE_BRANCH_OPTIONS } from '@/lib/officeProfiles'
+import { notifyKosekiRelationDone } from '@/lib/kosekiRelationNotify'
 import CheckRequestControl from './CheckRequestControl'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import AnnotatedImage from './AnnotatedImage'
@@ -68,6 +69,9 @@ const kosekiTabLabel = (r: KosekiRequestRow, i: number) => {
 // 濃さがそのまま仕事の順番になる（濃い＝確認待ち＝今やること／枠だけ＝待ち／薄い＝終わり）。
 /** 読込結果のステータス。カードの選択肢とタブのバッジで共通に使う。 */
 const KOSEKI_READ_STATUSES = ['取得完了', '一部不足'] as const
+
+/** 職務上請求で使わない欄に添える一言。薄くした行の右に出す。 */
+const NOT_USED_NOTE = '職務上請求では使いません'
 
 const KOSEKI_TAB_STATUS = {
   none:    { label: '未請求',   cls: 'text-gray-400 border border-gray-200' },
@@ -406,6 +410,57 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
 
   // 筆頭者／世帯主の候補。被相続人＋相続人の氏名（一覧に無い人は自由入力へ切り替える）
   const personNames = [...new Set(peopleRows.map(p => p.name.trim()).filter(Boolean))]
+
+  // 読込結果の「最後の住所／最後の本籍地／現在住所」は、案件（被相続人）と相続人一覧の
+  // 項目そのもの。戸籍請求には持たない（同じ事実を2か所に置くと必ず食い違うため）。
+  // 保存できた値だけサーバー再取得が返るまで重ねる（戸籍請求の localEdits と同じやり方）。
+  const [personEdits, setPersonEdits] = useState<Record<string, string>>({})
+  const targetInfoOf = (r: KosekiRequestRow) => {
+    const nm = (r.target_person ?? '').trim()
+    const h = heirByName.get(nm)
+    return {
+      lastAddress: personEdits['case.deceased_address'] ?? caseData.deceased_address ?? '',
+      lastHonseki: personEdits['case.deceased_registered_address'] ?? caseData.deceased_registered_address ?? '',
+      currentAddress: (h ? personEdits[`heir.${h.id}`] : undefined) ?? h?.address ?? '',
+    }
+  }
+  const saveTargetInfo = async (r: KosekiRequestRow, key: 'lastAddress' | 'lastHonseki' | 'currentAddress', v: string) => {
+    const val = v.trim() || null
+    if (key === 'currentAddress') {
+      const h = heirByName.get((r.target_person ?? '').trim())
+      if (!h) { showToast('相続人一覧にこの人がいないため保存できません', 'error'); return }
+      setPersonEdits(p => ({ ...p, [`heir.${h.id}`]: v }))
+      const { error } = await supabase.from('heirs').update({ address: val }).eq('id', h.id)
+      if (error) { showToast(`保存に失敗: ${error.message}`, 'error'); return }
+      showToast('現在住所を相続人一覧に保存しました', 'success')
+    } else {
+      const col = key === 'lastAddress' ? 'deceased_address' : 'deceased_registered_address'
+      setPersonEdits(p => ({ ...p, [`case.${col}`]: v }))
+      const { error } = await supabase.from('cases').update({ [col]: val }).eq('id', caseId)
+      if (error) { showToast(`保存に失敗: ${error.message}`, 'error'); return }
+      showToast(key === 'lastAddress'
+        ? '最後の住所を保存しました（不動産・資産調査タブの名寄請求にも反映されます）'
+        : '最後の本籍地を保存しました', 'success')
+    }
+    onRefresh?.()
+  }
+  // TOP一覧の並び。左レールと同じ人の順にまとめ、その中は新しい請求が上。
+  // 転籍を遡ると同じ人に何度も請求が出るので、時系列で混ざると誰の話か追えなくなる。
+  const personOrder = new Map(railTabs.filter(t => t.id !== 'top').map((t, i) => [t.id, i] as const))
+  const topRows = [...requests].sort((a, b) => {
+    const pa = personKey(a) || '__unset__'
+    const pb = personKey(b) || '__unset__'
+    if (pa !== pb) return (personOrder.get(pa) ?? 999) - (personOrder.get(pb) ?? 999)
+    return (b.created_at ?? '').localeCompare(a.created_at ?? '') || (b.sort_order ?? 0) - (a.sort_order ?? 0)
+  })
+
+  // 関係戸籍が揃ったチェック。入れたときだけ管理担当へ通知する（外すのは取り消しなので通知しない）。
+  const toggleRelationDone = async (r: KosekiRequestRow, on: boolean) => {
+    await saveField(r.id, 'relation_koseki_done', on)
+    if (!on) return
+    await notifyKosekiRelationDone(caseId, (r.target_person ?? '').trim())
+    showToast('関係戸籍の取得完了を記録し、管理担当へ通知しました', 'success')
+  }
   const personRequests = requests.filter(r => personKey(r) === activePerson)
   // 承認待ちの追加戸籍請求（案件全体）。戸籍請求タブ上部にパネルで出し、横スクロール無しで承認できる。
   const pendingApprovals = requests.filter(r => r.is_additional && !r.additional_approved_at)
@@ -503,7 +558,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                 {/* 何を・どこへ頼んで、どうなったかを1行で追えるようにする。
                     字は切らない（切ると結局カードを開くことになる）ので、
                     横に長くなるぶんは横スクロールに任せる。 */}
-                <table className="w-full text-[12px] border-collapse" style={{ minWidth: 1180 }}>
+                <table className="w-full text-[12px] border-collapse" style={{ minWidth: 1260 }}>
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
                       <th className="px-2.5 py-2 text-left font-semibold w-[150px]">対象者</th>
@@ -514,6 +569,9 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                       <th className="px-2.5 py-2 text-left font-semibold w-[72px]">請求日</th>
                       <th className="px-2.5 py-2 text-left font-semibold w-[72px]">到着日</th>
                       <th className="px-2.5 py-2 text-left font-semibold w-[84px]">取得の結果</th>
+                      {/* 関係戸籍＝被相続人とのつながりが最後までたどれたか。
+                          ここに○が付くと名寄せ請求・金融の資料請求へ進める。 */}
+                      <th className="px-2.5 py-2 text-center font-semibold w-[72px]">関係戸籍</th>
                       <th className="px-2.5 py-2 text-left font-semibold">読込内容</th>
                       <th className="px-2.5 py-2 text-right font-semibold w-[88px]">確定費用</th>
                       <th className="px-2.5 py-2 text-left font-semibold w-[80px]">戸籍画像</th>
@@ -521,13 +579,18 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                   </thead>
                   <tbody>
                     {requests.length === 0 ? (
-                      <tr><td colSpan={11} className="px-3 py-6 text-center text-gray-400">戸籍請求がありません。左下の「対象者を新規追加して戸籍請求」から登録してください。</td></tr>
-                    ) : requests.map((r, i) => (
-                      <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-brand-50/30 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`} title="この請求を開く"
+                      <tr><td colSpan={12} className="px-3 py-6 text-center text-gray-400">戸籍請求がありません。左下の「対象者を新規追加して戸籍請求」から登録してください。</td></tr>
+                    ) : topRows.map((r, i) => {
+                      // 人が変わったところで区切る。同じ人の2件目以降は対象者欄を空けて、
+                      // 「同じ人の続き」であることが縦に見えるようにする。
+                      const headOfGroup = i === 0 || personKey(topRows[i - 1]) !== personKey(r)
+                      return (
+                      <tr key={r.id} className={`cursor-pointer hover:bg-brand-50/30 ${headOfGroup ? 'border-t border-gray-300' : 'border-t border-gray-100'}`} title="この請求を開く"
                         onClick={() => { setSub((r.target_person ?? '').trim() || '__unset__'); setActiveReqId(r.id) }}>
                         {/* 対象者。ホバーで出る「＋戸籍」から、その人の戸籍をもう1件足せる（人を選び直さなくていい） */}
                         <td className="px-2.5 py-2 group/cell">
-                          {r.target_person
+                          {!headOfGroup ? <span className="text-gray-300 text-[11px] pl-1">〃</span>
+                            : r.target_person
                             ? <PersonRoleChip
                                 role={roleLabel(r.target_person)}
                                 name={r.target_person}
@@ -561,6 +624,15 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                             ? <span className={`inline-block text-[10px] px-1.5 py-[1px] rounded-full ${KOSEKI_TAB_STATUS[r.read_status === '一部不足' ? 'partial' : 'done'].cls}`}>{r.read_status}</span>
                             : <span className="text-gray-300">—</span>}
                         </td>
+                        {/* 関係戸籍。被相続人・依頼者だけが対象なので、それ以外は「—」ではなく空にする
+                            （聞いていない欄が未入力に見えないように） */}
+                        <td className="px-2.5 py-2 text-center">
+                          {r.relation_koseki_done
+                            ? <span title="被相続人との関係戸籍が揃っています" className="inline-block text-[10px] px-1.5 py-[1px] rounded-full bg-gray-600 text-white">取得完了</span>
+                            : ((r.target_person ?? '').trim() === (deceasedName ?? '').trim() && !!deceasedName) || isClientPerson(r.target_person ?? '')
+                              ? <span className="text-gray-300">—</span>
+                              : null}
+                        </td>
                         {/* 読込内容は切らずに全文出す。切ると結局カードを開くことになる */}
                         <td className="px-2.5 py-2 text-gray-500 text-[11px] break-words">
                           {r.read_result || <span className="text-gray-300">—</span>}
@@ -576,11 +648,11 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                           />
                         </td>
                       </tr>
-                    ))}
+                    )})}
                   </tbody>
                   <tfoot>
                     <tr className="bg-gray-50 font-semibold text-gray-700">
-                      <td className="px-2.5 py-2 text-right" colSpan={9}>確定費用 合計（立替実費の実績）</td>
+                      <td className="px-2.5 py-2 text-right" colSpan={10}>確定費用 合計（立替実費の実績）</td>
                       <td className="px-2.5 py-2 text-right text-emerald-700">{yen(confirmedTotal)}</td>
                       <td />
                     </tr>
@@ -664,6 +736,9 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                       <KosekiCard key={cur.id} r={cur} meId={memberId}
                         personNames={personNames} caseData={caseData} heirs={heirs}
                         saveField={saveField} saveMany={saveMany}
+                        targetInfo={targetInfoOf(cur)}
+                        onSaveTargetInfo={(k, v) => saveTargetInfo(cur, k, v)}
+                        onToggleRelationDone={on => toggleRelationDone(cur, on)}
                         onDelete={() => delRequest(cur)} onCopy={() => copyRequest(cur)} onMakeDoc={() => setDocRequests([cur])} />
                     )
                   })()}
@@ -816,7 +891,7 @@ function AddKosekiModal({ onClose, onSubmit }: {
 //   ② 誰が・何のために（取得区分・請求法人・提出先・理由・特記）
 //   ③ 進捗（請求日・到着日・発送/到着チェック）
 //   ④ 費用（予算・確定・返金）
-function KosekiFieldRow({ label, hint, sub, children, full = false }: {
+function KosekiFieldRow({ label, hint, sub, children, full = false, disabled = false, disabledNote }: {
   label: string
   hint?: string
   /** ラベルの下に出す小さな補足（「戸籍のとき」等） */
@@ -824,6 +899,10 @@ function KosekiFieldRow({ label, hint, sub, children, full = false }: {
   children: React.ReactNode
   /** 値を横いっぱいに置く（選択肢が多い項目） */
   full?: boolean
+  /** 今の選択では使わない項目。消さずに薄くして触れないだけにする */
+  disabled?: boolean
+  /** なぜ使わないのか（薄くした行の右に出す） */
+  disabledNote?: string
 }) {
   // full のときはラベル1列＋値3列＝4列で1行を使い切る。
   //
@@ -831,14 +910,21 @@ function KosekiFieldRow({ label, hint, sub, children, full = false }: {
   // （箱が作られないため）。効かせるのは中の2つだけ。
   // さらにラベルに col-start-1 が要る。前の行が2列で終わっていると full の行が
   // 3列目から始まり、値の3列が入りきらず次の行へ落ちる（使用目的・請求範囲詳細で発覚）。
+  //
+  // disabled は「消す」ではなく「薄くして触れない」。消すとその欄が元々無いように見え、
+  // 既に入っている値も読めなくなる（あとから取得方法を委任状に戻したときに困る）。
+  // opacity は display:contents の外側 div には効かない（箱が作られない）ので、
+  // 中の2つに掛ける。
+  const dim = disabled ? 'opacity-45' : ''
   return (
     <div className="contents">
-      <div className={`bg-gray-50/80 border-r border-gray-100 px-3 py-2 flex flex-col justify-center text-[11.5px] font-semibold text-gray-600 leading-snug ${full ? 'sm:col-start-1' : ''}`}>
-        <span className="inline-flex items-center gap-1">{label}{hint && <HintTip text={hint} />}</span>
+      <div className={`bg-gray-50/80 border-r border-gray-100 px-3 py-2 flex flex-col justify-center text-[11.5px] font-semibold text-gray-600 leading-snug ${dim} ${full ? 'sm:col-start-1' : ''}`}>
+        <span className="inline-flex items-center gap-1">{label}{hint && !disabled && <HintTip text={hint} />}</span>
         {sub && <span className="text-[10px] font-normal text-brand-700">{sub}</span>}
       </div>
-      <div className={`bg-white px-3 py-2 flex items-center gap-2 flex-wrap min-h-[42px] ${full ? 'sm:col-span-3' : ''}`}>
+      <div className={`bg-white px-3 py-2 flex items-center gap-2 flex-wrap min-h-[42px] ${dim} ${disabled ? 'pointer-events-none select-none' : ''} ${full ? 'sm:col-span-3' : ''}`}>
         {children}
+        {disabled && disabledNote && <span className="text-[10.5px] text-gray-500">{disabledNote}</span>}
       </div>
     </div>
   )
@@ -859,7 +945,7 @@ function KosekiGroup({ no, title, children }: { no?: string; title: string; chil
   )
 }
 
-function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField, saveMany, onDelete, onCopy, onMakeDoc }: {
+function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField, saveMany, onDelete, onCopy, onMakeDoc, targetInfo, onSaveTargetInfo, onToggleRelationDone }: {
   r: KosekiRequestRow
   meId: string | null
   personNames?: string[]
@@ -870,8 +956,17 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
   onDelete: () => void
   onCopy: () => void
   onMakeDoc: () => void
+  /** 読込結果の住所欄。案件・相続人一覧の値をそのまま出す（戸籍請求には持たない） */
+  targetInfo: { lastAddress: string; lastHonseki: string; currentAddress: string }
+  onSaveTargetInfo: (key: 'lastAddress' | 'lastHonseki' | 'currentAddress', v: string) => void
+  onToggleRelationDone: (on: boolean) => void
 }) {
   const wantsJuminhyo = includesJuminhyo(r.doc_types)
+  // 誰の戸籍か。読込結果で聞くことがこれで変わる。
+  const targetName = (r.target_person ?? '').trim()
+  const isDeceasedTarget = !!targetName && targetName === (caseData.deceased_name ?? '').trim()
+  const targetHeir = heirs.find(h => (h.name ?? '').trim() === targetName) ?? null
+  const isClientTarget = !!targetHeir?.is_client
 
   // 既定値は「まだ何も入っていないとき」だけ入れる。
   // 承認待ちで編集させない請求にも同じ順番でフックを通す必要があるので、早期returnより前に置く。
@@ -962,8 +1057,11 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
             <span className="text-[10.5px] text-gray-400">半角数字。職務上請求用紙の番号です</span>
           </KosekiFieldRow>
         )}
-        {!isShokumujo && (<>
-          <KosekiFieldRow label="拠点" hint="戸籍請求書の代理人欄に出る住所・電話が、この拠点のものになります。">
+        {/* 職務上請求のときは所定の用紙に手書きするので、請求書の中身にあたる欄は使わない。
+            消さずに薄くして触れないだけにする（入っている値は読める）。 */}
+        <>
+          <KosekiFieldRow label="拠点" disabled={isShokumujo} disabledNote={NOT_USED_NOTE}
+            hint="戸籍請求書の代理人欄に出る住所・電話が、この拠点のものになります。">
             {/* 保存するのは拠点ID（kyodo 等）で、画面に出すのは拠点名。
                 SelCell は値＝表示名の前提なので、ここだけ select を直に書く。 */}
             <select
@@ -976,17 +1074,18 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
               {OFFICE_BRANCH_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
             </select>
           </KosekiFieldRow>
-          <KosekiFieldRow label="提出先" hint={`取り寄せた戸籍を、最後にどこへ出すか（＝この戸籍の行き先）です。
+          <KosekiFieldRow label="提出先" disabled={isShokumujo} disabledNote={NOT_USED_NOTE} hint={`取り寄せた戸籍を、最後にどこへ出すか（＝この戸籍の行き先）です。
 
 既定は「${KOSEKI_SUBMIT_TO_DEFAULT}」。法務局・金融機関・家庭裁判所など、原本を提出する先が決まっているときに書き換えてください。
 請求先（役所）＝取りに行く先とは別です。`}>
             <SelectOrTextField value={r.submit_to} options={KOSEKI_SUBMIT_TO_OPTIONS} onSave={v => saveField(r.id, 'submit_to', v)} placeholder={KOSEKI_SUBMIT_TO_DEFAULT} />
           </KosekiFieldRow>
-          <KosekiFieldRow label="使用目的" full hint="戸籍請求書の「使用目的」欄にそのまま入ります。右の ⌄ から定型文を選ぶと、この欄に入ってそのまま直せます。">
+          <KosekiFieldRow label="使用目的" full disabled={isShokumujo} disabledNote={NOT_USED_NOTE}
+            hint="戸籍請求書の「使用目的」欄にそのまま入ります。右の ⌄ から定型文を選ぶと、この欄に入ってそのまま直せます。">
             <TemplateTextField value={r.request_reason} options={KOSEKI_REQUEST_REASONS}
               onSave={v => saveField(r.id, 'request_reason', v)} placeholder="使用目的" rows={1} />
           </KosekiFieldRow>
-        </>)}
+        </>
       </KosekiGroup>
 
       <KosekiGroup no="Step2" title="何を・どこへ請求するか">
@@ -996,8 +1095,8 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
         <KosekiFieldRow label="請求区分" hint={KIND_HINT}>
           <SelCell value={r.request_kind ?? '通常請求'} options={[...KOSEKI_REQUEST_KINDS]} onChange={v => saveField(r.id, 'request_kind', v)} />
         </KosekiFieldRow>
-        {!isShokumujo && (<>
-          <KosekiFieldRow label="請求の種別"
+        <>
+          <KosekiFieldRow label="請求の種別" disabled={isShokumujo} disabledNote={NOT_USED_NOTE}
             hint="依頼書1枚で何を頼むか。戸籍と戸籍の附票は1枚で請求できますが、戸籍と住民票は1枚では請求できません（請求を分けてください）。">
             <div className="min-w-0">
               <MultiCell value={r.doc_types} options={[...KOSEKI_REQUEST_TYPES]} onChange={v => saveField(r.id, 'doc_types', v)} />
@@ -1008,30 +1107,32 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
           </KosekiFieldRow>
           {/* 種別で選んだものに応じて中身が変わる2つを、種別の直後に続けて置く。
               間に請求範囲や筆頭者を挟むと、住民票を選んだときに視線が飛ぶ。 */}
-          <KosekiFieldRow label="種別②" sub="戸籍のとき">
+          <KosekiFieldRow label="種別②" sub="戸籍のとき" disabled={isShokumujo} disabledNote={NOT_USED_NOTE}>
             {includesKoseki(r.doc_types)
               ? <MultiCell value={r.doc_form} options={[...KOSEKI_DOC_FORMS]} onChange={v => saveField(r.id, 'doc_form', v)} />
               : <span className="text-[11px] text-gray-400">—　<span className="text-[10.5px]">（請求の種別で戸籍を選ぶと謄本／抄本が出ます）</span></span>}
           </KosekiFieldRow>
-          <KosekiFieldRow label="本籍・住所" full
+          <KosekiFieldRow label="本籍・住所" full disabled={isShokumujo} disabledNote={NOT_USED_NOTE}
             hint={wantsJuminhyo
               ? '戸籍請求書の「本籍・住所」欄に入ります。住民票・除票なので住所です。相続人一覧の住所が入ります（直せます）。'
               : '戸籍請求書の「本籍・住所」欄に入ります。戸籍なので本籍です。本籍は転籍のたびに変わるため自動では入れません。手で入れてください。'}>
             <TxtCell value={r.honseki_address} onCommit={v => saveField(r.id, 'honseki_address', v)} />
           </KosekiFieldRow>
-          <KosekiFieldRow label="筆頭主／世帯主">
+          <KosekiFieldRow label="筆頭主／世帯主" disabled={isShokumujo} disabledNote={NOT_USED_NOTE}>
             <SelectOrTextField value={r.head_person} options={personNames} onSave={v => saveField(r.id, 'head_person', v)} placeholder="筆頭主/世帯主" />
           </KosekiFieldRow>
+          {/* 請求に係る者の氏名＝誰の戸籍か。職務上請求でも左レールの並びを決める大事な値なので、
+              ここだけは薄くしない（薄くすると対象者を直せなくなる）。 */}
           <KosekiFieldRow label="請求に係る者の氏名">
             <SelectOrTextField value={r.target_person} options={personNames} onSave={v => saveField(r.id, 'target_person', v)} placeholder="誰の戸籍か" />
           </KosekiFieldRow>
-          <KosekiFieldRow label="基礎証明外事項" sub="住民票のとき" full
+          <KosekiFieldRow label="基礎証明外事項" sub="住民票のとき" full disabled={isShokumujo} disabledNote={NOT_USED_NOTE}
             hint="戸籍請求の住基法12条の3第7項による基礎証明事項以外の事項に選択したものを記載してください。">
             {includesJuminhyo(r.doc_types)
               ? <MultiCell value={r.juminhyo_items} options={[...JUMINHYO_EXTRA_ITEMS]} onChange={v => saveField(r.id, 'juminhyo_items', v)} />
               : <span className="text-[11px] text-gray-400">—　<span className="text-[10.5px]">（請求の種別で住民票を選ぶと項目が出ます）</span></span>}
           </KosekiFieldRow>
-        </>)}
+        </>
         <KosekiFieldRow label="請求範囲">
           <SelCell value={r.range_text} options={[...KOSEKI_RANGES]} onChange={v => saveField(r.id, 'range_text', v)} />
         </KosekiFieldRow>
@@ -1114,6 +1215,47 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
             })}
           </div>
         </KosekiFieldRow>
+        {/* 届いた戸籍を読んで分かる、対象者ごとの中身。
+            誰の戸籍かで聞くことが変わる。
+              被相続人 … 最後の住所／最後の本籍地／関係戸籍が揃ったか
+              依頼者   … 現在住所／関係戸籍が揃ったか
+              その他   … 現在住所だけ
+            住所は戸籍請求に持たず、案件（被相続人）と相続人一覧の項目へそのまま書く。
+            同じ事実を2か所に持つと必ず食い違うため。
+            被相続人の最後の住所は、不動産・資産調査タブの名寄請求（所在地）でそのまま使う。 */}
+        {isDeceasedTarget && (<>
+          <KosekiFieldRow label="最後の住所" full
+            hint="被相続人が最後に住んでいた住所。案件の被相続人情報に保存され、不動産・資産調査タブの名寄請求（所在地）にそのまま出ます。">
+            <TxtCell value={targetInfo.lastAddress} onCommit={v => onSaveTargetInfo('lastAddress', v)} placeholder="例：神奈川県横浜市都筑区○○1-2-3" />
+          </KosekiFieldRow>
+          <KosekiFieldRow label="最後の本籍地" full hint="被相続人の最後の本籍。案件の被相続人情報に保存されます。">
+            <TxtCell value={targetInfo.lastHonseki} onCommit={v => onSaveTargetInfo('lastHonseki', v)} placeholder="例：神奈川県横浜市都筑区○○1番地" />
+          </KosekiFieldRow>
+        </>)}
+        {!isDeceasedTarget && (
+          <KosekiFieldRow label="現在住所" full
+            hint={targetHeir ? '相続人一覧の住所に保存されます。' : 'この人は相続人一覧にいないため保存先がありません。先に相続人として登録してください。'}>
+            {targetHeir
+              ? <TxtCell value={targetInfo.currentAddress} onCommit={v => onSaveTargetInfo('currentAddress', v)} placeholder="例：東京都世田谷区○○1-2-3" />
+              : <span className="text-[11px] text-gray-400">相続人一覧にこの人がいないため入力できません（先に相続人として登録してください）</span>}
+          </KosekiFieldRow>
+        )}
+        {/* 関係戸籍が揃ったか。被相続人と、依頼者である相続人だけに聞く。
+            これが立つと名寄せ請求・金融の資料請求・凍結依頼へ進める。 */}
+        {(isDeceasedTarget || isClientTarget) && (
+          <KosekiFieldRow label="被相続人との関係戸籍" full
+            hint="この人と被相続人のつながりが、届いた戸籍で最後までたどれたか。チェックすると案件の管理担当へ通知が飛び、タスク完了画面に名寄せ請求・金融機関への資料請求が候補として出ます。">
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={!!r.relation_koseki_done}
+                onChange={e => onToggleRelationDone(e.target.checked)}
+                className="w-4 h-4 accent-brand-600" />
+              <span className="text-[12.5px] text-gray-700">取得完了</span>
+            </label>
+            {r.relation_koseki_done && (
+              <span className="text-[10.5px] text-gray-500">名寄せ請求・金融機関への資料請求へ進めます（管理担当へ通知済み）</span>
+            )}
+          </KosekiFieldRow>
+        )}
         <KosekiFieldRow label="内容" full>
           <TxtCell value={r.read_result} onCommit={v => saveField(r.id, 'read_result', v)}
             placeholder={r.read_status === '一部不足' ? '例：出生〜昭和30年まで取得。以降は本籍地の越谷市へ追加請求が必要' : '読んで分かったこと'} />
