@@ -290,10 +290,10 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                 )}
               </div>
 
-              {/* タスク名（ラベル付き）。優先度は左の情報欄で変えるが、
-                  急ぎ・超急ぎだけは開いた瞬間に気づけるようここにも小さく出す。 */}
+              {/* タスク名。「タスク名:」のラベルは外した。
+                  太字の見出しがそれと分かるので、ラベルは1行ぶんの高さを取っていただけだった。
+                  優先度は下の帯で変えるが、急ぎ・超急ぎだけは開いた瞬間に気づけるようここにも出す。 */}
               <div className="flex items-baseline gap-2 mb-1 flex-wrap">
-                <span className="text-[12px] font-semibold text-gray-400 tracking-wide flex-shrink-0">タスク名:</span>
                 <h1 className="text-[22px] font-extrabold text-brand-900 tracking-tight">
                   {task.title}
                 </h1>
@@ -305,27 +305,23 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                 )}
               </div>
 
-              {/* 案件名（ラベル付き） + 手続き区分 */}
+              {/* 案件と手続き区分は1行にまとめる。案件アイコン付きのリンクと、区切りのあとの区分で
+                  何を指しているかは読み取れるので、ラベルは置かない。 */}
               {caseData && (
-                <div className="space-y-0.5">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-[12px] font-semibold text-gray-400 tracking-wide flex-shrink-0">案件名:</span>
-                    <Link
-                      href={`/cases/${caseData.id}`}
-                      className="text-[13px] text-brand-600 hover:text-brand-700 hover:underline inline-flex items-center gap-1.5"
-                    >
-                      <Briefcase className="w-3.5 h-3.5" strokeWidth={2} />
-                      {clientData?.name ?? caseData.deal_name} ({caseData.case_number})
-                    </Link>
-                  </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-[12px] font-semibold text-gray-400 tracking-wide flex-shrink-0">手続き区分:</span>
-                    <span className="text-[13px] text-gray-700">
-                      {caseData.procedure_type && caseData.procedure_type.length > 0
-                        ? caseData.procedure_type.join('・')
-                        : <span className="text-gray-400 italic">未設定</span>}
-                    </span>
-                  </div>
+                <div className="flex items-baseline gap-2 flex-wrap text-[13px]">
+                  <Link
+                    href={`/cases/${caseData.id}`}
+                    className="text-brand-600 hover:text-brand-700 hover:underline inline-flex items-center gap-1.5"
+                  >
+                    <Briefcase className="w-3.5 h-3.5" strokeWidth={2} />
+                    {clientData?.name ?? caseData.deal_name} ({caseData.case_number})
+                  </Link>
+                  <span className="text-gray-300">|</span>
+                  <span className="text-gray-700">
+                    {caseData.procedure_type && caseData.procedure_type.length > 0
+                      ? caseData.procedure_type.join('・')
+                      : <span className="text-gray-400 italic">手続き区分 未設定</span>}
+                  </span>
                 </div>
               )}
             </div>
@@ -430,38 +426,70 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
           </div>
         </div>
 
-        {/* 日付（縦並び）＋ ステータスフロー（矢羽根・日付注記） */}
-        <div className="px-5 pb-4 flex items-start gap-5">
-          {/* 期限・起票日・起票者・優先度・外出を縦に。
-              作業完了日は右の矢羽根の「完了」に日付が出ていて二重なので置かない。 */}
-          <div className="flex-none w-[168px] border-r border-gray-100 pr-4 space-y-1.5">
-            <div>
-              <div className="text-[10px] text-gray-400">タスク期限</div>
-              <input type="date" defaultValue={task.due_date ?? ''} key={`due-${task.due_date ?? ''}`} onBlur={e => { if (e.target.value !== (task.due_date ?? '')) saveField('due_date', e.target.value || null) }} className="text-[12.5px] font-medium text-gray-800 border border-gray-200 rounded px-1.5 py-0.5 w-full outline-none focus:border-brand-500 bg-gray-50 focus:bg-white" />
-            </div>
-            <div><div className="text-[10px] text-gray-400">起票日</div><div className="text-[12.5px] font-medium text-gray-800 font-mono">{task.issued_date ?? task.created_at?.slice(0, 10) ?? '—'}</div></div>
-            <div>
-              <div className="text-[10px] text-gray-400">起票者</div>
-              <div className="text-[12.5px] font-medium text-gray-800 truncate" title="自動生成タスクは —">
-                {allMembers.find(m => m.id === task.created_by)?.name ?? task.created_by_member?.name ?? <span className="text-gray-300">—</span>}
-              </div>
-            </div>
-            <div>
-              <div className="text-[10px] text-gray-400">優先度</div>
-              <select
-                value={task.priority}
-                onChange={e => saveField('priority', e.target.value)}
-                className={`w-full text-[12.5px] font-semibold rounded border px-1.5 py-0.5 outline-none cursor-pointer ${task.priority === '超急ぎ' ? 'bg-red-50 text-red-700 border-red-300' : task.priority === '急ぎ' ? 'bg-amber-50 text-amber-700 border-amber-300' : 'bg-gray-50 text-gray-700 border-gray-200'}`}
-              >
-                {PRIORITIES.map(p => <option key={p.key} value={p.key}>{p.key}</option>)}
-              </select>
-            </div>
-            {/* 対象（実務タブのどこの作業か）。未設定のときだけ出す。
-                一括生成をやめた運用で、先にタスクだけ立てて後から役所・銀行が決まる流れを通すため。
-                すでに紐づいているタスクは、付け替えると導線がずれるのでここでは触らせない。 */}
-            {!task.source_rid && !isSystemTask && TARGET_GYOMU.includes((task.phase ?? '') as typeof TARGET_GYOMU[number]) && (
-              <div>
-                <div className="text-[10px] text-gray-400">対象</div>
+        {/* 周辺情報の帯。矢羽根＋期限・優先度・外出・起票を横1本に並べる。
+            前は左に150pxの縦1列（1項目＝ラベルと値の2行）を積み、その右の広い場所に
+            点3つの矢羽根を置いていたので、点のために横幅の6割を使い、
+            本題の「このタスクの作業内容」が画面の下半分に追いやられていた。
+            矢羽根は消さずに小さくする（前後の状態と「着手前に戻せる」ことが図で読めるため）。
+            作業完了日は矢羽根の「完了」に日付が出るので置かない。 */}
+        <div className="px-5 py-2.5 border-t border-gray-100 bg-gray-50/60 flex items-center gap-x-4 gap-y-2 flex-wrap">
+          {/* 矢羽根（横に寝かせた小さい版）。今どこかは文字でも添える */}
+          <div className="flex items-center gap-1.5 flex-none">
+            {STATUS_FLOW_STEPS.map((step, i) => {
+              const isPassed = currentFlowIdx >= 0 && i < currentFlowIdx
+              const isActive = step === currentStatus
+              const isLast = i === STATUS_FLOW_STEPS.length - 1
+              const def = TASK_STATUSES_V12.find(s => s.key === step)
+              return (
+                <div key={step} className="flex items-center gap-1.5" title={step}>
+                  <span className={`rounded-full block ${isActive ? 'w-2.5 h-2.5 shadow-[0_0_0_3px_rgba(37,99,235,0.2)]' : 'w-2 h-2'}`}
+                    style={{ backgroundColor: isActive ? (def?.color ?? '#2563EB') : isPassed ? '#059669' : '#CBD5E1', opacity: isPassed && !isActive ? 0.6 : 1 }} />
+                  {!isLast && <span className="block w-5 h-px" style={{ backgroundColor: isPassed ? '#059669' : '#CBD5E1', opacity: isPassed ? 0.5 : 1 }} />}
+                </div>
+              )
+            })}
+            <span className="ml-1 text-[12px] font-semibold text-brand-700">{currentStatus}</span>
+          </div>
+          <span className="w-px h-6 bg-gray-200 flex-none" />
+          <label className="flex items-center gap-1.5 flex-none">
+            <span className="text-[10px] text-gray-400">期限</span>
+            <input type="date" defaultValue={task.due_date ?? ''} key={`due-${task.due_date ?? ''}`} onBlur={e => { if (e.target.value !== (task.due_date ?? '')) saveField('due_date', e.target.value || null) }} className="text-[12px] font-medium text-gray-800 border border-gray-200 rounded px-1.5 py-0.5 outline-none focus:border-brand-500 bg-white" />
+          </label>
+          <label className="flex items-center gap-1.5 flex-none">
+            <span className="text-[10px] text-gray-400">優先度</span>
+            <select
+              value={task.priority}
+              onChange={e => saveField('priority', e.target.value)}
+              style={{ fontFamily: 'inherit' }}
+              className={`text-[12px] font-semibold rounded border px-1.5 py-0.5 outline-none cursor-pointer ${task.priority === '超急ぎ' ? 'bg-red-50 text-red-700 border-red-300' : task.priority === '急ぎ' ? 'bg-amber-50 text-amber-700 border-amber-300' : 'bg-white text-gray-700 border-gray-200'}`}
+            >
+              {PRIORITIES.map(p => <option key={p.key} value={p.key}>{p.key}</option>)}
+            </select>
+          </label>
+          <label className="flex items-center gap-1.5 text-[12px] text-gray-700 cursor-pointer flex-none">
+            <input
+              type="checkbox"
+              checked={((task.ext_data ?? {}) as Record<string, unknown>).outing === true}
+              onChange={e => saveField('ext_data', { ...((task.ext_data ?? {}) as Record<string, unknown>), outing: e.target.checked })}
+              className="w-4 h-4 accent-brand-600"
+            />
+            外出タスク
+          </label>
+          <span className="w-px h-6 bg-gray-200 flex-none" />
+          <span className="text-[11.5px] text-gray-500 flex-none">
+            起票 <span className="font-mono text-gray-700">{(task.issued_date ?? task.created_at)?.slice(0, 10) ?? '—'}</span>
+            <span className="ml-1.5 text-gray-600">
+              {allMembers.find(m => m.id === task.created_by)?.name ?? task.created_by_member?.name ?? <span className="text-gray-300">—</span>}
+            </span>
+          </span>
+          {/* 対象（実務タブのどこの作業か）。未設定のときだけ出す。
+              一括生成をやめた運用で、先にタスクだけ立てて後から役所・銀行が決まる流れを通すため。
+              すでに紐づいているタスクは、付け替えると導線がずれるのでここでは触らせない。 */}
+          {!task.source_rid && !isSystemTask && TARGET_GYOMU.includes((task.phase ?? '') as typeof TARGET_GYOMU[number]) && (
+            <>
+              <span className="w-px h-6 bg-gray-200 flex-none" />
+              <span className="flex items-center gap-1.5 min-w-[220px]">
+                <span className="text-[10px] text-gray-400 flex-none">対象</span>
                 <TaskTargetPicker
                   caseId={task.case_id}
                   gyomu={task.phase ?? ''}
@@ -473,48 +501,9 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                   }}
                   compact
                 />
-              </div>
-            )}
-
-            <div>
-              <div className="text-[10px] text-gray-400">外出</div>
-              <label className="flex items-center gap-1.5 text-[12.5px] text-gray-800 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={((task.ext_data ?? {}) as Record<string, unknown>).outing === true}
-                  onChange={e => saveField('ext_data', { ...((task.ext_data ?? {}) as Record<string, unknown>), outing: e.target.checked })}
-                  className="w-4 h-4 accent-brand-600"
-                />
-                外出タスク
-              </label>
-            </div>
-          </div>
-          {/* 矢羽根 */}
-          <div className="flex-1 self-center">
-            <div className="flex items-start">
-              {STATUS_FLOW_STEPS.map((step, i) => {
-                const isPassed = currentFlowIdx >= 0 && i < currentFlowIdx
-                const isActive = step === currentStatus
-                const isLast = i === STATUS_FLOW_STEPS.length - 1
-                const def = TASK_STATUSES_V12.find(s => s.key === step)
-                const note = step === '着手前'
-                  ? ((task.issued_date ?? task.created_at)?.slice(5, 10).replace('-', '/') ? `起票 ${(task.issued_date ?? task.created_at ?? '').slice(5, 10).replace('-', '/')}` : '')
-                  : step === '対応中'
-                    ? (task.due_date ? `期限 ${task.due_date.slice(5, 10).replace('-', '/')}` : '')
-                    : (task.completed_at ? `完了 ${task.completed_at.slice(5, 10).replace('-', '/')}` : '')
-                return (
-                  <div key={step} className="flex flex-col items-center gap-1 flex-1 relative">
-                    <div className={`rounded-full relative z-10 transition-all ${isActive ? 'w-3 h-3 shadow-[0_0_0_3px_rgba(37,99,235,0.2)]' : 'w-2.5 h-2.5'}`} style={{ backgroundColor: isActive ? (def?.color ?? '#2563EB') : isPassed ? '#059669' : '#CBD5E1', opacity: isPassed && !isActive ? 0.6 : 1 }} />
-                    <span className={`text-[12px] whitespace-nowrap text-center ${isActive ? 'text-brand-600 font-semibold' : isPassed ? 'text-green-600 font-medium' : 'text-gray-400'}`}>{step}</span>
-                    <span className="text-[9px] text-gray-400 whitespace-nowrap h-3">{note}</span>
-                    {!isLast && (
-                      <div className="absolute top-[5px] left-[50%] right-[-50%] h-px z-0" style={{ backgroundColor: isPassed ? '#059669' : '#CBD5E1', opacity: isPassed ? 0.5 : 1 }} />
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+              </span>
+            </>
+          )}
         </div>
       </div>
 

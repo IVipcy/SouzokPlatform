@@ -62,8 +62,11 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
   const [newTarget, setNewTarget] = useState<TaskTarget>(emptyTarget)
   const newTitle = newTask.title
 
-  // 相談は報連相で送る（ヘルプタスクの起票はやめた）
+  // 相談は報連相で送る（ヘルプタスクの起票はやめた）。
+  // 送ったら「次の扱いを決めた」ものとして数える。
+  // 以前はここが数えられておらず、相談しても完了ボタンが押せないままだった。
   const [hourenSouOpen, setHourenSouOpen] = useState(false)
+  const [consulted, setConsulted] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -77,8 +80,12 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
   }, [task.case_id])
 
   const picked = cands.filter(c => c.on && c.title.trim())
-  const hasAction = noNext || picked.length > 0 || newTitle.trim().length > 0
+  const hasAction = noNext || picked.length > 0 || newTitle.trim().length > 0 || consulted
   const canSubmit = result.trim().length > 0 && hasAction
+  // 押せないときは、何が足りないのかを footer に出す（黙って灰色にしない）。
+  const blockedBy = !result.trim() ? '実施結果を書くと押せます'
+    : !hasAction ? '次の扱いを1つ選ぶと押せます'
+    : ''
 
   const patchCand = (rid: string, p: Partial<PickedCandidate>) =>
     setCands(prev => prev.map(c => (c.rid === rid ? { ...c, ...p } : c)))
@@ -179,11 +186,23 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
     onCompleted()
   }
 
-  // 選択肢の見た目。閉じているときは1行、押すと開く。迷わないよう縦に同じ形で並べる。
-  const optionCls = (on: boolean) =>
-    `w-full flex items-center gap-2 rounded-lg border px-2.5 py-2 text-[12.5px] text-left transition-colors ${
-      on ? 'border-brand-300 bg-brand-50 text-brand-800' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`
-  const iconCls = 'w-5 h-5 rounded-md bg-gray-100 flex items-center justify-center flex-none'
+  // 選択肢の見た目。閉じているときは1行、押すと開く。
+  // 迷わないよう縦に同じ形で並べ、色だけで役割を言う（青＝これから作る／灰＝作らない／琥珀＝相談）。
+  const optionCls = (tone: 'brand' | 'gray' | 'amber', on: boolean) => {
+    const base = 'w-full flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-[12.5px] text-left transition-colors'
+    if (!on) return `${base} border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300`
+    if (tone === 'amber') return `${base} border-amber-300 bg-amber-50 text-amber-800`
+    if (tone === 'gray') return `${base} border-gray-400 bg-gray-100 text-gray-800`
+    return `${base} border-brand-400 bg-brand-50 text-brand-800`
+  }
+  const iconCls = (tone: 'brand' | 'gray' | 'amber', on: boolean) =>
+    `w-6 h-6 rounded-md flex items-center justify-center flex-none ${
+      !on ? 'bg-gray-100 text-gray-500'
+        : tone === 'amber' ? 'bg-amber-100 text-amber-700'
+        : tone === 'gray' ? 'bg-gray-200 text-gray-700'
+        : 'bg-brand-100 text-brand-700'}`
+  // いま押したら何が起きるか。footer に出して、押す前に結果が読めるようにする。
+  const willCreate = picked.length + (newTitle.trim() ? 1 : 0)
 
   return (
     <>
@@ -192,113 +211,138 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
       onClose={onClose}
       title="タスクを完了する"
       width={560}
-      // 候補が3件出たときの中身が約500px。ノートPC（縦768）でも footer まで収まる高さにする。
-      height={520}
+      // 中身は「候補なし＝約300px／候補3件＋作成欄を開く＝約700px」と幅がある。
+      // fitContent で短いときは縮ませ、長いときはこの高さで止めてスクロールにする。
+      height={560}
       resizable
+      fitContent
       footer={
-        <>
+        <div className="flex items-center gap-3 w-full">
+          {/* 押せない理由・押したら何が起きるかを黙らせない */}
+          <span className="text-[11px] text-gray-500 flex-1 min-w-0 truncate">
+            {blockedBy || (willCreate > 0
+              ? `完了して、次のタスクを${willCreate}件つくります`
+              : consulted ? '完了します（相談は送信済み）' : '完了します')}
+          </span>
           <Button variant="secondary" onClick={onClose} disabled={saving}>キャンセル</Button>
           <Button variant="primary" onClick={submit} loading={saving} disabled={!canSubmit}>
             <CheckCircle2 className="w-4 h-4" /> 完了する
           </Button>
-        </>
+        </div>
       }
     >
-      <div className="space-y-3">
+      <div className="space-y-3.5">
         {/* 1) 実施結果。ここだけ必須。 */}
         <div>
-          <label className="block text-[11.5px] text-gray-500 mb-1">
-            「<span className="font-semibold text-gray-700">{task.title}</span>」の実施結果 <span className="text-red-500">*</span>
-          </label>
+          <div className="flex items-baseline gap-2 mb-1.5">
+            <span className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-full bg-brand-600 text-white text-[10.5px] font-bold flex-none">1</span>
+            <span className="text-[12.5px] font-semibold text-gray-700">実施結果</span>
+            <span className="text-[10.5px] text-red-500 font-semibold">必須</span>
+            <span className="text-[10.5px] text-gray-400 truncate min-w-0">{task.title}</span>
+          </div>
           <textarea
             value={result}
             onChange={e => setResult(e.target.value)}
             rows={3}
             placeholder="何をして、どうなったか。次の担当への引継ぎ事項も。"
-            className="w-full px-3 py-2 text-[13px] border border-gray-300 rounded-lg outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+            className="w-full px-3 py-2 text-[13px] border border-gray-300 rounded-lg outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-white"
           />
         </div>
 
-        {/* 2) 戸籍の完了に依存していて、いま始められるもの。無ければ枠ごと出さない。 */}
-        {loading ? (
-          <div className="py-3 text-center text-[12px] text-gray-400"><Loader2 className="w-4 h-4 animate-spin inline mr-1" />次に進めるものを確認中…</div>
-        ) : cands.length > 0 && (
-          <div className="rounded-lg border border-gray-200 overflow-hidden">
-            <div className="px-2.5 py-1.5 bg-gray-50 border-b border-gray-200 text-[11.5px] text-gray-600 flex items-center gap-1.5">
-              <ArrowRight className="w-3.5 h-3.5 text-brand-600" />
-              次に着手できるかもしれないタスク
-              <span className="text-gray-400">（選ぶと作られます。名前は直せます）</span>
-            </div>
-            <div className="p-2 space-y-1.5">
-              {cands.map(c => (
-                <div key={c.rid} className={`rounded-lg border transition-colors ${c.on ? 'border-brand-300 bg-brand-50/60' : 'border-gray-200'}`}>
-                  <label className="flex items-start gap-2 px-2.5 py-1.5 cursor-pointer">
-                    <input type="checkbox" checked={c.on}
-                      onChange={e => { patchCand(c.rid, { on: e.target.checked }); if (e.target.checked) setNoNext(false) }}
-                      className="w-4 h-4 accent-brand-600 mt-[3px] flex-none" />
-                    <span className="min-w-0 flex-1">
-                      {c.on ? (
-                        /* 選んだあとは名前を直せる。「名寄帳・評価証明を請求：横浜市」を
-                           「名寄帳請求（都筑区分）」のように、その案件の言い方へ直せるようにする。 */
-                        <input type="text" value={c.title}
-                          onChange={e => patchCand(c.rid, { title: e.target.value })}
-                          onClick={e => e.preventDefault()}
-                          className="w-full px-2 py-1 text-[12.5px] border border-brand-300 rounded bg-white outline-none focus:border-brand-500" />
-                      ) : (
-                        <span className="text-[12.5px] text-gray-800 block truncate">{c.title}</span>
-                      )}
-                      <span className="block text-[10.5px] text-gray-400 mt-0.5">{c.gyomu}／{c.why}</span>
-                    </span>
-                  </label>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 3) ふだんの入口。畳んであり、押すとタスク追加モーダルと同じ入力欄が開く。 */}
+        {/* 2) 次の扱い。上から「決まっている → 自分で決める → 決まらない」。 */}
         <div>
-          <button type="button" onClick={() => setAddOpen(v => !v)} className={optionCls(addOpen || !!newTitle.trim())}>
-            <span className={iconCls}><Plus className="w-3.5 h-3.5" /></span>
-            <span className="flex-1 font-semibold">タスクを作成</span>
-            {newTitle.trim() && !addOpen && <span className="text-[11px] text-brand-700 truncate max-w-[180px]">{newTitle}</span>}
-            {addOpen ? <ChevronUp className="w-4 h-4 flex-none" /> : <ChevronDown className="w-4 h-4 flex-none" />}
-          </button>
-          {addOpen && (
-            <div className="mt-1.5 rounded-lg border border-gray-200 px-2.5 py-2.5">
-              <NewTaskFields
-                caseId={task.case_id}
-                value={newTask}
-                onChange={p => { setNewTask(prev => ({ ...prev, ...p })); setNoNext(false) }}
-                defaultGyomu={task.phase ?? undefined}
-                compact
-              />
-              <div className="mt-2">
-                <TaskTargetPicker caseId={task.case_id} gyomu={newTask.gyomu} value={newTarget} onChange={setNewTarget} compact />
+          <div className="flex items-baseline gap-2 mb-1.5">
+            <span className={`inline-flex items-center justify-center w-[18px] h-[18px] rounded-full text-[10.5px] font-bold flex-none ${hasAction ? 'bg-brand-600 text-white' : 'bg-gray-300 text-white'}`}>2</span>
+            <span className="text-[12.5px] font-semibold text-gray-700">次はどうしますか</span>
+            <span className="text-[10.5px] text-gray-400">1つ選んでください</span>
+          </div>
+
+          <div className="space-y-2">
+            {/* 戸籍の完了に依存していて、いま始められるもの。無ければ枠ごと出さない。 */}
+            {loading ? (
+              <div className="py-2 text-center text-[12px] text-gray-400"><Loader2 className="w-4 h-4 animate-spin inline mr-1" />次に進めるものを確認中…</div>
+            ) : cands.length > 0 && (
+              <div className="rounded-lg border border-brand-200 bg-brand-50/40 overflow-hidden">
+                <div className="px-3 py-1.5 bg-brand-50 border-b border-brand-200 text-[11.5px] font-semibold text-brand-800 flex items-center gap-1.5">
+                  <ArrowRight className="w-3.5 h-3.5" />
+                  次に着手できるかもしれないタスク
+                  <span className="font-normal text-brand-600">選ぶと作られます</span>
+                </div>
+                <div className="p-2 space-y-1.5">
+                  {cands.map(c => (
+                    <div key={c.rid} className={`rounded-lg border transition-colors ${c.on ? 'border-brand-400 bg-white' : 'border-gray-200 bg-white/70 hover:border-gray-300'}`}>
+                      <label className="flex items-start gap-2.5 px-2.5 py-2 cursor-pointer">
+                        <input type="checkbox" checked={c.on}
+                          onChange={e => { patchCand(c.rid, { on: e.target.checked }); if (e.target.checked) setNoNext(false) }}
+                          className="w-4 h-4 accent-brand-600 mt-[3px] flex-none" />
+                        <span className="min-w-0 flex-1">
+                          {c.on ? (
+                            /* 選んだあとは名前を直せる。「名寄帳・評価証明を請求：横浜市」を
+                               「名寄帳請求（都筑区分）」のように、その案件の言い方へ直せるようにする。 */
+                            <input type="text" value={c.title}
+                              onChange={e => patchCand(c.rid, { title: e.target.value })}
+                              onClick={e => e.preventDefault()}
+                              className="w-full px-2 py-1 text-[12.5px] font-semibold border border-brand-300 rounded bg-white outline-none focus:border-brand-500" />
+                          ) : (
+                            <span className="text-[12.5px] text-gray-800 block truncate">{c.title}</span>
+                          )}
+                          <span className="block text-[10.5px] text-gray-400 mt-1">
+                            <span className="inline-block px-1.5 rounded bg-gray-100 text-gray-500 mr-1.5">{c.gyomu}</span>
+                            {c.why}
+                          </span>
+                        </span>
+                      </label>
+                    </div>
+                  ))}
+                </div>
               </div>
+            )}
+
+            {/* ふだんの入口。畳んであり、押すとタスク追加モーダルと同じ入力欄が開く。 */}
+            <div>
+              <button type="button" onClick={() => setAddOpen(v => !v)} className={optionCls('brand', addOpen || !!newTitle.trim())}>
+                <span className={iconCls('brand', addOpen || !!newTitle.trim())}><Plus className="w-4 h-4" strokeWidth={2.25} /></span>
+                <span className="flex-1 font-semibold">タスクを作成</span>
+                {newTitle.trim() && !addOpen && <span className="text-[11px] text-brand-700 truncate max-w-[180px]">{newTitle}</span>}
+                {addOpen ? <ChevronUp className="w-4 h-4 flex-none" /> : <ChevronDown className="w-4 h-4 flex-none" />}
+              </button>
+              {addOpen && (
+                <div className="mt-1.5 rounded-lg border border-brand-200 bg-brand-50/30 px-2.5 py-2.5">
+                  <NewTaskFields
+                    caseId={task.case_id}
+                    value={newTask}
+                    onChange={p => { setNewTask(prev => ({ ...prev, ...p })); setNoNext(false) }}
+                    defaultGyomu={task.phase ?? undefined}
+                    compact
+                  />
+                  <div className="mt-2">
+                    <TaskTargetPicker caseId={task.case_id} gyomu={newTask.gyomu} value={newTarget} onChange={setNewTarget} compact />
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+
+            {/* 何も作らないと言い切る。押すと上の選択を全部外す。 */}
+            <label className={`${optionCls('gray', noNext)} cursor-pointer`}>
+              <span className={iconCls('gray', noNext)}>
+                <input type="checkbox" checked={noNext}
+                  onChange={e => {
+                    setNoNext(e.target.checked)
+                    if (e.target.checked) { setCands(prev => prev.map(c => ({ ...c, on: false }))); setAddOpen(false) }
+                  }}
+                  className="w-4 h-4 accent-gray-600" />
+              </span>
+              <span className="flex-1">次に進められるタスクはない</span>
+            </label>
+
+            {/* 決まらないとき。完了とは別に送れる。送ったら「決めた」ものとして数える。 */}
+            <button type="button" onClick={() => setHourenSouOpen(true)} className={optionCls('amber', consulted)}>
+              <span className={iconCls('amber', consulted)}><HelpCircle className="w-4 h-4" strokeWidth={2} /></span>
+              <span className="flex-1">{consulted ? '管理担当に相談しました' : '管理担当に相談する'}</span>
+              <span className="text-[10.5px] flex-none">{consulted ? '送信済み・もう一度送れます' : '次が分からない・難しいとき'}</span>
+            </button>
+          </div>
         </div>
-
-        {/* 4) 何も作らないと言い切る。押すと上の選択を全部外す。 */}
-        <label className={`${optionCls(noNext)} cursor-pointer`}>
-          <span className={iconCls}>
-            <input type="checkbox" checked={noNext}
-              onChange={e => {
-                setNoNext(e.target.checked)
-                if (e.target.checked) { setCands(prev => prev.map(c => ({ ...c, on: false }))); setAddOpen(false) }
-              }}
-              className="w-4 h-4 accent-brand-600" />
-          </span>
-          <span className="flex-1">次に進められるタスクはない</span>
-        </label>
-
-        {/* 5) 決まらないとき。完了とは別に送れる。 */}
-        <button type="button" onClick={() => setHourenSouOpen(true)} className={optionCls(false)}>
-          <span className={iconCls}><HelpCircle className="w-3.5 h-3.5 text-amber-600" strokeWidth={2} /></span>
-          <span className="flex-1">管理担当に相談する</span>
-          <span className="text-[10.5px] text-gray-400 flex-none">次が分からない・難しいとき</span>
-        </button>
       </div>
     </FloatingWindow>
 
@@ -310,7 +354,7 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
       caseId={task.case_id}
       currentMemberId={memberId}
       taskTitle={task.title}
-      onSent={() => setHourenSouOpen(false)}
+      onSent={() => { setHourenSouOpen(false); setConsulted(true) }}
     />
     </>
   )

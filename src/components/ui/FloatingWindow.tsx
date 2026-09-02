@@ -7,7 +7,7 @@
 import { useRef, useState, useEffect, type ReactNode } from 'react'
 import { X, Minus, GripVertical } from 'lucide-react'
 
-export default function FloatingWindow({ isOpen, onClose, title, children, footer, width = 400, resizable = false, height = 460 }: {
+export default function FloatingWindow({ isOpen, onClose, title, children, footer, width = 400, resizable = false, height = 460, fitContent = false }: {
   isOpen: boolean
   onClose: () => void
   title: string
@@ -18,6 +18,9 @@ export default function FloatingWindow({ isOpen, onClose, title, children, foote
   resizable?: boolean
   /** resizable のときの初期の高さ */
   height?: number
+  /** 中身が短いときは縮む（height は上限として使う）。
+      中身の量が場面で大きく変わるウィンドウで、下に大きな空白が出るのを防ぐ。 */
+  fitContent?: boolean
 }) {
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
   const [size, setSize] = useState<{ w: number; h: number }>({ w: width, h: height })
@@ -92,7 +95,7 @@ export default function FloatingWindow({ isOpen, onClose, title, children, foote
       </div>
       {!minimized && (
         <>
-          <div className="p-3.5 overflow-y-auto" style={resizable ? { height: size.h } : { maxHeight: '68vh' }}>{children}</div>
+          <div className="p-3.5 overflow-y-auto" style={resizable ? (fitContent ? { maxHeight: size.h } : { height: size.h }) : { maxHeight: '68vh' }}>{children}</div>
           {footer && <div className="flex justify-end gap-2 px-3.5 py-2.5 border-t border-gray-100 bg-gray-50 rounded-b-xl">{footer}</div>}
           {/* 右下のつまみ（掴んで大きさを変える） */}
           {resizable && (
