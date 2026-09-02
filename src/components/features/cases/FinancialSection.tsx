@@ -13,7 +13,8 @@
 // 印鑑登録証明書は案件に1つ（原本は1通）。上の帯に置き、機関ごとには持たない。
 
 import { useMemo, useState } from 'react'
-import { Plus, Trash2, Check } from 'lucide-react'
+import Link from 'next/link'
+import { Plus, Trash2, Check, ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useCurrentMember } from '@/lib/useCurrentMember'
@@ -27,8 +28,8 @@ import { TxtCell, SelCell, DateCell, MoneyCell } from './PracticeTableCells'
 import FinancialRequestModal from './FinancialRequestModal'
 import FinancialArrivalModal, { StatusChip } from './FinancialArrivalModal'
 import {
-  evaluateInstitution, sealCertificateStatus, accountDocStatus, requestStatus, itemConditionLabel,
-  FORM_SOURCES, SEARCH_METHODS, SUBMISSION_METHODS, HANDLING_METHODS, SEARCH_TARGETS, SEAL_LOCATIONS, JASDEC_KNOWN,
+  evaluateInstitution, sealCertificateStatus, sealOriginalStatus, accountDocStatus, requestStatus, itemConditionLabel,
+  FORM_SOURCES, SEARCH_METHODS, SUBMISSION_METHODS, HANDLING_METHODS, SEARCH_TARGETS, JASDEC_KNOWN,
   type InstitutionEvaluation,
 } from '@/lib/financialWorkflow'
 import { SURVEY_BAN_DESIGNATIONS, SURVEY_BAN_METHODS } from '@/lib/financialBan'
@@ -74,7 +75,7 @@ type Props = {
   focus?: string | null   // タスク詳細からの着地：金融機関名
 }
 
-export default function FinancialSection({ caseId, kind, scopePrefix, assets, institutions: allInstitutions, requests: allRequests, requestItems: allItems, holdings: allHoldings, caseData, patchCase, onRefresh, focus }: Props) {
+export default function FinancialSection({ caseId, kind, scopePrefix, assets, institutions: allInstitutions, requests: allRequests, requestItems: allItems, holdings: allHoldings, caseData, onRefresh, focus }: Props) {
   const supabase = createClient()
   const memberId = useCurrentMember(null)
   const today = todayYmd()
@@ -150,7 +151,7 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
 
   return (
     <div className="space-y-3">
-      <SealCertificateBand caseData={caseData} patchCase={patchCase} today={today} />
+      <SealCertificateBand caseData={caseData} requests={allRequests} institutions={allInstitutions} today={today} />
       <div className="flex gap-3 items-start">
         <LeftRail items={railItems} active={sub} onChange={k => { setSub(k); setTab('procedure') }} onDelete={deleteInstitution} extra={
           <button type="button" onClick={() => setAddOpen(true)} className="mt-1 text-left text-[11.5px] px-2.5 py-1.5 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-brand-700 hover:border-brand-300 inline-flex items-center gap-1">
@@ -185,45 +186,36 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
   )
 }
 
-// ── 印鑑登録証明書（案件に1つ） ────────────────────────────────
-function SealCertificateBand({ caseData, patchCase, today }: { caseData: CaseRow; patchCase: (p: Partial<CaseRow>) => Promise<void>; today: string }) {
+// ── 依頼者の印鑑登録証明書（読み取り専用の1行） ─────────────────
+// 入力は契約手続きタブの受領書類の行（発行日・有効期間・受領通数）。
+// 原本の所在は請求の「原本を同封」「返却日」から出す。ここでは何も入力させない。
+// 金融調査で使うのは依頼者（請求する相続人）1人の証明書。相続人全員分は解約の話。
+function SealCertificateBand({ caseData, requests, institutions, today }: {
+  caseData: CaseRow; requests: FinancialRequestRow[]; institutions: FinancialInstitutionRow[]; today: string
+}) {
   const st = sealCertificateStatus(caseData, today)
-  const warn = st.status === '期限切れ' ? 'text-red-700 bg-red-50 border-red-200' : st.status === '期限間近' ? 'text-amber-700 bg-amber-50 border-amber-200' : ''
+  const orig = sealOriginalStatus(caseData.seal_cert_copies, requests, institutions)
+  const tone = st.status === '期限切れ' ? 'border-red-200 bg-red-50' : st.status === '期限間近' ? 'border-amber-200 bg-amber-50' : 'border-gray-200 bg-white'
+  const expiryText = st.status === '未登録' ? '発行日が未登録' : `期限 ${st.expiry?.replace(/-/g, '/')}`
   return (
-    <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-2 flex items-center gap-4 flex-wrap">
-      <span className="text-[12px] font-semibold text-gray-700 inline-flex items-center gap-1">印鑑登録証明書
-        <HintTip text={'案件に1つ。原本は1通しかないので、どの銀行に出しているかは「原本所在」で見る。\n有効期限は最古の発行日から数える（相続人が複数いれば一番古いものが期限を決める）。'} />
+    <div className={`rounded-lg border px-3.5 py-1.5 flex items-center gap-3 flex-wrap text-[12px] ${tone}`}>
+      <span className="font-semibold text-gray-700">依頼者の印鑑登録証明書</span>
+      {caseData.seal_cert_copies != null && <span className="text-gray-600">{caseData.seal_cert_copies}通</span>}
+      <span className="text-gray-600">{expiryText}</span>
+      {st.status === '期限間近' && <span className="text-[11px] font-semibold px-2 py-[1px] rounded bg-amber-100 text-amber-800">あと{st.daysLeft}日</span>}
+      {st.status === '期限切れ' && <span className="text-[11px] font-semibold px-2 py-[1px] rounded bg-red-100 text-red-800">期限切れ（{Math.abs(st.daysLeft ?? 0)}日超過）</span>}
+      <span className="text-gray-300">|</span>
+      <span className="text-gray-600">原本：
+        {orig.out.length === 0
+          ? <span className="text-gray-700">{orig.inHand != null ? `手元に${orig.inHand}通` : '出していない'}</span>
+          : <>
+              <span className="text-gray-800 font-semibold">{orig.out.map(o => `${o.institutionName}へ${o.sentDate ? `（${o.sentDate.slice(5).replace('-', '/')}）` : ''}`).join('・')}</span>
+              {orig.inHand != null && <span className="ml-1.5">手元に{orig.inHand}通</span>}
+            </>}
       </span>
-      <label className="flex items-center gap-1.5 text-[11px] text-gray-500">最古の発行日
-        <input type="date" defaultValue={caseData.seal_cert_oldest_issue_date ?? ''} key={`si-${caseData.seal_cert_oldest_issue_date ?? ''}`}
-          onBlur={e => { if (e.target.value !== (caseData.seal_cert_oldest_issue_date ?? '')) void patchCase({ seal_cert_oldest_issue_date: e.target.value || null }) }}
-          className="px-2 py-1 text-[12px] border border-gray-300 rounded bg-white outline-none focus:border-brand-500" />
-      </label>
-      <label className="flex items-center gap-1.5 text-[11px] text-gray-500">有効期間
-        <select value={caseData.seal_cert_validity_months == null ? 'custom' : String(caseData.seal_cert_validity_months)}
-          onChange={e => void patchCase({ seal_cert_validity_months: e.target.value === 'custom' ? null : Number(e.target.value) })}
-          style={{ fontFamily: 'inherit' }} className="px-2 py-1 text-[12px] border border-gray-300 rounded bg-white outline-none">
-          <option value="6">発行後6か月</option><option value="3">発行後3か月</option><option value="custom">個別指定</option>
-        </select>
-      </label>
-      {caseData.seal_cert_validity_months == null ? (
-        <label className="flex items-center gap-1.5 text-[11px] text-gray-500">使用期限
-          <input type="date" defaultValue={caseData.seal_cert_custom_expiry ?? ''} key={`se-${caseData.seal_cert_custom_expiry ?? ''}`}
-            onBlur={e => { if (e.target.value !== (caseData.seal_cert_custom_expiry ?? '')) void patchCase({ seal_cert_custom_expiry: e.target.value || null }) }}
-            className="px-2 py-1 text-[12px] border border-gray-300 rounded bg-white outline-none" />
-        </label>
-      ) : (
-        <span className="text-[11px] text-gray-500">使用期限 <span className="font-mono text-gray-700">{st.expiry ? st.expiry.replace(/-/g, '/') : '—'}</span></span>
-      )}
-      <label className="flex items-center gap-1.5 text-[11px] text-gray-500">原本所在
-        <select value={caseData.seal_cert_original_location ?? ''} onChange={e => void patchCase({ seal_cert_original_location: e.target.value || null })}
-          style={{ fontFamily: 'inherit' }} className="px-2 py-1 text-[12px] border border-gray-300 rounded bg-white outline-none">
-          <option value="">—</option>{SEAL_LOCATIONS.map(o => <option key={o} value={o}>{o}</option>)}
-        </select>
-      </label>
-      {st.status !== '未登録' && st.status !== '有効' && (
-        <span className={`ml-auto text-[11px] font-semibold px-2 py-0.5 rounded border ${warn}`}>{st.status === '期限切れ' ? `期限切れ（${Math.abs(st.daysLeft ?? 0)}日超過）` : `期限まで${st.daysLeft}日`}</span>
-      )}
+      <Link href={`/cases/${caseData.id}?tab=contractProc`} className="ml-auto inline-flex items-center gap-1 text-[11px] text-brand-700 hover:underline">
+        契約手続きで編集 <ExternalLink className="w-3 h-3" />
+      </Link>
     </div>
   )
 }

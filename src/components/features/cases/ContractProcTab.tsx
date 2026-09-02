@@ -5,7 +5,7 @@ import { Folder } from 'lucide-react'
 import { Section } from '@/components/ui/InlineFields'
 import ContractDocumentsTable from './ContractDocumentsTable'
 import TabHeader from './TabHeader'
-import type { ContractDocumentRow } from '@/types'
+import type { ContractDocumentRow, CaseRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
 type Props = {
@@ -13,6 +13,9 @@ type Props = {
   contractDocuments: ContractDocumentRow[]
   documentReceipts?: TimelineReceipt[]
   onRefresh?: () => void
+  /** 印鑑登録証明書の行に発行日・有効期間・通数を出す */
+  caseData?: CaseRow
+  patchCase?: (patch: Partial<CaseRow>) => Promise<void>
 }
 
 /**
@@ -20,7 +23,7 @@ type Props = {
  * 受領状況「後日郵送 / 依頼者が取得」で未受信の書類が残っていると、対応中へ進めない
  * （受託→対応中ゲートの一条件）。書類受信簿で受信すると到着日が入り「受信済」になる。
  */
-export default function ContractProcTab({ caseId, contractDocuments, documentReceipts = [], onRefresh }: Props) {
+export default function ContractProcTab({ caseId, contractDocuments, documentReceipts = [], onRefresh, caseData, patchCase }: Props) {
   return (
     <div className="space-y-3.5">
       <TabHeader title="契約手続き" description="契約書・委任状・本人確認・印鑑証明など、契約に関わる書類を受け取ったか確認します。" />
@@ -31,7 +34,7 @@ export default function ContractProcTab({ caseId, contractDocuments, documentRec
             <Folder className="w-3.5 h-3.5" />案件フォルダを開く
           </Link>
         </div>
-        <ContractDocumentsTable caseId={caseId} documents={contractDocuments} documentReceipts={documentReceipts} onRefresh={onRefresh} />
+        <ContractDocumentsTable caseId={caseId} documents={contractDocuments} documentReceipts={documentReceipts} onRefresh={onRefresh} caseData={caseData} patchCase={patchCase} />
       </Section>
     </div>
   )

@@ -35,6 +35,7 @@ export default function FinancialRequestModal({ isOpen, onClose, institution, ac
   const isSec = institution.kind === '証券'
   const allIds = useMemo(() => accounts.map(a => a.id), [accounts])
   const [requestDate, setRequestDate] = useState('')
+  const [sealSent, setSealSent] = useState(false)   // 依頼者の印鑑登録証明書の原本を同封（来店なら持参）
   const [balanceLines, setBalanceLines] = useState<BalanceLine[]>([{ id: 1, recent: false, date: '', accountIds: allIds }])
   const [historyLines, setHistoryLines] = useState<HistoryLine[]>([])
   const [saving, setSaving] = useState(false)
@@ -54,7 +55,7 @@ export default function FinancialRequestModal({ isOpen, onClose, institution, ac
     setSaving(true)
     const supabase = createClient()
     const { data: req, error } = await supabase.from('financial_requests')
-      .insert({ case_id: institution.case_id, institution_id: institution.id, request_date: requestDate || null })
+      .insert({ case_id: institution.case_id, institution_id: institution.id, request_date: requestDate || null, seal_original_sent: sealSent })
       .select('id').single()
     if (error || !req) { setSaving(false); showToast(`請求の登録に失敗しました: ${error?.message ?? ''}`, 'error'); return }
     const requestId = (req as { id: string }).id
@@ -121,9 +122,14 @@ export default function FinancialRequestModal({ isOpen, onClose, institution, ac
             <span className="text-[12px] font-semibold text-gray-700">請求日</span>
             <span className="text-[10.5px] text-gray-400">請求前に内容だけ保存するときは空欄のまま</span>
           </div>
-          <div className="px-3 py-2.5 flex items-center gap-3">
+          <div className="px-3 py-2.5 flex items-center gap-3 flex-wrap">
             <input type="date" value={requestDate} onChange={e => setRequestDate(e.target.value)} className={inp} />
             {!requestDate && <span className="text-[11px] text-gray-500">空欄＝請求準備中。来店当日に来店日を入れる使い方ができます</span>}
+            {/* 原本の所在はここから出す（選ばせない）。戻ったら到着処理で返却日を入れる */}
+            <label className="ml-auto inline-flex items-center gap-1.5 text-[12px] text-gray-700 cursor-pointer">
+              <input type="checkbox" checked={sealSent} onChange={e => setSealSent(e.target.checked)} className="w-4 h-4 accent-brand-600" />
+              依頼者の印鑑登録証明書の原本を同封（来店なら持参）
+            </label>
           </div>
         </section>
 

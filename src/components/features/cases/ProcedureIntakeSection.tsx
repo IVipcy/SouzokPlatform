@@ -312,7 +312,7 @@ export default function ProcedureIntakeSection({ caseData, patchCase, contractDo
     <Section title="手続き詳細">
       <SectionHeading title="① 到着物（その場で何をもらい、何が後日来るか）" className="mb-2" />
       <div className="mb-5">
-        <ContractDocumentsTable caseId={caseData.id} documents={contractDocuments} onRefresh={onRefresh} />
+        <ContractDocumentsTable caseId={caseData.id} documents={contractDocuments} onRefresh={onRefresh} caseData={caseData} patchCase={patchCase} />
       </div>
       {category === REFERRAL_ONLY_CATEGORY ? (
         <>

@@ -85,7 +85,22 @@ export default function FinancialArrivalModal({ isOpen, onClose, request, items,
           </label>
           <StatusChip s={st} />
           {!request.request_date && <span className="text-[11px] text-gray-500">請求日を入れると「請求中」になります</span>}
+          <label className="ml-auto inline-flex items-center gap-1.5 text-[11.5px] text-gray-600 cursor-pointer">
+            <input type="checkbox" checked={request.seal_original_sent} onChange={e => void saveRequest({ seal_original_sent: e.target.checked, ...(e.target.checked ? {} : { seal_original_returned_date: null }) })} className="w-4 h-4 accent-brand-600" />
+            印鑑登録証明書の原本を同封
+          </label>
         </div>
+        {/* 原本を出した請求だけ、返却の欄。入れると所在から消える */}
+        {request.seal_original_sent && (
+          <div className="flex items-center gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5">
+            <span className="text-[11.5px] text-gray-600">依頼者の印鑑登録証明書の原本を出しています。</span>
+            <label className="flex items-center gap-2 text-[11.5px] text-gray-500">返却日
+              <input type="date" defaultValue={request.seal_original_returned_date ?? ''} key={`sr-${request.seal_original_returned_date ?? ''}`}
+                onBlur={e => { if (e.target.value !== (request.seal_original_returned_date ?? '')) void saveRequest({ seal_original_returned_date: e.target.value || null }) }} className={inp} />
+            </label>
+            {!request.seal_original_returned_date && <span className="text-[10.5px] text-gray-400">戻ってきたら入れる</span>}
+          </div>
+        )}
 
         {items.map(it => {
           const s = itemStatus(it, request)

@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import { Trash2, Plus, Check, CloudOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { REQUIRED_CONTRACT_DOCS, REQUIRED_CONTRACT_DOC_CATEGORY } from '@/lib/constants'
-import type { ContractDocumentRow } from '@/types'
+import type { ContractDocumentRow, CaseRow } from '@/types'
+import { sealCertificateStatus } from '@/lib/financialWorkflow'
 import type { TimelineReceipt } from './CaseTimeline'
 
 const DOC_STATUS = ['その場で受領', '後日郵送', '依頼者が取得', '不要']
@@ -24,6 +25,9 @@ type Props = {
   documents: ContractDocumentRow[]
   documentReceipts?: TimelineReceipt[]
   onRefresh?: () => void
+  /** 印鑑登録証明書の行に発行日・有効期間・通数を出すため（cases の列）。渡さなければ出ない */
+  caseData?: Pick<CaseRow, 'seal_cert_oldest_issue_date' | 'seal_cert_validity_months' | 'seal_cert_custom_expiry' | 'seal_cert_copies'>
+  patchCase?: (patch: Partial<CaseRow>) => Promise<void>
 }
 
 /**
@@ -31,7 +35,7 @@ type Props = {
  * 受領状況・到着予定日を管理し、書類受信簿で受信すると到着日が入り「受信済」になる。
  * （JSONBではなくテーブルなので、受信簿から linked_kind='contract_doc' で各行に紐づく）
  */
-export default function ContractDocumentsTable({ caseId, documents, documentReceipts = [], onRefresh }: Props) {
+export default function ContractDocumentsTable({ caseId, documents, documentReceipts = [], onRefresh, caseData, patchCase }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<ContractDocumentRow[]>(documents)
   // 契約書類→受信簿アイテムの「アップ済」状況。linked_kind='contract_doc' で各契約書類行に紐づく。
@@ -158,7 +162,8 @@ export default function ContractDocumentsTable({ caseId, documents, documentRece
               <tr><td colSpan={8} className="px-3 py-6 text-center text-[13px] text-gray-400">契約関連の書類が登録されていません</td></tr>
             ) : (
               visibleRows.map((r, i) => (
-                <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                <Fragment key={r.id}>
+                <tr className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                   <DocNameCell value={r.name} onCommit={v => saveNow(r.id, 'name', v)} />
                   <td className="px-2.5 py-1.5">
                     <select value={r.category ?? ''} onChange={e => saveNow(r.id, 'category', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
@@ -190,6 +195,13 @@ export default function ContractDocumentsTable({ caseId, documents, documentRece
                     <button type="button" onClick={() => delRow(r)} className="text-gray-300 hover:text-red-500" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>
                   </td>
                 </tr>
+                {/* 依頼者の印鑑登録証明書だけ、書類の中身（発行日・有効期間・通数）をこの行の下に持つ。
+                    金融調査の請求で使い、期限（発行後3〜6か月）が切れると出し直しになるため。
+                    原本がいまどこにあるかは金融の請求から出す（ここでは選ばせない）。 */}
+                {caseData && patchCase && (r.name ?? '').includes('印鑑登録証明書') && (
+                  <SealCertificateRow caseData={caseData} patchCase={patchCase} />
+                )}
+                </Fragment>
               ))
             )}
           </tbody>
@@ -257,5 +269,52 @@ function DateCell({ value, onCommit }: { value: string | null; onCommit: (v: str
         className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white"
       />
     </td>
+  )
+}
+
+
+// ラベル付きの1欄（描画中に部品を作らないよう、外に出しておく）
+function SealField({ label, children }: { label: string; children: React.ReactNode }) {
+  return <label className="flex flex-col gap-0.5 text-[10.5px] text-gray-500">{label}<span>{children}</span></label>
+}
+
+// 印鑑登録証明書の行の下に出す、書類の中身。cases の列に書く。
+function SealCertificateRow({ caseData, patchCase }: {
+  caseData: Pick<CaseRow, 'seal_cert_oldest_issue_date' | 'seal_cert_validity_months' | 'seal_cert_custom_expiry' | 'seal_cert_copies'>
+  patchCase: (patch: Partial<CaseRow>) => Promise<void>
+}) {
+  const st = sealCertificateStatus(caseData, new Date().toLocaleDateString('sv-SE'))
+  const inp = 'px-2 py-1 text-[12px] border border-gray-300 rounded bg-white outline-none focus:border-brand-500'
+  return (
+    <tr className="bg-brand-50/40 border-b border-gray-100">
+      <td colSpan={8} className="px-3 py-2 pl-6 border-l-2 border-brand-400">
+        <div className="flex items-end gap-4 flex-wrap">
+          <span className="text-[11px] text-gray-500 self-center">依頼者の印鑑登録証明書。金融調査の請求で使う</span>
+          <SealField label="最古の発行日">
+            <input type="date" defaultValue={caseData.seal_cert_oldest_issue_date ?? ''} key={`si-${caseData.seal_cert_oldest_issue_date ?? ''}`}
+              onBlur={e => { if (e.target.value !== (caseData.seal_cert_oldest_issue_date ?? '')) void patchCase({ seal_cert_oldest_issue_date: e.target.value || null }) }} className={inp} />
+          </SealField>
+          <SealField label="有効期間">
+            <select value={caseData.seal_cert_validity_months == null ? 'custom' : String(caseData.seal_cert_validity_months)}
+              onChange={e => void patchCase({ seal_cert_validity_months: e.target.value === 'custom' ? null : Number(e.target.value) })}
+              style={{ fontFamily: 'inherit' }} className={inp}>
+              <option value="6">発行後6か月</option><option value="3">発行後3か月</option><option value="custom">個別指定</option>
+            </select>
+          </SealField>
+          {caseData.seal_cert_validity_months == null
+            ? <SealField label="使用期限">
+                <input type="date" defaultValue={caseData.seal_cert_custom_expiry ?? ''} key={`se-${caseData.seal_cert_custom_expiry ?? ''}`}
+                  onBlur={e => { if (e.target.value !== (caseData.seal_cert_custom_expiry ?? '')) void patchCase({ seal_cert_custom_expiry: e.target.value || null }) }} className={inp} />
+              </SealField>
+            : <SealField label="使用期限（自動）"><span className="inline-block px-2 py-1 text-[12px] font-mono text-gray-700 bg-gray-100 rounded">{st.expiry ? st.expiry.replace(/-/g, '/') : '—'}</span></SealField>}
+          <SealField label="受領通数">
+            <input type="number" min={0} defaultValue={caseData.seal_cert_copies ?? ''} key={`sc-${caseData.seal_cert_copies ?? ''}`}
+              onBlur={e => { const v = e.target.value === '' ? null : Number(e.target.value); if (v !== (caseData.seal_cert_copies ?? null)) void patchCase({ seal_cert_copies: v }) }} className={`${inp} w-20`} />
+          </SealField>
+          {st.status === '期限間近' && <span className="self-center text-[11px] font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800">期限まであと{st.daysLeft}日</span>}
+          {st.status === '期限切れ' && <span className="self-center text-[11px] font-semibold px-2 py-0.5 rounded bg-red-100 text-red-800">期限切れ</span>}
+        </div>
+      </td>
+    </tr>
   )
 }

@@ -834,7 +834,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <AssigneesTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'contractProc' && (
-        <ContractProcTab caseId={caseState.id} contractDocuments={contractDocuments} documentReceipts={documentReceipts} onRefresh={handleSaved} />
+        <ContractProcTab caseId={caseState.id} contractDocuments={contractDocuments} documentReceipts={documentReceipts} onRefresh={handleSaved} caseData={caseState} patchCase={patchCase} />
       )}
       {effectiveTab === 'letter' && (
         <FreeWorkTab caseData={caseState} gyomu="letter" title="手紙" patchCase={patchCase} />

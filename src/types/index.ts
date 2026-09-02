@@ -99,7 +99,7 @@ export type CaseRow = {
   seal_cert_oldest_issue_date: string | null
   seal_cert_validity_months: number | null   // 3 / 6 / null=個別指定
   seal_cert_custom_expiry: string | null
-  seal_cert_original_location: string | null
+  seal_cert_copies: number | null            // 受領通数（migration 272）。原本所在は請求から出す
   // 遺産分割
   division_policy: string | null
   division_proposal: string | null
@@ -698,6 +698,8 @@ export type FinancialRequestRow = {
   case_id: string
   institution_id: string
   request_date: string | null          // 空＝請求準備中
+  seal_original_sent: boolean          // 依頼者の印鑑登録証明書の原本を同封（migration 272）
+  seal_original_returned_date: string | null   // 原本の返却日。空なら出したまま
   notes: string | null
   sort_order: number
   created_at: string

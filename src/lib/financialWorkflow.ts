@@ -29,7 +29,6 @@ export const DEPOSIT_DOC_TYPES = ['残高証明', '取引履歴'] as const
 export const SECURITIES_DOC_TYPES = ['残高証明', '顧客勘定元帳', '年間取引報告書'] as const
 /** 株主名簿管理人への請求書類 */
 export const ADMIN_DOC_TYPES = ['所有株式数証明書', '未受領配当金明細書', '配当金支払明細書', '株式異動証明書'] as const
-export const SEAL_LOCATIONS = ['事務所保管', '金融機関へ提出中', '返却済'] as const
 
 /** 株主名簿管理人の名寄せ。東京証券代行・日本証券代行は三井住友信託銀行に統合されている。 */
 export function canonicalAdministratorName(value: string): string {
@@ -59,6 +58,20 @@ export function sealCertificateStatus(c: Pick<CaseRow, 'seal_cert_oldest_issue_d
   if (!expiry) return { status: '未登録', expiry: null, daysLeft: null }
   const daysLeft = daysBetween(today, expiry)
   return { status: daysLeft < 0 ? '期限切れ' : daysLeft <= 30 ? '期限間近' : '有効', expiry, daysLeft }
+}
+
+/** 原本の所在。「原本を出していて、まだ返却日が無い請求」の銀行名。選ばせず、請求の事実から出す */
+export type SealOriginalOut = { institutionName: string; sentDate: string | null }
+export function sealOriginalStatus(
+  copies: number | null,
+  requests: Array<Pick<FinancialRequestRow, 'institution_id' | 'request_date' | 'seal_original_sent' | 'seal_original_returned_date'>>,
+  institutions: Array<Pick<FinancialInstitutionRow, 'id' | 'name'>>,
+): { out: SealOriginalOut[]; inHand: number | null } {
+  const nameOf = new Map(institutions.map(i => [i.id, i.name]))
+  const out = requests
+    .filter(r => r.seal_original_sent && !r.seal_original_returned_date)
+    .map(r => ({ institutionName: nameOf.get(r.institution_id) ?? '（調査先不明）', sentDate: r.request_date }))
+  return { out, inHand: copies == null ? null : Math.max(0, copies - out.length) }
 }
 
 // ── 調査禁止（お客様の「まだ調べないで」） ──────────────────────
