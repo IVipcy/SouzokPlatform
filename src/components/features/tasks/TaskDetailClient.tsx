@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Briefcase, Play, CheckCircle2, ExternalLink, ChevronDown, ChevronUp, Check, Package, PackageCheck, HelpCircle, ArrowRightCircle, Landmark } from 'lucide-react'
+import { Briefcase, Play, CheckCircle2, ExternalLink, ChevronDown, ChevronUp, Check, Package, PackageCheck, ArrowRightCircle, Landmark } from 'lucide-react'
 import { resolveTaskLanding, taskLandingUrl } from '@/lib/taskLanding'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -345,7 +345,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
               {/* 進行ボタン */}
               {currentStatus === '着手前' && (
                 <div className="inline-flex items-center gap-2">
-                  <span className="text-[12px] text-gray-400">{canStart ? '作業を始める前に押す' : '口座の凍結確認後に押せます'}</span>
+                  {!canStart && <span className="text-[12px] text-gray-400">口座の凍結確認後に押せます</span>}
                   <button
                     onClick={handleAdvance}
                     disabled={advancing || !canStart}
@@ -360,7 +360,6 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
               )}
               {currentStatus === '対応中' && (
                 <div className="inline-flex items-center gap-2">
-                  <span className="text-[12px] text-gray-400">完了条件を満たしたら押す</span>
                   {canRevert && <button type="button" onClick={handleRevert} disabled={reverting} className="text-[11px] text-gray-400 hover:text-gray-600 underline underline-offset-2 disabled:opacity-50" title="押し間違いの訂正">着手前に戻す</button>}
                   <button
                     onClick={handleAdvance}
@@ -410,12 +409,16 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                   title={review.pending > 0
                     ? '担当の回答待ちです。回答が付いてから、必要なら改めて確認できます'
                     : 'タスクの進め方を担当に相談します。送るとこのタスクは「確認中」になり、回答が付くまで完了できません'}
-                  className={`inline-flex items-center gap-1.5 text-[12px] font-semibold rounded-lg px-3 py-1.5 transition-colors border ${
+                  // 「完了にする」の隣に並ぶ従のボタン。主と高さ・文字サイズを揃え、
+                  // 塗りを外して差を付ける。
+                  // 前は 12px・px-3 py-1.5 の琥珀の塗りで、主より一回り小さく色だけ強く、
+                  // 並べたときに背の高さが揃わないまま2つの色が競っていた。
+                  // 琥珀はこの画面では「進行中・注意」の色なので、確認を出す操作には使わない。
+                  className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold border transition-colors ${
                     review.pending > 0
-                      ? 'text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed'
-                      : 'text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100'}`}
+                      ? 'text-gray-300 bg-white border-gray-200 cursor-not-allowed'
+                      : 'text-gray-600 bg-white border-gray-300 hover:bg-gray-50 hover:text-gray-800'}`}
                 >
-                  <HelpCircle className="w-3.5 h-3.5" strokeWidth={2} />
                   担当に確認する
                 </button>
               )}
