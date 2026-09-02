@@ -17,11 +17,13 @@ export function useConfirmPendingCount(): number {
       const { data: cases } = await supabase.from('cases').select('id').eq('status', '対応中')
       const ids = ((cases ?? []) as { id: string }[]).map(c => c.id)
       if (ids.length === 0) { if (alive) setCount(0); return }
-      const [kos, acq, prop, fin] = await Promise.all([
+      const [kos, acq, prop, fin, inst] = await Promise.all([
         supabase.from('koseki_requests').select('acquirer,is_additional,additional_approved_at,request_check_requested_at,request_check_at,receipt_check_requested_at,receipt_check_at').in('case_id', ids),
         supabase.from('real_estate_acquisitions').select('item_type,is_additional,additional_approved_at,request_check_requested_at,request_check_at,receipt_check_requested_at,receipt_check_at').in('case_id', ids),
         supabase.from('real_estate_properties').select('is_additional,additional_approved_at,confirmed,confirm_requested_at').in('case_id', ids),
-        supabase.from('financial_assets').select('balance_confirmed,balance_confirm_requested_at,freeze_confirmed,freeze_confirm_requested_at').in('case_id', ids),
+        supabase.from('financial_assets').select('balance_confirm_requested_at,balance_confirmed').in('case_id', ids),
+        // 凍結確認は調査先（financial_institutions）が持つ（migration 271）
+        supabase.from('financial_institutions').select('freeze_confirm_requested_at,freeze_confirmed').in('case_id', ids),
       ])
       let n = 0
       for (const r of ((kos.data ?? []) as Array<Record<string, unknown>>)) {
@@ -42,6 +44,8 @@ export function useConfirmPendingCount(): number {
       }
       for (const r of ((fin.data ?? []) as Array<Record<string, unknown>>)) {
         if (r.balance_confirm_requested_at && !r.balance_confirmed) n++
+      }
+      for (const r of ((inst.data ?? []) as Array<Record<string, unknown>>)) {
         if (r.freeze_confirm_requested_at && !r.freeze_confirmed) n++
       }
       if (alive) setCount(n)

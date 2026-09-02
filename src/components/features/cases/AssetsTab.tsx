@@ -19,13 +19,18 @@ import ProgressSummary from './ProgressSummary'
 import TabHeader from './TabHeader'
 import { WorkContentField } from './WorkContentField'
 import TabTasksSection from './TabTasksSection'
-import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, ContractDocumentRow, RealEstateAcquisitionRow, TaskRow, AssetInventoryRow, CaseOtherAssetRow, HeirRow } from '@/types'
+import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow, ContractDocumentRow, RealEstateAcquisitionRow, TaskRow, AssetInventoryRow, CaseOtherAssetRow, HeirRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
 type Props = {
   caseData: CaseRow
   properties: RealEstatePropertyRow[]
   financialAssets: FinancialAssetRow[]
+  /** 金融財産調査：調査先／請求／請求明細／銘柄（migration 271）。実務タブの金融セクションが使う */
+  financialInstitutions?: FinancialInstitutionRow[]
+  financialRequests?: FinancialRequestRow[]
+  financialRequestItems?: FinancialRequestItemRow[]
+  securitiesHoldings?: SecuritiesHoldingRow[]
   onRefresh: () => void
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
   // オーダーシート埋め込み時は金融機関表の「請求日・到着日」を出さない
@@ -79,7 +84,7 @@ const SUBTABS_FULL: { key: string; label: string }[] = [
   ...ASSET_SUBTABS, ...OTHER_SUBTABS, { key: 'inventory', label: '財産目録' },
 ]
 
-export default function AssetsTab({ caseData, properties, financialAssets, assetInventory = [], onRefresh, patchCase, orderSheetMode = false, showKinds, showOtherKinds, hideSummary = false, contractDocuments = [], acquisitions = [], documentReceipts = [], tasks = [], otherAssets = [], heirs = [] }: Props) {
+export default function AssetsTab({ caseData, properties, financialAssets, financialInstitutions = [], financialRequests = [], financialRequestItems = [], securitiesHoldings = [], assetInventory = [], onRefresh, patchCase, orderSheetMode = false, showKinds, showOtherKinds, hideSummary = false, contractDocuments = [], acquisitions = [], documentReceipts = [], tasks = [], otherAssets = [], heirs = [] }: Props) {
   // 表示する種別のフィルタ (orderSheetMode の分割表示時のみ使用)
   const kindOn = (k: 'realestate' | 'deposit' | 'securities' | 'trust' | 'insurance') => !showKinds || showKinds.includes(k)
   const save = async (field: string, value: unknown) => {
@@ -243,7 +248,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
               <FinancialAssetsTable caseId={caseData.id} kind="預貯金" assets={financialAssets} onRefresh={onRefresh} progressMode={false} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} contractDocs={finContractDocs} />
             </>
           ) : (
-            <FinancialSection caseId={caseData.id} kind="預貯金" scopePrefix="asset_deposit" assets={financialAssets} onRefresh={onRefresh} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} contractDocs={finContractDocs} focus={focus} />
+            <FinancialSection caseId={caseData.id} kind="預貯金" scopePrefix="asset_deposit" assets={financialAssets} institutions={financialInstitutions} requests={financialRequests} requestItems={financialRequestItems} holdings={securitiesHoldings} caseData={caseData} patchCase={patchCase} onRefresh={onRefresh} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} contractDocs={finContractDocs} focus={focus} />
           )}
         </div>
         <div className={showSecurities ? 'space-y-3' : 'hidden'}>
@@ -253,7 +258,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
               <FinancialAssetsTable caseId={caseData.id} kind="証券" assets={financialAssets} onRefresh={onRefresh} progressMode={false} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
             </>
           ) : (
-            <FinancialSection caseId={caseData.id} kind="証券" scopePrefix="asset_securities" assets={financialAssets} onRefresh={onRefresh} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} focus={focus} />
+            <FinancialSection caseId={caseData.id} kind="証券" scopePrefix="asset_securities" assets={financialAssets} institutions={financialInstitutions} requests={financialRequests} requestItems={financialRequestItems} holdings={securitiesHoldings} caseData={caseData} patchCase={patchCase} onRefresh={onRefresh} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} focus={focus} />
           )}
         </div>
         <div className={showTrust ? 'space-y-3' : 'hidden'}>
@@ -263,7 +268,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, asset
               <FinancialAssetsTable caseId={caseData.id} kind="信託銀行" assets={financialAssets} onRefresh={onRefresh} progressMode={false} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
             </>
           ) : (
-            <FinancialSection caseId={caseData.id} kind="信託銀行" scopePrefix="asset_trust" assets={financialAssets} onRefresh={onRefresh} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} focus={focus} />
+            <FinancialSection caseId={caseData.id} kind="信託銀行" scopePrefix="asset_trust" assets={financialAssets} institutions={financialInstitutions} requests={financialRequests} requestItems={financialRequestItems} holdings={securitiesHoldings} caseData={caseData} patchCase={patchCase} onRefresh={onRefresh} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} focus={focus} />
           )}
         </div>
         <div className={showInsurance ? 'space-y-3' : 'hidden'}>

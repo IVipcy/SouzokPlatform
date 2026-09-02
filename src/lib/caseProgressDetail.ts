@@ -14,12 +14,13 @@
 //   済／未着手
 
 import { bizDaysOverdue } from '@/lib/overdue'
-import { isSurveyBanActive } from '@/lib/financialBan'
+import { evaluateInstitution, sealCertificateStatus } from '@/lib/financialWorkflow'
 import { stripGyomu } from '@/lib/kotei'
 import { normalizeTaskStatus } from '@/lib/taskReadiness'
 import { registrationTax } from '@/lib/registrationTax'
 import type {
   TaskRow, KosekiRequestRow, RealEstateAcquisitionRow, RealEstatePropertyRow, FinancialAssetRow,
+  FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow, CaseRow,
 } from '@/types'
 
 export type Stand = 'late' | 'wait' | 'prog' | 'done' | 'todo'
@@ -69,9 +70,20 @@ export function buildProgressDetail(input: {
   acquisitions: RealEstateAcquisitionRow[]
   properties: RealEstatePropertyRow[]
   financialAssets: FinancialAssetRow[]
+  /** 金融財産調査（migration 271）。調査先ごとの状態は financialWorkflow が出す */
+  financialInstitutions?: FinancialInstitutionRow[]
+  financialRequests?: FinancialRequestRow[]
+  financialRequestItems?: FinancialRequestItemRow[]
+  securitiesHoldings?: SecuritiesHoldingRow[]
+  caseData?: Pick<CaseRow, 'seal_cert_oldest_issue_date' | 'seal_cert_validity_months' | 'seal_cert_custom_expiry'>
   today: string
 }): ProgressDetail {
   const { tasks, kosekiRequests, acquisitions, properties, financialAssets, today } = input
+  const institutions = input.financialInstitutions ?? []
+  const finRequests = input.financialRequests ?? []
+  const finItems = input.financialRequestItems ?? []
+  const holdings = input.securitiesHoldings ?? []
+  const seal = sealCertificateStatus(input.caseData ?? { seal_cert_oldest_issue_date: null, seal_cert_validity_months: null, seal_cert_custom_expiry: null }, today)
 
   // 期限超過タスク（未完了のみ）。業務ごとに配る。
   const open = tasks.filter(t => normalizeTaskStatus(t.status) !== '完了')
@@ -148,44 +160,43 @@ export function buildProgressDetail(input: {
   })
   push({ key: 'properties', title: '不動産（物件の評価額）', columns: ['種別', '所在', '評価額', '登録免許税（概算）'], rows: propRows, overdue: [] })
 
-  // ── 金融資産：銀行ごとに、止まっている理由まで ──
-  const finRows: DetailRow[] = financialAssets.map(f => {
-    const inst = (f.institution_name ?? '').trim() || '金融機関未設定'
-    const banned = isSurveyBanActive(f, today)
-    const banNote = f.survey_prohibited_method === '期間指定'
-      ? (f.survey_prohibited_end ? `${md(f.survey_prohibited_end)}まで` : '期間指定')
-      : 'お客様の連絡待ち'
+  // ── 金融資産：調査先ごとに、止まっている理由まで ──
+  // 状態は入力値から financialWorkflow が出す（画面の右上「次の対応」と同じ判定）。
+  const finRows: DetailRow[] = institutions.map(inst => {
+    const reqs = finRequests.filter(r => r.institution_id === inst.id)
+    const reqIds = new Set(reqs.map(r => r.id))
+    const ev = evaluateInstitution({
+      institution: inst, requests: reqs, items: finItems.filter(it => reqIds.has(it.request_id)),
+      holdings: holdings.filter(h => h.institution_id === inst.id), seal, today,
+    })
+    const accounts = financialAssets.filter(a => a.institution_id === inst.id)
+    const balance = accounts.reduce((sum, a) => sum + (a.balance_amount ?? 0), 0)
+    const allConfirmed = accounts.length > 0 && accounts.every(a => a.balance_confirmed)
     let stand: Stand = 'todo'
     let note: string | undefined
-    if (f.balance_confirmed) stand = 'done'
-    else if (banned) {
-      stand = 'wait'; note = `調査禁止 ${banNote}`
-      wait('金融資産', inst, note)
-    } else if (f.freeze_confirm_requested_at && !f.freeze_confirmed) {
+    if (ev.status === '完了') stand = 'done'
+    else if (ev.status === '調査禁止中' || ev.status === '請求中' || (ev.waiting && ev.pending.length === 0)) {
+      stand = 'wait'; note = ev.waiting ?? ev.next
+      wait('金融資産', inst.name, note)
+    } else if (inst.freeze_confirm_requested_at && !inst.freeze_confirmed) {
       stand = 'wait'; note = '管理担当の凍結確認待ち'
-      wait('金融資産', inst, note)
-    } else if (f.request_date && !f.arrival_date) {
-      stand = 'wait'; note = `請求から${daysFrom(f.request_date, today)}日`
-      wait('金融資産', inst, note)
-    } else if (f.balance_confirm_requested_at) {
-      stand = 'wait'; note = '管理担当の残高確定待ち'
-      wait('金融資産', inst, note)
-    } else if (f.arrival_date || f.survey_result || f.freeze_confirmed) stand = 'prog'
+      wait('金融資産', inst.name, note)
+    } else if (ev.status === '未着手') stand = 'todo'
+    else stand = 'prog'
+    if (ev.status === '要確認') note = ev.next
     return {
-      id: f.id,
+      id: inst.id,
       cells: [
-        inst,
-        f.account_type,
-        banned ? banNote : null,
-        f.freeze_confirmed ? '確認済' : f.freeze_confirm_requested_at ? '依頼中' : null,
-        md(f.request_date),
-        md(f.arrival_date),
-        f.balance_amount != null ? `${yen(f.balance_amount)}${f.balance_confirmed ? '（確定）' : ''}` : null,
+        inst.name,
+        inst.kind,
+        ev.next,
+        inst.kind === 'ほふり' || inst.kind === '株主名簿管理人' ? null : (inst.freeze_confirmed ? '確認済' : inst.freeze_confirm_requested_at ? '依頼中' : null),
+        accounts.length > 0 ? `${yen(balance)}${allConfirmed ? '（確定）' : ''}` : null,
       ],
       stand, note,
     }
   })
-  push({ key: 'finance', title: '金融資産', columns: ['金融機関', '種別', '調査禁止', '凍結確認', '資料請求', '到着', '残高'], rows: finRows, overdue: overdueOf(['金融資産']) })
+  push({ key: 'finance', title: '金融資産', columns: ['調査先', '種別', '次の対応', '凍結確認', '残高'], rows: finRows, overdue: overdueOf(['金融資産']) })
 
   // ── 解約手続（解約に着手した口座があるときだけ出す） ──
   const cancelTargets = financialAssets.filter(f => f.cancellation_request_date || f.cancellation_done || f.cancellation_result)

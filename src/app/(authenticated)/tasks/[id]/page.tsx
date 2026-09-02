@@ -72,12 +72,13 @@ export default async function TaskDetailPage({ params }: Props) {
     supabase.from('heirs').select('*').eq('case_id', caseId).order('sort_order').order('created_at').order('id'),
     supabase.from('real_estate_properties').select('*').eq('case_id', caseId),
     supabase.from('contract_documents').select('*').eq('case_id', caseId).order('sort_order', { ascending: true }).order('created_at'),
-    supabase.from('financial_assets').select('institution_name, freeze_confirmed').eq('case_id', caseId),
+    // 凍結確認は調査先（financial_institutions）が持つ（migration 271）。cancel:{機関名} と名前で突き合わせる
+    supabase.from('financial_institutions').select('name, freeze_confirmed').eq('case_id', caseId),
   ])
 
   // 解約タスクの着手ハード制限：機関単位で判定（cancel:{機関名}はその機関の口座だけを見る）。
   // 案件全体で判定すると、別口座（禁止期間中で未凍結 等）が原因で凍結済の機関の解約まで止まってしまう。
-  const financeAssets = (financeResult.data ?? []) as Array<{ institution_name: string | null; freeze_confirmed: boolean | null }>
+  const financeAssets = ((financeResult.data ?? []) as Array<{ name: string; freeze_confirmed: boolean | null }>).map(i => ({ institution_name: i.name, freeze_confirmed: i.freeze_confirmed }))
   const financeFreezeBlocked = isTaskFreezeBlocked(task, financeAssets)
 
   // 依存関係に関連タスク情報を付与

@@ -74,7 +74,8 @@ export async function loadNextCandidates(caseId: string): Promise<NextCandidate[
     supabase.from('koseki_requests').select('target_person, relation_koseki_done').eq('case_id', caseId),
     supabase.from('heirs').select('name, is_client').eq('case_id', caseId),
     supabase.from('real_estate_properties').select('municipality, address').eq('case_id', caseId),
-    supabase.from('financial_assets').select('institution_name, acquirer, freeze_confirmed, survey_prohibited_designation, survey_prohibited_method, survey_prohibited_start, survey_prohibited_end, prohibition_released_at').eq('case_id', caseId),
+    // 調査禁止・凍結・取得区分は調査先（financial_institutions）が持つ（migration 271）
+    supabase.from('financial_institutions').select('name, kind, acquirer, freeze_confirmed, survey_prohibited_designation, survey_prohibited_method, survey_prohibited_start, survey_prohibited_end, prohibition_released_at').eq('case_id', caseId),
     supabase.from('tasks').select('source_rid').eq('case_id', caseId),
   ])
 
@@ -119,30 +120,22 @@ export async function loadNextCandidates(caseId: string): Promise<NextCandidate[
   const kosekiOkForFin = state.deceasedRelationDone || state.clientRelationDone
   if (kosekiOkForFin) {
     const why = state.deceasedRelationDone ? '被相続人の関係戸籍が揃ったため' : '依頼者の関係戸籍が揃ったため'
-    type Fin = {
-      institution_name: string | null; acquirer: string | null; freeze_confirmed: boolean | null
+    type Inst = {
+      name: string; kind: string; acquirer: string | null; freeze_confirmed: boolean | null
       survey_prohibited_designation: string | null; survey_prohibited_method: string | null
       survey_prohibited_start: string | null; survey_prohibited_end: string | null; prohibition_released_at: string | null
     }
-    // 機関ごとにまとめる。1つでも止まっていない口座があれば、その機関は動かせる。
-    const byInst = new Map<string, Fin[]>()
-    for (const a of (fins ?? []) as Fin[]) {
-      const nm = (a.institution_name ?? '').trim()
-      if (!nm) continue
-      byInst.set(nm, [...(byInst.get(nm) ?? []), a])
-    }
-    for (const [inst, accounts] of [...byInst].sort((a, b) => a[0].localeCompare(b[0], 'ja'))) {
-      const usable = accounts.filter(a => !isSurveyOnHold(a))
-      if (usable.length === 0) continue                       // 全部お客様の指定で止まっている
-      const own = usable.some(a => (a.acquirer ?? '自社') !== '依頼者')
-      if (own) {
-        const rid = `fin:${inst}`
-        if (!have.has(rid)) out.push({ rid, title: `資料請求（全店調査・残高・経過利息）：${inst}`, gyomu: '金融資産', why })
-        // 凍結依頼は「銀行書類の手配」と同じ電話でやるので1本にまとめる（解約書類を別タスクにしない）。
-        if (!usable.every(a => a.freeze_confirmed)) {
-          const frid = `fin-freeze:${inst}`
-          if (!have.has(frid)) out.push({ rid: frid, title: `凍結依頼・銀行書類手配：${inst}`, gyomu: '金融資産', why })
-        }
+    const insts = ((fins ?? []) as Inst[]).filter(i => (i.kind === '預金' || i.kind === '証券') && (i.name ?? '').trim())
+    for (const a of [...insts].sort((x, y) => x.name.localeCompare(y.name, 'ja'))) {
+      if (isSurveyOnHold(a)) continue                          // お客様の指定で止まっている
+      if ((a.acquirer ?? '自社') === '依頼者') continue        // 依頼者取得の機関は請求タスクを出さない
+      const inst = a.name.trim()
+      const rid = `fin:${inst}`
+      if (!have.has(rid)) out.push({ rid, title: `資料請求（全店調査・残高・経過利息）：${inst}`, gyomu: '金融資産', why })
+      // 凍結依頼は「銀行書類の手配」と同じ電話でやるので1本にまとめる（解約書類を別タスクにしない）。
+      if (!a.freeze_confirmed) {
+        const frid = `fin-freeze:${inst}`
+        if (!have.has(frid)) out.push({ rid: frid, title: `凍結依頼・銀行書類手配：${inst}`, gyomu: '金融資産', why })
       }
     }
   }

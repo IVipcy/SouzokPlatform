@@ -90,17 +90,8 @@ export function buildDeliverableOptions(
     for (const a of financialAssets) {
       const group = FA_GROUP[a.asset_type] ?? a.asset_type
       const name = a.institution_name || '(名称未入力)'
-      // 受領日が入っている＝受信済は候補から除外
-      if (gate('金融資産') && !a.arrival_date) {
-        opts.push({
-          value: `financial_asset:${a.id}:arrival_date`,
-          label: `${name} 残高証明等（調査）`,
-          group,
-          kind: 'financial_asset',
-          id: a.id,
-          field: 'arrival_date',
-        })
-      }
+      // 残高証明等の到着は口座ではなく請求明細（financial_request_items.arrival_date）に入る（migration 271）。
+      // 受信簿との紐づけは段階3で請求明細へ付け替える。ここでは解約書類だけ出す。
       // 解約書類の受領（解約有が選択され、かつ未受領の機関のみ）
       if (gate('解約') && a.cancellation_required === '有' && !a.cancellation_arrival_date) {
         opts.push({

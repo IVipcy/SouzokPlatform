@@ -48,7 +48,8 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
       const [ko, cs, fa] = await Promise.all([
         supabase.from('koseki_requests').select('read_status').eq('case_id', caseId),
         supabase.from('cases').select('family_tree_obtain_date').eq('id', caseId).single(),
-        supabase.from('financial_assets').select('institution_name, freeze_confirmed').eq('case_id', caseId),
+        // 凍結確認は調査先（financial_institutions）が持つ（migration 271）
+        supabase.from('financial_institutions').select('name, freeze_confirmed').eq('case_id', caseId),
       ])
       if (!alive) return
       const rows = (ko.data ?? []) as Array<{ read_status: string | null }>
@@ -59,7 +60,7 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
           partial: rows.filter(r => r.read_status === '一部不足').length,
         },
         hasLegalInfo: !!(cs.data as { family_tree_obtain_date: string | null } | null)?.family_tree_obtain_date,
-        assets: (fa.data ?? []) as Array<{ institution_name: string | null; freeze_confirmed: boolean | null }>,
+        assets: ((fa.data ?? []) as Array<{ name: string; freeze_confirmed: boolean | null }>).map(i => ({ institution_name: i.name, freeze_confirmed: i.freeze_confirmed })),
       })
     })()
     return () => { alive = false }

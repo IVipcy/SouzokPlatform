@@ -9,7 +9,7 @@ import TabHeader from './TabHeader'
 import TabTasksSection from './TabTasksSection'
 import { WorkContentField } from './WorkContentField'
 import CancellationSection from './CancellationSection'
-import type { FinancialAssetRow, CaseRow, TaskRow } from '@/types'
+import type { FinancialAssetRow, FinancialInstitutionRow, CaseRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 import { PriorityCell } from './PracticeTableCells'
 import { cancelOptionsOf } from '@/lib/constants'
@@ -26,6 +26,8 @@ type Props = {
   caseId?: string
   caseData?: CaseRow
   financialAssets: FinancialAssetRow[]
+  /** 調査先（凍結確認の有無を見る。migration 271） */
+  financialInstitutions?: FinancialInstitutionRow[]
   onRefresh?: () => void
   // 受信簿（解約書類の受領→着手タスクへの「関連タスク」リンク用）
   receipts?: TimelineReceipt[]
@@ -41,7 +43,7 @@ type Props = {
  * オーダーシートでは解約有無・備考のみ（予定日は手続き後半で決まるため持たない）。実績の解約完了日は実務タブで入力。
  * 解約書類の請求・到着は財産調査／受信簿の領分のため持たず、受領状況は read-only バッジで参照する。
  */
-export default function CancellationTab({ caseId, caseData, financialAssets, onRefresh, receipts = [], tasks = [], orderSheetMode = false }: Props) {
+export default function CancellationTab({ caseId, caseData, financialAssets, financialInstitutions = [], onRefresh, receipts = [], tasks = [], orderSheetMode = false }: Props) {
   const supabase = createClient()
   const searchParams = useSearchParams()
   const focus = searchParams.get('focus')
@@ -134,7 +136,7 @@ export default function CancellationTab({ caseId, caseData, financialAssets, onR
 
       {!orderSheetMode && caseId ? (
         // 案件詳細（実務）：金融機関単位の左レール＋カード
-        <CancellationSection caseId={caseId} financialAssets={financialAssets} onRefresh={onRefresh} receipts={receipts} tasks={tasks} focus={focus} />
+        <CancellationSection caseId={caseId} financialAssets={financialAssets} institutions={financialInstitutions} onRefresh={onRefresh} receipts={receipts} tasks={tasks} focus={focus} />
       ) : (
         // オーダーシート：預貯金／証券／信託の解約をサブタブ廃止で全展開（登録が無い種別は出さない）
         <div className="space-y-4">

@@ -11,15 +11,17 @@ import { showToast } from '@/components/ui/Toast'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import ProgressSummary from './ProgressSummary'
 import { LeftRail } from './LeftRail'
-import type { FinancialAssetRow, TaskRow } from '@/types'
+import type { FinancialAssetRow, FinancialInstitutionRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 import { cancelOptionsOf } from '@/lib/constants'
 
 const collator = new Intl.Collator('ja')
 
-export default function CancellationSection({ caseId, financialAssets, onRefresh, focus }: {
+export default function CancellationSection({ caseId, financialAssets, institutions: institutionRows = [], onRefresh, focus }: {
   caseId: string
   financialAssets: FinancialAssetRow[]
+  /** 調査先。凍結確認（解約のゲート）は口座ではなく調査先が持つ（migration 271） */
+  institutions?: FinancialInstitutionRow[]
   onRefresh?: () => void
   receipts?: TimelineReceipt[]
   tasks?: TaskRow[]
@@ -41,6 +43,11 @@ export default function CancellationSection({ caseId, financialAssets, onRefresh
   }
 
   const instRows = (inst: string) => rows.filter(r => (r.institution_name ?? '').trim() === inst)
+  // その口座の調査先が凍結確認済みか。調査先が見つからない口座は止めない（解約だけ登録した機関もある）
+  const freezeOk = (r: FinancialAssetRow) => {
+    const inst = institutionRows.find(i => i.id === r.institution_id) ?? institutionRows.find(i => i.name.trim() === (r.institution_name ?? '').trim())
+    return inst ? inst.freeze_confirmed : true
+  }
 
   // 受信済＝解約書類を受信簿で受領（cancellation_arrival_date）
   const instReceived = (inst: string) => instRows(inst).some(r => !!r.cancellation_arrival_date)
@@ -110,7 +117,7 @@ export default function CancellationSection({ caseId, financialAssets, onRefresh
                       </tr>
                     </thead>
                     <tbody>
-                      {instRows(activeInst).map((r, i) => { const locked = !r.freeze_confirmed; const lock = locked ? 'pointer-events-none opacity-50' : ''; return (
+                      {instRows(activeInst).map((r, i) => { const locked = !freezeOk(r); const lock = locked ? 'pointer-events-none opacity-50' : ''; return (
                         <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 ${locked ? 'bg-gray-100/60' : i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                           <td className="px-2.5 py-1.5 font-medium text-gray-800">{r.branch_name || r.stock_name || <span className="text-gray-300">—</span>}</td>
                           <td className="px-2.5 py-1.5">

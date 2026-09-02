@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { normalizeTaskStatus, getStartSignal, isWaitingReceipt, type ReadinessReceipt } from '@/lib/taskReadiness'
 import { KoteiBadge, GyomuBadge } from '@/components/ui/KoteiBadge'
-import type { TaskRow, FinancialAssetRow } from '@/types'
+import type { TaskRow, FinancialInstitutionRow } from '@/types'
 
 /**
  * 案件詳細・タスクタブの事務管理タスクのテーブルビュー。
@@ -35,13 +35,14 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
   const [bulkDate, setBulkDate] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirmDel, setConfirmDel] = useState(false)
-  // 金融資産（案件分）を先読みして、タスク行のゲート（禁止期間中/凍結未確認）を一覧で先出しする。
-  const [assets, setAssets] = useState<FinancialAssetRow[]>([])
+  // 調査先（金融機関）を先読みして、タスク行のゲート（禁止期間中/凍結未確認）を一覧で先出しする。
+  // 調査禁止・凍結確認は口座ではなく調査先が持つ（migration 271）。
+  const [assets, setAssets] = useState<Array<Pick<FinancialInstitutionRow, 'name' | 'survey_prohibited_end' | 'survey_prohibited_reason' | 'freeze_confirmed'>>>([])
   useEffect(() => {
     const caseId = tasks[0]?.case_id
     if (!caseId) return
-    createClient().from('financial_assets').select('*').eq('case_id', caseId)
-      .then(({ data }) => setAssets((data ?? []) as FinancialAssetRow[]))
+    createClient().from('financial_institutions').select('name, survey_prohibited_end, survey_prohibited_reason, freeze_confirmed').eq('case_id', caseId)
+      .then(({ data }) => setAssets((data ?? []) as Array<Pick<FinancialInstitutionRow, 'name' | 'survey_prohibited_end' | 'survey_prohibited_reason' | 'freeze_confirmed'>>))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks[0]?.case_id])
   // タスクのゲート状態を判定：
@@ -54,7 +55,7 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
     const fm = rid.match(/^fin(?:-read)?:(.+)$/)
     if (fm) {
       const bank = fm[1]
-      const accts = assets.filter(a => a.institution_name === bank)
+      const accts = assets.filter(a => a.name === bank)
       const bannedNow = accts.find(a => a.survey_prohibited_end && a.survey_prohibited_end > today)
       if (bannedNow) return { state: 'locked', reason: `禁止期間中〜${(bannedNow.survey_prohibited_end ?? '').slice(5).replace('-', '/')}` }
       const pastProhibition = accts.find(a => (a.survey_prohibited_end && a.survey_prohibited_end <= today) || (a.survey_prohibited_reason ?? '').trim())
@@ -65,7 +66,7 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
     const cm = rid.match(/^cancel:(.+)$/)
     if (cm) {
       const bank = cm[1]
-      const accts = assets.filter(a => a.institution_name === bank)
+      const accts = assets.filter(a => a.name === bank)
       if (accts.some(a => !a.freeze_confirmed)) return { state: 'locked', reason: '凍結確認待ち' }
       return { state: 'none', reason: '' }
     }
@@ -137,9 +138,9 @@ export default function CaseTaskTableView({ tasks, today, onAdvance, loadingTask
     if (!m) { void applyReady(t, 'manual'); return }
     const bankName = m[1]
     const supabase = createClient()
-    const { data } = await supabase.from('financial_assets')
+    const { data } = await supabase.from('financial_institutions')
       .select('survey_prohibited_end,survey_prohibited_reason')
-      .eq('case_id', t.case_id).eq('institution_name', bankName).limit(1).maybeSingle()
+      .eq('case_id', t.case_id).eq('name', bankName).limit(1).maybeSingle()
     const endDate = (data?.survey_prohibited_end as string | null) ?? null
     const reason = ((data?.survey_prohibited_reason as string | null) ?? '').trim()
     if (!endDate && !reason) { void applyReady(t, 'manual'); return }

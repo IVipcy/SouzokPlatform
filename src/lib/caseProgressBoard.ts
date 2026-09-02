@@ -37,8 +37,9 @@ function statusOfTasks(tasks: TaskRow[], gyomu: string): ItemStatus {
 }
 function statusOfFinType(assets: FinancialAssetRow[]): ItemStatus {
   if (!assets.length) return 'todo'
-  const done = (a: FinancialAssetRow) => !!a.balance_confirmed || !!a.survey_result || !!a.arrival_date
-  const prog = (a: FinancialAssetRow) => !!a.request_date || !!a.arrival_date || !!a.survey_result || !!a.balance_confirmed
+  // 請求・到着は口座ではなく請求（financial_requests）が持つようになった。口座の表からは残高で見る
+  const done = (a: FinancialAssetRow) => !!a.balance_confirmed || !!a.survey_result
+  const prog = (a: FinancialAssetRow) => a.balance_amount != null || !!a.survey_result || !!a.balance_confirmed
   if (assets.every(done)) return 'done'
   if (assets.some(prog)) return 'prog'
   return 'todo'

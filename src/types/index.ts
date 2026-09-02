@@ -95,6 +95,11 @@ export type CaseRow = {
   deceased_postal_code: string | null   // 被相続人 郵便番号（migration 101）
   deceased_address: string | null
   deceased_registered_address: string | null
+  // 印鑑登録証明書は案件に1つ（原本は1通なので所在で持つ。migration 271）
+  seal_cert_oldest_issue_date: string | null
+  seal_cert_validity_months: number | null   // 3 / 6 / null=個別指定
+  seal_cert_custom_expiry: string | null
+  seal_cert_original_location: string | null
   // 遺産分割
   division_policy: string | null
   division_proposal: string | null
@@ -611,7 +616,13 @@ export type HeirRow = {
 export type SecuritiesHoldingRow = {
   id: string
   case_id: string
-  financial_asset_id: string
+  financial_asset_id: string | null   // 証券会社は口座を持たないので任意（migration 271）
+  institution_id: string | null       // 調査先（証券会社）
+  code: string | null                 // 銘柄コード
+  kind: string | null                 // 国内株式 / ETF・REIT / 投資信託 / 債券 / 外国証券 / その他
+  administrator: string | null        // 株主名簿管理人（正規化後）
+  admin_status: string                // 未特定 / 特定済 / 対象外
+  request_need: string                // 未判断 / 請求要 / 請求不要
   brand_name: string | null   // 銘柄名
   quantity: number | null     // 株数・口数
   unit_price: number | null   // 1株（1口）あたり評価額
@@ -620,6 +631,107 @@ export type SecuritiesHoldingRow = {
   note: string | null
   sort_order: number
   created_at: string
+}
+
+// === 金融財産調査：調査先／請求／請求明細（migration 271） ===
+export type FinancialInstitutionKind = '預金' | '証券' | '株主名簿管理人' | 'ほふり'
+
+export type FinancialInstitutionRow = {
+  id: string
+  case_id: string
+  kind: FinancialInstitutionKind
+  name: string
+  branch_name: string | null
+  institution_code: string | null
+  acquirer: string                     // 自社 / 依頼者
+  sort_order: number
+  notes: string | null
+  // 01 凍結／死亡連絡
+  freeze_required: boolean
+  freeze_date: string | null
+  freeze_confirmed: boolean
+  freeze_confirmed_by: string | null
+  freeze_confirmed_at: string | null
+  freeze_confirmed_name: string | null
+  freeze_confirm_requested_at: string | null
+  freeze_confirm_requested_by: string | null
+  // 02 依頼書
+  form_required: boolean
+  form_source: string                  // 未確認 / 金融機関へ請求 / 社内在庫
+  form_request_date: string | null
+  form_arrival_date: string | null
+  form_stock_date: string | null
+  // 03 全店調査
+  search_required: boolean
+  search_method: string                // 未確認 / 電話回答 / 要原本確認 / 要請求
+  search_submission_method: string     // 未確認 / 郵送 / 来店
+  search_responder: string | null
+  search_request_date: string | null
+  search_answer_date: string | null
+  search_targets: string[]
+  search_all_accounts_registered: boolean
+  // 04 対応方法
+  handling_method: string              // 未確認 / 郵送 / 来店
+  method_confirm_date: string | null
+  visit_date: string | null
+  visit_prep_done_at: string | null
+  visit_prep_done_by: string | null
+  // 調査禁止指定
+  survey_prohibited_designation: string | null
+  survey_prohibited_method: string | null
+  survey_prohibited_start: string | null
+  survey_prohibited_end: string | null
+  survey_prohibited_reason: string | null
+  prohibition_released_at: string | null
+  // ほふり
+  jasdec_company_known: string | null
+  jasdec_request_date: string | null
+  jasdec_arrival_date: string | null
+  jasdec_searched_addresses: string | null
+  jasdec_result_institutions: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type FinancialRequestRow = {
+  id: string
+  case_id: string
+  institution_id: string
+  request_date: string | null          // 空＝請求準備中
+  notes: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export type FinancialRequestItemRow = {
+  id: string
+  case_id: string
+  request_id: string
+  doc_type: string
+  balance_date: string | null
+  balance_recent: boolean
+  history_start: string | null
+  history_end: string | null
+  arrival_date: string | null
+  irregular_status: string             // 正常 / 要確認 / 再請求中
+  irregular_type: string | null
+  irregular_note: string | null
+  follow_up_deadline: string | null
+  re_request_date: string | null
+  re_request_deadline: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+  /** 明細×口座（select で join したとき） */
+  financial_request_item_accounts?: FinancialRequestItemAccountRow[]
+  financial_request_item_holdings?: { holding_id: string }[]
+}
+
+export type FinancialRequestItemAccountRow = {
+  item_id: string
+  asset_id: string
+  amount: number | null
 }
 
 // === 戸籍請求（請求単位） ===
@@ -881,6 +993,7 @@ export type RealEstateAcquisitionRow = {
 export type FinancialAssetRow = {
   id: string
   case_id: string
+  institution_id: string | null   // 調査先（financial_institutions）。migration 271
   // 優先度（通常/急ぎ/超急ぎ。migration 265）。資料の取得と解約は同じ行を見ているので別々に持つ
   survey_priority: string | null
   cancel_priority: string | null
@@ -895,8 +1008,6 @@ export type FinancialAssetRow = {
   account_type: string | null                 // 口座種別（普通/定期/当座/積立/貯蓄/その他。migration 187）
   required_docs: string[] | null
   existence_check: string | null
-  balance_cert_date: string | null
-  transaction_history_period: string | null
   safe_deposit_box: string | null
   dissolution_status: string | null
   passbook_status: string | null
@@ -926,25 +1037,10 @@ export type FinancialAssetRow = {
   survey_date: string | null                // 旧：調査基準日（任意指定時）
   balance_cert_on_death: boolean            // 残高証明を相続開始日で取る（migration 245）
   balance_cert_dates: string[] | null       // 残高証明の取得日（任意の日付・複数。migration 245）
-  survey_prohibited_start: string | null    // 財産調査禁止期間 開始日（口座単位。migration 162）
-  survey_prohibited_end: string | null      // 財産調査禁止期間 終了日（口座単位。migration 162）
-  survey_prohibited_reason: string | null   // 財産調査禁止理由（口座単位。migration 162）
-  survey_prohibited_designation: string | null // 調査禁止指定（指定なし/指定あり。migration 214）
-  survey_prohibited_method: string | null      // 禁止方法（期間指定/連絡待ち。migration 214）
-  prohibition_released_at: string | null       // 連絡待ちの解除日（お客様OK。migration 214）
   has_investment_trust: boolean                // 投信有無（預金・メモ。migration 214）
   has_safe_deposit: boolean                    // 貸金庫有無（預金・タスク生成。migration 214）
-  request_date: string | null               // 請求日（進捗）
-  arrival_date: string | null               // 到着日（進捗）
   acquirer: string | null                    // 取得区分（自社/依頼者。migration 085）
-  expected_arrival_date: string | null       // 到着予定日（見込み。migration 085）
   acquired_part: string | null               // 取得した受注区分パート（パート制。migration 129）
-  freeze_confirmed: boolean                   // 凍結確認済（migration 142。未確認だと金融タスク着手不可）
-  freeze_confirmed_by: string | null          // 凍結確認した管理担当
-  freeze_confirmed_at: string | null          // 凍結確認日時
-  freeze_confirmed_name: string | null        // 凍結確認者の氏名（ハンコ表示用。migration 189）
-  freeze_confirm_requested_at: string | null  // 凍結確認の依頼（依頼→確認モデル。migration 181）
-  freeze_confirm_requested_by: string | null
   balance_amount: number | null               // 残高/評価額（migration 143。目録・精算書へ）
   oc_transferred: boolean                      // オーシャンへ残高移管済（預金。精算書）
   survey_result: string | null                // 調査結果（migration 146）

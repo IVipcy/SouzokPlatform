@@ -98,7 +98,7 @@ const SOURCE_TABLE: Record<ConfirmAction, string> = {
   koseki_send: 'koseki_requests', koseki_recv: 'koseki_requests', koseki_approve: 'koseki_requests',
   re_send: 'real_estate_acquisitions', re_recv: 'real_estate_acquisitions', re_acq_approve: 'real_estate_acquisitions',
   re_confirm: 'real_estate_properties', re_prop_approve: 'real_estate_properties',
-  fin_confirm: 'financial_assets', fin_freeze: 'financial_assets',
+  fin_confirm: 'financial_assets', fin_freeze: 'financial_institutions',   // 凍結確認は調査先が持つ（migration 271）
 }
 const amountToNumber = (s: string | null): number | null => {
   if (!s) return null
@@ -201,7 +201,7 @@ export default function ConfirmClient({ items: initialItems, properties }: { ite
         case 'fin_confirm':
           await upd('financial_assets', it.rowId, { balance_confirmed: true, balance_confirmed_by: meId, balance_confirmed_at: at, balance_confirmed_name: meName }); break
         case 'fin_freeze':
-          await upd('financial_assets', it.rowId, { freeze_confirmed: true, freeze_confirmed_by: meId, freeze_confirmed_at: at, freeze_confirmed_name: meName }); break
+          await upd('financial_institutions', it.rowId, { freeze_confirmed: true, freeze_confirmed_by: meId, freeze_confirmed_at: at, freeze_confirmed_name: meName }); break
         case 'koseki_approve':
           await upd('koseki_requests', it.rowId, { additional_approved_by: meId, additional_approved_at: at })
           await genKosekiTasks(it); break

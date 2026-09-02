@@ -6,7 +6,7 @@ import type { TimelineReceipt } from '@/components/features/cases/CaseTimeline'
 import type { MemoLite } from '@/components/features/cases/MeetingMemoViewer'
 import { computeCaseAlerts } from '@/lib/alerts'
 import { overdueSeverity } from '@/lib/overdue'
-import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow, DivisionDetailRow, AgreementDispatchRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow, CaseFileRow, AssetInventoryRow, CaseOtherAssetRow } from '@/types'
+import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow, FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow, DivisionDetailRow, AgreementDispatchRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow, CaseFileRow, AssetInventoryRow, CaseOtherAssetRow } from '@/types'
 
 type Props = {
   params: Promise<{ id: string }>
@@ -17,7 +17,7 @@ export default async function CaseDetailPage({ params }: Props) {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
-  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, kosekiRequestsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult, invoicesResult, reportsResult, receiptsResult, statusHistoryResult, referralsResult, caseClientsResult, contractDocumentsResult, sagyoDocumentsResult, createdDocsResult, acquisitionsResult, agreementDispatchesResult, caseFilesResult, assetInventoryResult, rewardItemsResult, whiteboardMemosResult, otherAssetsResult] = await Promise.all([
+  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, kosekiRequestsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult, invoicesResult, reportsResult, receiptsResult, statusHistoryResult, referralsResult, caseClientsResult, contractDocumentsResult, sagyoDocumentsResult, createdDocsResult, acquisitionsResult, agreementDispatchesResult, caseFilesResult, assetInventoryResult, rewardItemsResult, whiteboardMemosResult, otherAssetsResult, financialInstitutionsResult, financialRequestsResult, financialRequestItemsResult, securitiesHoldingsResult] = await Promise.all([
     supabase
       .from('cases')
       .select('*, clients(*)')
@@ -119,6 +119,11 @@ export default async function CaseDetailPage({ params }: Props) {
     supabase.from('meeting_memos').select('id, image_path, image_bucket, section, created_at, meta').eq('case_id', id).in('section', ['whiteboard', 'memoPhoto']).order('created_at', { ascending: false }),
     // その他財産／相続債務／その他費用。migration 224 未適用環境では error → 空配列で degrade。
     supabase.from('case_other_assets').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
+    // 金融財産調査：調査先／請求／請求明細（明細×口座・明細×銘柄を join）／銘柄。migration 271。
+    supabase.from('financial_institutions').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
+    supabase.from('financial_requests').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
+    supabase.from('financial_request_items').select('*, financial_request_item_accounts(*), financial_request_item_holdings(holding_id)').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
+    supabase.from('securities_holdings').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
   ])
 
   if (caseResult.error || !caseResult.data) {
@@ -195,6 +200,10 @@ export default async function CaseDetailPage({ params }: Props) {
       advanceInvoiceIssued={advInvRows.some(r => !!r.issued_date || r.status === '入金待ち' || r.status === '入金済')}
       assetInventory={(assetInventoryResult.data ?? []) as AssetInventoryRow[]}
       otherAssets={(otherAssetsResult.data ?? []) as CaseOtherAssetRow[]}
+      financialInstitutions={(financialInstitutionsResult.data ?? []) as FinancialInstitutionRow[]}
+      financialRequests={(financialRequestsResult.data ?? []) as FinancialRequestRow[]}
+      financialRequestItems={(financialRequestItemsResult.data ?? []) as unknown as FinancialRequestItemRow[]}
+      securitiesHoldings={(securitiesHoldingsResult.data ?? []) as SecuritiesHoldingRow[]}
     />
   )
 }

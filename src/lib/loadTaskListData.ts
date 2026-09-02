@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { toReadinessReceipts, type ReadinessReceipt } from '@/lib/taskReadiness'
-import type { TaskRow, MemberRow, FinancialAssetRow } from '@/types'
+import type { TaskRow, MemberRow } from '@/types'
 
 type RawMember = { id: string; name: string; avatar_color: string; avatar_url: string | null }
 type CaseMemberInfo = RawMember
@@ -53,20 +53,22 @@ export async function loadTaskListData(): Promise<{
     supabase
       .from('document_receipts')
       .select('received_date, started_task_id, items:document_receipt_items(item_name, item_tasks:document_receipt_item_tasks(task:tasks(id)))'),
+    // 凍結確認は口座ではなく調査先（金融機関）が持つ（migration 271）
     supabase
-      .from('financial_assets')
-      .select('*'),
+      .from('financial_institutions')
+      .select('case_id, name, kind, freeze_confirmed'),
   ])
 
-  const financeAssets = (financeResult.data ?? []) as FinancialAssetRow[]
-  // 凍結未確認の口座を持つ案件ID
+  const institutions = ((financeResult.data ?? []) as Array<{ case_id: string; name: string; kind: string; freeze_confirmed: boolean }>)
+    .filter(i => i.kind === '預金' || i.kind === '証券')
+  // 凍結未確認の調査先を持つ案件ID
   const financeBlockedCaseIds = [...new Set(
-    financeAssets.filter(a => a.freeze_confirmed !== true).map(a => a.case_id),
+    institutions.filter(a => a.freeze_confirmed !== true).map(a => a.case_id),
   )]
-  // 案件ID→金融資産（解約タスクの機関単位ゲート用）
+  // 案件ID→調査先（解約タスクの機関単位ゲート用）。institution_name は cancel:{機関名} と突き合わせる鍵
   const freezeAssetsByCase: Record<string, Array<{ institution_name: string | null; freeze_confirmed: boolean | null }>> = {}
-  for (const a of financeAssets) {
-    ;(freezeAssetsByCase[a.case_id] ??= []).push({ institution_name: a.institution_name, freeze_confirmed: a.freeze_confirmed })
+  for (const a of institutions) {
+    ;(freezeAssetsByCase[a.case_id] ??= []).push({ institution_name: a.name, freeze_confirmed: a.freeze_confirmed })
   }
 
   type RawCaseRow = {

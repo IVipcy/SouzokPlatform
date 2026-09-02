@@ -62,7 +62,7 @@ import { GYOMU_TAB } from '@/lib/serviceMaster'
 import { getSelectableCaseStatuses, isContractProcDone, isContractDocsReceived } from '@/lib/constants'
 import { countReceiptsNeedingLink } from '@/lib/receiptLink'
 import type { TimelineReceipt, TimelineStatusEvent } from './CaseTimeline'
-import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow, DivisionDetailRow, AgreementDispatchRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow, CaseFileRow, AssetInventoryRow, CaseOtherAssetRow } from '@/types'
+import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow, FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow, DivisionDetailRow, AgreementDispatchRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow, CaseFileRow, AssetInventoryRow, CaseOtherAssetRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
@@ -75,6 +75,11 @@ type Props = {
   properties: RealEstatePropertyRow[]
   acquisitions?: RealEstateAcquisitionRow[]
   financialAssets: FinancialAssetRow[]
+  /** 金融財産調査：調査先／請求／請求明細／銘柄（migration 271） */
+  financialInstitutions?: FinancialInstitutionRow[]
+  financialRequests?: FinancialRequestRow[]
+  financialRequestItems?: FinancialRequestItemRow[]
+  securitiesHoldings?: SecuritiesHoldingRow[]
   assetInventory?: AssetInventoryRow[]
   otherAssets?: CaseOtherAssetRow[]
   divisionDetails: DivisionDetailRow[]
@@ -115,7 +120,7 @@ const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'progress', 'ownerSales
 // 管理担当の割振り依頼ポップを出すステータス。依頼確定待ちの段階から割り振っておく運用。
 const ASSIGN_PROMPT_STATUSES = new Set(['受注', '戻り受注', '作業着手準備', '検討中（契約書待ち）'])
 
-export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, acquisitions = [], financialAssets, assetInventory = [], otherAssets = [], divisionDetails, agreementDispatches = [], expenses, documents, clientCommunications, currentMemberId, viewerRole = null, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [], createdDocuments = [], caseFiles = [], reopenCount = 0, advancePaid = false, advanceInvoiceIssued = false, whiteboardMemos = [] }: Props) {
+export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, acquisitions = [], financialAssets, financialInstitutions = [], financialRequests = [], financialRequestItems = [], securitiesHoldings = [], assetInventory = [], otherAssets = [], divisionDetails, agreementDispatches = [], expenses, documents, clientCommunications, currentMemberId, viewerRole = null, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [], createdDocuments = [], caseFiles = [], reopenCount = 0, advancePaid = false, advanceInvoiceIssued = false, whiteboardMemos = [] }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tabFromUrl = (() => {
@@ -798,6 +803,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
             board={buildProgressBoard(caseState, tasks, financialAssets)}
             detail={buildProgressDetail({
               tasks, kosekiRequests, acquisitions, properties, financialAssets,
+              financialInstitutions, financialRequests, financialRequestItems, securitiesHoldings, caseData: caseState,
               today: new Date().toLocaleDateString('sv-SE'),
             })}
             dealName={caseState.deal_name ?? ''}
@@ -846,7 +852,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <ClientInfoTab caseData={caseState} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={handleSaved} caseClients={caseClients ?? []} allMembers={allMembers} currentMemberId={currentMemberId} salesMemberId={salesMemberId} />
       )}
       {effectiveTab === 'tasks' && (
-        <TasksTab tasks={tasks} allMembers={allMembers} currentMemberId={currentMemberId} onAddTask={addTaskModal.open} documentReceipts={documentReceipts} caseStatus={caseState.status} financeAssets={financialAssets} hideCaseTasks={isManagerViewer && caseState.status !== '作業着手準備'} />
+        <TasksTab tasks={tasks} allMembers={allMembers} currentMemberId={currentMemberId} onAddTask={addTaskModal.open} documentReceipts={documentReceipts} caseStatus={caseState.status} financeAssets={financialInstitutions.map(i => ({ institution_name: i.name, freeze_confirmed: i.freeze_confirmed }))} hideCaseTasks={isManagerViewer && caseState.status !== '作業着手準備'} />
       )}
       {effectiveTab === 'deceased' && (
         <DeceasedTab caseData={caseState} heirs={heirs} kosekiRequests={kosekiRequests} onRefresh={handleSaved} patchCase={patchCase} contractDocuments={contractDocuments} caseClients={caseClients} documentReceipts={documentReceipts} tasks={tasks} />
@@ -861,7 +867,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <SuccessionTab caseData={caseState} heirs={heirs} assetInventory={assetInventory} tasks={tasks} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'assets' && (
-        <AssetsTab caseData={caseState} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} assetInventory={assetInventory} otherAssets={otherAssets} heirs={heirs} onRefresh={handleSaved} patchCase={patchCase} contractDocuments={contractDocuments} documentReceipts={documentReceipts} tasks={tasks} />
+        <AssetsTab caseData={caseState} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} financialInstitutions={financialInstitutions} financialRequests={financialRequests} financialRequestItems={financialRequestItems} securitiesHoldings={securitiesHoldings} assetInventory={assetInventory} otherAssets={otherAssets} heirs={heirs} onRefresh={handleSaved} patchCase={patchCase} contractDocuments={contractDocuments} documentReceipts={documentReceipts} tasks={tasks} />
       )}
       {effectiveTab === 'division' && (
         <DivisionTab caseData={caseState} divisionDetails={divisionDetails} heirs={heirs} assetInventory={assetInventory} agreementDispatches={agreementDispatches} onRefresh={handleSaved} patchCase={patchCase} tasks={tasks} mode="division" />
@@ -873,7 +879,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <RegistrationTab caseData={caseState} properties={properties} onRefresh={handleSaved} patchCase={patchCase} contractDocuments={contractDocuments} tasks={tasks} />
       )}
       {effectiveTab === 'cancellation' && (
-        <CancellationTab caseId={caseState.id} caseData={caseState} financialAssets={financialAssets} onRefresh={handleSaved} receipts={documentReceipts} tasks={tasks} />
+        <CancellationTab caseId={caseState.id} caseData={caseState} financialAssets={financialAssets} financialInstitutions={financialInstitutions} onRefresh={handleSaved} receipts={documentReceipts} tasks={tasks} />
       )}
       {PROCEDURE_TABS.map(p => effectiveTab === p.tab && (
         <PracticeProcedureTab key={p.tab} caseData={caseState} patchCase={patchCase} gyomu={p.gyomu} title={p.title} description={p.description} court={p.court} trust={p.trust} mediation={p.mediation} heirs={heirs} tasks={tasks} sagyoDocuments={sagyoDocuments} receipts={documentReceipts ?? []} onRefresh={handleSaved} />
