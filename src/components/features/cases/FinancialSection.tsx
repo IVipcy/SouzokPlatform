@@ -238,15 +238,16 @@ function TopTable({ institutions, evalOf, accountsOf, holdings, onOpen }: {
   const total = institutions.reduce((s, i) => s + accountsOf(i).reduce((x, a) => x + (a.balance_amount ?? 0), 0) + holdings.filter(h => h.institution_id === i.id).reduce((x, h) => x + (h.amount ?? ((h.quantity ?? 0) * (h.unit_price ?? 0))), 0), 0)
   return (
     <div>
-      <SectionHeading title="調査先の一覧" hint="行を押すとその調査先を開きます。次の対応は入力内容から自動で出ます。" className="mb-1.5 pb-1.5 border-b border-gray-200" />
+      <SectionHeading title="調査先の一覧" hint="行を押すとその調査先を開きます。工程と次の対応は入力内容から自動で出ます。" className="mb-1.5 pb-1.5 border-b border-gray-200" />
       <div className="overflow-x-auto">
         <table className="w-full text-[12px] border-collapse" style={{ minWidth: 820 }}>
           <thead>
             <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
-              <th className="px-2.5 py-2 text-left font-semibold">調査先</th>
+              {/* 調査先に幅を付けないと余った幅を全部取って表が間延びする。伸びるのは「次の対応」だけにする */}
+              <th className="px-2.5 py-2 text-left font-semibold w-60">調査先</th>
               <th className="px-2.5 py-2 text-left font-semibold w-24">種別</th>
               <th className="px-2.5 py-2 text-left font-semibold w-24">口座・銘柄</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-24">いま</th>
+              <th className="px-2.5 py-2 text-left font-semibold w-28">工程</th>
               <th className="px-2.5 py-2 text-left font-semibold">次の対応</th>
               <th className="px-2.5 py-2 text-left font-semibold w-20">期限</th>
               <th className="px-2.5 py-2 text-right font-semibold w-32">残高・評価額</th>
@@ -265,7 +266,7 @@ function TopTable({ institutions, evalOf, accountsOf, holdings, onOpen }: {
                   <td className="px-2.5 py-2 font-medium text-gray-800">{i.name}{i.branch_name && <span className="ml-1.5 text-[11px] text-gray-400">{i.branch_name}</span>}</td>
                   <td className="px-2.5 py-2 text-gray-600">{i.kind}</td>
                   <td className="px-2.5 py-2 text-gray-600">{i.kind === 'ほふり' ? '案件単位' : i.kind === '預金' ? `${accs.length}口座` : `${hs.length}銘柄`}</td>
-                  <td className="px-2.5 py-2"><span className={`inline-block text-[10.5px] px-2 py-[1px] rounded-full font-semibold ${INST_STATUS_CLS[ev.status]}`}>{stageLabel(ev)}</span></td>
+                  <td className="px-2.5 py-2"><span className={`inline-block whitespace-nowrap text-[10.5px] px-2 py-[1px] rounded-full font-semibold ${INST_STATUS_CLS[ev.status]}`}>{stageLabel(ev)}</span></td>
                   <td className="px-2.5 py-2 text-gray-700">{ev.next}{ev.parallelNext && <span className="block text-[10.5px] text-gray-400">並行：{ev.parallelNext}</span>}</td>
                   <td className="px-2.5 py-2 text-gray-600">{md(ev.nextDeadline)}</td>
                   <td className="px-2.5 py-2 text-right tabular-nums">{amount ? yen(amount) : '—'}</td>
