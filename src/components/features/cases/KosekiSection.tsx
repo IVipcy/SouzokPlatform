@@ -5,13 +5,13 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Plus, Table2, Lock, ShieldCheck, Trash2, Copy, FileText } from 'lucide-react'
+import { Plus, Lock, ShieldCheck, Trash2, Copy, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useIsManager } from '@/components/providers/AuthProvider'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { SectionHeading } from '@/components/ui/InlineFields'
-import { PersonRoleChip, PersonRoleLegend, roleKindOf } from '@/components/ui/PersonRoleChip'
+import { PersonRoleChip, PersonRoleLegend, roleKindOf, ROLE_COLOR } from '@/components/ui/PersonRoleChip'
 import {
   KOSEKI_REQUEST_TYPES, KOSEKI_RANGES, KOSEKI_REQUEST_REASONS,
   KOSEKI_DOC_FORMS, JUMINHYO_EXTRA_ITEMS, KOSEKI_SUBMIT_TO_DEFAULT, KOSEKI_SUBMIT_TO_OPTIONS,
@@ -27,6 +27,7 @@ import {
 const KIND_HINT = KOSEKI_REQUEST_KINDS.map(k => `${k}：${REQUEST_KIND_HELP[k]}`).join('\n')
 import ProgressSummary from './ProgressSummary'
 import KosekiImagePanel from './KosekiImagePanel'
+import { LeftRail } from './LeftRail'
 import { PracticeGroup, PracticeRow } from './PracticeCard'
 import { TxtCell, SelCell, MultiCell, DateCell, MoneyCell, TemplateTextField } from './PracticeTableCells'
 import SelectOrTextField from './SelectOrTextField'
@@ -495,56 +496,38 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
       )}
 
     <div className="flex gap-3 items-start">
-      {/* 左レール（対象者＝人ごと）。案件の色が透けないよう白いカードに載せる。
-          幅は「被相続人」＋依頼者バッジ＋件数＋到着＋削除ボタンが1行に収まる実測値（288px）。
-          240pxだと削除ボタンのぶんが効いて「被相 続人」と折れる。 */}
-      <div className="flex-none w-72 flex flex-col gap-0.5 bg-white p-1.5 self-start">
-        {railTabs.map(t => {
+      {/* 左レール（対象者＝人ごと）。共通部品 LeftRail の4列（点／続柄＋氏名／件数／到着）。
+          点の色は戸籍画像のマーカーと同じ（黄＝被相続人／緑＝相続人／青＝亡くなっている相続人）。 */}
+      <LeftRail
+        width="w-72"
+        active={sub}
+        onChange={setSub}
+        onDelete={key => { if (key !== 'top' && requests.some(r => (personKey(r) || '__unset__') === key)) void deletePersonGroup(key) }}
+        items={railTabs.map(t => {
           const isTop = t.id === 'top'
+          if (isTop) return { key: t.id, label: t.label }
           const person = t.id === '__unset__' ? '' : t.id
-          const reqs = isTop ? [] : requests.filter(r => personKey(r) === person)
-          const received = reqs.some(r => !!r.arrival_date)
+          const reqs = requests.filter(r => personKey(r) === person)
+          if (t.id === '__unset__') return { key: t.id, label: '対象者 未設定', count: reqs.length, received: reqs.some(r => !!r.arrival_date) }
+          const h = heirByName.get(t.id.trim())
           const pending = reqs.some(r => r.is_additional && !r.additional_approved_at)
-          return (
-            <div key={t.id} className="group/rail relative flex items-center">
-              <button type="button" onClick={() => setSub(t.id)}
-                className={`flex-1 min-w-0 text-left text-[12px] px-2.5 py-1.5 rounded-md flex items-center gap-1.5 ${sub === t.id ? 'bg-brand-50 text-brand-700 font-semibold shadow-[inset_2px_0_0_var(--color-brand-600)]' : 'text-gray-600 hover:bg-gray-50'}`}>
-                {isTop ? <Table2 className="w-3.5 h-3.5 flex-none" /> : pending ? <Lock className="w-3 h-3 flex-none text-amber-500" /> : <span className="w-3.5 h-3.5 flex-none" />}
-                <span className="flex-1 min-w-0">
-                  {isTop || t.id === '__unset__' ? (
-                    <span className="break-words leading-tight">{t.label}</span>
-                  ) : (
-                    /* 氏名より「誰なのか」で探すので、続柄を主・氏名を従にする。
-                       左の帯は戸籍画像のマーカーと同じ色。 */
-                    <PersonRoleChip
-                      role={roleLabel(t.id) || (heirByName.has(t.id.trim()) ? '続柄 未設定' : '')}
-                      name={t.id}
-                      kind={kindOfPerson(t.id)}
-                      isClient={isClientPerson(t.id)}
-                      note={heirByName.get(t.id.trim())?.is_deceased ? '死亡' : null}
-                      compact
-                    />
-                  )}
-                </span>
-                {!isTop && <span className="text-[9px] font-semibold px-1 rounded flex-none bg-gray-100 text-gray-600">{reqs.length}</span>}
-                {/* アイコンだと何の印か分からない（封筒＝受信済、が伝わらなかった）ので文字で出す */}
-                {received && <span title="この人の戸籍が1件以上届いています" className="text-[9px] font-semibold px-1 rounded flex-none bg-emerald-50 text-emerald-700 border border-emerald-200">到着</span>}
-              </button>
-              {!isTop && reqs.length > 0 && (
-                <button type="button" onClick={() => deletePersonGroup(t.id)} title="この人の戸籍請求を一括削除"
-                  className="flex-none ml-0.5 p-1 rounded text-gray-300 opacity-0 group-hover/rail:opacity-100 hover:text-red-500 hover:bg-red-50 transition-opacity">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          )
+          return {
+            key: t.id,
+            lead: roleLabel(t.id) || (h ? '続柄 未設定' : ''),
+            label: t.id,
+            note: [isClientPerson(t.id) ? '依頼者' : null, h?.is_deceased ? '死亡' : null, pending ? '承認待ち' : null].filter(Boolean).join('・') || null,
+            dotColor: ROLE_COLOR[kindOfPerson(t.id)],
+            count: reqs.length,
+            received: reqs.some(r => !!r.arrival_date),
+          }
         })}
-        {/* 戸籍を読んで新しい人が出てきたとき。TOPを見ている最中でも押せるようにする。 */}
-        <button type="button" onClick={() => setAddOpen(true)}
-          className="mt-1 text-left text-[11.5px] px-2.5 py-1.5 rounded-md border border-dashed border-brand-300 text-brand-700 hover:bg-brand-50 inline-flex items-start gap-1">
-          <Plus className="w-3 h-3 flex-none mt-0.5" /><span className="leading-tight">対象者を新規追加して戸籍請求</span>
-        </button>
-      </div>
+        extra={
+          <button type="button" onClick={() => setAddOpen(true)}
+            className="mt-1.5 text-left text-[13px] px-2.5 py-2 border border-dashed border-gray-300 text-gray-600 hover:text-brand-700 hover:border-brand-300 inline-flex items-center gap-1.5">
+            <Plus className="w-3.5 h-3.5 flex-none" />対象者を追加して戸籍請求
+          </button>
+        }
+      />
 
       {/* 本文 */}
       <div className="flex-1 min-w-0">

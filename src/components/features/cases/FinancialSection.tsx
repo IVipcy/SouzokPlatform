@@ -114,7 +114,12 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
 
   const railItems = [
     { key: 'top', label: '一覧（TOP）' },
-    ...institutions.map(i => ({ key: i.id, label: i.name || '（名称未入力）', received: allItems.some(it => allRequests.some(r => r.id === it.request_id && r.institution_id === i.id) && !!it.arrival_date) })),
+    ...institutions.map(i => ({
+      key: i.id, label: i.name || '（名称未入力）',
+      note: i.kind === '預金' ? null : i.kind,
+      count: i.kind === '預金' ? accountsOf(i).length : i.kind === 'ほふり' ? null : allHoldings.filter(h => h.institution_id === i.id).length,
+      received: allItems.some(it => allRequests.some(r => r.id === it.request_id && r.institution_id === i.id) && !!it.arrival_date),
+    })),
   ]
   const active = institutions.find(i => i.id === sub) ?? null
 
