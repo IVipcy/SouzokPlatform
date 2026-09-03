@@ -33,11 +33,12 @@ export function PracticeGroup({ no, title, sub, right, children, tone = 'normal'
 }) {
   return (
     <div className={tone === 'muted' ? 'opacity-55' : ''}>
-      {/* Step の区切り行。上に1本線、面は項目名と同じグレー。帯にも枠にもしない */}
-      <div className="flex items-center gap-2.5 px-3 py-1.5 bg-slate-100 border-t border-slate-300 min-h-[36px]">
-        {no && <span className="text-[13px] font-bold text-brand-700">{no}</span>}
-        <span className="text-[13.5px] font-semibold text-gray-800">{title}</span>
-        {sub && <span className="text-[12px] text-gray-500">{sub}</span>}
+      {/* Step の見出し。白地に太字＋下線（A案）。塗るのは項目名の面だけにして、見出しと項目名の境目をはっきりさせる。
+          上の余白（pt-3.5）で前の表と区切る。帯にも枠にもしない */}
+      <div className="flex items-center gap-2.5 px-3 pt-3.5 pb-1.5 bg-white border-b border-slate-300 min-h-[44px]">
+        {no && <span className="text-[14px] font-bold text-brand-700">{no}</span>}
+        <span className="text-[14px] font-bold text-gray-900">{title}</span>
+        {sub && <span className="text-[12px] text-gray-500 ml-1">{sub}</span>}
         {right && <span className="ml-auto flex items-center gap-2">{right}</span>}
       </div>
       {children != null && children !== false && (
