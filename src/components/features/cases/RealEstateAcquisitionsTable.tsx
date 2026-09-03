@@ -215,10 +215,10 @@ function AcquisitionCards({
         const acq = acquirerOf(r)
         const noRequest = acq !== '自社取得'
         const muted = <span className="text-[11px] text-gray-400">{acq === '受領済' ? '受領済' : '依頼者負担'}</span>
-        const dateCls = 'px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white'
-        const selCls = 'px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500'
+        const dateCls = 'input-flat px-1 py-1 text-[14px] text-gray-800 outline-none'
+        const selCls = 'input-flat px-1 py-1 text-[14px] text-gray-800 outline-none cursor-pointer'
         return (
-          <div className={`space-y-2.5 ${isMistakenRequest(r.request_kind) ? 'ring-1 ring-red-200 rounded-lg p-2 bg-red-50/30' : ''}`}>
+          <div className={`space-y-2.5 ${isMistakenRequest(r.request_kind) ? 'ring-1 ring-red-200 p-2 bg-red-50/30' : ''}`}>
             <div className="flex items-center justify-end">
               <button type="button" onClick={() => delRow(r.id)} title="この請求を削除"
                 className="text-gray-300 hover:text-red-500 px-1"><Trash2 className="w-4 h-4" /></button>
@@ -237,7 +237,7 @@ function AcquisitionCards({
                 </select>
               </ReRow>
               <ReRow label="請求先">
-                {isRef ? <span className="text-[11px] text-gray-300">— 参照 —</span>
+                {isRef ? <span className="text-[12px] text-gray-400">— 参照 —</span>
                   : <input key={r.request_to ?? ''} type="text" defaultValue={r.request_to ?? ''}
                       onBlur={e => { if (e.target.value !== (r.request_to ?? '')) save(r.id, 'request_to', e.target.value || null) }}
                       placeholder={officeDefault(r.target_municipality, r.target_property_id) || itemMeta(items[0])?.office || '請求先'} className={`${dateCls} w-full`} />}
@@ -260,15 +260,15 @@ function AcquisitionCards({
                     const on = items.includes(key)
                     return (
                       <button key={key} type="button" onClick={() => toggleItem(r.id, key)}
-                        className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[11.5px] font-medium border transition-colors ${
-                          on ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-500 border-gray-200 hover:border-brand-300 hover:text-brand-700'}`}>
-                        {on && '✓'}{key}
+                        className={`px-2 py-0.5 text-[13px] border transition-colors ${
+                          on ? 'bg-brand-50 text-brand-700 border-brand-400 font-semibold' : 'bg-white text-gray-500 border-gray-300 hover:border-gray-400'}`}>
+                        {key}
                       </button>
                     )
                   })}
                 </div>
                 {r.is_additional && !r.additional_approved_at && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">追加・承認待ち</span>
+                  <span className="text-[12px] font-semibold text-amber-700">追加・承認待ち</span>
                 )}
               </ReRow>
               <ReRow label="年度" sub="名寄帳・評価証明のとき" full>
@@ -279,22 +279,22 @@ function AcquisitionCards({
                     {(r.doc_year ?? r.myna_year) && !yearOptions().includes((r.doc_year ?? r.myna_year) as string) &&
                       <option value={(r.doc_year ?? r.myna_year) as string}>{r.doc_year ?? r.myna_year}</option>}
                   </select>
-                ) : <span className="text-[11px] text-gray-400">—　<span className="text-[10.5px]">（名寄帳・評価証明を選ぶと年度が出ます）</span></span>}
+                ) : <span className="text-[12px] text-gray-400">名寄帳・評価証明を選ぶと年度が出ます</span>}
               </ReRow>
             </ReGroup>
 
             <ReGroup no="Step2" title="費用">
               {noRequest || isRef ? (
-                <ReRow label="費用" full>{isRef ? <span className="text-[11px] text-gray-400">参照のみ（費用なし）</span> : muted}</ReRow>
+                <ReRow label="費用" full>{isRef ? <span className="text-[12px] text-gray-400">参照のみ（費用なし）</span> : muted}</ReRow>
               ) : (
                 <>
                   <ReRow label="費用予算"><MoneyCell value={r.cost_budget} onCommit={v => saveMany(r.id, { cost_budget: v === '' ? null : Number(v) })} /></ReRow>
                   {fullCost && <ReRow label="返金"><MoneyCell value={r.cost_refund} onCommit={v => saveMany(r.id, { cost_refund: v === '' ? null : Number(v) })} /></ReRow>}
                   <ReRow label="確定費用" full>
                     {fullCost
-                      ? <span className={`inline-block px-2 py-1 rounded text-[12px] font-semibold border ${isMistakenRequest(r.request_kind) ? 'text-purple-700 bg-purple-50 border-purple-200' : 'text-emerald-700 bg-emerald-50 border-emerald-200'}`}>{yen(confirmedOf(r))}</span>
+                      ? <span className={`text-[14px] font-semibold ${isMistakenRequest(r.request_kind) ? 'text-purple-700' : 'text-emerald-700'}`}>{yen(confirmedOf(r))}</span>
                       : <MoneyCell value={r.cost_confirmed} onCommit={v => saveMany(r.id, { cost_confirmed: v === '' ? null : Number(v) })} />}
-                    {isMistakenRequest(r.request_kind) && <span className="text-[10px] text-purple-600">経費として集計</span>}
+                    {isMistakenRequest(r.request_kind) && <span className="text-[12px] text-purple-600">経費として集計</span>}
                   </ReRow>
                 </>
               )}
@@ -302,31 +302,31 @@ function AcquisitionCards({
 
             <ReGroup no="Step3" title="進捗">
               <ReRow label="請求日">
-                {isRef || noRequest ? (noRequest ? muted : <span className="text-[11px] text-gray-300">—</span>)
+                {isRef || noRequest ? (noRequest ? muted : <span className="text-[12px] text-gray-400">—</span>)
                   : <input type="date" defaultValue={r.request_date ?? ''}
                       onBlur={e => { const v = e.target.value; if (v !== (r.request_date ?? '')) saveMany(r.id, { request_date: v || null, ...(v && !r.request_done_by ? { request_done_by: meId } : {}) }) }} className={dateCls} />}
               </ReRow>
               <ReRow label="到着日">
-                {isRef ? <span className="text-[11px] text-gray-300">—</span>
+                {isRef ? <span className="text-[12px] text-gray-400">—</span>
                   : <input type="date" defaultValue={r.arrival_date ?? ''}
                       onBlur={e => { const v = e.target.value; if (v !== (r.arrival_date ?? '')) saveMany(r.id, { arrival_date: v || null, ...(v && !r.receipt_done_by ? { receipt_done_by: meId } : {}) }) }} className={dateCls} />}
               </ReRow>
               <ReRow label="発送チェック" sub="確認簿で確認">
-                {isRef ? <span className="text-[11px] text-gray-300">—</span> : r.request_date
+                {isRef ? <span className="text-[12px] text-gray-400">—</span> : r.request_date
                   ? <CheckRequestControl label="発送チェックを依頼" requestedAt={r.request_check_requested_at} checkedAt={r.request_check_at} checkedName={r.request_check_name} onRequest={() => reqCheck(r, 'request')} onCancel={() => cancelCheck(r, 'request')} />
-                  : <span className="text-[11px] text-gray-300">請求日待ち</span>}
+                  : <span className="text-[12px] text-gray-400">請求日待ち</span>}
               </ReRow>
               <ReRow label="到着チェック" sub="確認簿で確認">
-                {isRef ? <span className="text-[11px] text-gray-300">—</span> : r.arrival_date
+                {isRef ? <span className="text-[12px] text-gray-400">—</span> : r.arrival_date
                   ? <CheckRequestControl label="到着チェックを依頼" requestedAt={r.receipt_check_requested_at} checkedAt={r.receipt_check_at} checkedName={r.receipt_check_name} onRequest={() => reqCheck(r, 'receipt')} onCancel={() => cancelCheck(r, 'receipt')} />
-                  : <span className="text-[11px] text-gray-300">到着待ち</span>}
+                  : <span className="text-[12px] text-gray-400">到着待ち</span>}
               </ReRow>
               <ReRow label="受領ファイル" full>
                 {(() => {
                   const files = receiptFilesFor(receipts, 'real_estate_acquisition', r.id)
                   return files.length > 0
                     ? <div className="flex flex-wrap gap-2">{files.map((f, k) => <OpenStorageFile key={k} bucket={f.bucket} path={f.path} name={f.name} label="受領ファイル" />)}</div>
-                    : <span className="text-[11px] text-gray-300">—</span>
+                    : <span className="text-[12px] text-gray-400">—</span>
                 })()}
               </ReRow>
             </ReGroup>
@@ -335,12 +335,12 @@ function AcquisitionCards({
                 読んで何が見つかったかを残さないと、私道の持分などを見落としたまま先へ進んでしまう。 */}
             <ReGroup no="Step4" title="読込結果">
               <ReRow label="取得の結果" full>
-                <div className="inline-flex rounded-md border border-gray-200 overflow-hidden">
+                <div className="inline-flex border border-gray-300">
                   {RE_READ_STATUSES.map(s => {
                     const on = r.read_status === s
                     return (
                       <button key={s} type="button" onClick={() => save(r.id, 'read_status', on ? null : s)}
-                        className={`px-3 py-1 text-[12px] font-semibold transition ${
+                        className={`px-3 py-1 text-[13px] font-semibold transition ${
                           on ? (s === '一部不足' ? 'bg-red-600 text-white' : 'bg-gray-600 text-white') : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
                         {s}
                       </button>
@@ -356,7 +356,7 @@ function AcquisitionCards({
               </ReRow>
               {r.read_status === '一部不足' && (
                 <ReRow label="次にやること" full>
-                  <span className="text-[12px] text-brand-700">
+                  <span className="text-[13px] text-brand-700">
                     {isProp
                       ? '足りなかった資料について、上の「＋ 請求を追加」で法務局への請求を作ってください。'
                       : '見つかった物件を上の物件一覧に足したうえで、「＋ 請求を追加」で法務局への請求を作ってください。'}

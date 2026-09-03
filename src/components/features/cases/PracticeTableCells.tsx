@@ -218,18 +218,17 @@ export function TemplateTextField({ value, options, onSave, placeholder, rows = 
  */
 export function PriorityCell({ value, onChange }: { value: string | null | undefined; onChange: (v: string) => void }) {
   const v = value ?? ''
-  // 色は style で当てる。globals.css が select の背景・枠を無レイヤーで指定していて、
-  // Tailwind のクラス（bg-red-50 等）では上書きできないため。
-  const tone = v === '超急ぎ' ? { background: '#fee2e2', color: '#b91c1c', borderColor: '#fca5a5', fontWeight: 700 }
-    : v === '急ぎ' ? { background: '#fef3c7', color: '#b45309', borderColor: '#fcd34d', fontWeight: 600 }
-    : { background: '#f3f5f8', color: '#6b7280', borderColor: 'transparent' }
+  // 塗らない。急ぎは文字の色だけで言う（赤＝超急ぎ、琥珀＝急ぎ）。見た目は他のセルと同じ .input-flat
+  const tone = v === '超急ぎ' ? { color: '#b91c1c', fontWeight: 700 }
+    : v === '急ぎ' ? { color: '#b45309', fontWeight: 600 }
+    : { color: '#6b7280' }
   return (
     <select
       value={v}
       onChange={e => onChange(e.target.value)}
       title="優先度（タスクを作るときの目安）"
       style={{ fontFamily: 'inherit', ...tone }}
-      className="w-full px-1.5 py-1 text-[12px] border rounded outline-none focus:border-brand-500"
+      className={cellSel}
     >
       <option value="">通常</option>
       <option value="急ぎ">急ぎ</option>
