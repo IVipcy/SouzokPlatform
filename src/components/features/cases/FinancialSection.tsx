@@ -19,6 +19,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { LeftRail } from './LeftRail'
+import { SubTabs } from '@/components/ui/SubTabs'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import HintTip from '@/components/ui/HintTip'
 import ProgressSummary from './ProgressSummary'
@@ -158,7 +159,6 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
 
   return (
     <div className="space-y-3">
-      <SealCertificateBand caseData={caseData} requests={allRequests} institutions={allInstitutions} today={today} />
       <div className="flex gap-3 items-start">
         <LeftRail items={railItems} active={sub} onChange={k => { setSub(k); setTab('procedure') }} onDelete={deleteInstitution} extra={
           <button type="button" onClick={() => setAddOpen(true)} className="mt-1 text-left text-[11.5px] px-2.5 py-1.5 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-brand-700 hover:border-brand-300 inline-flex items-center gap-1">
@@ -167,13 +167,17 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
         } />
         <div className="flex-1 min-w-0 space-y-3.5">
           {!active ? (
-            <TopTable institutions={institutions} evalOf={evalOf} accountsOf={accountsOf} holdings={allHoldings} onOpen={id => { setSub(id); setTab('procedure') }} />
+            <>
+              <SealCertificateBand caseData={caseData} requests={allRequests} institutions={allInstitutions} today={today} />
+              <TopTable institutions={institutions} evalOf={evalOf} accountsOf={accountsOf} holdings={allHoldings} onOpen={id => { setSub(id); setTab('procedure') }} />
+            </>
           ) : (
             <InstitutionPage
               inst={active} ev={evalOf(active)} accounts={accountsOf(active)}
               requests={allRequests.filter(r => r.institution_id === active.id).sort((a, b) => (b.request_date ?? '9999').localeCompare(a.request_date ?? '9999') || b.created_at.localeCompare(a.created_at))}
               items={allItems} holdings={allHoldings.filter(h => h.institution_id === active.id)}
               tab={tab} setTab={setTab} scopePrefix={scopePrefix} caseId={caseId} memberId={memberId} today={today}
+              seal={<SealCertificateBand caseData={caseData} requests={allRequests} institutions={allInstitutions} today={today} compact />}
               saveInst={p => saveInst(active, p)} saveAsset={saveAsset} addAccount={() => addAccount(active)} deleteAccount={deleteAccount}
               openRequest={() => setRequestOpen(true)} openArrival={setArrivalId} deleteRequest={deleteRequest}
             />
@@ -197,16 +201,20 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
 // 入力は契約手続きタブの受領書類の行（発行日・有効期間・受領通数）。
 // 原本の所在は請求の「原本を同封」「返却日」から出す。ここでは何も入力させない。
 // 金融調査で使うのは依頼者（請求する相続人）1人の証明書。相続人全員分は解約の話。
-function SealCertificateBand({ caseData, requests, institutions, today }: {
+function SealCertificateBand({ caseData, requests, institutions, today, compact = false }: {
   caseData: CaseRow; requests: FinancialRequestRow[]; institutions: FinancialInstitutionRow[]; today: string
+  /** 見出しの中に置くとき。枠なしの1行にする */
+  compact?: boolean
 }) {
   const st = sealCertificateStatus(caseData, today)
   const orig = sealOriginalStatus(caseData.seal_cert_copies, requests, institutions)
   const tone = st.status === '期限切れ' ? 'border-red-200 bg-red-50' : st.status === '期限間近' ? 'border-amber-200 bg-amber-50' : 'border-gray-200 bg-white'
   const expiryText = st.status === '未登録' ? '発行日が未登録' : `期限 ${st.expiry?.replace(/-/g, '/')}`
   return (
-    <div className={`rounded-lg border px-3.5 py-1.5 flex items-center gap-3 flex-wrap text-[12px] ${tone}`}>
-      <span className="font-semibold text-gray-700">依頼者の印鑑登録証明書</span>
+    <div className={compact
+      ? `inline-flex items-center gap-2 flex-wrap text-[11.5px] rounded px-2 py-0.5 ${st.status === '期限切れ' ? 'bg-red-50' : st.status === '期限間近' ? 'bg-amber-50' : 'bg-gray-50'}`
+      : `rounded-lg border px-3.5 py-1.5 flex items-center gap-3 flex-wrap text-[12px] ${tone}`}>
+      <span className="font-semibold text-gray-700">{compact ? '印鑑登録証明書（依頼者）' : '依頼者の印鑑登録証明書'}</span>
       {caseData.seal_cert_copies != null && <span className="text-gray-600">{caseData.seal_cert_copies}通</span>}
       <span className="text-gray-600">{expiryText}</span>
       {st.status === '期限間近' && <span className="text-[11px] font-semibold px-2 py-[1px] rounded bg-amber-100 text-amber-800">あと{st.daysLeft}日</span>}
@@ -283,11 +291,13 @@ function TopTable({ institutions, evalOf, accountsOf, holdings, onOpen }: {
 }
 
 // ── 調査先のページ ────────────────────────────────────────────
-function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, setTab, scopePrefix, caseId, memberId, today, saveInst, saveAsset, addAccount, deleteAccount, openRequest, openArrival, deleteRequest }: {
+function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, setTab, scopePrefix, caseId, memberId, today, seal, saveInst, saveAsset, addAccount, deleteAccount, openRequest, openArrival, deleteRequest }: {
   inst: FinancialInstitutionRow; ev: InstitutionEvaluation; accounts: FinancialAssetRow[]
   requests: FinancialRequestRow[]; items: FinancialRequestItemRow[]; holdings: SecuritiesHoldingRow[]
   tab: 'procedure' | 'accounts' | 'requests' | 'holdings'; setTab: (t: 'procedure' | 'accounts' | 'requests' | 'holdings') => void
   scopePrefix: string; caseId: string; memberId: string | null; today: string
+  /** 依頼者の印鑑登録証明書の1行（案件共通。見出しの空きに置く） */
+  seal: React.ReactNode
   saveInst: (p: Partial<FinancialInstitutionRow>) => Promise<void>
   saveAsset: (id: string, p: Partial<FinancialAssetRow>) => Promise<void>
   addAccount: () => void; deleteAccount: (a: FinancialAssetRow) => void
@@ -316,6 +326,8 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
               {/* 支店は口座ごとに持つので見出しには置かない（1つの銀行に支店はいくつもある）。金融機関コードも見出しには要らない */}
               <label className="flex items-center gap-1">取得区分 <span className="w-24"><SelCell value={inst.acquirer} options={['自社', '依頼者']} onChange={v => void saveInst({ acquirer: v || '自社' })} /></span></label>
               <span className="text-gray-400">{inst.kind}</span>
+              {/* 依頼者の印鑑登録証明書（案件共通・読み取り専用）。銀行ごとの見出しの空きに置く */}
+              <span className="ml-3">{seal}</span>
             </div>
           </div>
           <div className="flex-none border-l-2 border-brand-500 bg-gray-50 px-3 py-1.5 min-w-[200px]">
@@ -325,17 +337,9 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
             {ev.parallelNext && <div className="text-[10.5px] text-gray-500 mt-0.5">並行：{ev.parallelNext}</div>}
           </div>
         </div>
-        {/* 切替。上の 預金／証券 のピルと見分けがつくよう、枠で区切った3分割にする */}
-        <div className="px-3.5 py-2.5 border-b border-gray-200 bg-gray-50/60">
-          <div className="inline-flex rounded-md border border-gray-300 bg-white overflow-hidden">
-            {tabs.map((t, idx) => (
-              <button key={t.key} type="button" onClick={() => setTab(t.key)}
-                className={`px-4 py-1.5 text-[13px] inline-flex items-center gap-1.5 ${idx > 0 ? 'border-l border-gray-300' : ''} ${tab === t.key ? 'bg-brand-600 text-white font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}>
-                {t.label}
-                {t.count != null && <span className={`text-[10.5px] px-1.5 rounded-full ${tab === t.key ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-500'}`}>{t.count}</span>}
-              </button>
-            ))}
-          </div>
+        {/* 切替。上の 不動産／預金／証券 と同じ子タブの部品で揃える */}
+        <div className="px-3.5 py-2.5 border-b border-gray-200">
+          <SubTabs tabs={tabs} active={tab} onChange={k => setTab(k as typeof tab)} />
         </div>
         <div className="p-3.5">
           {tab === 'procedure' && (isJasdec ? <JasdecCard inst={inst} save={saveInst} /> : <ProcedureCards inst={inst} save={saveInst} memberId={memberId} today={today} />)}
@@ -425,15 +429,15 @@ function Card({ no, title, sub, status, required, onRequired, children }: {
       <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border-b border-gray-200">
         <span className="text-[10.5px] font-semibold text-brand-700 bg-brand-50 border border-brand-100 rounded px-1.5">{no}</span>
         <span className="text-[12px] font-semibold text-gray-700">{title}</span>
+        {/* ふだんは「要」なので何も触らない。要らないときだけ「不要」にチェックする。見出しのすぐ右に置く（右端だと見出しと結びつかない） */}
+        {onRequired && (
+          <label className={`inline-flex items-center gap-1 text-[11px] cursor-pointer px-1.5 py-0.5 rounded border ${off ? 'border-gray-400 bg-gray-200 text-gray-700 font-semibold' : 'border-gray-200 text-gray-500 hover:bg-gray-100'}`}>
+            <input type="checkbox" checked={off} onChange={e => onRequired(!e.target.checked)} className="w-3.5 h-3.5 accent-gray-600" />
+            不要
+          </label>
+        )}
         <span className="text-[10.5px] text-gray-400">{sub}</span>
         <span className="ml-auto flex items-center gap-2">
-          {/* ふだんは「要」なので何も触らない。要らないときだけ「不要」にチェックする（逆だと毎回チェックが要るように見える） */}
-          {onRequired && (
-            <label className={`inline-flex items-center gap-1.5 text-[11px] cursor-pointer px-1.5 py-0.5 rounded border ${off ? 'border-gray-400 bg-gray-200 text-gray-700 font-semibold' : 'border-gray-200 text-gray-500 hover:bg-gray-100'}`}>
-              <input type="checkbox" checked={off} onChange={e => onRequired(!e.target.checked)} className="w-3.5 h-3.5 accent-gray-600" />
-              この手続きは不要
-            </label>
-          )}
           {status && !off && <StatusChip s={status} />}
         </span>
       </div>
@@ -478,7 +482,7 @@ function ProcedureCards({ inst: i, save, memberId, today }: { inst: FinancialIns
       </div>
 
       {!isAdmin && (
-        <Card no="01" title={isSec ? '死亡連絡' : '口座凍結'} sub={isSec ? '口座名義人の死亡を証券会社へ連絡' : '口座名義人の死亡連絡による一括凍結'}
+        <Card no="Step1" title={isSec ? '死亡連絡' : '口座凍結'} sub={isSec ? '口座名義人の死亡を証券会社へ連絡' : '口座名義人の死亡連絡による一括凍結'}
           status={i.freeze_date ? '取得済' : '請求準備中'} required={i.freeze_required} onRequired={v => void save({ freeze_required: v })}>
           <F label={isSec ? '死亡連絡日' : '凍結依頼日（凍結日）'}><DateCell value={i.freeze_date} onCommit={v => void save({ freeze_date: v || null })} /></F>
           {!isSec && (
@@ -494,7 +498,7 @@ function ProcedureCards({ inst: i, save, memberId, today }: { inst: FinancialIns
         </Card>
       )}
 
-      <Card no="02" title="依頼書の手配" sub={isAdmin ? '所有株式数証明書等の請求書式' : isSec ? '残高証明書等を取るための証券会社所定書式' : '金融機関所定書式の取り寄せ、または社内在庫'}
+      <Card no="Step2" title="依頼書の手配" sub={isAdmin ? '所有株式数証明書等の請求書式' : isSec ? '残高証明書等を取るための証券会社所定書式' : '金融機関所定書式の取り寄せ、または社内在庫'}
         status={chipStatus(formDone, formStarted)} required={i.form_required} onRequired={v => void save({ form_required: v })}>
         <F label="入手方法"><SelCell value={i.form_source} options={[...FORM_SOURCES]} onChange={v => void save({ form_source: v || '未確認' })} /></F>
         {i.form_source === '金融機関へ請求' && <>
@@ -506,7 +510,7 @@ function ProcedureCards({ inst: i, save, memberId, today }: { inst: FinancialIns
       </Card>
 
       {!isAdmin && (
-        <Card no="03" title="全店調査" sub="他支店・旧取引店を含む口座の有無（並行して進める）"
+        <Card no="Step3" title="全店調査" sub="他支店・旧取引店を含む口座の有無（並行して進める）"
           status={i.search_answer_date ? '取得済' : i.search_request_date ? '請求中' : '請求準備中'} required={i.search_required} onRequired={v => void save({ search_required: v })}>
           <F label="調査方法" hint="金融機関によって回答の条件が違う。電話回答／要原本確認（戸籍・委任状の原本を出す）／要請求（正式な調査請求書）"><SelCell value={i.search_method} options={[...SEARCH_METHODS]} onChange={v => void save({ search_method: v || '未確認' })} /></F>
           {i.search_method === '電話回答' && <>
@@ -533,7 +537,7 @@ function ProcedureCards({ inst: i, save, memberId, today }: { inst: FinancialIns
       )}
 
       {!isAdmin && (
-        <Card no="04" title="証明書発行依頼の方法" sub="郵送か来店か。以降の工程がここで分かれる" status={i.handling_method === '未確認' ? '請求準備中' : '取得済'}>
+        <Card no="Step4" title="証明書発行依頼の方法" sub="郵送か来店か。以降の工程がここで分かれる" status={i.handling_method === '未確認' ? '請求準備中' : '取得済'}>
           <F label="対応方法"><SelCell value={i.handling_method} options={[...HANDLING_METHODS]} onChange={v => void save({ handling_method: v || '未確認', ...(v !== '未確認' && !i.method_confirm_date ? { method_confirm_date: today } : {}) })} /></F>
           <F label="対応方法確認日"><DateCell value={i.method_confirm_date} onCommit={v => void save({ method_confirm_date: v || null })} /></F>
           {i.handling_method === '来店' && <F label="来店日（予約済みの訪問日）"><DateCell value={i.visit_date} onCommit={v => void save({ visit_date: v || null })} /></F>}
@@ -586,7 +590,7 @@ function JasdecCard({ inst: i, save }: { inst: FinancialInstitutionRow; save: (p
   return (
     <div className="space-y-2.5">
       <p className="text-[11.5px] text-gray-500">ほふりは証券会社の一種ではありません。開示結果から判明した証券会社を、調査先として追加する起点です。証券会社の追加は段階4で作ります。</p>
-      <Card no="01" title="開示請求" sub="登録済加入者情報の開示請求" status={i.jasdec_arrival_date ? '取得済' : i.jasdec_request_date ? '請求中' : '請求準備中'}>
+      <Card no="Step1" title="開示請求" sub="登録済加入者情報の開示請求" status={i.jasdec_arrival_date ? '取得済' : i.jasdec_request_date ? '請求中' : '請求準備中'}>
         <F label="判明状況"><SelCell value={i.jasdec_company_known} options={[...JASDEC_KNOWN]} onChange={v => void save({ jasdec_company_known: v || null })} /></F>
         <F label="開示請求日"><DateCell value={i.jasdec_request_date} onCommit={v => void save({ jasdec_request_date: v || null })} /></F>
         <F label="結果到着日"><DateCell value={i.jasdec_arrival_date} onCommit={v => void save({ jasdec_arrival_date: v || null })} /></F>
