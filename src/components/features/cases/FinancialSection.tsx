@@ -29,7 +29,7 @@ import { TxtCell, SelCell, DateCell, MoneyCell } from './PracticeTableCells'
 import FinancialRequestModal from './FinancialRequestModal'
 import FinancialArrivalModal, { StatusChip } from './FinancialArrivalModal'
 import {
-  evaluateInstitution, sealCertificateStatus, sealOriginalStatus, accountDocStatus, requestStatus, itemConditionLabel,
+  evaluateInstitution, sealCertificateStatus, sealOriginalStatus, stageLabel, accountDocStatus, requestStatus, itemConditionLabel,
   FORM_SOURCES, SEARCH_METHODS, SUBMISSION_METHODS, HANDLING_METHODS, SEARCH_TARGETS, JASDEC_KNOWN,
   type InstitutionEvaluation,
 } from '@/lib/financialWorkflow'
@@ -95,6 +95,15 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
   const [arrivalId, setArrivalId] = useState<string | null>(null)
 
   const seal = sealCertificateStatus(caseData, today)
+  // 請求登録の「原本を同封」の横に出す、手元の通数と期限。要る場面はここだけ
+  const sealInfoText = (() => {
+    const o = sealOriginalStatus(caseData.seal_cert_copies, allRequests, allInstitutions)
+    const parts: string[] = []
+    if (o.inHand != null) parts.push(`手元に${o.inHand}通`)
+    if (seal.expiry) parts.push(`期限 ${seal.expiry.slice(5).replace('-', '/')}`)
+    if (o.out.length > 0) parts.push(o.out.map(x => `${x.institutionName}へ提出中`).join('・'))
+    return parts.join('・') || '契約手続きに発行日・通数が未登録'
+  })()
   const evalOf = (inst: FinancialInstitutionRow): InstitutionEvaluation => {
     const reqs = allRequests.filter(r => r.institution_id === inst.id)
     const ids = new Set(reqs.map(r => r.id))
@@ -168,7 +177,7 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
         <div className="flex-1 min-w-0 space-y-3.5">
           {!active ? (
             <>
-              <SealCertificateBand caseData={caseData} requests={allRequests} institutions={allInstitutions} today={today} />
+              <SealWarning caseData={caseData} requests={allRequests} institutions={allInstitutions} today={today} />
               <TopTable institutions={institutions} evalOf={evalOf} accountsOf={accountsOf} holdings={allHoldings} onOpen={id => { setSub(id); setTab('procedure') }} />
             </>
           ) : (
@@ -177,7 +186,7 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
               requests={allRequests.filter(r => r.institution_id === active.id).sort((a, b) => (b.request_date ?? '9999').localeCompare(a.request_date ?? '9999') || b.created_at.localeCompare(a.created_at))}
               items={allItems} holdings={allHoldings.filter(h => h.institution_id === active.id)}
               tab={tab} setTab={setTab} scopePrefix={scopePrefix} caseId={caseId} memberId={memberId} today={today}
-              seal={<SealCertificateBand caseData={caseData} requests={allRequests} institutions={allInstitutions} today={today} compact />}
+              sealWarning={<SealWarning caseData={caseData} requests={allRequests} institutions={allInstitutions} today={today} />}
               saveInst={p => saveInst(active, p)} saveAsset={saveAsset} addAccount={() => addAccount(active)} deleteAccount={deleteAccount}
               openRequest={() => setRequestOpen(true)} openArrival={setArrivalId} deleteRequest={deleteRequest}
             />
@@ -187,7 +196,7 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
 
       {addOpen && <AddInstitutionModal kind={kind} onClose={() => setAddOpen(false)} onSubmit={addInstitution} />}
       {active && requestOpen && (
-        <FinancialRequestModal isOpen onClose={() => setRequestOpen(false)} institution={active} accounts={accountsOf(active)} defaultBalanceDate={caseData.date_of_death} onSaved={() => onRefresh?.()} />
+        <FinancialRequestModal isOpen onClose={() => setRequestOpen(false)} institution={active} accounts={accountsOf(active)} defaultBalanceDate={caseData.date_of_death} sealInfo={sealInfoText} onSaved={() => onRefresh?.()} />
       )}
       {active && arrivalId && (() => {
         const r = allRequests.find(x => x.id === arrivalId); if (!r) return null
@@ -197,40 +206,23 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
   )
 }
 
-// ── 依頼者の印鑑登録証明書（読み取り専用の1行） ─────────────────
-// 入力は契約手続きタブの受領書類の行（発行日・有効期間・受領通数）。
-// 原本の所在は請求の「原本を同封」「返却日」から出す。ここでは何も入力させない。
-// 金融調査で使うのは依頼者（請求する相続人）1人の証明書。相続人全員分は解約の話。
-function SealCertificateBand({ caseData, requests, institutions, today, compact = false }: {
+// ── 印鑑登録証明書の期限警告 ─────────────────────────────────
+// ふだんは何も出さない。通数や期限が要るのは請求を登録するときだけで、そこに出す。
+// 使用期限まで30日以内・期限切れのときだけ、一覧と銀行ページの上に1行出す。
+// 発行日・有効期間・通数の入力は契約手続きタブの受領書類の行。原本の所在は請求から出す。
+function SealWarning({ caseData, requests, institutions, today }: {
   caseData: CaseRow; requests: FinancialRequestRow[]; institutions: FinancialInstitutionRow[]; today: string
-  /** 見出しの中に置くとき。枠なしの1行にする */
-  compact?: boolean
 }) {
   const st = sealCertificateStatus(caseData, today)
+  if (st.status !== '期限間近' && st.status !== '期限切れ') return null
   const orig = sealOriginalStatus(caseData.seal_cert_copies, requests, institutions)
-  const tone = st.status === '期限切れ' ? 'border-red-200 bg-red-50' : st.status === '期限間近' ? 'border-amber-200 bg-amber-50' : 'border-gray-200 bg-white'
-  const expiryText = st.status === '未登録' ? '発行日が未登録' : `期限 ${st.expiry?.replace(/-/g, '/')}`
+  const expired = st.status === '期限切れ'
   return (
-    <div className={compact
-      ? `inline-flex items-center gap-2 flex-wrap text-[11.5px] rounded px-2 py-0.5 ${st.status === '期限切れ' ? 'bg-red-50' : st.status === '期限間近' ? 'bg-amber-50' : 'bg-gray-50'}`
-      : `rounded-lg border px-3.5 py-1.5 flex items-center gap-3 flex-wrap text-[12px] ${tone}`}>
-      <span className="font-semibold text-gray-700">{compact ? '印鑑登録証明書（依頼者）' : '依頼者の印鑑登録証明書'}</span>
-      {caseData.seal_cert_copies != null && <span className="text-gray-600">{caseData.seal_cert_copies}通</span>}
-      <span className="text-gray-600">{expiryText}</span>
-      {st.status === '期限間近' && <span className="text-[11px] font-semibold px-2 py-[1px] rounded bg-amber-100 text-amber-800">あと{st.daysLeft}日</span>}
-      {st.status === '期限切れ' && <span className="text-[11px] font-semibold px-2 py-[1px] rounded bg-red-100 text-red-800">期限切れ（{Math.abs(st.daysLeft ?? 0)}日超過）</span>}
-      <span className="text-gray-300">|</span>
-      <span className="text-gray-600">原本：
-        {orig.out.length === 0
-          ? <span className="text-gray-700">{orig.inHand != null ? `手元に${orig.inHand}通` : '出していない'}</span>
-          : <>
-              <span className="text-gray-800 font-semibold">{orig.out.map(o => `${o.institutionName}へ${o.sentDate ? `（${o.sentDate.slice(5).replace('-', '/')}）` : ''}`).join('・')}</span>
-              {orig.inHand != null && <span className="ml-1.5">手元に{orig.inHand}通</span>}
-            </>}
-      </span>
-      <Link href={`/cases/${caseData.id}?tab=contractProc`} className="ml-auto inline-flex items-center gap-1 text-[11px] text-brand-700 hover:underline">
-        契約手続きで編集 <ExternalLink className="w-3 h-3" />
-      </Link>
+    <div className={`mx-3.5 mt-2.5 rounded-md border px-3 py-1.5 flex items-center gap-3 flex-wrap text-[12px] ${expired ? 'border-red-200 bg-red-50 text-red-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+      <span className="font-semibold">依頼者の印鑑登録証明書</span>
+      <span>{expired ? `使用期限（${st.expiry?.replace(/-/g, '/')}）を過ぎています。差し替えが要ります` : `使用期限まであと${st.daysLeft}日（${st.expiry?.replace(/-/g, '/')}）`}</span>
+      {orig.out.length > 0 && <span>原本：{orig.out.map(o => `${o.institutionName}へ提出中`).join('・')}</span>}
+      <Link href={`/cases/${caseData.id}?tab=contractProc`} className="ml-auto inline-flex items-center gap-1 text-[11px] underline">契約手続きで確認 <ExternalLink className="w-3 h-3" /></Link>
     </div>
   )
 }
@@ -254,7 +246,7 @@ function TopTable({ institutions, evalOf, accountsOf, holdings, onOpen }: {
               <th className="px-2.5 py-2 text-left font-semibold">調査先</th>
               <th className="px-2.5 py-2 text-left font-semibold w-24">種別</th>
               <th className="px-2.5 py-2 text-left font-semibold w-24">口座・銘柄</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-24">状況</th>
+              <th className="px-2.5 py-2 text-left font-semibold w-24">いま</th>
               <th className="px-2.5 py-2 text-left font-semibold">次の対応</th>
               <th className="px-2.5 py-2 text-left font-semibold w-20">期限</th>
               <th className="px-2.5 py-2 text-right font-semibold w-32">残高・評価額</th>
@@ -273,7 +265,7 @@ function TopTable({ institutions, evalOf, accountsOf, holdings, onOpen }: {
                   <td className="px-2.5 py-2 font-medium text-gray-800">{i.name}{i.branch_name && <span className="ml-1.5 text-[11px] text-gray-400">{i.branch_name}</span>}</td>
                   <td className="px-2.5 py-2 text-gray-600">{i.kind}</td>
                   <td className="px-2.5 py-2 text-gray-600">{i.kind === 'ほふり' ? '案件単位' : i.kind === '預金' ? `${accs.length}口座` : `${hs.length}銘柄`}</td>
-                  <td className="px-2.5 py-2"><span className={`inline-block text-[10.5px] px-2 py-[1px] rounded-full font-semibold ${INST_STATUS_CLS[ev.status]}`}>{ev.status}</span></td>
+                  <td className="px-2.5 py-2"><span className={`inline-block text-[10.5px] px-2 py-[1px] rounded-full font-semibold ${INST_STATUS_CLS[ev.status]}`}>{stageLabel(ev)}</span></td>
                   <td className="px-2.5 py-2 text-gray-700">{ev.next}{ev.parallelNext && <span className="block text-[10.5px] text-gray-400">並行：{ev.parallelNext}</span>}</td>
                   <td className="px-2.5 py-2 text-gray-600">{md(ev.nextDeadline)}</td>
                   <td className="px-2.5 py-2 text-right tabular-nums">{amount ? yen(amount) : '—'}</td>
@@ -291,13 +283,13 @@ function TopTable({ institutions, evalOf, accountsOf, holdings, onOpen }: {
 }
 
 // ── 調査先のページ ────────────────────────────────────────────
-function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, setTab, scopePrefix, caseId, memberId, today, seal, saveInst, saveAsset, addAccount, deleteAccount, openRequest, openArrival, deleteRequest }: {
+function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, setTab, scopePrefix, caseId, memberId, today, sealWarning, saveInst, saveAsset, addAccount, deleteAccount, openRequest, openArrival, deleteRequest }: {
   inst: FinancialInstitutionRow; ev: InstitutionEvaluation; accounts: FinancialAssetRow[]
   requests: FinancialRequestRow[]; items: FinancialRequestItemRow[]; holdings: SecuritiesHoldingRow[]
   tab: 'procedure' | 'accounts' | 'requests' | 'holdings'; setTab: (t: 'procedure' | 'accounts' | 'requests' | 'holdings') => void
   scopePrefix: string; caseId: string; memberId: string | null; today: string
-  /** 依頼者の印鑑登録証明書の1行（案件共通。見出しの空きに置く） */
-  seal: React.ReactNode
+  /** 印鑑登録証明書の期限警告（期限間近・切れのときだけ中身がある） */
+  sealWarning: React.ReactNode
   saveInst: (p: Partial<FinancialInstitutionRow>) => Promise<void>
   saveAsset: (id: string, p: Partial<FinancialAssetRow>) => Promise<void>
   addAccount: () => void; deleteAccount: (a: FinancialAssetRow) => void
@@ -318,16 +310,11 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
         {/* ヘッダー：何の調査先か＋次の対応 */}
         <div className="flex items-start justify-between gap-4 px-3.5 py-3 border-b border-gray-200">
           <div className="min-w-0">
+            {/* 見出しは銀行名と種別だけ。状態は右上の「次の対応」が言う（「対応中」のチップは意味が重なるので置かない）。
+                支店は口座ごと、取得区分・調査禁止は手続きタブの「この銀行の前提」へ。 */}
             <div className="flex items-center gap-2 flex-wrap">
               <TxtCell value={inst.name} onCommit={v => void saveInst({ name: v })} placeholder="金融機関名" />
-              <span className={`inline-block text-[10.5px] px-2 py-[1px] rounded-full font-semibold flex-none ${INST_STATUS_CLS[ev.status]}`}>{ev.status}</span>
-            </div>
-            <div className="mt-1.5 flex items-center gap-3 text-[11.5px] text-gray-500 flex-wrap">
-              {/* 支店は口座ごとに持つので見出しには置かない（1つの銀行に支店はいくつもある）。金融機関コードも見出しには要らない */}
-              <label className="flex items-center gap-1">取得区分 <span className="w-24"><SelCell value={inst.acquirer} options={['自社', '依頼者']} onChange={v => void saveInst({ acquirer: v || '自社' })} /></span></label>
-              <span className="text-gray-400">{inst.kind}</span>
-              {/* 依頼者の印鑑登録証明書（案件共通・読み取り専用）。銀行ごとの見出しの空きに置く */}
-              <span className="ml-3">{seal}</span>
+              <span className="text-[10.5px] px-2 py-[1px] rounded-full bg-gray-100 text-gray-500 flex-none">{inst.kind}</span>
             </div>
           </div>
           <div className="flex-none border-l-2 border-brand-500 bg-gray-50 px-3 py-1.5 min-w-[200px]">
@@ -337,6 +324,7 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
             {ev.parallelNext && <div className="text-[10.5px] text-gray-500 mt-0.5">並行：{ev.parallelNext}</div>}
           </div>
         </div>
+        {sealWarning}
         {/* 切替。上の 不動産／預金／証券 と同じ子タブの部品で揃える */}
         <div className="px-3.5 py-2.5 border-b border-gray-200">
           <SubTabs tabs={tabs} active={tab} onChange={k => setTab(k as typeof tab)} />
@@ -463,8 +451,13 @@ function ProcedureCards({ inst: i, save, memberId, today }: { inst: FinancialIns
   const onHold = (i.survey_prohibited_designation ?? '') === '指定あり'
   return (
     <div className="space-y-2.5">
-      {/* 調査禁止。お客様の「まだ調べないで」。ここが立っている間はどの工程も進めない */}
+      {/* この銀行の前提。誰が請求するか（取得区分）と、お客様の「まだ調べないで」（調査禁止）。
+          どちらも Step1 より前に決まることなので、工程の上に置く。調査禁止が立っている間はどの工程も進めない */}
       <div className={`rounded-lg border px-3 py-2 flex items-end gap-4 flex-wrap ${onHold ? 'border-gray-400 bg-gray-100' : 'border-gray-200'}`}>
+        <span className="text-[11px] font-semibold text-gray-600 self-center mr-1">この銀行の前提</span>
+        <F label="取得区分" hint="自社＝うちが請求する。依頼者＝依頼者が自分で取ってくる（請求のタスクは出ない）">
+          <SelCell value={i.acquirer} options={['自社', '依頼者']} onChange={v => void save({ acquirer: v || '自社' })} />
+        </F>
         <F label="調査禁止指定" hint="お客様から「まだ調べないで」と言われているとき。期間指定なら終了日まで、連絡待ちなら解除するまで、この調査先は止まる。">
           <SelCell value={i.survey_prohibited_designation ?? '指定なし'} options={[...SURVEY_BAN_DESIGNATIONS]} onChange={v => void save({ survey_prohibited_designation: v || '指定なし' })} />
         </F>

@@ -289,6 +289,34 @@ export function evaluateInstitution({ institution: i, requests, items, holdings,
   return { status, next, nextDeadline: main?.deadline ?? null, parallelNext, pending, waiting }
 }
 
+/**
+ * 一覧の「いま」。右上の「次の対応」を工程名に丸めたもの（同じ判定から出す。別の条件は持たない）。
+ *   不備 ／ 調査禁止 ／ 凍結・依頼書 ／ 依頼書待ち ／ 対応方法 ／ 印鑑証明 ／ 来店予約 ／ 来店準備 ／ 来店 ／ 発送 ／
+ *   請求登録 ／ 到着待ち ／ 銘柄登録 ／ 管理人特定 ／ 完了 ／ 依頼者取得 ／（ほふり）開示請求・結果待ち・証券会社追加
+ */
+export function stageLabel(ev: InstitutionEvaluation): string {
+  if (ev.status === '完了') return '完了'
+  if (ev.status === '調査禁止中') return '調査禁止'
+  const main = ev.pending.find(p => !p.parallel)
+  if (main) {
+    const m: Record<string, string> = {
+      irregular: '不備', 'freeze-form': '凍結・依頼書', form: '依頼書', method: '対応方法', seal: '印鑑証明',
+      'visit-reserve': '来店予約', 'visit-prepare': '来店準備', submit: '提出', register: '請求登録',
+      holdings: '銘柄登録', administrator: '管理人特定', 'jasdec-request': '開示請求', 'jasdec-register': '証券会社追加',
+    }
+    if (main.key === 'submit') return main.title.startsWith('来店') ? '来店' : main.title.startsWith('依頼書発送') ? '発送' : '請求'
+    return m[main.key] ?? main.title
+  }
+  if (ev.waiting) {
+    if (ev.waiting.includes('依頼書')) return '依頼書待ち'
+    if (ev.waiting.includes('開示結果')) return '結果待ち'
+    if (ev.waiting.includes('到着')) return '到着待ち'
+    if (ev.waiting.includes('依頼者')) return '依頼者取得'
+    return ev.waiting
+  }
+  return ev.next
+}
+
 /** 案件全体の対応待ち。至急 → 期限 → 並行でないもの、の順 */
 export function collectPending(evals: InstitutionEvaluation[]): PendingAction[] {
   return evals.flatMap(e => e.pending).sort((a, b) =>

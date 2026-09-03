@@ -24,10 +24,12 @@ type HistoryLine = { id: number; start: string; end: string; accountIds: string[
 const accountLabel = (a: FinancialAssetRow) =>
   [a.branch_name, a.account_type, a.account_number].map(v => (v ?? '').trim()).filter(Boolean).join('｜') || '口座（番号未入力）'
 
-export default function FinancialRequestModal({ isOpen, onClose, institution, accounts, onSaved, defaultBalanceDate = null }: {
+export default function FinancialRequestModal({ isOpen, onClose, institution, accounts, onSaved, defaultBalanceDate = null, sealInfo }: {
   isOpen: boolean
   /** 指定日1の既定。ほぼ必ず頼む「相続開始日（死亡日）時点」を最初から入れておく */
   defaultBalanceDate?: string | null
+  /** 依頼者の印鑑登録証明書の手元の通数・期限（原本を同封するか決めるときに要る） */
+  sealInfo?: string
   onClose: () => void
   institution: FinancialInstitutionRow
   /** この調査先の口座（預金のとき） */
@@ -132,6 +134,7 @@ export default function FinancialRequestModal({ isOpen, onClose, institution, ac
               <input type="checkbox" checked={sealSent} onChange={e => setSealSent(e.target.checked)} className="w-4 h-4 accent-brand-600" />
               依頼者の印鑑登録証明書の原本を同封（来店なら持参）
             </label>
+            {sealInfo && <span className="w-full text-[10.5px] text-gray-500 text-right">印鑑登録証明書：{sealInfo}</span>}
           </div>
         </section>
 
