@@ -313,27 +313,17 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
     <div className="space-y-3.5">
       <ProgressSummary caseId={caseId} scopeKey={`${scopePrefix}_inst_${inst.id}`} title={`進捗/結果（${inst.name}）`} />
       <div className="bg-white">
-        {/* ヘッダー：何の調査先か＋次の対応 */}
-        <div className="flex items-start justify-between gap-4 px-3.5 py-3 border-b border-gray-200">
-          <div className="min-w-0">
-            {/* 見出しは銀行名と種別だけ。状態は右上の「次の対応」が言う（「対応中」のチップは意味が重なるので置かない）。
-                支店は口座ごと、取得区分・調査禁止は手続きタブの「この銀行の前提」へ。 */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <TxtCell value={inst.name} onCommit={v => void saveInst({ name: v })} placeholder="金融機関名" />
-              <span className="text-[10.5px] px-2 py-[1px] rounded-full bg-gray-100 text-gray-500 flex-none">{inst.kind}</span>
-            </div>
-          </div>
-          <div className="flex-none border-l-2 border-brand-500 bg-gray-50 px-3 py-1.5 min-w-[200px]">
-            <div className="text-[10px] text-gray-400">次の対応</div>
-            <div className="text-[13px] font-semibold text-gray-800">{ev.next}</div>
-            {ev.nextDeadline && <div className="text-[10.5px] text-amber-700">期限 {ev.nextDeadline.replace(/-/g, '/')}</div>}
-            {ev.parallelNext && <div className="text-[10.5px] text-gray-500 mt-0.5">並行：{ev.parallelNext}</div>}
-          </div>
-        </div>
+        {/* 銀行名の見出しは置かない。どの銀行かは左レール（選択中）と進捗タイトルで分かる。
+            名前・種別の修正は手続きタブ「この銀行の前提」の先頭行。状態は右の「次の対応」が言う */}
         {sealWarning}
-        {/* 切替。上の 不動産／預金／証券 と同じ子タブの部品で揃える */}
-        <div className="px-3.5 py-2.5 border-b border-gray-200">
+        <div className="flex items-center justify-between gap-4 px-3.5 py-2.5 border-b border-gray-200">
           <SubTabs tabs={tabs} active={tab} onChange={k => setTab(k as typeof tab)} />
+          <div className="min-w-0 text-right text-[13px] text-gray-500 truncate">
+            次の対応
+            <span className="ml-2 text-[14px] font-semibold text-gray-800">{ev.next}</span>
+            {ev.nextDeadline && <span className="ml-2 text-[13px] text-amber-700">期限 {ev.nextDeadline.slice(5).replace('-', '/')}</span>}
+            {ev.parallelNext && <span className="ml-2 text-[12px] text-gray-500">並行：{ev.parallelNext}</span>}
+          </div>
         </div>
         <div className="p-3.5">
           {tab === 'procedure' && (isJasdec ? <JasdecCard inst={inst} save={saveInst} /> : <ProcedureCards inst={inst} save={saveInst} memberId={memberId} today={today} />)}
@@ -440,7 +430,9 @@ function ProcedureCards({ inst: i, save, memberId, today }: { inst: FinancialIns
     <div className="space-y-2.5">
       {/* この銀行の前提。誰が請求するか（取得区分）と、お客様の「まだ調べないで」（調査禁止）。
           どちらも Step1 より前に決まることなので、工程の上に置く。調査禁止が立っている間はどの工程も進めない */}
-      <PracticeGroup title="この銀行の前提" right={onHold ? <span className="text-[10.5px] font-semibold px-2 py-[1px] rounded-full bg-gray-200 text-gray-700">調査禁止中</span> : undefined}>
+      <PracticeGroup title="この銀行の前提" right={onHold ? <span className="text-[12px] font-semibold px-2 py-[1px] bg-gray-200 text-gray-700">調査禁止中</span> : undefined}>
+        <PracticeRow label="金融機関名"><TxtCell value={i.name} onCommit={v => { if (v.trim()) void save({ name: v.trim() }) }} placeholder="金融機関名" /></PracticeRow>
+        <PracticeRow label="種別"><span>{i.kind}</span></PracticeRow>
         <PracticeRow label="取得区分" hint="自社＝うちが請求する。依頼者＝依頼者が自分で取ってくる（請求のタスクは出ない）">
           <SelCell value={i.acquirer} options={['自社', '依頼者']} onChange={v => void save({ acquirer: v || '自社' })} />
         </PracticeRow>
@@ -583,7 +575,10 @@ function MethodSteps({ inst: i, formDone, onPrepDone, onPrepUndo }: { inst: Fina
 function JasdecCard({ inst: i, save }: { inst: FinancialInstitutionRow; save: (p: Partial<FinancialInstitutionRow>) => Promise<void> }) {
   return (
     <div className="space-y-2.5">
-      <p className="text-[11.5px] text-gray-500">ほふりは証券会社の一種ではありません。開示結果から判明した証券会社を、調査先として追加する起点です。証券会社の追加は段階4で作ります。</p>
+      <PracticeGroup title="この調査先の前提" sub="ほふりは証券会社ではなく、開示結果から証券会社を追加する起点">
+        <PracticeRow label="名称"><TxtCell value={i.name} onCommit={v => { if (v.trim()) void save({ name: v.trim() }) }} placeholder="名称" /></PracticeRow>
+        <PracticeRow label="種別"><span>{i.kind}</span></PracticeRow>
+      </PracticeGroup>
       <PracticeGroup no="Step1" title="開示請求" sub="登録済加入者情報の開示請求" right={<StatusChip s={i.jasdec_arrival_date ? '取得済' : i.jasdec_request_date ? '請求中' : '請求準備中'} />}>
         <PracticeRow label="判明状況"><SelCell value={i.jasdec_company_known} options={[...JASDEC_KNOWN]} onChange={v => void save({ jasdec_company_known: v || null })} /></PracticeRow>
         <PracticeRow label="開示請求日"><DateCell value={i.jasdec_request_date} onCommit={v => void save({ jasdec_request_date: v || null })} /></PracticeRow>
