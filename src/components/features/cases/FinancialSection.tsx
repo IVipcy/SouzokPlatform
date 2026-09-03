@@ -313,8 +313,7 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
               <span className={`inline-block text-[10.5px] px-2 py-[1px] rounded-full font-semibold flex-none ${INST_STATUS_CLS[ev.status]}`}>{ev.status}</span>
             </div>
             <div className="mt-1.5 flex items-center gap-3 text-[11.5px] text-gray-500 flex-wrap">
-              {!isJasdec && <label className="flex items-center gap-1">支店 <span className="w-36"><TxtCell value={inst.branch_name} onCommit={v => void saveInst({ branch_name: v || null })} placeholder="—" /></span></label>}
-              {!isJasdec && !isAdmin && <label className="flex items-center gap-1">コード <span className="w-20"><TxtCell value={inst.institution_code} onCommit={v => void saveInst({ institution_code: v || null })} placeholder="—" /></span></label>}
+              {/* 支店は口座ごとに持つので見出しには置かない（1つの銀行に支店はいくつもある）。金融機関コードも見出しには要らない */}
               <label className="flex items-center gap-1">取得区分 <span className="w-24"><SelCell value={inst.acquirer} options={['自社', '依頼者']} onChange={v => void saveInst({ acquirer: v || '自社' })} /></span></label>
               <span className="text-gray-400">{inst.kind}</span>
             </div>
