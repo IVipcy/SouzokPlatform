@@ -12,7 +12,6 @@ import { useIsManager } from '@/components/providers/AuthProvider'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import { PersonRoleChip, PersonRoleLegend, roleKindOf } from '@/components/ui/PersonRoleChip'
-import HintTip from '@/components/ui/HintTip'
 import {
   KOSEKI_REQUEST_TYPES, KOSEKI_RANGES, KOSEKI_REQUEST_REASONS,
   KOSEKI_DOC_FORMS, JUMINHYO_EXTRA_ITEMS, KOSEKI_SUBMIT_TO_DEFAULT, KOSEKI_SUBMIT_TO_OPTIONS,
@@ -28,6 +27,7 @@ import {
 const KIND_HINT = KOSEKI_REQUEST_KINDS.map(k => `${k}：${REQUEST_KIND_HELP[k]}`).join('\n')
 import ProgressSummary from './ProgressSummary'
 import KosekiImagePanel from './KosekiImagePanel'
+import { PracticeGroup, PracticeRow } from './PracticeCard'
 import { TxtCell, SelCell, MultiCell, DateCell, MoneyCell, TemplateTextField } from './PracticeTableCells'
 import SelectOrTextField from './SelectOrTextField'
 import KosekiRequestDocumentModal from './KosekiRequestDocumentModal'
@@ -880,70 +880,10 @@ function AddKosekiModal({ onClose, onSubmit }: {
   )
 }
 
-// 戸籍1件＝1行。全項目をインライン編集（横スクロール）。要承認は行を帯にして承認ボタンを出す。
-// ───────── 1件の戸籍請求（カード） ─────────
-// 20列の横長テーブルをやめ、オーダーシートと同じ「左ラベル・右入力」に組み直したもの。
-// 表だと横スクロールしながら埋めることになり、どこに何があるか毎回探していた。
-// 見比べる役割はページ上部の「戸籍の取得状況」が担っているので、ここは入力に振り切る。
-//
-// 項目は4つのまとまりに分ける：
-//   ① 何を・どこへ請求するか（請求先・区分・種別・範囲・筆頭者）
-//   ② 誰が・何のために（取得区分・請求法人・提出先・理由・特記）
-//   ③ 進捗（請求日・到着日・発送/到着チェック）
-//   ④ 費用（予算・確定・返金）
-function KosekiFieldRow({ label, hint, sub, children, full = false, disabled = false, disabledNote }: {
-  label: string
-  hint?: string
-  /** ラベルの下に出す小さな補足（「戸籍のとき」等） */
-  sub?: string
-  children: React.ReactNode
-  /** 値を横いっぱいに置く（選択肢が多い項目） */
-  full?: boolean
-  /** 今の選択では使わない項目。消さずに薄くして触れないだけにする */
-  disabled?: boolean
-  /** なぜ使わないのか（薄くした行の右に出す） */
-  disabledNote?: string
-}) {
-  // full のときはラベル1列＋値3列＝4列で1行を使い切る。
-  //
-  // 外側の div は display:contents なので、そこに col-span を掛けても効かない
-  // （箱が作られないため）。効かせるのは中の2つだけ。
-  // さらにラベルに col-start-1 が要る。前の行が2列で終わっていると full の行が
-  // 3列目から始まり、値の3列が入りきらず次の行へ落ちる（使用目的・請求範囲詳細で発覚）。
-  //
-  // disabled は「消す」ではなく「薄くして触れない」。消すとその欄が元々無いように見え、
-  // 既に入っている値も読めなくなる（あとから取得方法を委任状に戻したときに困る）。
-  // opacity は display:contents の外側 div には効かない（箱が作られない）ので、
-  // 中の2つに掛ける。
-  const dim = disabled ? 'opacity-45' : ''
-  return (
-    <div className="contents">
-      <div className={`bg-gray-50/80 border-r border-gray-100 px-3 py-2 flex flex-col justify-center text-[11.5px] font-semibold text-gray-600 leading-snug ${dim} ${full ? 'sm:col-start-1' : ''}`}>
-        <span className="inline-flex items-center gap-1">{label}{hint && !disabled && <HintTip text={hint} />}</span>
-        {sub && <span className="text-[10px] font-normal text-brand-700">{sub}</span>}
-      </div>
-      <div className={`bg-white px-3 py-2 flex items-center gap-2 flex-wrap min-h-[42px] ${dim} ${disabled ? 'pointer-events-none select-none' : ''} ${full ? 'sm:col-span-3' : ''}`}>
-        {children}
-        {disabled && disabledNote && <span className="text-[10.5px] text-gray-500">{disabledNote}</span>}
-      </div>
-    </div>
-  )
-}
-
-function KosekiGroup({ no, title, children }: { no?: string; title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-gray-200 overflow-hidden">
-      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border-b border-gray-200">
-        <span className="inline-block w-[3px] h-3 bg-brand-500 rounded-[1px]" />
-        {no && <span className="text-[10.5px] font-semibold text-brand-700 bg-brand-50 border border-brand-100 rounded px-1.5">{no}</span>}
-        <span className="text-[12px] font-semibold text-gray-600">{title}</span>
-      </div>
-      <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-[8.5rem_minmax(0,1fr)_8.5rem_minmax(0,1fr)] gap-px bg-gray-100">
-        {children}
-      </div>
-    </div>
-  )
-}
+// 項目名が左・入力欄が右のカード。見た目は実務タブ共通の PracticeCard（他事業者紹介と同じ寸法・箱に見せない入力欄）。
+// 以前はここに独自の KosekiGroup / KosekiFieldRow を持っていたが、金融・不動産と揃えるため共通部品にした。
+const KosekiFieldRow = PracticeRow
+const KosekiGroup = PracticeGroup
 
 function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField, saveMany, onDelete, onCopy, onMakeDoc, targetInfo, onSaveTargetInfo, onToggleRelationDone }: {
   r: KosekiRequestRow

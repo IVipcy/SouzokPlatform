@@ -102,6 +102,32 @@ input.input-naked:focus {
   box-shadow: none;
 }
 
+/* ─── 実務タブのカード用：箱に見せない入力欄 ───
+   他事業者紹介の「文字に見えて、触ると編集」に寄せる。ふだんは文字＋破線の下線だけ。
+   フォーカスしたときだけ下線を青の実線にする（面もリングも出さない）。
+   カードに入力欄が3つ並んだとき、箱の壁にならないようにするため。 */
+input.input-flat,
+select.input-flat,
+textarea.input-flat {
+  background-color: transparent;
+  border: 0;
+  border-bottom: 1px dashed #cbd5e1;
+  border-radius: 0;
+  box-shadow: none;
+}
+input.input-flat:focus,
+select.input-flat:focus,
+textarea.input-flat:focus {
+  background-color: transparent;
+  border-bottom: 1px solid var(--color-brand-500);
+  box-shadow: none;
+  outline: none;
+}
+input.input-flat:hover,
+select.input-flat:hover {
+  border-bottom-color: var(--color-brand-400);
+}
+
 /* ─── 一覧テーブルの型（案件一覧・タスク一覧・請求一覧・マイページの表に付与）───
    行の高さ46px固定・全セル1行表示（あふれは…で省略）・
    ホバーは半透明の被せなので、アラート色付きの行でも色味が残る。 */
