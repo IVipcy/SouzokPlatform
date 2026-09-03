@@ -19,6 +19,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { LeftRail } from './LeftRail'
+import { PracticeGroup, PracticeRow } from './PracticeCard'
 import { SubTabs } from '@/components/ui/SubTabs'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import HintTip from '@/components/ui/HintTip'
@@ -408,39 +409,19 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
   )
 }
 
-// ── 手続きカード（01〜04） ─────────────────────────────────────
-function Card({ no, title, sub, status, required, onRequired, children }: {
-  no: string; title: string; sub: string; status?: string; required?: boolean; onRequired?: (v: boolean) => void; children: React.ReactNode
-}) {
-  const off = required === false
+// ── 手続きカード（Step1〜4）。項目名が左・入力欄が右（戸籍タブと同じ PracticeGroup / PracticeRow） ──
+const chipStatus = (done: boolean, started: boolean) => (done ? '取得済' : started ? '請求中' : '請求準備中')
+
+/** 見出し右端の「不要」チェック。ふだんは要なので触らず、要らないときだけチェックする */
+function NotNeeded({ required, onChange }: { required: boolean; onChange: (required: boolean) => void }) {
+  const off = !required
   return (
-    <div className={`rounded-lg border ${off ? 'border-gray-200 bg-gray-50' : 'border-gray-200'} overflow-hidden`}>
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border-b border-gray-200">
-        <span className="text-[10.5px] font-semibold text-brand-700 bg-brand-50 border border-brand-100 rounded px-1.5">{no}</span>
-        <span className="text-[12px] font-semibold text-gray-700">{title}</span>
-        {/* ふだんは「要」なので何も触らない。要らないときだけ「不要」にチェックする。見出しのすぐ右に置く（右端だと見出しと結びつかない） */}
-        {onRequired && (
-          <label className={`inline-flex items-center gap-1 text-[11px] cursor-pointer px-1.5 py-0.5 rounded border ${off ? 'border-gray-400 bg-gray-200 text-gray-700 font-semibold' : 'border-gray-200 text-gray-500 hover:bg-gray-100'}`}>
-            <input type="checkbox" checked={off} onChange={e => onRequired(!e.target.checked)} className="w-3.5 h-3.5 accent-gray-600" />
-            不要
-          </label>
-        )}
-        <span className="text-[10.5px] text-gray-400">{sub}</span>
-        <span className="ml-auto flex items-center gap-2">
-          {status && !off && <StatusChip s={status} />}
-        </span>
-      </div>
-      {!off && <div className="px-3 py-2.5 flex items-end gap-4 flex-wrap">{children}</div>}
-    </div>
+    <label className={`inline-flex items-center gap-1 text-[11px] cursor-pointer px-1.5 py-0.5 rounded border ${off ? 'border-gray-400 bg-gray-200 text-gray-700 font-semibold' : 'border-gray-200 text-gray-500 hover:bg-gray-100'}`}>
+      <input type="checkbox" checked={off} onChange={e => onChange(!e.target.checked)} className="w-3.5 h-3.5 accent-gray-600" />
+      不要
+    </label>
   )
 }
-const F = ({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) => (
-  <label className="text-[10.5px] text-gray-500 flex flex-col gap-0.5">
-    <span className="inline-flex items-center gap-1">{label}{hint && <HintTip text={hint} />}</span>
-    <span className="min-w-[150px]">{children}</span>
-  </label>
-)
-const chipStatus = (done: boolean, started: boolean) => (done ? '取得済' : started ? '請求中' : '請求準備中')
 
 function ProcedureCards({ inst: i, save, memberId, today }: { inst: FinancialInstitutionRow; save: (p: Partial<FinancialInstitutionRow>) => Promise<void>; memberId: string | null; today: string }) {
   const isSec = i.kind === '証券', isAdmin = i.kind === '株主名簿管理人'
@@ -450,93 +431,108 @@ function ProcedureCards({ inst: i, save, memberId, today }: { inst: FinancialIns
     ? (i.search_method === '要原本確認' ? '原本発送日' : '調査請求書発送日')
     : (i.search_method === '要原本確認' ? '原本提出日（来店日）' : '調査請求日（来店日）')
   const onHold = (i.survey_prohibited_designation ?? '') === '指定あり'
+  const muted = <span className="text-[11px] text-gray-400">—</span>
   return (
     <div className="space-y-2.5">
       {/* この銀行の前提。誰が請求するか（取得区分）と、お客様の「まだ調べないで」（調査禁止）。
           どちらも Step1 より前に決まることなので、工程の上に置く。調査禁止が立っている間はどの工程も進めない */}
-      <div className={`rounded-lg border px-3 py-2 flex items-end gap-4 flex-wrap ${onHold ? 'border-gray-400 bg-gray-100' : 'border-gray-200'}`}>
-        <span className="text-[11px] font-semibold text-gray-600 self-center mr-1">この銀行の前提</span>
-        <F label="取得区分" hint="自社＝うちが請求する。依頼者＝依頼者が自分で取ってくる（請求のタスクは出ない）">
+      <PracticeGroup title="この銀行の前提" right={onHold ? <span className="text-[10.5px] font-semibold px-2 py-[1px] rounded-full bg-gray-200 text-gray-700">調査禁止中</span> : undefined}>
+        <PracticeRow label="取得区分" hint="自社＝うちが請求する。依頼者＝依頼者が自分で取ってくる（請求のタスクは出ない）">
           <SelCell value={i.acquirer} options={['自社', '依頼者']} onChange={v => void save({ acquirer: v || '自社' })} />
-        </F>
-        <F label="調査禁止指定" hint="お客様から「まだ調べないで」と言われているとき。期間指定なら終了日まで、連絡待ちなら解除するまで、この調査先は止まる。">
+        </PracticeRow>
+        <PracticeRow label="調査禁止指定" hint="お客様から「まだ調べないで」と言われているとき。期間指定なら終了日まで、連絡待ちなら解除するまで、この調査先は止まる。">
           <SelCell value={i.survey_prohibited_designation ?? '指定なし'} options={[...SURVEY_BAN_DESIGNATIONS]} onChange={v => void save({ survey_prohibited_designation: v || '指定なし' })} />
-        </F>
-        {onHold && <F label="禁止方法"><SelCell value={i.survey_prohibited_method} options={[...SURVEY_BAN_METHODS]} onChange={v => void save({ survey_prohibited_method: v || null })} /></F>}
-        {onHold && i.survey_prohibited_method === '期間指定' && <>
-          <F label="開始日"><DateCell value={i.survey_prohibited_start} onCommit={v => void save({ survey_prohibited_start: v || null })} /></F>
-          <F label="終了日"><DateCell value={i.survey_prohibited_end} onCommit={v => void save({ survey_prohibited_end: v || null })} /></F>
-        </>}
-        {onHold && <F label="理由"><TxtCell value={i.survey_prohibited_reason} onCommit={v => void save({ survey_prohibited_reason: v || null })} placeholder="禁止理由" /></F>}
-        {onHold && i.survey_prohibited_method !== '期間指定' && (
-          i.prohibition_released_at
-            ? <span className="text-[11px] text-emerald-700 self-center">連絡待ち 解除済 {i.prohibition_released_at.slice(0, 10)}</span>
-            : <button type="button" onClick={() => void save({ prohibition_released_at: new Date().toISOString() })} className="self-center px-2.5 py-1 rounded-md text-[11.5px] font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50">お客様OK（解除）</button>
-        )}
-      </div>
-
-      {!isAdmin && (
-        <Card no="Step1" title={isSec ? '死亡連絡' : '口座凍結'} sub={isSec ? '口座名義人の死亡を証券会社へ連絡' : '口座名義人の死亡連絡による一括凍結'}
-          status={i.freeze_date ? '取得済' : '請求準備中'} required={i.freeze_required} onRequired={v => void save({ freeze_required: v })}>
-          <F label={isSec ? '死亡連絡日' : '凍結依頼日（凍結日）'}><DateCell value={i.freeze_date} onCommit={v => void save({ freeze_date: v || null })} /></F>
-          {!isSec && (
-            <F label="凍結してよいか（管理担当の確認）" hint="解約に進む前のゲート。確認したらチェック。">
-              <label className="inline-flex items-center gap-1.5 text-[12px] cursor-pointer">
-                <input type="checkbox" checked={i.freeze_confirmed} onChange={e => void save(e.target.checked
-                  ? { freeze_confirmed: true, freeze_confirmed_at: new Date().toISOString(), freeze_confirmed_by: memberId }
-                  : { freeze_confirmed: false, freeze_confirmed_at: null, freeze_confirmed_by: null, freeze_confirmed_name: null })} className="w-4 h-4 accent-emerald-600" />
-                {i.freeze_confirmed ? <span className="text-emerald-700 inline-flex items-center gap-1"><Check className="w-3.5 h-3.5" />確認済{i.freeze_confirmed_name ? `（${i.freeze_confirmed_name}）` : ''}</span> : <span className="text-gray-500">未確認</span>}
-              </label>
-            </F>
+        </PracticeRow>
+        {onHold && (<>
+          <PracticeRow label="禁止方法"><SelCell value={i.survey_prohibited_method} options={[...SURVEY_BAN_METHODS]} onChange={v => void save({ survey_prohibited_method: v || null })} /></PracticeRow>
+          <PracticeRow label="理由"><TxtCell value={i.survey_prohibited_reason} onCommit={v => void save({ survey_prohibited_reason: v || null })} placeholder="禁止理由" /></PracticeRow>
+          {i.survey_prohibited_method === '期間指定' ? (<>
+            <PracticeRow label="開始日"><DateCell value={i.survey_prohibited_start} onCommit={v => void save({ survey_prohibited_start: v || null })} /></PracticeRow>
+            <PracticeRow label="終了日"><DateCell value={i.survey_prohibited_end} onCommit={v => void save({ survey_prohibited_end: v || null })} /></PracticeRow>
+          </>) : (
+            <PracticeRow label="お客様の連絡" full>
+              {i.prohibition_released_at
+                ? <span className="text-[12px] text-emerald-700">連絡あり・解除済 {i.prohibition_released_at.slice(0, 10)}</span>
+                : <button type="button" onClick={() => void save({ prohibition_released_at: new Date().toISOString() })} className="px-2.5 py-1 rounded-md text-[12px] font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50">お客様からOKの連絡があった（解除）</button>}
+            </PracticeRow>
           )}
-        </Card>
-      )}
-
-      <Card no="Step2" title="依頼書の手配" sub={isAdmin ? '所有株式数証明書等の請求書式' : isSec ? '残高証明書等を取るための証券会社所定書式' : '金融機関所定書式の取り寄せ、または社内在庫'}
-        status={chipStatus(formDone, formStarted)} required={i.form_required} onRequired={v => void save({ form_required: v })}>
-        <F label="入手方法"><SelCell value={i.form_source} options={[...FORM_SOURCES]} onChange={v => void save({ form_source: v || '未確認' })} /></F>
-        {i.form_source === '金融機関へ請求' && <>
-          <F label="請求日"><DateCell value={i.form_request_date} onCommit={v => void save({ form_request_date: v || null })} /></F>
-          <F label="到着日"><DateCell value={i.form_arrival_date} onCommit={v => void save({ form_arrival_date: v || null })} /></F>
-        </>}
-        {i.form_source === '社内在庫' && <F label="在庫確認日"><DateCell value={i.form_stock_date} onCommit={v => void save({ form_stock_date: v || null })} /></F>}
-        {i.form_source === '未確認' && <span className="text-[11px] text-gray-500 self-center">未確認のままだと次に進めません</span>}
-      </Card>
+        </>)}
+      </PracticeGroup>
 
       {!isAdmin && (
-        <Card no="Step3" title="全店調査" sub="他支店・旧取引店を含む口座の有無（並行して進める）"
-          status={i.search_answer_date ? '取得済' : i.search_request_date ? '請求中' : '請求準備中'} required={i.search_required} onRequired={v => void save({ search_required: v })}>
-          <F label="調査方法" hint="金融機関によって回答の条件が違う。電話回答／要原本確認（戸籍・委任状の原本を出す）／要請求（正式な調査請求書）"><SelCell value={i.search_method} options={[...SEARCH_METHODS]} onChange={v => void save({ search_method: v || '未確認' })} /></F>
-          {i.search_method === '電話回答' && <>
-            <F label="確認日"><DateCell value={i.search_answer_date} onCommit={v => void save({ search_answer_date: v || null })} /></F>
-            <F label="回答者（金融機関担当者名）"><TxtCell value={i.search_responder} onCommit={v => void save({ search_responder: v || null })} placeholder="例：相続担当 佐藤様" /></F>
-          </>}
-          {(i.search_method === '要原本確認' || i.search_method === '要請求') && <>
-            <F label={i.search_method === '要原本確認' ? '原本提出方法' : '調査請求方法'}><SelCell value={i.search_submission_method} options={[...SUBMISSION_METHODS]} onChange={v => void save({ search_submission_method: v || '未確認' })} /></F>
-            {i.search_submission_method !== '未確認' && <F label={searchLabel}><DateCell value={i.search_request_date} onCommit={v => void save({ search_request_date: v || null })} /></F>}
-            <F label="回答日"><DateCell value={i.search_answer_date} onCommit={v => void save({ search_answer_date: v || null })} /></F>
-          </>}
-          <div className="w-full flex items-center gap-3 flex-wrap">
-            <span className="text-[10.5px] text-gray-500">調査対象</span>
-            {SEARCH_TARGETS.map(t => {
-              const on = i.search_targets.includes(t)
-              return <button key={t} type="button" onClick={() => void save({ search_targets: on ? i.search_targets.filter(x => x !== t) : [...i.search_targets, t] })}
-                className={`px-2 py-0.5 text-[11px] rounded border ${on ? 'bg-brand-50 text-brand-700 border-brand-300 font-semibold' : 'bg-white text-gray-500 border-gray-200'}`}>{t}</button>
-            })}
-            <label className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-gray-600 cursor-pointer">
-              <input type="checkbox" checked={i.search_all_accounts_registered} onChange={e => void save({ search_all_accounts_registered: e.target.checked })} className="w-3.5 h-3.5 accent-brand-600" />判明した口座をすべて口座一覧に登録済み
-            </label>
-          </div>
-        </Card>
+        <PracticeGroup no="Step1" title={isSec ? '死亡連絡' : '口座凍結'} sub={isSec ? '口座名義人の死亡を証券会社へ連絡' : '口座名義人の死亡連絡による一括凍結'}
+          tone={i.freeze_required ? 'normal' : 'muted'}
+          right={<><NotNeeded required={i.freeze_required} onChange={v => void save({ freeze_required: v })} />{i.freeze_required && <StatusChip s={i.freeze_date ? '取得済' : '請求準備中'} />}</>}>
+          {i.freeze_required && (<>
+            <PracticeRow label={isSec ? '死亡連絡日' : '凍結依頼日（凍結日）'}><DateCell value={i.freeze_date} onCommit={v => void save({ freeze_date: v || null })} /></PracticeRow>
+            {!isSec ? (
+              <PracticeRow label="凍結してよいか" sub="管理担当の確認" hint="解約に進む前のゲート。確認したらチェック。">
+                <label className="inline-flex items-center gap-1.5 text-[12px] cursor-pointer">
+                  <input type="checkbox" checked={i.freeze_confirmed} onChange={e => void save(e.target.checked
+                    ? { freeze_confirmed: true, freeze_confirmed_at: new Date().toISOString(), freeze_confirmed_by: memberId }
+                    : { freeze_confirmed: false, freeze_confirmed_at: null, freeze_confirmed_by: null, freeze_confirmed_name: null })} className="w-4 h-4 accent-emerald-600" />
+                  {i.freeze_confirmed ? <span className="text-emerald-700 inline-flex items-center gap-1"><Check className="w-3.5 h-3.5" />確認済{i.freeze_confirmed_name ? `（${i.freeze_confirmed_name}）` : ''}</span> : <span className="text-gray-500">未確認</span>}
+                </label>
+              </PracticeRow>
+            ) : <PracticeRow label=" ">{muted}</PracticeRow>}
+          </>)}
+        </PracticeGroup>
+      )}
+
+      <PracticeGroup no="Step2" title="依頼書の手配" sub={isAdmin ? '所有株式数証明書等の請求書式' : isSec ? '残高証明書等を取るための証券会社所定書式' : '金融機関所定書式の取り寄せ、または社内在庫'}
+        tone={i.form_required ? 'normal' : 'muted'}
+        right={<><NotNeeded required={i.form_required} onChange={v => void save({ form_required: v })} />{i.form_required && <StatusChip s={chipStatus(formDone, formStarted)} />}</>}>
+        {i.form_required && (<>
+          <PracticeRow label="入手方法"><SelCell value={i.form_source} options={[...FORM_SOURCES]} onChange={v => void save({ form_source: v || '未確認' })} /></PracticeRow>
+          {i.form_source === '金融機関へ請求' && <PracticeRow label="請求日"><DateCell value={i.form_request_date} onCommit={v => void save({ form_request_date: v || null })} /></PracticeRow>}
+          {i.form_source === '金融機関へ請求' && <PracticeRow label="到着日"><DateCell value={i.form_arrival_date} onCommit={v => void save({ form_arrival_date: v || null })} /></PracticeRow>}
+          {i.form_source === '社内在庫' && <PracticeRow label="在庫確認日"><DateCell value={i.form_stock_date} onCommit={v => void save({ form_stock_date: v || null })} /></PracticeRow>}
+          {i.form_source === '未確認' && <PracticeRow label=" "><span className="text-[11px] text-gray-500">未確認のままだと次に進めません</span></PracticeRow>}
+        </>)}
+      </PracticeGroup>
+
+      {!isAdmin && (
+        <PracticeGroup no="Step3" title="全店調査" sub="他支店・旧取引店を含む口座の有無（並行して進める）"
+          tone={i.search_required ? 'normal' : 'muted'}
+          right={<><NotNeeded required={i.search_required} onChange={v => void save({ search_required: v })} />{i.search_required && <StatusChip s={i.search_answer_date ? '取得済' : i.search_request_date ? '請求中' : '請求準備中'} />}</>}>
+          {i.search_required && (<>
+            <PracticeRow label="調査方法" hint="金融機関によって回答の条件が違う。電話回答／要原本確認（戸籍・委任状の原本を出す）／要請求（正式な調査請求書）">
+              <SelCell value={i.search_method} options={[...SEARCH_METHODS]} onChange={v => void save({ search_method: v || '未確認' })} />
+            </PracticeRow>
+            {i.search_method === '未確認' && <PracticeRow label=" "><span className="text-[11px] text-gray-500">金融機関へ確認し、回答条件に合う調査方法を選んでください</span></PracticeRow>}
+            {i.search_method === '電話回答' && (<>
+              <PracticeRow label="確認日"><DateCell value={i.search_answer_date} onCommit={v => void save({ search_answer_date: v || null })} /></PracticeRow>
+              <PracticeRow label="回答者" sub="金融機関担当者名"><TxtCell value={i.search_responder} onCommit={v => void save({ search_responder: v || null })} placeholder="例：相続担当 佐藤様" /></PracticeRow>
+            </>)}
+            {(i.search_method === '要原本確認' || i.search_method === '要請求') && (<>
+              <PracticeRow label={i.search_method === '要原本確認' ? '原本提出方法' : '調査請求方法'}><SelCell value={i.search_submission_method} options={[...SUBMISSION_METHODS]} onChange={v => void save({ search_submission_method: v || '未確認' })} /></PracticeRow>
+              <PracticeRow label={searchLabel}>{i.search_submission_method === '未確認' ? <span className="text-[11px] text-gray-400">提出方法を選ぶと入力できます</span> : <DateCell value={i.search_request_date} onCommit={v => void save({ search_request_date: v || null })} />}</PracticeRow>
+              <PracticeRow label="回答日"><DateCell value={i.search_answer_date} onCommit={v => void save({ search_answer_date: v || null })} /></PracticeRow>
+            </>)}
+            <PracticeRow label="調査対象" full>
+              {SEARCH_TARGETS.map(t => {
+                const on = i.search_targets.includes(t)
+                return <button key={t} type="button" onClick={() => void save({ search_targets: on ? i.search_targets.filter(x => x !== t) : [...i.search_targets, t] })}
+                  className={`px-2 py-0.5 text-[11px] rounded border ${on ? 'bg-brand-50 text-brand-700 border-brand-300 font-semibold' : 'bg-white text-gray-500 border-gray-200'}`}>{t}</button>
+              })}
+              <label className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-gray-600 cursor-pointer">
+                <input type="checkbox" checked={i.search_all_accounts_registered} onChange={e => void save({ search_all_accounts_registered: e.target.checked })} className="w-3.5 h-3.5 accent-brand-600" />判明した口座をすべて口座一覧に登録済み
+              </label>
+            </PracticeRow>
+          </>)}
+        </PracticeGroup>
       )}
 
       {!isAdmin && (
-        <Card no="Step4" title="証明書発行依頼の方法" sub="郵送か来店か。以降の工程がここで分かれる" status={i.handling_method === '未確認' ? '請求準備中' : '取得済'}>
-          <F label="対応方法"><SelCell value={i.handling_method} options={[...HANDLING_METHODS]} onChange={v => void save({ handling_method: v || '未確認', ...(v !== '未確認' && !i.method_confirm_date ? { method_confirm_date: today } : {}) })} /></F>
-          <F label="対応方法確認日"><DateCell value={i.method_confirm_date} onCommit={v => void save({ method_confirm_date: v || null })} /></F>
-          {i.handling_method === '来店' && <F label="来店日（予約済みの訪問日）"><DateCell value={i.visit_date} onCommit={v => void save({ visit_date: v || null })} /></F>}
-          <div className="w-full"><MethodSteps inst={i} formDone={formDone} onPrepDone={() => void save({ visit_prep_done_at: new Date().toISOString(), visit_prep_done_by: memberId })} onPrepUndo={() => void save({ visit_prep_done_at: null, visit_prep_done_by: null })} /></div>
-        </Card>
+        <PracticeGroup no="Step4" title="証明書発行依頼の方法" sub="郵送か来店か。以降の工程がここで分かれる"
+          right={<StatusChip s={i.handling_method === '未確認' ? '請求準備中' : '取得済'} />}>
+          <PracticeRow label="対応方法"><SelCell value={i.handling_method} options={[...HANDLING_METHODS]} onChange={v => void save({ handling_method: v || '未確認', ...(v !== '未確認' && !i.method_confirm_date ? { method_confirm_date: today } : {}) })} /></PracticeRow>
+          <PracticeRow label="対応方法確認日"><DateCell value={i.method_confirm_date} onCommit={v => void save({ method_confirm_date: v || null })} /></PracticeRow>
+          {i.handling_method === '来店' && <PracticeRow label="来店日" sub="予約済みの訪問日"><DateCell value={i.visit_date} onCommit={v => void save({ visit_date: v || null })} /></PracticeRow>}
+          <PracticeRow label="工程" full>
+            <div className="w-full"><MethodSteps inst={i} formDone={formDone} onPrepDone={() => void save({ visit_prep_done_at: new Date().toISOString(), visit_prep_done_by: memberId })} onPrepUndo={() => void save({ visit_prep_done_at: null, visit_prep_done_by: null })} /></div>
+          </PracticeRow>
+        </PracticeGroup>
       )}
     </div>
   )
@@ -584,13 +580,13 @@ function JasdecCard({ inst: i, save }: { inst: FinancialInstitutionRow; save: (p
   return (
     <div className="space-y-2.5">
       <p className="text-[11.5px] text-gray-500">ほふりは証券会社の一種ではありません。開示結果から判明した証券会社を、調査先として追加する起点です。証券会社の追加は段階4で作ります。</p>
-      <Card no="Step1" title="開示請求" sub="登録済加入者情報の開示請求" status={i.jasdec_arrival_date ? '取得済' : i.jasdec_request_date ? '請求中' : '請求準備中'}>
-        <F label="判明状況"><SelCell value={i.jasdec_company_known} options={[...JASDEC_KNOWN]} onChange={v => void save({ jasdec_company_known: v || null })} /></F>
-        <F label="開示請求日"><DateCell value={i.jasdec_request_date} onCommit={v => void save({ jasdec_request_date: v || null })} /></F>
-        <F label="結果到着日"><DateCell value={i.jasdec_arrival_date} onCommit={v => void save({ jasdec_arrival_date: v || null })} /></F>
-        <div className="w-full"><F label="調査対象住所（現住所・旧住所。複数可）"><TxtCell value={i.jasdec_searched_addresses} onCommit={v => void save({ jasdec_searched_addresses: v || null })} placeholder="住所を「、」区切りで" /></F></div>
-        <div className="w-full"><F label="判明した証券会社"><TxtCell value={i.jasdec_result_institutions} onCommit={v => void save({ jasdec_result_institutions: v || null })} placeholder="例：○○証券、△△証券" /></F></div>
-      </Card>
+      <PracticeGroup no="Step1" title="開示請求" sub="登録済加入者情報の開示請求" right={<StatusChip s={i.jasdec_arrival_date ? '取得済' : i.jasdec_request_date ? '請求中' : '請求準備中'} />}>
+        <PracticeRow label="判明状況"><SelCell value={i.jasdec_company_known} options={[...JASDEC_KNOWN]} onChange={v => void save({ jasdec_company_known: v || null })} /></PracticeRow>
+        <PracticeRow label="開示請求日"><DateCell value={i.jasdec_request_date} onCommit={v => void save({ jasdec_request_date: v || null })} /></PracticeRow>
+        <PracticeRow label="結果到着日"><DateCell value={i.jasdec_arrival_date} onCommit={v => void save({ jasdec_arrival_date: v || null })} /></PracticeRow>
+        <PracticeRow label="調査対象住所" sub="現住所・旧住所。複数可" full><TxtCell value={i.jasdec_searched_addresses} onCommit={v => void save({ jasdec_searched_addresses: v || null })} placeholder="住所を「、」区切りで" /></PracticeRow>
+        <PracticeRow label="判明した証券会社" full><TxtCell value={i.jasdec_result_institutions} onCommit={v => void save({ jasdec_result_institutions: v || null })} placeholder="例：○○証券、△△証券" /></PracticeRow>
+      </PracticeGroup>
     </div>
   )
 }
