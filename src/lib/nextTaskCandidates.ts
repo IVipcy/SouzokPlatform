@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
 import { evaluateInstitution, sealCertificateStatus, pendingRid } from '@/lib/financialWorkflow'
+import { normalizeTaskStatus } from '@/lib/taskReadiness'
 import type { FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow } from '@/types'
 
 // 「戸籍が揃ったから、次はこれができる」を出すための判定。
@@ -78,7 +79,7 @@ export async function loadNextCandidates(caseId: string): Promise<NextCandidate[
     supabase.from('real_estate_properties').select('municipality, address').eq('case_id', caseId),
     // 金融の調査先・請求・明細・銘柄。右上の「次の対応」と同じ材料（migration 271）
     supabase.from('financial_institutions').select('*').eq('case_id', caseId),
-    supabase.from('tasks').select('source_rid').eq('case_id', caseId),
+    supabase.from('tasks').select('source_rid, title, status, phase').eq('case_id', caseId),
     supabase.from('financial_requests').select('*').eq('case_id', caseId),
     supabase.from('financial_request_items').select('*, financial_request_item_accounts(*)').eq('case_id', caseId),
     supabase.from('securities_holdings').select('*').eq('case_id', caseId),
@@ -97,7 +98,24 @@ export async function loadNextCandidates(caseId: string): Promise<NextCandidate[
     clientRelationDone: kosekis.some(k => k.relation_koseki_done && clientNames.has((k.target_person ?? '').trim())),
   }
 
-  const have = new Set(((ts ?? []) as Array<{ source_rid: string | null }>).map(t => (t.source_rid ?? '')).filter(Boolean))
+  type TaskLite = { source_rid: string | null; title: string | null; status: string; phase: string | null }
+  const taskRows = (ts ?? []) as TaskLite[]
+  const have = new Set(taskRows.map(t => (t.source_rid ?? '')).filter(Boolean))
+  // その銀行について、まだ終わっていない金融タスク。候補から選ばずに「タスク追加」で任意に作ったものも拾う。
+  // 1つの銀行に未完了の金融タスクが1本あれば、その銀行の主工程の候補は出さない（二重に作らせない）。
+  // 全店調査は並行の別枝なので、全店調査のタスクがあるときだけ全店調査の候補を消す。
+  const openFinTasks = taskRows.filter(t => normalizeTaskStatus(t.status) !== '完了' && (
+    /^(fin|fin-wf|fin-freeze|fin-read):/.test(t.source_rid ?? '') || (t.phase ?? '').includes('金融資産')))
+  const bankOfTask = (t: TaskLite): string => {
+    const m = (t.source_rid ?? '').match(/^(?:fin|fin-wf|fin-freeze|fin-read):([^:]+)/)
+    return m ? m[1].trim() : ''
+  }
+  const hasOpenFinTask = (bank: string, parallel: boolean) => openFinTasks.some(t => {
+    const hit = bankOfTask(t) === bank || (t.title ?? '').includes(bank)
+    if (!hit) return false
+    const isSearch = (t.title ?? '').includes('全店調査') || (t.source_rid ?? '').endsWith(':search')
+    return parallel ? isSearch : !isSearch
+  })
   const out: NextCandidate[] = []
 
   // ── 名寄せ請求（市区町村ごと） ──
@@ -143,6 +161,7 @@ export async function loadNextCandidates(caseId: string): Promise<NextCandidate[
       for (const p of ev.pending) {
         const rid = pendingRid(p)
         if (have.has(rid)) continue
+        if (hasOpenFinTask(inst.name.trim(), p.parallel)) continue   // その銀行はもう誰かのタスクになっている
         out.push({ rid, title: `${p.title}：${inst.name}`, gyomu: '金融資産', why: `${p.parallel ? '並行して進める。' : ''}${p.detail}` })
       }
     }
