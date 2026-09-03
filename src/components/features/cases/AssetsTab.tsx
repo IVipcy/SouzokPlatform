@@ -112,6 +112,9 @@ export default function AssetsTab({ caseData, properties, financialAssets, finan
     if (properties.some(p => municipalityOf(p) === focus)) return 'realestate'
     const asset = financialAssets.find(a => (a.institution_name ?? '').trim() === focus)
     if (asset) return asset.asset_type === '証券' ? 'securities' : (asset.asset_type === '信託銀行' || asset.asset_type === '信託') ? 'trust' : 'deposit'
+    // 口座を持たない調査先（証券会社・ほふり・株主名簿管理人）は調査先の種別で選ぶ
+    const inst = financialInstitutions.find(i => i.name.trim() === focus)
+    if (inst) return inst.kind === '証券' || inst.kind === 'ほふり' ? 'securities' : inst.kind === '株主名簿管理人' ? 'trust' : 'deposit'
     return 'realestate'
   })
 

@@ -36,6 +36,10 @@ export function resolveTaskLanding(task: { source_rid: string | null; phase: str
   // 貸金庫「内容物の確認」→ 財産目録
   if (/^safe-deposit-check:/.test(rid)) return { tab: 'assets', sub: 'inventory', label: '財産目録' }
 
+  // 金融の工程（完了モーダルの候補・対応待ちから作ったタスク。fin-wf:{機関名}:{工程}）→ 財産調査タブ、focus=金融機関名
+  const fw = rid.match(/^fin-wf:([^:]+):/)
+  if (fw) return { tab: 'assets', focus: fw[1], label: '財産調査タブ（金融）' }
+
   // 金融資産（請求/読込）→ 財産調査タブ、focus=金融機関名（AssetsTabが預金/証券/信託を判定して選択）
   const fm = rid.match(/^fin(?:-read)?:(.+)$/)
   if (fm) return { tab: 'assets', focus: fm[1], label: '財産調査タブ（金融）' }

@@ -183,7 +183,7 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
 
       {addOpen && <AddInstitutionModal kind={kind} onClose={() => setAddOpen(false)} onSubmit={addInstitution} />}
       {active && requestOpen && (
-        <FinancialRequestModal isOpen onClose={() => setRequestOpen(false)} institution={active} accounts={accountsOf(active)} onSaved={() => onRefresh?.()} />
+        <FinancialRequestModal isOpen onClose={() => setRequestOpen(false)} institution={active} accounts={accountsOf(active)} defaultBalanceDate={caseData.date_of_death} onSaved={() => onRefresh?.()} />
       )}
       {active && arrivalId && (() => {
         const r = allRequests.find(x => x.id === arrivalId); if (!r) return null

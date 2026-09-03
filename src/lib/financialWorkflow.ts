@@ -297,5 +297,5 @@ export function collectPending(evals: InstitutionEvaluation[]): PendingAction[] 
     || Number(a.parallel) - Number(b.parallel))
 }
 
-/** 「担当する」で tasks に入れるときの source_rid。fin-wf:{機関ID}:{key} */
-export const pendingRid = (p: PendingAction) => `fin-wf:${p.institutionId}:${p.key}`
+/** タスクにするときの source_rid。fin-wf:{機関名}:{key}。機関名で持つのは fin:/cancel: と同じ流儀で、タスク詳細からの着地も名前で解くため */
+export const pendingRid = (p: PendingAction) => `fin-wf:${p.institutionName}:${p.key}`

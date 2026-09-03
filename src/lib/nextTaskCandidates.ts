@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
+import { evaluateInstitution, sealCertificateStatus, pendingRid } from '@/lib/financialWorkflow'
+import type { FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow } from '@/types'
 
 // 「戸籍が揃ったから、次はこれができる」を出すための判定。
 //
@@ -9,11 +11,11 @@ import { createClient } from '@/lib/supabase/client'
 // 依存の中身（戸籍請求タブの読込結果に入れた「被相続人との関係戸籍 取得完了」が起点）：
 //   名寄せ請求   … 被相続人の最後の住所が分かっている＋その人の関係戸籍が揃った
 //                  （または依頼者の関係戸籍が揃った）
-//   資料請求     … 被相続人 または 依頼者の関係戸籍が揃った
-//   凍結依頼     … 上に加えて、調査禁止で止まっていない＆まだ凍結していない
+//   金融         … 被相続人 または 依頼者の関係戸籍が揃った案件の、各調査先の「次の対応」
+//                  （銀行ページ右上に出ているものと同じ判定。ここで別の条件は書かない）
 //
-// 「調査禁止で止まっている」は禁止期間の話だけではない。お客様から
-// 「まだ調べないで」と言われている口座（連絡待ち）も、OKの連絡が来るまでは出さない。
+// 金融の候補と右上の「次の対応」がずれると「右上は凍結連絡なのに候補は資料請求」のような
+// 矛盾になる。判定は financialWorkflow.evaluateInstitution の1か所に置く。
 
 export type NextCandidate = {
   /** 重複を防ぐキー。そのままタスクの source_rid になる */
@@ -69,17 +71,20 @@ type LoadedCase = {
  */
 export async function loadNextCandidates(caseId: string): Promise<NextCandidate[]> {
   const supabase = createClient()
-  const [{ data: c }, { data: ks }, { data: hs }, { data: props }, { data: fins }, { data: ts }] = await Promise.all([
-    supabase.from('cases').select('deceased_name, deceased_address').eq('id', caseId).maybeSingle(),
+  const [{ data: c }, { data: ks }, { data: hs }, { data: props }, { data: fins }, { data: ts }, { data: freqs }, { data: fitems }, { data: fholds }] = await Promise.all([
+    supabase.from('cases').select('deceased_name, deceased_address, seal_cert_oldest_issue_date, seal_cert_validity_months, seal_cert_custom_expiry').eq('id', caseId).maybeSingle(),
     supabase.from('koseki_requests').select('target_person, relation_koseki_done').eq('case_id', caseId),
     supabase.from('heirs').select('name, is_client').eq('case_id', caseId),
     supabase.from('real_estate_properties').select('municipality, address').eq('case_id', caseId),
-    // 調査禁止・凍結・取得区分は調査先（financial_institutions）が持つ（migration 271）
-    supabase.from('financial_institutions').select('name, kind, acquirer, freeze_confirmed, survey_prohibited_designation, survey_prohibited_method, survey_prohibited_start, survey_prohibited_end, prohibition_released_at').eq('case_id', caseId),
+    // 金融の調査先・請求・明細・銘柄。右上の「次の対応」と同じ材料（migration 271）
+    supabase.from('financial_institutions').select('*').eq('case_id', caseId),
     supabase.from('tasks').select('source_rid').eq('case_id', caseId),
+    supabase.from('financial_requests').select('*').eq('case_id', caseId),
+    supabase.from('financial_request_items').select('*, financial_request_item_accounts(*)').eq('case_id', caseId),
+    supabase.from('securities_holdings').select('*').eq('case_id', caseId),
   ])
 
-  const cs = c as { deceased_name: string | null; deceased_address: string | null } | null
+  const cs = c as { deceased_name: string | null; deceased_address: string | null; seal_cert_oldest_issue_date: string | null; seal_cert_validity_months: number | null; seal_cert_custom_expiry: string | null } | null
   const kosekis = (ks ?? []) as Array<{ target_person: string | null; relation_koseki_done: boolean | null }>
   const heirs = (hs ?? []) as Array<{ name: string | null; is_client: boolean | null }>
   const clientNames = new Set(heirs.filter(h => h.is_client).map(h => (h.name ?? '').trim()).filter(Boolean))
@@ -116,26 +121,29 @@ export async function loadNextCandidates(caseId: string): Promise<NextCandidate[
     }
   }
 
-  // ── 金融機関ごと（資料請求・凍結依頼） ──
+  // ── 金融：戸籍が揃った案件の、各調査先の「次の対応」をそのまま候補にする ──
+  // 銀行ページ右上と同じ関数（evaluateInstitution）。すでに同じタスクがあるものは出さない。
+  // 到着待ち・回答待ちは pending に入ってこないので、自然と候補にも出ない。
   const kosekiOkForFin = state.deceasedRelationDone || state.clientRelationDone
   if (kosekiOkForFin) {
-    const why = state.deceasedRelationDone ? '被相続人の関係戸籍が揃ったため' : '依頼者の関係戸籍が揃ったため'
-    type Inst = {
-      name: string; kind: string; acquirer: string | null; freeze_confirmed: boolean | null
-      survey_prohibited_designation: string | null; survey_prohibited_method: string | null
-      survey_prohibited_start: string | null; survey_prohibited_end: string | null; prohibition_released_at: string | null
-    }
-    const insts = ((fins ?? []) as Inst[]).filter(i => (i.kind === '預金' || i.kind === '証券') && (i.name ?? '').trim())
-    for (const a of [...insts].sort((x, y) => x.name.localeCompare(y.name, 'ja'))) {
-      if (isSurveyOnHold(a)) continue                          // お客様の指定で止まっている
-      if ((a.acquirer ?? '自社') === '依頼者') continue        // 依頼者取得の機関は請求タスクを出さない
-      const inst = a.name.trim()
-      const rid = `fin:${inst}`
-      if (!have.has(rid)) out.push({ rid, title: `資料請求（全店調査・残高・経過利息）：${inst}`, gyomu: '金融資産', why })
-      // 凍結依頼は「銀行書類の手配」と同じ電話でやるので1本にまとめる（解約書類を別タスクにしない）。
-      if (!a.freeze_confirmed) {
-        const frid = `fin-freeze:${inst}`
-        if (!have.has(frid)) out.push({ rid: frid, title: `凍結依頼・銀行書類手配：${inst}`, gyomu: '金融資産', why })
+    const today = new Date().toLocaleDateString('sv-SE')
+    const seal = sealCertificateStatus({
+      seal_cert_oldest_issue_date: cs?.seal_cert_oldest_issue_date ?? null,
+      seal_cert_validity_months: cs?.seal_cert_validity_months ?? null,
+      seal_cert_custom_expiry: cs?.seal_cert_custom_expiry ?? null,
+    }, today)
+    const institutions = (fins ?? []) as FinancialInstitutionRow[]
+    const requests = (freqs ?? []) as FinancialRequestRow[]
+    const items = (fitems ?? []) as unknown as FinancialRequestItemRow[]
+    const holdings = (fholds ?? []) as SecuritiesHoldingRow[]
+    for (const inst of [...institutions].sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'ja'))) {
+      const reqs = requests.filter(r => r.institution_id === inst.id)
+      const ids = new Set(reqs.map(r => r.id))
+      const ev = evaluateInstitution({ institution: inst, requests: reqs, items: items.filter(it => ids.has(it.request_id)), holdings: holdings.filter(h => h.institution_id === inst.id), seal, today })
+      for (const p of ev.pending) {
+        const rid = pendingRid(p)
+        if (have.has(rid)) continue
+        out.push({ rid, title: `${p.title}：${inst.name}`, gyomu: '金融資産', why: `${p.parallel ? '並行して進める。' : ''}${p.detail}` })
       }
     }
   }
