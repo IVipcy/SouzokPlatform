@@ -75,10 +75,16 @@ type Props = {
   focus?: string | null   // タスク詳細からの着地：金融機関名
 }
 
-export default function FinancialSection({ caseId, kind, scopePrefix, assets, institutions: allInstitutions, requests: allRequests, requestItems: allItems, holdings: allHoldings, caseData, onRefresh, focus }: Props) {
+export default function FinancialSection({ caseId, kind, scopePrefix, assets, institutions: rawInstitutions, requests: allRequests, requestItems: allItems, holdings: allHoldings, caseData, onRefresh, focus }: Props) {
   const supabase = createClient()
   const memberId = useCurrentMember(null)
   const today = todayYmd()
+  // 保存できた値を、サーバー再取得が返るまで手元に重ねる（チェックしてから画面が変わるまでのラグをなくす）。
+  // サーバーの値が変わったら上書きは剥がす（他の人の編集を消さないため）。
+  const [localEdits, setLocalEdits] = useState<Record<string, Partial<FinancialInstitutionRow>>>({})
+  const [seenRaw, setSeenRaw] = useState(rawInstitutions)
+  if (seenRaw !== rawInstitutions) { setSeenRaw(rawInstitutions); setLocalEdits({}) }
+  const allInstitutions = useMemo(() => rawInstitutions.map(i => (localEdits[i.id] ? { ...i, ...localEdits[i.id] } : i)), [rawInstitutions, localEdits])
 
   const institutions = useMemo(() => allInstitutions.filter(i => KINDS_OF[kind].includes(i.kind)).sort((a, b) => a.sort_order - b.sort_order || collator.compare(a.name, b.name)), [allInstitutions, kind])
   const [sub, setSub] = useState<string>(() => (focus && institutions.some(i => i.name.trim() === focus)) ? (institutions.find(i => i.name.trim() === focus)?.id ?? 'top') : 'top')
@@ -124,6 +130,7 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
     onRefresh?.()
   }
   const saveInst = async (inst: FinancialInstitutionRow, patch: Partial<FinancialInstitutionRow>) => {
+    setLocalEdits(prev => ({ ...prev, [inst.id]: { ...prev[inst.id], ...patch } }))   // 先に画面へ
     const { error } = await supabase.from('financial_institutions').update(patch).eq('id', inst.id)
     if (error) showToast(`保存に失敗: ${error.message}`, 'error'); else onRefresh?.()
   }
@@ -319,14 +326,17 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
             {ev.parallelNext && <div className="text-[10.5px] text-gray-500 mt-0.5">並行：{ev.parallelNext}</div>}
           </div>
         </div>
-        {/* タブ */}
-        <div className="flex gap-1 px-3.5 border-b border-gray-200">
-          {tabs.map(t => (
-            <button key={t.key} type="button" onClick={() => setTab(t.key)}
-              className={`px-3 py-2 text-[12.5px] -mb-px border-b-2 ${tab === t.key ? 'border-brand-600 text-brand-700 font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-              {t.label}{t.count != null && <span className="ml-1 text-[10.5px] text-gray-400">{t.count}</span>}
-            </button>
-          ))}
+        {/* 切替。上の 預金／証券 のピルと見分けがつくよう、枠で区切った3分割にする */}
+        <div className="px-3.5 py-2.5 border-b border-gray-200 bg-gray-50/60">
+          <div className="inline-flex rounded-md border border-gray-300 bg-white overflow-hidden">
+            {tabs.map((t, idx) => (
+              <button key={t.key} type="button" onClick={() => setTab(t.key)}
+                className={`px-4 py-1.5 text-[13px] inline-flex items-center gap-1.5 ${idx > 0 ? 'border-l border-gray-300' : ''} ${tab === t.key ? 'bg-brand-600 text-white font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}>
+                {t.label}
+                {t.count != null && <span className={`text-[10.5px] px-1.5 rounded-full ${tab === t.key ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-500'}`}>{t.count}</span>}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="p-3.5">
           {tab === 'procedure' && (isJasdec ? <JasdecCard inst={inst} save={saveInst} /> : <ProcedureCards inst={inst} save={saveInst} memberId={memberId} today={today} />)}
@@ -418,10 +428,11 @@ function Card({ no, title, sub, status, required, onRequired, children }: {
         <span className="text-[12px] font-semibold text-gray-700">{title}</span>
         <span className="text-[10.5px] text-gray-400">{sub}</span>
         <span className="ml-auto flex items-center gap-2">
+          {/* ふだんは「要」なので何も触らない。要らないときだけ「不要」にチェックする（逆だと毎回チェックが要るように見える） */}
           {onRequired && (
-            <label className="inline-flex items-center gap-1 text-[11px] text-gray-500 cursor-pointer">要否
-              <input type="checkbox" checked={required !== false} onChange={e => onRequired(e.target.checked)} className="w-3.5 h-3.5 accent-brand-600" />
-              <span className="text-gray-700 font-semibold">{required === false ? '不要' : '要'}</span>
+            <label className={`inline-flex items-center gap-1.5 text-[11px] cursor-pointer px-1.5 py-0.5 rounded border ${off ? 'border-gray-400 bg-gray-200 text-gray-700 font-semibold' : 'border-gray-200 text-gray-500 hover:bg-gray-100'}`}>
+              <input type="checkbox" checked={off} onChange={e => onRequired(!e.target.checked)} className="w-3.5 h-3.5 accent-gray-600" />
+              この手続きは不要
             </label>
           )}
           {status && !off && <StatusChip s={status} />}
