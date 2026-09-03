@@ -22,7 +22,7 @@ export function SubTabs({ tabs, active, onChange, className = '' }: {
             type="button"
             onClick={() => onChange(t.key)}
             aria-current={on ? 'page' : undefined}
-            className={`px-3.5 py-1.5 rounded-full text-[13px] transition-colors whitespace-nowrap ${
+            className={`px-3.5 py-1.5 rounded-full text-[14px] transition-colors whitespace-nowrap ${
               on
                 ? 'bg-brand-100 text-brand-800 font-semibold'
                 : 'text-gray-500 hover:text-gray-800 hover:bg-white'

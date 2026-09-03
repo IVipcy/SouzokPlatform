@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { PracticeGroup, PracticeRow } from './PracticeCard'
 import { Plus, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -125,36 +126,9 @@ function reTabLabel(
 }
 
 /** カードの1行。ラベル左・値右。full は横いっぱい（col-start-1 が無いと前の行の途中から始まる）。 */
-function ReRow({ label, sub, children, full = false }: {
-  label: string; sub?: string; children: React.ReactNode; full?: boolean
-}) {
-  return (
-    <div className="contents">
-      <div className={`bg-gray-50/80 border-r border-gray-100 px-3 py-2 flex flex-col justify-center text-[11.5px] font-semibold text-gray-600 leading-snug ${full ? 'sm:col-start-1' : ''}`}>
-        <span>{label}</span>
-        {sub && <span className="text-[10px] font-normal text-brand-700">{sub}</span>}
-      </div>
-      <div className={`bg-white px-3 py-2 flex items-center gap-2 flex-wrap min-h-[42px] ${full ? 'sm:col-span-3' : ''}`}>
-        {children}
-      </div>
-    </div>
-  )
-}
-
-function ReGroup({ no, title, children }: { no: string; title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-gray-200 overflow-hidden">
-      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border-b border-gray-200">
-        <span className="inline-block w-[3px] h-3 bg-brand-500 rounded-[1px]" />
-        <span className="text-[10.5px] font-semibold text-brand-700 bg-brand-50 border border-brand-100 rounded px-1.5">{no}</span>
-        <span className="text-[12px] font-semibold text-gray-600">{title}</span>
-      </div>
-      <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-[8.5rem_minmax(0,1fr)_8.5rem_minmax(0,1fr)] gap-px bg-gray-100">
-        {children}
-      </div>
-    </div>
-  )
-}
+// 項目名が左・入力欄が右の表は、実務タブ共通の PracticeCard を使う（戸籍・金融と同じ見た目）。
+const ReRow = PracticeRow
+const ReGroup = PracticeGroup
 
 type AcquisitionCardsProps = {
   rows: RealEstateAcquisitionRow[]

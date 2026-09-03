@@ -498,7 +498,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
       {/* 左レール（対象者＝人ごと）。案件の色が透けないよう白いカードに載せる。
           幅は「被相続人」＋依頼者バッジ＋件数＋到着＋削除ボタンが1行に収まる実測値（288px）。
           240pxだと削除ボタンのぶんが効いて「被相 続人」と折れる。 */}
-      <div className="flex-none w-72 flex flex-col gap-0.5 bg-white border border-gray-200 rounded-lg p-1.5 self-start">
+      <div className="flex-none w-72 flex flex-col gap-0.5 bg-white p-1.5 self-start">
         {railTabs.map(t => {
           const isTop = t.id === 'top'
           const person = t.id === '__unset__' ? '' : t.id
@@ -558,9 +558,9 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                 {/* 何を・どこへ頼んで、どうなったかを1行で追えるようにする。
                     字は切らない（切ると結局カードを開くことになる）ので、
                     横に長くなるぶんは横スクロールに任せる。 */}
-                <table className="w-full text-[12px] border-collapse" style={{ minWidth: 1260 }}>
+                <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1260 }}>
                   <thead>
-                    <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
+                    <tr className="bg-slate-100 border-b border-slate-300 text-[12.5px] text-gray-600">
                       <th className="px-2.5 py-2 text-left font-semibold w-[150px]">対象者</th>
                       <th className="px-2.5 py-2 text-left font-semibold w-[120px]">請求先</th>
                       <th className="px-2.5 py-2 text-left font-semibold w-[84px]">取得方法</th>
@@ -677,7 +677,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
           <div className="space-y-3.5">
             <ProgressSummary caseId={caseId} scopeKey={`koseki_person_${activePerson || 'unset'}`} title={`進捗/結果（${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍）`}
               onSaved={v => setMemoByName(prev => ({ ...prev, [activePerson.trim()]: v.body }))} />
-            <div className="bg-white border border-gray-200 rounded-lg p-3.5">
+            <div className="bg-white p-3.5">
               <SectionHeading title={`${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍（1タブ=1請求）`}
                 hint="上のタブが1回の請求です。転籍を遡るときは「＋ 請求を追加」でタブを足してください（承認は要りません）。取得区分が「依頼者」の請求は、請求日・費用・チェックが「依頼者負担」になり入力できません。追加戸籍請求（要承認）は、管理担当が承認したあとに編集できます。"
                 className="mb-2.5 pb-1.5 border-b border-gray-200" />
@@ -746,7 +746,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
               )}
             </div>
             {/* この人の戸籍のスキャン画像。アップロード直後に書き込むか聞く。 */}
-            <div className="bg-white border border-gray-200 rounded-lg p-3.5">
+            <div className="bg-white p-3.5">
               <KosekiImagePanel caseId={caseId} targetPerson={sub === '__unset__' ? '' : activePerson} requests={personRequests} title={`${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍の画像`} />
             </div>
           </div>
@@ -1063,7 +1063,7 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
           </KosekiFieldRow>
           {/* 請求に係る者の氏名＝誰の戸籍か。職務上請求でも左レールの並びを決める大事な値なので、
               ここだけは薄くしない（薄くすると対象者を直せなくなる）。 */}
-          <KosekiFieldRow label="請求に係る者の氏名">
+          <KosekiFieldRow label="氏名（請求に係る者）">
             <SelectOrTextField value={r.target_person} options={personNames} onSave={v => saveField(r.id, 'target_person', v)} placeholder="誰の戸籍か" />
           </KosekiFieldRow>
           <KosekiFieldRow label="基礎証明外事項" sub="住民票のとき" full disabled={isShokumujo} disabledNote={NOT_USED_NOTE}

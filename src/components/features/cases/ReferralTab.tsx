@@ -54,7 +54,7 @@ function ReasonField({ label, value, onSave }: { label: string; value: string | 
   return (
     <FieldRow label={label}>
       <SelectOrTextField
-        value={value ?? null}
+        value={value === 'その他（自由入力）' ? null : (value ?? null)}
         options={REASON_OPTIONS}
         onSave={onSave}
         placeholder="紹介した事情を入力"
@@ -156,7 +156,7 @@ export default function ReferralTab({ caseData, referrals, onRefresh, tasks = []
                 自由入力の文字はそのまま referral_reason に入る。 */}
             <ReasonField label="紹介理由" value={row.referral_reason} onSave={v => { void saveReferralField(row.id, 'referral_reason')(v) }} />
             <InlineSelect label="相続税申告要否" value={caseData.tax_filing_required} options={[...TAX_FILING_OPTIONS]} onSave={saveCaseField('tax_filing_required')} />
-            <FirmNameField label="紹介先税理士法人名" value={row.firm_name} onSave={v => { void saveReferralField(row.id, 'firm_name')(v) }} />
+            <FirmNameField label="紹介先（税理士法人名）" value={row.firm_name} onSave={v => { void saveReferralField(row.id, 'firm_name')(v) }} />
           </>
         )}
         {row.partner_type === '不動産' && (
@@ -198,7 +198,7 @@ export default function ReferralTab({ caseData, referrals, onRefresh, tasks = []
             <InlineSelect label="紹介" value={taxRow ? 'あり' : 'なし'} options={['あり', 'なし']} onSave={async v => { await togglePartner('税理士', v === 'あり') }} width="compact" />
             {/* 紹介先の税理士法人。面談結果登録の「紹介元（税理士経由）」と同じ一覧から選ぶ。
                 付き合いのない法人へ紹介することもあるので、一覧に無ければそのまま打てる。 */}
-            {taxRow && <FirmNameField label="紹介先税理士法人名" value={taxRow.firm_name} onSave={v => { void saveReferralField(taxRow.id, 'firm_name')(v) }} />}
+            {taxRow && <FirmNameField label="紹介先（税理士法人名）" value={taxRow.firm_name} onSave={v => { void saveReferralField(taxRow.id, 'firm_name')(v) }} />}
             {taxRow && <ReasonField label="紹介理由" value={taxRow.referral_reason} onSave={v => { void saveReferralField(taxRow.id, 'referral_reason')(v) }} />}
             {taxRow && <InlineTextarea label="備考" value={taxRow.content_detail} onSave={saveReferralField(taxRow.id, 'content_detail')} fullWidth />}
           </FieldGrid>

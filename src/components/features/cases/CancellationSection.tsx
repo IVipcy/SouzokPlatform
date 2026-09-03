@@ -103,7 +103,7 @@ export default function CancellationSection({ caseId, financialAssets, instituti
             {instRows(activeInst).length === 0 ? (
               <div className="rounded-md border border-gray-200 px-4 py-8 text-center text-[12px] text-gray-400">この金融機関の口座がありません。</div>
             ) : (
-              <div className="bg-white border border-gray-200 rounded-lg p-3.5">
+              <div className="bg-white p-3.5">
                 <SectionHeading title="解約手続（口座ごと／横スクロールで全項目）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
                 <div className="overflow-x-auto">
                   <table className="w-full text-[12px] border-collapse" style={{ minWidth: 840 }}>

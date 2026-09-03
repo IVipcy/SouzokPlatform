@@ -16,14 +16,14 @@ export function LeftRail({ items, active, onChange, extra, onDelete }: {
 }) {
   // 案件の色（アラートの色）が透けないよう、白いカードに載せる。
   return (
-    <div className="flex-none w-40 flex flex-col gap-0.5 bg-white border border-gray-200 rounded-lg p-1.5 self-start">
+    <div className="flex-none w-44 flex flex-col gap-0.5 bg-white p-1.5 self-start">
       {items.map(it => {
         const isItem = it.key !== 'top'
         const dim = isItem && it.received === false  // 受信判定がある項目で未受信なら控えめ
         return (
           <div key={it.key} className="group/rail relative flex items-center">
             <button type="button" onClick={() => onChange(it.key)}
-              className={`flex-1 min-w-0 text-left text-[12px] px-2.5 py-1.5 rounded-md flex items-center gap-1.5 ${active === it.key ? 'bg-brand-50 text-brand-700 font-semibold shadow-[inset_2px_0_0_var(--color-brand-600)]' : `text-gray-600 hover:bg-gray-50 ${dim ? 'opacity-70' : ''}`}`}>
+              className={`flex-1 min-w-0 text-left text-[13.5px] px-2.5 py-2 flex items-center gap-1.5 ${active === it.key ? 'bg-brand-50 text-brand-700 font-semibold shadow-[inset_2px_0_0_var(--color-brand-600)]' : `text-gray-600 hover:bg-gray-50 ${dim ? 'opacity-70' : ''}`}`}>
               {it.key === 'top'
                 ? <Table2 className="w-3.5 h-3.5 flex-none" />
                 : <span className={`w-1.5 h-1.5 rounded-full flex-none border ${summaryStatusClass(it.status)}`} />}

@@ -75,12 +75,12 @@ export default function ProgressSummary({ caseId, scopeKey, title, onSaved }: {
   }
 
   return (
-    <div className="rounded-lg border border-brand-200 bg-brand-50/50 px-3.5 py-2.5">
+    <div className="bg-white px-3.5 pt-3 pb-3">
       <div className="flex items-center gap-2 mb-1.5">
-        <span className="w-[3px] h-3.5 bg-brand-600 rounded-[1px]" />
-        <span className="text-[12.5px] font-semibold text-brand-800">{title}</span>
+        <span className="w-[3px] h-4 bg-brand-600" />
+        <span className="text-[15px] font-semibold text-gray-800">{title}</span>
         {!editing && (
-          <button type="button" onClick={() => { setDraft(body); setEditing(true) }} className="ml-auto inline-flex items-center gap-1 text-[11.5px] text-brand-600 hover:text-brand-700 font-semibold">
+          <button type="button" onClick={() => { setDraft(body); setEditing(true) }} className="ml-auto inline-flex items-center gap-1 text-[13px] text-brand-600 hover:text-brand-700 font-semibold">
             <Pencil className="w-3 h-3" /> メモを編集
           </button>
         )}
@@ -88,18 +88,18 @@ export default function ProgressSummary({ caseId, scopeKey, title, onSaved }: {
 
       {editing ? (
         <div>
-          <textarea value={draft} onChange={e => setDraft(e.target.value)} rows={3} placeholder="現時点で分かったこと・現状をまとめて記入" className="w-full px-2.5 py-1.5 text-[12.5px] border border-brand-200 rounded-lg outline-none focus:border-brand-400 bg-white" />
+          <textarea value={draft} onChange={e => setDraft(e.target.value)} rows={3} placeholder="現時点で分かったこと・現状をまとめて記入" className="w-full px-2.5 py-1.5 text-[14px] border border-slate-300 outline-none focus:border-brand-400 bg-white" />
           <div className="flex justify-end gap-2 mt-1.5">
-            <button type="button" onClick={() => setEditing(false)} className="inline-flex items-center gap-1 px-2.5 py-1 text-[11.5px] text-gray-500 hover:text-gray-700"><X className="w-3 h-3" />取消</button>
-            <button type="button" onClick={saveBody} disabled={saving} className="inline-flex items-center gap-1 px-3 py-1 text-[11.5px] font-semibold text-white bg-brand-600 rounded-md hover:bg-brand-700 disabled:opacity-50"><Check className="w-3 h-3" />保存</button>
+            <button type="button" onClick={() => setEditing(false)} className="inline-flex items-center gap-1 px-2.5 py-1 text-[13px] text-gray-500 hover:text-gray-700"><X className="w-3 h-3" />取消</button>
+            <button type="button" onClick={saveBody} disabled={saving} className="inline-flex items-center gap-1 px-3 py-1 text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-50"><Check className="w-3 h-3" />保存</button>
           </div>
         </div>
       ) : (
         <>
-          <div className={`text-[12.5px] leading-relaxed whitespace-pre-line rounded-lg px-3 py-2 ${body ? 'bg-white text-gray-800 border border-gray-200' : 'text-gray-400 italic'}`}>
+          <div className={`text-[14px] leading-relaxed whitespace-pre-line px-1 py-1 ${body ? 'text-gray-800' : 'text-gray-400'}`}>
             {body || '現状メモは未記入です。「メモを編集」から記入してください。'}
           </div>
-          {meta.at && <div className="text-[10.5px] text-gray-400 mt-1.5">最終更新：{meta.name ?? '—'}・{meta.at}</div>}
+          {meta.at && <div className="text-[12px] text-gray-400 mt-1.5">最終更新：{meta.name ?? '—'}・{meta.at}</div>}
         </>
       )}
     </div>

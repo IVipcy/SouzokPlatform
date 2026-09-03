@@ -437,14 +437,14 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
             </div>
             {/* 物件一覧（先頭・常設の作業テーブル）：オーダーシートと同じ並び。ヒアリング想定の物件を入れ、
                 名寄帳で判明した追加物件もこの表に足す。読込タスク着地時のみハイライト。 */}
-            <div className={`bg-white border border-gray-200 rounded-lg p-3.5${focusIsRead ? flashCls('muni') : ''}`}>
+            <div className={`bg-white p-3.5${focusIsRead ? flashCls('muni') : ''}`}>
               <SectionHeading title="物件一覧（想定物件を入力／名寄帳で判明した物件もここに追加）" hint="同一市区町村内の物件はこの表にまとめて入力します。名寄帳（①）で新たに見つかった物件もここに追加してください。②の登記などが揃ったら評価額を入れて確定します。財産目録に載るのは確定済の物件だけです。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} municipalityFilter={muniKey} addressSuggestions={addressSuggestions} />
             </div>
             {/* 取得資料（役所へ請求・法務局へ請求）。1タブ＝1請求のカードで出す。
                 以前は①②の2つの表に分かれていて、どちらも16列を横スクロールして読む形だった。
                 ①②は「請求先が役所か法務局か」の違いなので、タブを1本にまとめて並び順で分ける。 */}
-            <div ref={isFocusCard('muni') ? focusCardRef : undefined} className={`bg-white border border-gray-200 rounded-lg p-3.5${flashCls('muni')}`}>
+            <div ref={isFocusCard('muni') ? focusCardRef : undefined} className={`bg-white p-3.5${flashCls('muni')}`}>
               <SectionHeading title="取得資料（役所・法務局への請求）" hint="不動産調査の出発点は名寄帳です。名寄帳でこの市区町村にある物件を洗い出し（私道・持分も拾えます）、物件一覧に足したうえで、法務局へ登記情報などを請求します。1つのタブが1回の請求です。同じ宛先へまとめて頼んだ資料は1つのタブに入ります。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <div className="mb-2.5 flex items-center gap-2 flex-wrap text-[12px]">
                 <span className="text-gray-500 font-medium">管轄法務局</span>
@@ -454,7 +454,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
               <RealEstateAcquisitionsTable layout="cards" caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="all" municipalityFilter={muniKey} additionsNeedApproval={additionsNeedApproval} onAdditionalPending={() => notifyManagersAdditional('不動産の追加請求の承認依頼', `${muniKey}で取得資料が追加されました。承認するとタスクを生成します。`)} onAfterAddRow={() => promptIfMissing(muniKey, 'muni')} />
             </div>
             {/* 評価証明（物件ごと・別表）：名寄帳とは分ける。家屋番号・近傍宅地価格・年度を物件単位で管理（エクセルR69）。 */}
-            <div className="bg-white border border-gray-200 rounded-lg p-3.5">
+            <div className="bg-white p-3.5">
               <SectionHeading title="評価証明（物件ごと）" hint="固定資産評価証明は物件ごとに、家屋番号・近傍宅地価格の有無・年度（和暦）を記録します。請求先は市区町村役所（①と同じ）。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <EvalCertTable caseId={caseId} properties={properties.filter(p => municipalityOf(p) === muniKey)} requestTo={muniKey} onRefresh={onRefresh} />
             </div>

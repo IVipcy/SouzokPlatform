@@ -240,9 +240,9 @@ function TopTable({ institutions, evalOf, accountsOf, holdings, onOpen }: {
     <div>
       <SectionHeading title="調査先の一覧" hint="行を押すとその調査先を開きます。工程と次の対応は入力内容から自動で出ます。" className="mb-1.5 pb-1.5 border-b border-gray-200" />
       <div className="overflow-x-auto">
-        <table className="w-full text-[12px] border-collapse" style={{ minWidth: 820 }}>
+        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 820 }}>
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
+            <tr className="bg-slate-100 border-b border-slate-300 text-[12.5px] text-gray-600">
               {/* 調査先に幅を付けないと余った幅を全部取って表が間延びする。伸びるのは「次の対応」だけにする */}
               <th className="px-2.5 py-2 text-left font-semibold w-60">調査先</th>
               <th className="px-2.5 py-2 text-left font-semibold w-24">種別</th>
@@ -307,7 +307,7 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
   return (
     <div className="space-y-3.5">
       <ProgressSummary caseId={caseId} scopeKey={`${scopePrefix}_inst_${inst.id}`} title={`進捗/結果（${inst.name}）`} />
-      <div className="bg-white border border-gray-200 rounded-lg">
+      <div className="bg-white">
         {/* ヘッダー：何の調査先か＋次の対応 */}
         <div className="flex items-start justify-between gap-4 px-3.5 py-3 border-b border-gray-200">
           <div className="min-w-0">
@@ -338,8 +338,8 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
                 <p className="text-[11.5px] text-gray-500">支店 → 普通・定期・その他の順。残高証明・取引履歴の状態は請求から自動で入ります。</p>
                 <button type="button" onClick={addAccount} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50"><Plus className="w-3.5 h-3.5" />口座を追加</button>
               </div>
-              <table className="w-full text-[12px] border-collapse">
-                <thead><tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
+              <table className="w-full text-[13px] border-collapse">
+                <thead><tr className="bg-slate-100 border-b border-slate-300 text-[12.5px] text-gray-600">
                   <th className="px-2 py-2 text-left font-semibold w-40">支店</th><th className="px-2 py-2 text-left font-semibold w-24">種別</th><th className="px-2 py-2 text-left font-semibold w-36">口座番号</th>
                   <th className="px-2 py-2 text-left font-semibold w-28">残高証明</th><th className="px-2 py-2 text-left font-semibold w-28">取引履歴</th><th className="px-2 py-2 text-right font-semibold w-36">残高</th><th className="px-2 py-2 text-left font-semibold">備考</th><th className="w-8" />
                 </tr></thead>
@@ -370,8 +370,8 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
                 <p className="text-[11.5px] text-gray-500">1行＝金融機関へ一度に出したまとまり。到着日は受信簿のW-Checkで入ります。</p>
                 <button type="button" onClick={openRequest} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-[12px] font-semibold text-white bg-brand-600 hover:bg-brand-700"><Plus className="w-3.5 h-3.5" />請求を登録</button>
               </div>
-              <table className="w-full text-[12px] border-collapse">
-                <thead><tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600">
+              <table className="w-full text-[13px] border-collapse">
+                <thead><tr className="bg-slate-100 border-b border-slate-300 text-[12.5px] text-gray-600">
                   <th className="px-2 py-2 text-left font-semibold w-28">請求内容</th><th className="px-2 py-2 text-left font-semibold">指定日・期間</th><th className="px-2 py-2 text-left font-semibold">対象口座</th>
                   <th className="px-2 py-2 text-left font-semibold w-24">請求日</th><th className="px-2 py-2 text-left font-semibold w-24">到着</th><th className="px-2 py-2 text-left font-semibold w-24">状況</th><th className="w-40" />
                 </tr></thead>

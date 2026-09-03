@@ -47,22 +47,23 @@ export function Section({ title, icon: _icon, children, actionLabel, onAction, c
   const [open, setOpen] = useState(defaultOpen)
   const isOpen = collapsible ? open : true
 
-  // nested=false（通常）: 白背景・四角・枠線なし＋濃い青帯見出しのカード型。
-  // nested=true（オーダーシート内）: 枠なし・灰の細見出し＋インデントで、親の中の一部だと分かる小見出しに。
+  // 見出しは1種類：「｜青い縦線＋太字」。青く塗った帯はやめた（帯・枠・角丸を重ねると額縁が増えるだけだった）。
+  // nested=false（通常）: 白い面の上に見出し15px＋中身。枠線なし・角丸なし。
+  // nested=true（オーダーシート内）: 同じ見出しを一回り小さく（13.5px）してインデント。
   const sectionCls = nested ? '' : 'bg-white'
   const headerCls = nested
     ? 'flex items-center gap-2 mb-2'
-    : 'flex items-center gap-2 px-4 py-2.5 bg-brand-600'
-  const titleCls = nested ? 'text-[12.5px] font-semibold text-gray-600 tracking-[0.02em]' : 'text-[13px] font-bold text-white tracking-[0.02em]'
-  const chevronCls = nested ? 'text-brand-400 group-hover:text-brand-600' : 'text-white/70 group-hover:text-white'
-  const toggleTextCls = nested ? 'text-brand-400 group-hover:text-brand-600' : 'text-white/70 group-hover:text-white'
-  const actionCls = nested ? 'text-brand-600 hover:text-brand-700' : 'text-white/90 hover:text-white'
-  const contentCls = nested ? 'pl-[11px]' : 'px-4 py-3.5'
+    : 'flex items-center gap-2 px-4 pt-3 pb-2'
+  const titleCls = nested ? 'text-[13.5px] font-semibold text-gray-700' : 'text-[15px] font-semibold text-gray-800'
+  const chevronCls = 'text-brand-400 group-hover:text-brand-600'
+  const toggleTextCls = 'text-brand-400 group-hover:text-brand-600'
+  const actionCls = 'text-brand-600 hover:text-brand-700'
+  const contentCls = nested ? 'pl-[11px]' : 'px-4 pb-4'
 
   return (
     <section className={sectionCls}>
       <div className={headerCls}>
-        {nested && <span className="inline-block w-[3px] h-3.5 bg-brand-500 rounded-[1px] flex-shrink-0" />}
+        <span className={`inline-block w-[3px] ${nested ? 'h-3.5' : 'h-4'} bg-brand-600 flex-shrink-0`} />
         {collapsible ? (
           <button
             type="button"
@@ -76,7 +77,7 @@ export function Section({ title, icon: _icon, children, actionLabel, onAction, c
             >
               <path d="M6 8l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            <span className={`text-[11px] ${toggleTextCls}`}>{isOpen ? '閉じる' : '開く'}</span>
+            <span className={`text-[12px] ${toggleTextCls}`}>{isOpen ? '閉じる' : '開く'}</span>
           </button>
         ) : (
           <h3 className={titleCls}>{title}</h3>
@@ -84,7 +85,7 @@ export function Section({ title, icon: _icon, children, actionLabel, onAction, c
         {titleRight}
         {hint && <HintTip text={hint} />}
         {actionLabel && onAction && (
-          <button onClick={onAction} className={`ml-auto text-[12.5px] font-semibold ${actionCls}`}>＋ {actionLabel}</button>
+          <button onClick={onAction} className={`ml-auto text-[14px] font-semibold ${actionCls}`}>＋ {actionLabel}</button>
         )}
       </div>
       {isOpen && (
@@ -97,13 +98,13 @@ export function Section({ title, icon: _icon, children, actionLabel, onAction, c
 }
 
 // ─── SectionHeading ───
-// Section と同じ見出しスタイル（縦棒＋12.5px bold gray-700）。
+// Section と同じ見出しスタイル（縦棒＋15px 太字）。
 // カードヘッダー等、Section コンポーネントを使えない場所で見出しを揃えたいとき用。
 export function SectionHeading({ title, right, hint, className = '' }: { title: string; right?: React.ReactNode; hint?: string; className?: string }) {
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-[1px]" />
-      <h3 className="text-[12.5px] font-semibold text-brand-800 tracking-[0.02em]">{title}</h3>
+      <span className="inline-block w-[3px] h-4 bg-brand-600" />
+      <h3 className="text-[15px] font-semibold text-gray-800">{title}</h3>
       {hint && <HintTip text={hint} />}
       {right && <div className="ml-auto flex items-center">{right}</div>}
     </div>
@@ -121,7 +122,7 @@ export function FieldGrid({ children, cols = 2 }: { children: React.ReactNode; c
   // 空きマスに容器の灰色がベタで見えて「死にスペース」になっていた。空きは白のまま残す）。
   return (
     <div
-      className={`grid ${oneCol ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} bg-white [&>*]:bg-white [&>*]:border-b [&>*]:border-slate-300`}
+      className={`grid ${oneCol ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} bg-white [&>*]:bg-white [&>*]:border-b [&>*]:border-slate-200`}
     >
       {children}
     </div>
@@ -167,9 +168,9 @@ export function FieldRow({ label, children, fullWidth, labelNote, containerRef, 
   const { main, note } = splitParenLabel(label)
   return (
     <div ref={containerRef} className={`flex items-stretch ${span}`}>
-      <div className="w-[6.5rem] sm:w-[8.5rem] flex-shrink-0 bg-slate-100 border-r border-slate-300 px-3 py-2 flex flex-col justify-center text-[12.5px] font-semibold text-gray-600 tracking-wide leading-snug">
+      <div className="w-[6.5rem] sm:w-[9.5rem] flex-shrink-0 bg-slate-100 border-r border-slate-200 px-3 py-2 flex flex-col justify-center text-[14px] font-semibold text-gray-600 leading-snug">
         <span className="break-words">{main}{required && <span className="text-red-500 ml-0.5">*</span>}{hint && <HintTip text={hint} className="ml-1" />}</span>
-        {note && <span className="text-[10.5px] font-normal text-gray-400 leading-tight">{note}</span>}
+        {note && <span className="text-[12px] font-normal text-gray-500 leading-tight">{note}</span>}
         {labelNote}
       </div>
       <div className="flex-1 min-w-0 px-3 py-2 flex flex-col justify-center gap-1 min-h-[44px]">
@@ -183,7 +184,7 @@ export function FieldRow({ label, children, fullWidth, labelNote, containerRef, 
 export function Field({ label, value, mono }: { label: string; value?: string | null; mono?: boolean }) {
   return (
     <FieldRow label={label}>
-      <div className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700 font-medium' : 'text-gray-400 italic text-xs'}`}>
+      <div className={`text-[14px] ${mono ? 'font-mono' : ''} ${value ? 'text-gray-700 font-medium' : 'text-gray-400 italic text-[13px]'}`}>
         {value ?? '未設定'}
       </div>
     </FieldRow>
@@ -193,7 +194,7 @@ export function Field({ label, value, mono }: { label: string; value?: string | 
 // ─── QIRow (quick info row) ───
 export function QIRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex justify-between items-center py-2 border-b border-gray-50 last:border-b-0 text-xs">
+    <div className="flex justify-between items-center py-2 border-b border-gray-50 last:border-b-0 text-[13px]">
       <span className="text-gray-500">{label}</span>
       {children}
     </div>
@@ -272,7 +273,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
             onCompositionEnd={() => { composingRef.current = false }}
             onBlur={() => { if (!composingRef.current) { const t = draft.trim(); if (t !== (value ?? '')) withToast(() => onSave(t)) } }}
             placeholder="入力"
-            className={`input-naked flex-1 min-w-0 h-full px-2.5 text-[13px] rounded-md outline-none ${mono ? 'font-mono' : ''} ${ai ? 'text-blue-600' : ''}`}
+            className={`input-naked flex-1 min-w-0 h-full px-2.5 text-[14px] rounded-md outline-none ${mono ? 'font-mono' : ''} ${ai ? 'text-blue-600' : ''}`}
           />
           {action != null && <div className="flex-none pr-1">{renderAction(draft)}</div>}
         </div>
@@ -295,7 +296,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
             onBlur={() => { if (!composingRef.current) handleSave() }}
             onKeyDown={handleKeyDown}
             disabled={saving}
-            className={`flex-1 min-w-0 px-2 py-1 text-[13px] border border-brand-400 rounded outline-none bg-brand-50/30 ${mono ? 'font-mono' : ''} ${saving ? 'opacity-50' : ''}`}
+            className={`flex-1 min-w-0 px-2 py-1 text-[14px] border border-brand-400 rounded outline-none bg-brand-50/30 ${mono ? 'font-mono' : ''} ${saving ? 'opacity-50' : ''}`}
           />
         ) : (
           <div
@@ -303,7 +304,7 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
             className="group cursor-pointer flex flex-1 min-w-0 items-center gap-1.5 min-h-[24px] px-1 -mx-1 rounded hover:bg-brand-50 transition-colors"
             title="クリックして編集"
           >
-            <span className={`text-[13px] ${mono ? 'font-mono' : ''} ${value ? `${ai ? 'text-blue-600' : 'text-gray-700'} font-medium border-b border-dashed border-gray-200 group-hover:border-brand-400` : 'text-gray-400 italic text-xs border-b border-dashed border-gray-200 group-hover:border-brand-400'}`}>
+            <span className={`text-[14px] ${mono ? 'font-mono' : ''} ${value ? `${ai ? 'text-blue-600' : 'text-gray-700'} font-medium border-b border-dashed border-gray-200 group-hover:border-brand-400` : 'text-gray-400 italic text-[13px] border-b border-dashed border-gray-200 group-hover:border-brand-400'}`}>
               {value ?? 'クリックして入力'}
             </span>
             <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity " strokeWidth={2} />
@@ -344,7 +345,7 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
     const selCls = width === 'compact' ? 'w-[110px]' : width === 'md' ? 'w-full sm:w-[240px]' : 'w-full'
     return (
       <FieldRow label={label} fullWidth={fullWidth}>
-        <select value={value ?? ''} onChange={e => handleChange(e.target.value)} disabled={saving} className={`${selCls} h-9 px-2.5 text-[13px] bg-white border border-gray-200 rounded-md outline-none focus:border-brand-400`}>
+        <select value={value ?? ''} onChange={e => handleChange(e.target.value)} disabled={saving} className={`${selCls} h-9 px-2.5 text-[14px] bg-white border border-gray-200 rounded-md outline-none focus:border-brand-400`}>
           <option value="">（未設定）</option>
           {options.map(opt => <option key={opt} value={opt}>{optionLabel ? optionLabel(opt) : opt}</option>)}
         </select>
@@ -361,7 +362,7 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
           onBlur={() => setEditing(false)}
           autoFocus
           disabled={saving}
-          className={`w-full px-2 py-1 text-[13px] border border-brand-400 rounded outline-none bg-brand-50/30 ${saving ? 'opacity-50' : ''}`}
+          className={`w-full px-2 py-1 text-[14px] border border-brand-400 rounded outline-none bg-brand-50/30 ${saving ? 'opacity-50' : ''}`}
         >
           <option value="">（未設定）</option>
           {options.map(opt => (
@@ -375,9 +376,9 @@ export function InlineSelect({ label, value, options, onSave, fullWidth, require
           title="クリックして選択"
         >
           {value ? (
-            renderValue ? renderValue(value) : <span className="text-[13px] text-gray-700 font-medium border-b border-dashed border-gray-200 group-hover:border-brand-400">{value}</span>
+            renderValue ? renderValue(value) : <span className="text-[14px] text-gray-700 font-medium border-b border-dashed border-gray-200 group-hover:border-brand-400">{value}</span>
           ) : (
-            <span className="text-gray-400 text-xs border-b border-dashed border-gray-200 group-hover:border-brand-400">クリックして選択</span>
+            <span className="text-gray-400 text-[13px] border-b border-dashed border-gray-200 group-hover:border-brand-400">クリックして選択</span>
           )}
           <span className="text-gray-400 group-hover:text-brand-500 text-[12px]">▼</span>
         </div>
@@ -444,7 +445,7 @@ export function InlineMultiSelect({ label, value, options, onSave, fullWidth, re
                 type="button"
                 onClick={() => toggle(opt)}
                 disabled={saving}
-                className={`px-2 py-0.5 rounded text-[13px] font-semibold border transition ${
+                className={`px-2 py-0.5 rounded text-[14px] font-semibold border transition ${
                   draft.includes(opt)
                     ? 'bg-brand-100 text-brand-700 border-brand-300'
                     : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
@@ -461,13 +462,13 @@ export function InlineMultiSelect({ label, value, options, onSave, fullWidth, re
           {value && value.length > 0 ? (
             <div className="flex flex-wrap gap-1">
               {value.map(item => (
-                <span key={item} className="px-2 py-0.5 rounded text-[13px] font-semibold border bg-brand-50 text-brand-700 border-brand-200">
+                <span key={item} className="px-2 py-0.5 rounded text-[14px] font-semibold border bg-brand-50 text-brand-700 border-brand-200">
                   {item}
                 </span>
               ))}
             </div>
           ) : (
-            <span className="text-gray-400 italic text-xs">未設定</span>
+            <span className="text-gray-400 italic text-[13px]">未設定</span>
           )}
           <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" strokeWidth={2} />
         </div>
@@ -520,8 +521,8 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
   if (alwaysEdit) {
     return (
       <FieldRow label={label} required={required} fullWidth={fullWidth} hint={hint}>
-        <input type="date" max={max} value={draft} onChange={e => { setDraft(e.target.value); if (e.target.value !== (value ?? '')) withToast(() => onSave(e.target.value)) }} className={`w-full sm:w-[170px] h-9 px-2.5 text-[13px] bg-white border border-gray-200 rounded-md outline-none focus:border-brand-400 ${ai ? 'text-blue-600' : ''}`} />
-        {wareki && value && toWareki(value) && <div className="text-[11px] text-gray-500">和暦：{toWareki(value)}</div>}
+        <input type="date" max={max} value={draft} onChange={e => { setDraft(e.target.value); if (e.target.value !== (value ?? '')) withToast(() => onSave(e.target.value)) }} className={`w-full sm:w-[170px] h-9 px-2.5 text-[14px] bg-white border border-gray-200 rounded-md outline-none focus:border-brand-400 ${ai ? 'text-blue-600' : ''}`} />
+        {wareki && value && toWareki(value) && <div className="text-[12px] text-gray-500">和暦：{toWareki(value)}</div>}
       </FieldRow>
     )
   }
@@ -540,7 +541,7 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
           onBlur={handleSave}
           onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }}
           disabled={saving}
-          className={`w-full sm:w-[170px] px-2 py-1 text-[13px] font-mono border border-brand-400 rounded outline-none bg-brand-50/30 cursor-pointer ${saving ? 'opacity-50' : ''}`}
+          className={`w-full sm:w-[170px] px-2 py-1 text-[14px] font-mono border border-brand-400 rounded outline-none bg-brand-50/30 cursor-pointer ${saving ? 'opacity-50' : ''}`}
         />
       ) : (
         <div
@@ -548,17 +549,17 @@ export function InlineDate({ label, value, onSave, fullWidth, required, max, war
           className={`group cursor-pointer flex items-center gap-1.5 min-h-[24px] px-1 -mx-1 rounded transition-colors ${missing ? 'hover:bg-red-50' : 'hover:bg-brand-50'}`}
           title="クリックして日付を選択"
         >
-          <span className={`text-[13px] font-mono border-b border-dashed group-hover:border-brand-400 ${
+          <span className={`text-[14px] font-mono border-b border-dashed group-hover:border-brand-400 ${
             value ? `${ai ? 'text-blue-600' : 'text-gray-700'} font-medium border-gray-200`
-                  : missing ? 'text-red-500 text-xs border-red-300'
-                            : 'text-gray-400 text-xs border-gray-200'}`}>
+                  : missing ? 'text-red-500 text-[13px] border-red-300'
+                            : 'text-gray-400 text-[13px] border-gray-200'}`}>
             {value ?? (missing ? '⚠ 未設定（必須）' : 'クリックして日付入力')}
           </span>
           <CalendarDays className="w-3.5 h-3.5 text-gray-400 group-hover:opacity-100 opacity-60 transition-opacity " strokeWidth={2} />
         </div>
       )}
       {wareki && value && toWareki(value) && (
-        <div className="text-[11px] text-gray-500">和暦：{toWareki(value)}</div>
+        <div className="text-[12px] text-gray-500">和暦：{toWareki(value)}</div>
       )}
     </FieldRow>
   )
@@ -600,11 +601,11 @@ export function InlineNumber({ label, value, onSave, fullWidth, suffix }: {
           onBlur={handleSave}
           onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') { setDraft(value?.toString() ?? ''); setEditing(false) } }}
           disabled={saving}
-          className={`w-full sm:w-[160px] px-2 py-1 text-[13px] font-mono border border-brand-400 rounded outline-none bg-brand-50/30 ${saving ? 'opacity-50' : ''}`}
+          className={`w-full sm:w-[160px] px-2 py-1 text-[14px] font-mono border border-brand-400 rounded outline-none bg-brand-50/30 ${saving ? 'opacity-50' : ''}`}
         />
       ) : (
         <div onClick={() => { setDraft(value?.toString() ?? ''); setEditing(true) }} className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]">
-          <span className={`text-[13px] font-mono ${value != null ? 'text-gray-700 font-medium' : 'text-gray-400 italic text-xs'}`}>
+          <span className={`text-[14px] font-mono ${value != null ? 'text-gray-700 font-medium' : 'text-gray-400 italic text-[13px]'}`}>
             {value != null ? `${value.toLocaleString()}${suffix ?? ''}` : '未設定'}
           </span>
           <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity " strokeWidth={2} />
@@ -646,8 +647,8 @@ export function InlineCurrency({ label, value, onSave, fullWidth }: {
     return (
       <FieldRow label={label} fullWidth={fullWidth}>
         <div className="flex items-center gap-1.5">
-          <span className="text-[13px] text-gray-500">¥</span>
-          <input type="text" inputMode="numeric" value={draft} onChange={e => setDraft(e.target.value.replace(/[^0-9]/g, ''))} onBlur={() => { const parsed = draft.trim() === '' ? null : Number(draft.replace(/,/g, '')); if (parsed !== value) withToast(() => onSave(parsed)) }} className="w-full sm:w-[170px] h-9 px-2.5 text-[13px] font-mono bg-white border border-gray-200 rounded-md outline-none focus:border-brand-400" />
+          <span className="text-[14px] text-gray-500">¥</span>
+          <input type="text" inputMode="numeric" value={draft} onChange={e => setDraft(e.target.value.replace(/[^0-9]/g, ''))} onBlur={() => { const parsed = draft.trim() === '' ? null : Number(draft.replace(/,/g, '')); if (parsed !== value) withToast(() => onSave(parsed)) }} className="w-full sm:w-[170px] h-9 px-2.5 text-[14px] font-mono bg-white border border-gray-200 rounded-md outline-none focus:border-brand-400" />
         </div>
       </FieldRow>
     )
@@ -657,7 +658,7 @@ export function InlineCurrency({ label, value, onSave, fullWidth }: {
     <FieldRow label={label} fullWidth={fullWidth}>
       {editing ? (
         <div className="flex items-center gap-1">
-          <span className="text-[13px] text-gray-500">¥</span>
+          <span className="text-[14px] text-gray-500">¥</span>
           <input
             ref={inputRef}
             type="text"
@@ -667,12 +668,12 @@ export function InlineCurrency({ label, value, onSave, fullWidth }: {
             onBlur={handleSave}
             onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') { setDraft(value?.toString() ?? ''); setEditing(false) } }}
             disabled={saving}
-            className={`w-full sm:w-[170px] px-2 py-1 text-[13px] font-mono border border-brand-400 rounded outline-none bg-brand-50/30 ${saving ? 'opacity-50' : ''}`}
+            className={`w-full sm:w-[170px] px-2 py-1 text-[14px] font-mono border border-brand-400 rounded outline-none bg-brand-50/30 ${saving ? 'opacity-50' : ''}`}
           />
         </div>
       ) : (
         <div onClick={() => { setDraft(value?.toString() ?? ''); setEditing(true) }} className="group cursor-pointer flex items-center gap-1.5 min-h-[24px]">
-          <span className={`text-[13px] font-mono ${value != null ? 'text-gray-700 font-medium' : 'text-gray-400 italic text-xs'}`}>
+          <span className={`text-[14px] font-mono ${value != null ? 'text-gray-700 font-medium' : 'text-gray-400 italic text-[13px]'}`}>
             {value != null ? `¥${value.toLocaleString()}` : '未設定'}
           </span>
           <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity " strokeWidth={2} />
@@ -720,9 +721,9 @@ export function InlineCheckbox({ label, value, onSave, fullWidth }: {
             shown ? 'bg-brand-600 border-brand-600 text-white' : 'bg-white border-gray-300 hover:border-brand-400'
           }`}
         >
-          {shown && <span className="text-[13px]">✓</span>}
+          {shown && <span className="text-[14px]">✓</span>}
         </button>
-        <span className={`text-[13px] ${shown ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>
+        <span className={`text-[14px] ${shown ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>
           {shown ? 'あり' : 'なし'}
         </span>
       </div>
@@ -792,7 +793,7 @@ export function InlineTextarea({ label, value, onSave, fullWidth, placeholder, h
           onCompositionEnd={() => { composingRef.current = false }}
           onBlur={() => { if (!composingRef.current) { const t = draft.trim(); if (t !== (value ?? '')) withToast(() => onSave(t)) } }}
           placeholder={placeholder}
-          className="w-full px-3 py-2.5 text-[13px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400 resize-y min-h-[96px] leading-relaxed"
+          className="w-full px-3 py-2.5 text-[14px] bg-white border border-gray-200 rounded-lg outline-none focus:border-brand-400 resize-y min-h-[96px] leading-relaxed"
         />
       </FieldRow>
     )
@@ -810,18 +811,18 @@ export function InlineTextarea({ label, value, onSave, fullWidth, placeholder, h
             onCompositionEnd={() => { composingRef.current = false }}
             disabled={saving}
             placeholder={placeholder}
-            className={`w-full px-2 py-1 text-[13px] border border-brand-400 rounded outline-none bg-brand-50/30 resize-y min-h-[140px] max-h-[60vh] overflow-y-auto leading-relaxed ${saving ? 'opacity-50' : ''}`}
+            className={`w-full px-2 py-1 text-[14px] border border-brand-400 rounded outline-none bg-brand-50/30 resize-y min-h-[140px] max-h-[60vh] overflow-y-auto leading-relaxed ${saving ? 'opacity-50' : ''}`}
           />
           <div className="text-[12px] text-gray-400 mt-0.5">Escでキャンセル / 他の場所をクリックで保存</div>
         </div>
       ) : (
         <div onClick={() => { setDraft(value ?? ''); setEditing(true) }} className="group cursor-pointer flex items-start gap-1.5 min-h-[24px]">
           {value ? (
-            <span className="text-[13px] text-gray-700 whitespace-pre-wrap leading-relaxed">{value}</span>
+            <span className="text-[14px] text-gray-700 whitespace-pre-wrap leading-relaxed">{value}</span>
           ) : placeholder ? (
             <span className="text-[12px] text-gray-300 whitespace-pre-wrap leading-relaxed">{placeholder}</span>
           ) : (
-            <span className="text-gray-400 italic text-xs">未設定</span>
+            <span className="text-gray-400 italic text-[13px]">未設定</span>
           )}
           <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5" strokeWidth={2} />
         </div>
@@ -922,7 +923,7 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
     <FieldRow
       containerRef={containerRef}
       label={label}
-      labelNote={multi && maxSelect ? <span className="font-normal text-[11px] text-gray-400">{maxSelect}名まで（{assigned.length}/{maxSelect}）</span> : undefined}
+      labelNote={multi && maxSelect ? <span className="font-normal text-[12px] text-gray-400">{maxSelect}名まで（{assigned.length}/{maxSelect}）</span> : undefined}
     >
       {editing ? (
         <div className="p-2 border border-brand-400 rounded bg-brand-50/30">
@@ -933,7 +934,7 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
               onChange={e => setQuery(e.target.value)}
               placeholder="名前で検索"
               autoFocus
-              className="w-full mb-1.5 px-2 py-1.5 text-xs bg-white border border-gray-200 rounded outline-none focus:border-brand-500"
+              className="w-full mb-1.5 px-2 py-1.5 text-[13px] bg-white border border-gray-200 rounded outline-none focus:border-brand-500"
             />
           )}
           <div className="space-y-1 max-h-[200px] overflow-y-auto">
@@ -941,13 +942,13 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
               <button
                 onClick={() => handleSelect('')}
                 disabled={saving}
-                className="w-full text-left px-2 py-1 text-xs text-gray-400 hover:bg-gray-100 rounded"
+                className="w-full text-left px-2 py-1 text-[13px] text-gray-400 hover:bg-gray-100 rounded"
               >
                 （未設定）
               </button>
             )}
             {candidates.length === 0 && (
-              <div className="px-2 py-2 text-[11px] text-gray-400">該当する候補がありません</div>
+              <div className="px-2 py-2 text-[12px] text-gray-400">該当する候補がありません</div>
             )}
             {candidates.map(member => {
               const isAssigned = assigned.some(cm => cm.member_id === member.id)
@@ -956,7 +957,7 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
                   key={member.id}
                   onClick={() => handleSelect(member.id)}
                   disabled={saving}
-                  className={`w-full text-left px-2 py-1 text-xs rounded flex items-center gap-2 ${
+                  className={`w-full text-left px-2 py-1 text-[13px] rounded flex items-center gap-2 ${
                     isAssigned ? 'bg-brand-100 text-brand-700' : 'hover:bg-gray-100 text-gray-700'
                   }`}
                 >
@@ -1014,7 +1015,7 @@ export function InlineMemberSelect({ label, roleKey, assigned, allMembers, caseI
               ))}
             </div>
           ) : (
-            <span className="text-xs text-gray-400 italic">未設定</span>
+            <span className="text-[13px] text-gray-400 italic">未設定</span>
           )}
           <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity " strokeWidth={2} />
         </div>
@@ -1031,7 +1032,7 @@ export function FormField({ label, required, children }: {
 }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-gray-500 mb-1">
+      <label className="block text-[13px] font-semibold text-gray-500 mb-1">
         {label}
       </label>
       {children}

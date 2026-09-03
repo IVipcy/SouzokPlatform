@@ -1,41 +1,47 @@
 'use client'
 
-// 実務タブ共通の「項目名が左・入力欄が右」のカード。戸籍・金融・不動産で共用。
+// 実務タブ共通の「項目名が左・入力欄が右」の表。戸籍・金融・不動産で共用。
 //
-// 寸法と色は他事業者紹介（InlineFields の FieldRow / FieldGrid）に揃える：
-//   項目名 12.5px・slate-100 の面・右に slate-300 の線／内容 13px・行の高さ 44px／区切りはセルの下線。
-// 入力欄そのものは PracticeTableCells の .input-flat（文字＋破線の下線）で、箱に見せない。
-// 以前は「カードの枠＋見出し帯＋灰色のマス目＋箱の入力欄」で額縁が3段になり、読む前に目が疲れていた。
+// 引き算の型：枠線も角丸も持たない。白い面（親）の上に、見出しと表があるだけ。
+//   文字は業務システムの標準（値14px／項目名13px／注記12px）。
+//   項目名の列は 9.5rem（152px）固定で折り返さない。長い名前は「短い名前（注記）」と書けば、
+//   カッコの中身を自動で2行目の小さな注記に落とす（InlineFields の FieldRow と同じ）。
+//   区切りはセルの下線だけ。Step は見出しではなく、表の中の薄いグレーの区切り行。
+//   入力欄そのものは PracticeTableCells の .input-flat（文字＋破線の下線）で、箱に見せない。
 //
-//   PracticeGroup … 見出し（Step番号＋タイトル）＋ 4列（ラベル・値・ラベル・値）
+//   PracticeGroup … Step の区切り行 ＋ 4列（ラベル・値・ラベル・値）
 //   PracticeRow   … 1項目。full で1行を使い切る。disabled で薄くして触れなくする
 
 import HintTip from '@/components/ui/HintTip'
 import type { ReactNode } from 'react'
 
+const splitParen = (label: string): { main: string; note?: string } => {
+  const m = label.match(/^(.+?)（(.+)）$/)
+  return m ? { main: m[1], note: m[2] } : { main: label }
+}
+
 export function PracticeGroup({ no, title, sub, right, children, tone = 'normal' }: {
   no?: string
   title: string
-  /** タイトルの右に出す小さな補足 */
+  /** タイトルの右に出す短い説明 */
   sub?: string
-  /** 見出しの右端（要否のチェック・状態チップなど） */
+  /** 区切り行の右端（要否のチェック・状態ラベルなど） */
   right?: ReactNode
   children: ReactNode
   /** muted＝要らないと決めた工程（薄くする） */
   tone?: 'normal' | 'muted'
 }) {
   return (
-    <div className={`rounded-md border border-slate-300 overflow-hidden bg-white ${tone === 'muted' ? 'opacity-60' : ''}`}>
-      {/* 見出しは薄い区切り行。帯にせず、項目名の面と同じ色で1段に見せる */}
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 border-b border-slate-300">
-        {no && <span className="text-[11px] font-semibold text-brand-700">{no}</span>}
-        <span className="text-[12.5px] font-semibold text-gray-700">{title}</span>
-        {sub && <span className="text-[11px] text-gray-400">{sub}</span>}
+    <div className={tone === 'muted' ? 'opacity-55' : ''}>
+      {/* Step の区切り行。上に1本線、面は項目名と同じグレー。帯にも枠にもしない */}
+      <div className="flex items-center gap-2.5 px-3 py-1.5 bg-slate-100 border-t border-slate-300 min-h-[36px]">
+        {no && <span className="text-[13px] font-bold text-brand-700">{no}</span>}
+        <span className="text-[13.5px] font-semibold text-gray-800">{title}</span>
+        {sub && <span className="text-[12px] text-gray-500">{sub}</span>}
         {right && <span className="ml-auto flex items-center gap-2">{right}</span>}
       </div>
       {children != null && children !== false && (
-        // 区切りはセルの下線（FieldGrid と同じ）。最後の行の下線はカードの枠と重なるので消す
-        <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-[8.5rem_minmax(0,1fr)_8.5rem_minmax(0,1fr)] [&>div>div]:border-b [&>div>div]:border-slate-200 [&>div:last-child>div]:border-b-0 [&>div:nth-last-child(2)>div]:sm:border-b-0">
+        <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-[9.5rem_minmax(0,1fr)_9.5rem_minmax(0,1fr)]">
           {children}
         </div>
       )}
@@ -46,6 +52,7 @@ export function PracticeGroup({ no, title, sub, right, children, tone = 'normal'
 export function PracticeRow({ label, hint, sub, children, full = false, disabled = false, disabledNote }: {
   label: string
   hint?: string
+  /** 項目名の下の注記。「短い名前（注記）」と書いても同じ */
   sub?: string
   children: ReactNode
   full?: boolean
@@ -55,16 +62,17 @@ export function PracticeRow({ label, hint, sub, children, full = false, disabled
   // full のときはラベル1列＋値3列＝4列で1行を使い切る。
   // 外側は display:contents なので col-span は中の2つに掛ける。ラベルに col-start-1 が要る
   // （前の行が2列で終わっていると full の行が3列目から始まって崩れる）。
+  const { main, note } = splitParen(label.trim())
   const dim = disabled ? 'opacity-45' : ''
   return (
     <div className="contents">
-      <div className={`bg-slate-100 border-r border-slate-300 px-3 py-2 flex flex-col justify-center text-[12.5px] font-semibold text-gray-600 tracking-wide leading-snug ${dim} ${full ? 'sm:col-start-1' : ''}`}>
-        <span className="inline-flex items-center gap-1">{label.trim()}{hint && !disabled && <HintTip text={hint} />}</span>
-        {sub && <span className="text-[10.5px] font-normal text-gray-400 leading-tight">{sub}</span>}
+      <div className={`bg-slate-100 border-b border-r border-slate-200 px-3 py-2 flex flex-col justify-center text-[13px] font-semibold text-gray-600 leading-snug whitespace-nowrap overflow-hidden ${dim} ${full ? 'sm:col-start-1' : ''}`}>
+        <span className="inline-flex items-center gap-1 truncate">{main}{hint && !disabled && <HintTip text={hint} />}</span>
+        {(sub ?? note) && <span className="text-[12px] font-normal text-gray-500 leading-tight truncate">{sub ?? note}</span>}
       </div>
-      <div className={`bg-white px-3 py-2 flex items-center gap-2 flex-wrap min-h-[44px] text-[13px] ${dim} ${disabled ? 'pointer-events-none select-none' : ''} ${full ? 'sm:col-span-3' : ''}`}>
+      <div className={`bg-white border-b border-slate-200 px-3 py-2 flex items-center gap-2 flex-wrap min-h-[44px] text-[14px] text-gray-800 ${dim} ${disabled ? 'pointer-events-none select-none' : ''} ${full ? 'sm:col-span-3' : ''}`}>
         {children}
-        {disabled && disabledNote && <span className="text-[11px] text-gray-500">{disabledNote}</span>}
+        {disabled && disabledNote && <span className="text-[12px] text-gray-500">{disabledNote}</span>}
       </div>
     </div>
   )
