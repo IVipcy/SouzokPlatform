@@ -134,15 +134,21 @@ export default function ReferralTab({ caseData, referrals, onRefresh, tasks = []
           <>
             {/* 依頼内容（相続税申告あり 等）は、すぐ隣の「相続税申告要否」と同じことを言っていたので廃止した。
                 税理士の欄で押さえたいのは、どういう事情で紹介したか（紹介理由）のほう。 */}
-            <InlineSelect label="紹介理由" value={row.referral_reason} options={[...TAX_ADVISOR_REFERRAL_REASONS]} onSave={saveReferralField(row.id, 'referral_reason')} fullWidth />
+            {/* 1行2項目で組む。紹介理由｜申告要否 → （その他の内容）→ 法人名｜見込み報酬 → 請求状態｜紹介日付 → 詳細内容（1行）。 */}
+            <InlineSelect label="紹介理由" value={row.referral_reason} options={[...TAX_ADVISOR_REFERRAL_REASONS]} onSave={saveReferralField(row.id, 'referral_reason')} />
             <InlineSelect label="相続税申告要否" value={caseData.tax_filing_required} options={[...TAX_FILING_OPTIONS]} onSave={saveCaseField('tax_filing_required')} />
+            {/* 「その他（自由入力）」を選んだときだけ、書く欄を出す。保存先は content
+                （税理士の依頼内容として使っていた列。紹介理由に一本化して空いたので、その他の中身に使う）。 */}
+            {row.referral_reason === 'その他（自由入力）' && (
+              <InlineEdit label="その他の内容" value={row.content} onSave={saveReferralField(row.id, 'content')} fullWidth />
+            )}
             <FirmNameField label="紹介先税理士法人名" value={row.firm_name} onSave={v => { void saveReferralField(row.id, 'firm_name')(v) }} />
           </>
         )}
         {row.partner_type === '不動産' && (
           <>
-            <InlineSelect label="依頼内容" value={row.content} options={[...REAL_ESTATE_REGISTRATION_OPTIONS]} onSave={saveReferralField(row.id, 'content')} fullWidth />
-            <InlineSelect label="査定ランク" value={row.appraisal_rank} options={[...REAL_ESTATE_APPRAISAL_RANKS]} onSave={saveReferralField(row.id, 'appraisal_rank')} fullWidth />
+            <InlineSelect label="依頼内容" value={row.content} options={[...REAL_ESTATE_REGISTRATION_OPTIONS]} onSave={saveReferralField(row.id, 'content')} />
+            <InlineSelect label="査定ランク" value={row.appraisal_rank} options={[...REAL_ESTATE_APPRAISAL_RANKS]} onSave={saveReferralField(row.id, 'appraisal_rank')} />
           </>
         )}
         {row.partner_type !== '弁護士' && (
