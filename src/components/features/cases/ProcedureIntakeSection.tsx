@@ -99,7 +99,7 @@ export function IntakeDocsEditor({ docs, onSave }: { docs: DocRow[]; onSave: (ne
     <>
       {/* 一括設定：受領状況をまとめて全行に適用 */}
       <div className="mb-2 flex flex-wrap items-center gap-2 bg-gray-50 border border-gray-200 rounded-md px-2.5 py-1.5">
-        <span className="text-[11px] font-semibold text-gray-500">一括設定</span>
+        <span className="text-[12px] font-semibold text-gray-500">一括設定</span>
         <select value={bulkStatus} onChange={e => setBulkStatus(e.target.value)} className="px-2 py-1 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
           <option value="">受領状況…</option>
           {DOC_STATUS.map(o => <option key={o} value={o}>{o}</option>)}
@@ -109,7 +109,7 @@ export function IntakeDocsEditor({ docs, onSave }: { docs: DocRow[]; onSave: (ne
       <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 760 }}>
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
+            <tr className="bg-gray-50 border-b border-gray-300 text-[12px] text-gray-600 tracking-[0.04em]">
               <th className="px-2.5 py-2 text-left font-semibold w-56">到着物</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">受領状況</th>
               <th className="px-2.5 py-2 text-left font-semibold">備考</th>
@@ -185,7 +185,7 @@ export function IntakeRolesEditor({ roles, onSave, gyomuOptions = GYOMU_LIST, pr
               key={g}
               type="button"
               onClick={() => toggleGyomu(g)}
-              className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full border text-[12.5px] transition-colors ${
+              className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full border text-[13px] transition-colors ${
                 on ? 'bg-brand-600 border-brand-600 text-white font-semibold' : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
               }`}
             >
@@ -204,12 +204,12 @@ export function IntakeRolesEditor({ roles, onSave, gyomuOptions = GYOMU_LIST, pr
             <div key={g} className="mb-4">
               <div className="mb-1.5 flex items-center gap-2">
                 <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-full" />
-                <span className="text-[12.5px] font-bold text-gray-700">{g}</span>
+                <span className="text-[13px] font-bold text-gray-700">{g}</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-[13px] border-collapse" style={{ minWidth: 720 }}>
                   <thead>
-                    <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
+                    <tr className="bg-gray-50 border-b border-gray-300 text-[12px] text-gray-600 tracking-[0.04em]">
                       <th className="px-2.5 py-2 text-left font-semibold w-64">作業</th>
                       <th className="px-2.5 py-2 text-left font-semibold w-28">作業区分</th>
                       <th className="px-2.5 py-2 text-left font-semibold w-36">担当</th>
@@ -225,7 +225,7 @@ export function IntakeRolesEditor({ roles, onSave, gyomuOptions = GYOMU_LIST, pr
                           <select
                             value={effKind(r)}
                             onChange={e => setRole(i, { kind: e.target.value as ServiceKind })}
-                            className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500"
+                            className="input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none cursor-pointer"
                             title="請求・受領＝受信簿で受け取りを管理する書類 / 作業＝進捗を管理する作業"
                           >
                             <option value="task">作業</option>
@@ -340,7 +340,7 @@ export default function ProcedureIntakeSection({ caseData, patchCase, contractDo
                 <ArrowDownToLine className="w-3.5 h-3.5" />
                 依頼者取得分を契約残手続き（到着物）に反映
               </button>
-              <span className="text-[11px] text-gray-400">郵送で受け取るものを選んで追加（後日郵送）</span>
+              <span className="text-[12px] text-gray-400">郵送で受け取るものを選んで追加（後日郵送）</span>
             </div>
           )}
         </>
@@ -366,7 +366,7 @@ function Cell({ value, onCommit, placeholder }: { value: string; onCommit: (v: s
         defaultValue={value}
         onBlur={e => { if (e.target.value !== value) onCommit(e.target.value) }}
         placeholder={placeholder}
-        className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white"
+        className="input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none"
       />
     </td>
   )
@@ -375,7 +375,7 @@ function Cell({ value, onCommit, placeholder }: { value: string; onCommit: (v: s
 function SelectCell({ value, options, onChange, noEmpty }: { value: string; options: string[]; onChange: (v: string) => void; noEmpty?: boolean }) {
   return (
     <td className="px-2.5 py-1.5">
-      <select value={value} onChange={e => onChange(e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+      <select value={value} onChange={e => onChange(e.target.value)} className="input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none cursor-pointer">
         {!noEmpty && <option value="">—</option>}
         {options.map(o => <option key={o} value={o}>{o}</option>)}
       </select>

@@ -470,14 +470,14 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
     <div>
       {pendingApprovals.length > 0 && (
         <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-          <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-amber-800 mb-2">
+          <div className="flex items-center gap-1.5 text-[13px] font-semibold text-amber-800 mb-2">
             <Lock className="w-3.5 h-3.5" />承認待ちの追加戸籍請求　{pendingApprovals.length}件
           </div>
           <div className="space-y-2">
             {pendingApprovals.map(r => (
               <div key={r.id} className="bg-white border border-amber-200 rounded-md px-3 py-2 flex items-start gap-2 flex-wrap">
                 <div className="flex-1 min-w-0">
-                  <button type="button" onClick={() => setSub((r.target_person ?? '').trim() || '__unset__')} className="text-[12.5px] font-semibold text-gray-800 hover:text-brand-700 hover:underline">
+                  <button type="button" onClick={() => setSub((r.target_person ?? '').trim() || '__unset__')} className="text-[13px] font-semibold text-gray-800 hover:text-brand-700 hover:underline">
                     {r.target_person || '対象者未定'} ／ {r.request_to || '役所未定'}
                   </button>
                   <div className="text-[12px] text-gray-600 mt-0.5">理由：{r.additional_reason || <span className="text-gray-400">（未記入）</span>}</div>
@@ -487,7 +487,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                     <ShieldCheck className="w-3.5 h-3.5" />追加OK（承認）
                   </button>
                 ) : (
-                  <span className="flex-none text-[11px] text-amber-700 self-center">管理担当の承認待ち</span>
+                  <span className="flex-none text-[12px] text-amber-700 self-center">管理担当の承認待ち</span>
                 )}
               </div>
             ))}
@@ -543,7 +543,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                     横に長くなるぶんは横スクロールに任せる。 */}
                 <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1260 }}>
                   <thead>
-                    <tr className="bg-slate-100 border-b border-slate-300 text-[12.5px] text-gray-600">
+                    <tr className="bg-slate-100 border-b border-slate-300 text-[13px] text-gray-600">
                       <th className="px-2.5 py-2 text-left font-semibold w-[150px]">対象者</th>
                       <th className="px-2.5 py-2 text-left font-semibold w-[120px]">請求先</th>
                       <th className="px-2.5 py-2 text-left font-semibold w-[84px]">取得方法</th>
@@ -572,7 +572,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                         onClick={() => { setSub((r.target_person ?? '').trim() || '__unset__'); setActiveReqId(r.id) }}>
                         {/* 対象者。ホバーで出る「＋戸籍」から、その人の戸籍をもう1件足せる（人を選び直さなくていい） */}
                         <td className="px-2.5 py-2 group/cell">
-                          {!headOfGroup ? <span className="text-gray-300 text-[11px] pl-1">〃</span>
+                          {!headOfGroup ? <span className="text-gray-300 text-[12px] pl-1">〃</span>
                             : r.target_person
                             ? <PersonRoleChip
                                 role={roleLabel(r.target_person)}
@@ -583,11 +583,11 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                                 compact
                               />
                             : <span className="text-gray-300">—</span>}
-                          {r.is_additional && <span className="ml-1 text-[10px] text-amber-600">追加</span>}
+                          {r.is_additional && <span className="ml-1 text-[12px] text-amber-600">追加</span>}
                           {(r.target_person ?? '').trim() && (
                             <button type="button" title={`${r.target_person} の戸籍を追加請求`}
                               onClick={e => { e.stopPropagation(); setSub((r.target_person ?? '').trim()); addRequestForPerson((r.target_person ?? '').trim()) }}
-                              className="ml-1.5 align-middle text-[10px] px-1.5 py-0.5 rounded border border-brand-200 text-brand-700 bg-brand-50 opacity-0 group-hover/cell:opacity-100 transition-opacity">
+                              className="ml-1.5 align-middle text-[12px] px-1.5 py-0.5 rounded border border-brand-200 text-brand-700 bg-brand-50 opacity-0 group-hover/cell:opacity-100 transition-opacity">
                               ＋戸籍
                             </button>
                           )}
@@ -604,20 +604,20 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                         {/* 取得の結果。一覧を上から見て「一部不足」を拾えるようにする */}
                         <td className="px-2.5 py-2">
                           {r.read_status
-                            ? <span className={`inline-block text-[10px] px-1.5 py-[1px] rounded-full ${KOSEKI_TAB_STATUS[r.read_status === '一部不足' ? 'partial' : 'done'].cls}`}>{r.read_status}</span>
+                            ? <span className={`inline-block text-[12px] px-1.5 py-[1px] rounded-full ${KOSEKI_TAB_STATUS[r.read_status === '一部不足' ? 'partial' : 'done'].cls}`}>{r.read_status}</span>
                             : <span className="text-gray-300">—</span>}
                         </td>
                         {/* 関係戸籍。被相続人・依頼者だけが対象なので、それ以外は「—」ではなく空にする
                             （聞いていない欄が未入力に見えないように） */}
                         <td className="px-2.5 py-2 text-center">
                           {r.relation_koseki_done
-                            ? <span title="被相続人との関係戸籍が揃っています" className="inline-block text-[10px] px-1.5 py-[1px] rounded-full bg-gray-600 text-white">取得完了</span>
+                            ? <span title="被相続人との関係戸籍が揃っています" className="inline-block text-[12px] px-1.5 py-[1px] rounded-full bg-gray-600 text-white">取得完了</span>
                             : ((r.target_person ?? '').trim() === (deceasedName ?? '').trim() && !!deceasedName) || isClientPerson(r.target_person ?? '')
                               ? <span className="text-gray-300">—</span>
                               : null}
                         </td>
                         {/* 読込内容は切らずに全文出す。切ると結局カードを開くことになる */}
-                        <td className="px-2.5 py-2 text-gray-500 text-[11px] break-words">
+                        <td className="px-2.5 py-2 text-gray-500 text-[12px] break-words">
                           {r.read_result || <span className="text-gray-300">—</span>}
                         </td>
                         <td className="px-2.5 py-2 text-right whitespace-nowrap">{yen(effConfirmed(r))}</td>
@@ -689,13 +689,13 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                           type="button"
                           onClick={() => setActiveReqId(r.id)}
                           title={kosekiTabTitle(r)}
-                          className={`inline-flex items-center gap-2 px-3 py-1.5 text-[12.5px] rounded-t-lg border border-b-0 -mb-px transition-colors ${
+                          className={`inline-flex items-center gap-2 px-3 py-1.5 text-[13px] rounded-t-lg border border-b-0 -mb-px transition-colors ${
                             on ? 'bg-white border-gray-200 text-gray-800 font-semibold'
                               : `bg-gray-50 border-transparent hover:text-gray-800 ${finished ? 'text-gray-400' : 'text-gray-500'}`
                           }`}
                         >
                           {kosekiTabLabel(r, i)}
-                          <span className={`text-[10px] tracking-wider px-2 py-[1px] rounded-full flex-none ${st.cls}`}>{st.label}</span>
+                          <span className={`text-[12px] tracking-wider px-2 py-[1px] rounded-full flex-none ${st.cls}`}>{st.label}</span>
                         </button>
                       )
                     })}
@@ -706,7 +706,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                         type="button"
                         onClick={() => addRequestForPerson(activePerson)}
                         title={`${activePerson} さんの戸籍をもう1件請求する`}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[12.5px] text-brand-700 hover:bg-brand-50 rounded-t-lg"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[13px] text-brand-700 hover:bg-brand-50 rounded-t-lg"
                       >
                         <Plus className="w-3.5 h-3.5" />請求を追加
                       </button>
@@ -784,7 +784,7 @@ function KosekiImageCell({ images, urls, onOpen, onAdd }: {
     return (
       <button type="button" onClick={onAdd}
         title="この対象者のタブを開いて画像を追加します"
-        className="text-[11px] text-gray-400 border border-dashed border-gray-300 rounded px-1.5 py-0.5 hover:text-brand-700 hover:border-brand-300">
+        className="text-[12px] text-gray-400 border border-dashed border-gray-300 rounded px-1.5 py-0.5 hover:text-brand-700 hover:border-brand-300">
         ＋ 追加
       </button>
     )
@@ -799,7 +799,7 @@ function KosekiImageCell({ images, urls, onOpen, onAdd }: {
           ? <AnnotatedImage url={urls[first.id]} annos={first.annotations ?? []} className="w-full h-full object-cover" />
           : <span className="block w-full h-full" />}
       </span>
-      <span className="text-[11px] text-gray-500 group-hover:text-brand-700">{images.length}</span>
+      <span className="text-[12px] text-gray-500 group-hover:text-brand-700">{images.length}</span>
     </button>
   )
 }
@@ -820,7 +820,7 @@ function AddKosekiModal({ onClose, onSubmit }: {
   const [reason, setReason] = useState('')
   const [needsApproval, setNeedsApproval] = useState(false)
   const [busy, setBusy] = useState(false)
-  const inp = 'w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-[12.5px] outline-none focus:border-brand-400 bg-white'
+  const inp = 'w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-[13px] outline-none focus:border-brand-400 bg-white'
   const personName = newName.trim()
   const canSubmit = !!personName && (!needsApproval || !!reason.trim())
   return (
@@ -828,28 +828,28 @@ function AddKosekiModal({ onClose, onSubmit }: {
       <div className="space-y-3">
         <div className="rounded-md border border-brand-200 bg-brand-50/50 px-3 py-2.5 space-y-2">
           <div>
-            <label className="block text-[11px] text-gray-500 mb-1">氏名</label>
+            <label className="block text-[12px] text-gray-500 mb-1">氏名</label>
             <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="例: 土曜二郎" className={inp} autoFocus />
           </div>
           <div>
-            <label className="block text-[11px] text-gray-500 mb-1">続柄（あとで直せます）</label>
+            <label className="block text-[12px] text-gray-500 mb-1">続柄（あとで直せます）</label>
             <select value={newRel} onChange={e => setNewRel(e.target.value)} className={inp}>
               <option value="">未設定</option>
               {HEIR_RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
-            <p className="text-[10.5px] text-gray-400 mt-1">
+            <p className="text-[12px] text-gray-400 mt-1">
               この対象者は相続人一覧にも登録されます。続柄が分からなければ未設定のままで構いません。
               被代襲者や数次相続の被相続人など、相続人ではない人もここに入れてください。
             </p>
           </div>
         </div>
-        <div><label className="block text-[11px] text-gray-500 mb-1">請求先（役所）</label><input value={reqTo} onChange={e => setReqTo(e.target.value)} placeholder="例: 江東区役所（転籍先など。後で入力も可）" className={inp} /></div>
+        <div><label className="block text-[12px] text-gray-500 mb-1">請求先（役所）</label><input value={reqTo} onChange={e => setReqTo(e.target.value)} placeholder="例: 江東区役所（転籍先など。後で入力も可）" className={inp} /></div>
         <label className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] text-amber-800 cursor-pointer">
           <input type="checkbox" checked={needsApproval} onChange={e => setNeedsApproval(e.target.checked)} className="w-4 h-4 accent-amber-500 mt-0.5" />
           <span className="flex-1"><strong>追加戸籍請求（要承認）</strong>にする — 当初の想定を超える追加の戸籍請求です。追加費用が発生するため、管理担当の承認（追加OK）を得てから請求します。</span>
         </label>
         {needsApproval && (
-          <div><label className="block text-[11px] text-gray-500 mb-1">追加請求の理由（承認者に伝わるように） <span className="text-red-500">*</span></label><textarea value={reason} onChange={e => setReason(e.target.value)} rows={3} placeholder="例：手続二子の戸籍が◯◯町で転籍。さらに前の本籍地へ遡って請求が必要。" className={`${inp} resize-none`} /></div>
+          <div><label className="block text-[12px] text-gray-500 mb-1">追加請求の理由（承認者に伝わるように） <span className="text-red-500">*</span></label><textarea value={reason} onChange={e => setReason(e.target.value)} rows={3} placeholder="例：手続二子の戸籍が◯◯町で転籍。さらに前の本籍地へ遡って請求が必要。" className={`${inp} resize-none`} /></div>
         )}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="px-3 py-1.5 text-[12px] text-gray-600 hover:text-gray-800">キャンセル</button>
@@ -935,7 +935,7 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
   const isShokumujo = r.acquisition_authority === '職務上請求'
 
   const mistaken = isMistakenRequest(r.request_kind)  // 誤請求＝自社の経費
-  const muted = <span className="text-[11px] text-gray-400">—</span>
+  const muted = <span className="text-[12px] text-gray-400">—</span>
 
   return (
     <div className={`space-y-2.5 ${mistaken ? 'ring-1 ring-red-200 rounded-lg p-2 bg-red-50/30' : ''}`}>
@@ -975,9 +975,9 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
                 if (v !== (r.authority_form_no ?? '')) saveField(r.id, 'authority_form_no', v)
               }}
               placeholder="123456"
-              className="px-2 py-1 text-[12.5px] border border-gray-300 rounded outline-none focus:border-brand-400 w-40 tabular-nums"
+              className="px-2 py-1 text-[13px] border border-gray-300 rounded outline-none focus:border-brand-400 w-40 tabular-nums"
             />
-            <span className="text-[10.5px] text-gray-400">半角数字。職務上請求用紙の番号です</span>
+            <span className="text-[12px] text-gray-400">半角数字。職務上請求用紙の番号です</span>
           </KosekiFieldRow>
         )}
         {/* 職務上請求のときは所定の用紙に手書きするので、請求書の中身にあたる欄は使わない。
@@ -991,7 +991,7 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
               value={r.branch_office ?? ''}
               onChange={e => saveField(r.id, 'branch_office', e.target.value)}
               style={{ fontFamily: 'inherit' }}
-              className="px-2 py-1 text-[12.5px] border border-gray-300 rounded bg-white outline-none focus:border-brand-400"
+              className="px-2 py-1 text-[13px] border border-gray-300 rounded bg-white outline-none focus:border-brand-400"
             >
               <option value="">—</option>
               {OFFICE_BRANCH_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
@@ -1024,7 +1024,7 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
             <div className="min-w-0">
               <MultiCell value={r.doc_types} options={[...KOSEKI_REQUEST_TYPES]} onChange={v => saveField(r.id, 'doc_types', v)} />
               {mixesKosekiAndJuminhyo(r.doc_types) && (
-                <p className="mt-1 text-[10.5px] text-amber-700 leading-snug">戸籍と住民票は1枚で請求できません。請求を分けてください</p>
+                <p className="mt-1 text-[12px] text-amber-700 leading-snug">戸籍と住民票は1枚で請求できません。請求を分けてください</p>
               )}
             </div>
           </KosekiFieldRow>
@@ -1033,7 +1033,7 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
           <KosekiFieldRow label="種別②" sub="戸籍のとき" disabled={isShokumujo} disabledNote={NOT_USED_NOTE}>
             {includesKoseki(r.doc_types)
               ? <MultiCell value={r.doc_form} options={[...KOSEKI_DOC_FORMS]} onChange={v => saveField(r.id, 'doc_form', v)} />
-              : <span className="text-[11px] text-gray-400">—　<span className="text-[10.5px]">（請求の種別で戸籍を選ぶと謄本／抄本が出ます）</span></span>}
+              : <span className="text-[12px] text-gray-400">—　<span className="text-[12px]">（請求の種別で戸籍を選ぶと謄本／抄本が出ます）</span></span>}
           </KosekiFieldRow>
           <KosekiFieldRow label="本籍・住所" full disabled={isShokumujo} disabledNote={NOT_USED_NOTE}
             hint={wantsJuminhyo
@@ -1053,7 +1053,7 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
             hint="戸籍請求の住基法12条の3第7項による基礎証明事項以外の事項に選択したものを記載してください。">
             {includesJuminhyo(r.doc_types)
               ? <MultiCell value={r.juminhyo_items} options={[...JUMINHYO_EXTRA_ITEMS]} onChange={v => saveField(r.id, 'juminhyo_items', v)} />
-              : <span className="text-[11px] text-gray-400">—　<span className="text-[10.5px]">（請求の種別で住民票を選ぶと項目が出ます）</span></span>}
+              : <span className="text-[12px] text-gray-400">—　<span className="text-[12px]">（請求の種別で住民票を選ぶと項目が出ます）</span></span>}
           </KosekiFieldRow>
         </>
         <KosekiFieldRow label="請求範囲">
@@ -1073,7 +1073,7 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
       <KosekiGroup no="Step3" title="費用">
         {isClient ? (
           <KosekiFieldRow label="費用" full>
-            <span className="text-[11px] text-gray-400">依頼者負担（依頼者取得のため、費用は入力しません）</span>
+            <span className="text-[12px] text-gray-400">依頼者負担（依頼者取得のため、費用は入力しません）</span>
           </KosekiFieldRow>
         ) : (
           <>
@@ -1086,7 +1086,7 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
             <KosekiFieldRow label="確定費用" full>
               <span className={`inline-block px-2 py-1 rounded text-[12px] font-semibold border ${mistaken ? 'text-purple-700 bg-purple-50 border-purple-200' : 'text-emerald-700 bg-emerald-50 border-emerald-200'}`}
                 title={mistaken ? '誤請求のため、お客様への立替実費ではなく自社の経費として集計します' : undefined}>{yen(effConfirmed(r))}</span>
-              {mistaken && <span className="text-[10px] text-purple-600">経費として集計</span>}
+              {mistaken && <span className="text-[12px] text-purple-600">経費として集計</span>}
             </KosekiFieldRow>
           </>
         )}
@@ -1094,7 +1094,7 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
 
       <KosekiGroup no="Step4" title="進捗">
         <KosekiFieldRow label="請求日">
-          {isClient ? <span className="text-[11px] text-gray-400">依頼者取得</span>
+          {isClient ? <span className="text-[12px] text-gray-400">依頼者取得</span>
             : <DateCell value={r.request_date} onCommit={v => saveMany(r.id, { request_date: v || null, ...(v && !r.request_done_by ? { request_done_by: meId } : {}) })} />}
         </KosekiFieldRow>
         <KosekiFieldRow label="到着日" hint="到着物受信簿のW-Check（受信確定）で自動的に入ります。手で直すこともできます。">
@@ -1105,14 +1105,14 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
             ? <CheckRequestControl label="発送チェックを依頼" requestedAt={r.request_check_requested_at} checkedAt={r.request_check_at} checkedName={r.request_check_name}
                 onRequest={() => saveMany(r.id, { request_check_requested_at: new Date().toISOString(), request_check_requested_by: meId })}
                 onCancel={() => saveMany(r.id, { request_check_requested_at: null, request_check_requested_by: null })} />
-            : <span className="text-[11px] text-gray-300">請求日待ち</span>}
+            : <span className="text-[12px] text-gray-300">請求日待ち</span>}
         </KosekiFieldRow>
         <KosekiFieldRow label="到着チェック" sub="確認簿で確認">
           {isClient ? muted : r.arrival_date
             ? <CheckRequestControl label="到着チェックを依頼" requestedAt={r.receipt_check_requested_at} checkedAt={r.receipt_check_at} checkedName={r.receipt_check_name}
                 onRequest={() => saveMany(r.id, { receipt_check_requested_at: new Date().toISOString(), receipt_check_requested_by: meId })}
                 onCancel={() => saveMany(r.id, { receipt_check_requested_at: null, receipt_check_requested_by: null })} />
-            : <span className="text-[11px] text-gray-300">到着待ち</span>}
+            : <span className="text-[12px] text-gray-300">到着待ち</span>}
         </KosekiFieldRow>
       </KosekiGroup>
 
@@ -1160,7 +1160,7 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
             hint={targetHeir ? '相続人一覧の住所に保存されます。' : 'この人は相続人一覧にいないため保存先がありません。先に相続人として登録してください。'}>
             {targetHeir
               ? <TxtCell value={targetInfo.currentAddress} onCommit={v => onSaveTargetInfo('currentAddress', v)} placeholder="例：東京都世田谷区○○1-2-3" />
-              : <span className="text-[11px] text-gray-400">相続人一覧にこの人がいないため入力できません（先に相続人として登録してください）</span>}
+              : <span className="text-[12px] text-gray-400">相続人一覧にこの人がいないため入力できません（先に相続人として登録してください）</span>}
           </KosekiFieldRow>
         )}
         {/* 関係戸籍が揃ったか。被相続人と、依頼者である相続人だけに聞く。
@@ -1172,10 +1172,10 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
               <input type="checkbox" checked={!!r.relation_koseki_done}
                 onChange={e => onToggleRelationDone(e.target.checked)}
                 className="w-4 h-4 accent-brand-600" />
-              <span className="text-[12.5px] text-gray-700">取得完了</span>
+              <span className="text-[13px] text-gray-700">取得完了</span>
             </label>
             {r.relation_koseki_done && (
-              <span className="text-[10.5px] text-gray-500">名寄せ請求・金融機関への資料請求へ進めます（管理担当へ通知済み）</span>
+              <span className="text-[12px] text-gray-500">名寄せ請求・金融機関への資料請求へ進めます（管理担当へ通知済み）</span>
             )}
           </KosekiFieldRow>
         )}

@@ -180,31 +180,31 @@ function AcquisitionCards({
           return (
             <button key={r.id} type="button" onClick={() => setActiveId(r.id)}
               title={`${isProp ? '法務局へ請求' : '役所へ請求'}／${st.label}`}
-              className={`inline-flex items-center gap-2 px-3 py-1.5 text-[12.5px] rounded-t-lg border border-b-0 -mb-px transition-colors ${
+              className={`inline-flex items-center gap-2 px-3 py-1.5 text-[13px] rounded-t-lg border border-b-0 -mb-px transition-colors ${
                 on ? 'bg-white border-gray-200 text-gray-800 font-semibold'
                   : `bg-gray-50 border-transparent hover:text-gray-800 ${finished ? 'text-gray-400' : 'text-gray-500'}`}`}>
               <span className={`text-[9.5px] px-1.5 rounded flex-none ${isProp ? 'bg-gray-100 text-gray-500' : 'bg-brand-50 text-brand-700'}`}>
                 {isProp ? '法務局' : '役所'}
               </span>
               {reTabLabel(r, properties, itemsOf, rowScopeOf)}
-              <span className={`text-[10px] tracking-wider px-2 py-[1px] rounded-full flex-none ${st.cls}`}>{st.label}</span>
+              <span className={`text-[12px] tracking-wider px-2 py-[1px] rounded-full flex-none ${st.cls}`}>{st.label}</span>
             </button>
           )
         })}
         {/* 追加はどちらへの請求か聞く。タブを1本にしたぶん、ここで宛先を決める。 */}
         <span className="inline-flex items-center gap-1 ml-1.5">
-          <span className="text-[11px] text-gray-400">＋ 請求を追加</span>
+          <span className="text-[12px] text-gray-400">＋ 請求を追加</span>
           <button type="button" onClick={() => addRow('municipality')}
-            className="px-2 py-1 text-[11.5px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded hover:bg-brand-100">役所へ</button>
+            className="px-2 py-1 text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded hover:bg-brand-100">役所へ</button>
           <button type="button" onClick={() => addRow('property')}
-            className="px-2 py-1 text-[11.5px] font-semibold text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50">法務局へ</button>
+            className="px-2 py-1 text-[12px] font-semibold text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50">法務局へ</button>
         </span>
       </div>
 
       {!cur ? (
         <div className="px-4 py-8 text-center">
           <div className="text-[13px] text-gray-600 mb-1">取得資料はまだ登録されていません</div>
-          <div className="text-[11.5px] text-gray-400 leading-relaxed">上の「＋ 請求を追加」から、役所（名寄帳・評価証明）か法務局（登記情報・公図など）を選んで作ってください。</div>
+          <div className="text-[12px] text-gray-400 leading-relaxed">上の「＋ 請求を追加」から、役所（名寄帳・評価証明）か法務局（登記情報・公図など）を選んで作ってください。</div>
         </div>
       ) : (() => {
         const r = cur
@@ -214,9 +214,10 @@ function AcquisitionCards({
         const availableItems = ACQUISITION_ITEMS.filter(x => x.target === (isProp ? '物件' : '市区町村')).map(x => x.key)
         const acq = acquirerOf(r)
         const noRequest = acq !== '自社取得'
-        const muted = <span className="text-[11px] text-gray-400">{acq === '受領済' ? '受領済' : '依頼者負担'}</span>
-        const dateCls = 'input-flat px-1 py-1 text-[14px] text-gray-800 outline-none'
-        const selCls = 'input-flat px-1 py-1 text-[14px] text-gray-800 outline-none cursor-pointer'
+        const muted = <span className="text-[12px] text-gray-400">{acq === '受領済' ? '受領済' : '依頼者負担'}</span>
+        // 金融・戸籍の PracticeTableCells と同じ：入力欄は列いっぱい（w-full）の文字＋破線
+        const dateCls = 'input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none'
+        const selCls = 'input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none cursor-pointer'
         return (
           <div className={`space-y-2.5 ${isMistakenRequest(r.request_kind) ? 'ring-1 ring-red-200 p-2 bg-red-50/30' : ''}`}>
             <div className="flex items-center justify-end">
@@ -227,12 +228,12 @@ function AcquisitionCards({
             <ReGroup no="Step1" title="何を・どこへ請求するか">
               <ReRow label="優先度"><PriorityCell value={r.priority} onChange={v => save(r.id, 'priority', v || null)} /></ReRow>
               <ReRow label="請求区分">
-                <select value={r.request_kind ?? '通常請求'} onChange={e => save(r.id, 'request_kind', e.target.value)} className={selCls}>
+                <select value={r.request_kind ?? '通常請求'} onChange={e => save(r.id, 'request_kind', e.target.value)} style={{ fontFamily: 'inherit' }} className={selCls}>
                   {RE_REQUEST_KINDS.map(k => <option key={k} value={k}>{k}</option>)}
                 </select>
               </ReRow>
               <ReRow label="取得区分">
-                <select value={acq} onChange={e => setAcquirer(r, e.target.value)} className={selCls}>
+                <select value={acq} onChange={e => setAcquirer(r, e.target.value)} style={{ fontFamily: 'inherit' }} className={selCls}>
                   {ACQUIRERS.map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
               </ReRow>
@@ -240,18 +241,18 @@ function AcquisitionCards({
                 {isRef ? <span className="text-[12px] text-gray-400">— 参照 —</span>
                   : <input key={r.request_to ?? ''} type="text" defaultValue={r.request_to ?? ''}
                       onBlur={e => { if (e.target.value !== (r.request_to ?? '')) save(r.id, 'request_to', e.target.value || null) }}
-                      placeholder={officeDefault(r.target_municipality, r.target_property_id) || itemMeta(items[0])?.office || '請求先'} className={`${dateCls} w-full`} />}
+                      placeholder={officeDefault(r.target_municipality, r.target_property_id) || itemMeta(items[0])?.office || '請求先'} className={dateCls} />}
               </ReRow>
               <ReRow label="対象" full>
                 {isProp ? (
-                  <select value={r.target_property_id ?? ''} onChange={e => save(r.id, 'target_property_id', e.target.value || null)} className={`${selCls} w-full max-w-md`}>
+                  <select value={r.target_property_id ?? ''} onChange={e => save(r.id, 'target_property_id', e.target.value || null)} style={{ fontFamily: 'inherit' }} className={selCls}>
                     <option value="">— 物件を選択 —</option>
                     {muniProps.map(p => <option key={p.id} value={p.id}>{propLabelWithType(p)}</option>)}
                   </select>
                 ) : (
                   <input type="text" defaultValue={r.target_municipality ?? ''}
                     onBlur={e => { if (e.target.value !== (r.target_municipality ?? '')) save(r.id, 'target_municipality', e.target.value || null) }}
-                    placeholder="例: 名古屋市中区" className={`${dateCls} w-full max-w-md`} />
+                    placeholder="例: 名古屋市中区" className={dateCls} />
                 )}
               </ReRow>
               <ReRow label="取得する資料" full sub="1宛先＝1請求">
@@ -273,7 +274,7 @@ function AcquisitionCards({
               </ReRow>
               <ReRow label="年度" sub="名寄帳・評価証明のとき" full>
                 {items.some(x => YEAR_ITEMS.includes(x)) ? (
-                  <select value={r.doc_year ?? r.myna_year ?? ''} onChange={e => saveMany(r.id, { doc_year: e.target.value || null, myna_year: e.target.value || null })} className={selCls}>
+                  <select value={r.doc_year ?? r.myna_year ?? ''} onChange={e => saveMany(r.id, { doc_year: e.target.value || null, myna_year: e.target.value || null })} style={{ fontFamily: 'inherit' }} className={selCls}>
                     <option value="">—</option>
                     {yearOptions().map(o => <option key={o} value={o}>{o}</option>)}
                     {(r.doc_year ?? r.myna_year) && !yearOptions().includes((r.doc_year ?? r.myna_year) as string) &&
@@ -352,7 +353,7 @@ function AcquisitionCards({
                 <input type="text" defaultValue={r.read_result ?? ''}
                   onBlur={e => { if (e.target.value !== (r.read_result ?? '')) save(r.id, 'read_result', e.target.value || null) }}
                   placeholder={isProp ? '読んで分かったこと' : '例：私道の持分が2筆あった。物件一覧へ追加済み'}
-                  className={`${dateCls} w-full`} />
+                  className={dateCls} />
               </ReRow>
               {r.read_status === '一部不足' && (
                 <ReRow label="次にやること" full>
@@ -549,8 +550,8 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
     setRows(prev => prev.filter(r => r.id !== id))
   }
 
-  const dateCls = 'w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white'
-  const selCls = 'w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500'
+  const dateCls = 'input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none'
+  const selCls = 'input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none cursor-pointer'
 
   // 状態列は撤去（作業状態は tasks.status に一本化・行状態は請求日/到着日/W-Checkから自明）
   const colCount = progressMode ? (fullCost ? 15 : 13) : 4  // 請求区分/取得区分/対象/請求先/取得資料/年度(+日付/費用/W-Check/受領)/削除
@@ -569,7 +570,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
           receipts={receipts} meId={meId} fullCost={fullCost} confirmedOf={confirmedOf}
         />
         {visibleRows.length > 0 && (
-          <p className="mt-2 text-[11.5px] text-gray-500 text-right">
+          <p className="mt-2 text-[12px] text-gray-500 text-right">
             確定費用 合計（立替実費の実績）<span className="ml-2 font-semibold text-emerald-700">{yen(confirmedTotal)}</span>
           </p>
         )}
@@ -584,7 +585,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
       <div className="overflow-x-auto">
         <table className="text-[13px] border-collapse" style={{ minWidth: progressMode ? (fullCost ? 1860 : 1680) : 640, width: 'max-content' }}>
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
+            <tr className="bg-gray-50 border-b border-gray-300 text-[12px] text-gray-600 tracking-[0.04em]">
               {progressMode && <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-24">
                 <span className="inline-flex items-center gap-1">請求区分<HintTip text={KIND_HINT} /></span>
               </th>}
@@ -593,7 +594,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
               </th>}
               <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-52">対象</th>
               <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-40"><span className="inline-flex items-center gap-1">請求先<HintTip text={scope === 'municipality' ? '請求する市区町村役所。物件の所在地から自動で入ります（編集可）。' : scope === 'property' ? '請求する法務局。必要なら管轄の法務局名に修正してください。' : 'どこに請求するか（役所・法務局など）。'} /></span></th>
-              <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-56">取得する資料<span className="block text-[10px] font-normal text-brand-700">1宛先＝1請求（複数選択）</span></th>
+              <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-56">取得する資料<span className="block text-[12px] font-normal text-brand-700">1宛先＝1請求（複数選択）</span></th>
               {progressMode && <th className="px-2 py-2 whitespace-nowrap text-left font-semibold w-28">
                 <span className="inline-flex items-center gap-1">年度<HintTip text="名寄帳・評価証明の年度（和暦）。行ごとに持つので、令和7年度と令和8年度を並べて管理できます。登記情報・公図などには年度がありません。" /></span>
               </th>}
@@ -612,7 +613,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
             {visibleRows.length === 0 ? (
               <tr><td colSpan={colCount} className="px-4 py-6 text-center">
                 <div className="text-[13px] text-gray-600 mb-1">取得資料はまだ登録されていません</div>
-                <div className="text-[11.5px] text-gray-400 leading-relaxed">オーダーシート ＞ 財産調査 ＞ 不動産 で物件を登録すると、市区町村と物件に必要な資料が自動でここに並びます。<br />急ぎで足したい場合は下の「＋取得資料を追加」でこの場でも追加できます（追加は承認要）。</div>
+                <div className="text-[12px] text-gray-400 leading-relaxed">オーダーシート ＞ 財産調査 ＞ 不動産 で物件を登録すると、市区町村と物件に必要な資料が自動でここに並びます。<br />急ぎで足したい場合は下の「＋取得資料を追加」でこの場でも追加できます（追加は承認要）。</div>
               </td></tr>
             ) : visibleRows.map((r, i) => {
               const items = itemsOf(r)
@@ -622,11 +623,11 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
               const isProp = rowScope === 'property'
               // 選択可能な資料キー：scope に応じて絞る（市区町村＝名寄帳/評価証明、物件＝登記情報/公図/地積/所有者事項/路線価）
               const availableItems = ACQUISITION_ITEMS.filter(x => x.target === (isProp ? '物件' : '市区町村')).map(x => x.key)
-              const dash = <span className="text-gray-300 text-[11px]">—</span>
+              const dash = <span className="text-gray-300 text-[12px]">—</span>
               // 受領済＝もう手元にある／依頼者取得＝依頼者が取る。どちらも請求日・費用は入れない。
               const acq = acquirerOf(r)
               const noRequest = acq !== '自社取得'
-              const noCost = <span className="text-[11px] text-gray-400 whitespace-nowrap">{acq === '受領済' ? '受領済' : '依頼者負担'}</span>
+              const noCost = <span className="text-[12px] text-gray-400 whitespace-nowrap">{acq === '受領済' ? '受領済' : '依頼者負担'}</span>
               return (
                 <tr key={r.id} className={`border-b border-gray-100 [&>td]:align-top ${isMistakenRequest(r.request_kind) ? 'bg-red-50/40' : i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                   {/* 請求区分（誤請求＝費用はお客様に請求せず自社の経費） */}
@@ -658,7 +659,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                   </td>
                   {/* 請求先（独立列。①は「◯◯役所」、②は「法務局」を既定でセット） */}
                   <td className="px-2 py-1.5">
-                    {isRef ? <span className="text-[11px] text-gray-300">— 参照 —</span>
+                    {isRef ? <span className="text-[12px] text-gray-300">— 参照 —</span>
                       : <input key={r.request_to ?? ''} type="text" defaultValue={r.request_to ?? ''} onBlur={e => { if (e.target.value !== (r.request_to ?? '')) save(r.id, 'request_to', e.target.value || null) }} placeholder={officeDefault(r.target_municipality, r.target_property_id) || itemMeta(items[0])?.office || '請求先'} className={dateCls} />}
                   </td>
                   {/* 取得する資料（チップ複数選択・1行=1宛先＝1請求） */}
@@ -668,14 +669,14 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                         const on = items.includes(key)
                         return (
                           <button key={key} type="button" onClick={() => toggleItem(r.id, key)}
-                            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10.5px] font-medium border transition-colors ${on ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-500 border-gray-200 hover:border-brand-300 hover:text-brand-700'}`}>
+                            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[12px] font-medium border transition-colors ${on ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-500 border-gray-200 hover:border-brand-300 hover:text-brand-700'}`}>
                             {on && '✓'}{key}
                           </button>
                         )
                       })}
                     </div>
-                    {r.is_additional && !r.additional_approved_at && <div className="mt-1"><span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">追加・承認待ち</span></div>}
-                    {isRef && <div className="text-[10px] text-gray-400 mt-0.5">参照（路線価図）のみ</div>}
+                    {r.is_additional && !r.additional_approved_at && <div className="mt-1"><span className="inline-flex items-center gap-1 text-[12px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">追加・承認待ち</span></div>}
+                    {isRef && <div className="text-[12px] text-gray-400 mt-0.5">参照（路線価図）のみ</div>}
                   </td>
                   {/* 年度（名寄帳・評価証明のみ。行ごとに持つ） */}
                   {progressMode && (
@@ -704,17 +705,17 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                       {isRef || noRequest ? dash : fullCost
                         ? <span className={`font-semibold tabular-nums ${isMistakenRequest(r.request_kind) ? 'text-purple-700' : 'text-emerald-700'}`}>{yen(confirmedOf(r))}</span>
                         : <MoneyCell value={r.cost_confirmed} onCommit={v => saveMany(r.id, { cost_confirmed: v === '' ? null : Number(v) })} />}
-                      {isMistakenRequest(r.request_kind) && <span className="block text-[10px] text-purple-600 mt-0.5">経費</span>}
+                      {isMistakenRequest(r.request_kind) && <span className="block text-[12px] text-purple-600 mt-0.5">経費</span>}
                     </td>
                   )}
                   {/* 発送チェック依頼（請求日を入れると押せる。確認は確認簿で別の担当者が行う） */}
                   {progressMode && <td className="px-2 py-1.5">{isRef ? dash : (r.request_date
                     ? <CheckRequestControl label="発送チェックを依頼" requestedAt={r.request_check_requested_at} checkedAt={r.request_check_at} checkedName={r.request_check_name} onRequest={() => reqCheck(r, 'request')} onCancel={() => cancelCheck(r, 'request')} />
-                    : <span className="text-[11px] text-gray-300">請求日待ち</span>)}</td>}
+                    : <span className="text-[12px] text-gray-300">請求日待ち</span>)}</td>}
                   {/* 着チェック依頼（到着日を入れると押せる） */}
                   {progressMode && <td className="px-2 py-1.5">{isRef ? dash : (r.arrival_date
                     ? <CheckRequestControl label="到着チェックを依頼" requestedAt={r.receipt_check_requested_at} checkedAt={r.receipt_check_at} checkedName={r.receipt_check_name} onRequest={() => reqCheck(r, 'receipt')} onCancel={() => cancelCheck(r, 'receipt')} />
-                    : <span className="text-[11px] text-gray-300">到着待ち</span>)}</td>}
+                    : <span className="text-[12px] text-gray-300">到着待ち</span>)}</td>}
                   {/* 受領ファイル */}
                   {progressMode && (
                     <td className="px-2 py-1.5">
@@ -722,7 +723,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
                         const files = receiptFilesFor(receipts, 'real_estate_acquisition', r.id)
                         return files.length > 0
                           ? <div className="flex flex-col gap-1 items-start">{files.map((f, k) => <OpenStorageFile key={k} bucket={f.bucket} path={f.path} name={f.name} label="受領ファイル" />)}</div>
-                          : <span className="text-[11px] text-gray-300">—</span>
+                          : <span className="text-[12px] text-gray-300">—</span>
                       })()}
                     </td>
                   )}
@@ -745,7 +746,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
           )}
         </table>
       </div>
-      <button type="button" onClick={() => addRow()} className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[12.5px] font-semibold text-white bg-brand-600 hover:bg-brand-700 transition-colors">
+      <button type="button" onClick={() => addRow()} className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 transition-colors">
         <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> 取得資料を追加
       </button>
     </div>

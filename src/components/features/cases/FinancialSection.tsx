@@ -175,7 +175,7 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
     <div className="space-y-3">
       <div className="flex gap-3 items-start">
         <LeftRail items={railItems} active={sub} onChange={k => { setSub(k); setTab('procedure') }} onDelete={deleteInstitution} extra={
-          <button type="button" onClick={() => setAddOpen(true)} className="mt-1 text-left text-[11.5px] px-2.5 py-1.5 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-brand-700 hover:border-brand-300 inline-flex items-center gap-1">
+          <button type="button" onClick={() => setAddOpen(true)} className="mt-1 text-left text-[12px] px-2.5 py-1.5 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-brand-700 hover:border-brand-300 inline-flex items-center gap-1">
             <Plus className="w-3 h-3" /> 調査先
           </button>
         } />
@@ -227,7 +227,7 @@ function SealWarning({ caseData, requests, institutions, today }: {
       <span className="font-semibold">依頼者の印鑑登録証明書</span>
       <span>{expired ? `使用期限（${st.expiry?.replace(/-/g, '/')}）を過ぎています。差し替えが要ります` : `使用期限まであと${st.daysLeft}日（${st.expiry?.replace(/-/g, '/')}）`}</span>
       {orig.out.length > 0 && <span>原本：{orig.out.map(o => `${o.institutionName}へ提出中`).join('・')}</span>}
-      <Link href={`/cases/${caseData.id}?tab=contractProc`} className="ml-auto inline-flex items-center gap-1 text-[11px] underline">契約手続きで確認 <ExternalLink className="w-3 h-3" /></Link>
+      <Link href={`/cases/${caseData.id}?tab=contractProc`} className="ml-auto inline-flex items-center gap-1 text-[12px] underline">契約手続きで確認 <ExternalLink className="w-3 h-3" /></Link>
     </div>
   )
 }
@@ -247,7 +247,7 @@ function TopTable({ institutions, evalOf, accountsOf, holdings, onOpen }: {
       <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 820 }}>
           <thead>
-            <tr className="bg-slate-100 border-b border-slate-300 text-[12.5px] text-gray-600">
+            <tr className="bg-slate-100 border-b border-slate-300 text-[13px] text-gray-600">
               {/* 調査先に幅を付けないと余った幅を全部取って表が間延びする。伸びるのは「次の対応」だけにする */}
               <th className="px-2.5 py-2 text-left font-semibold w-60">調査先</th>
               <th className="px-2.5 py-2 text-left font-semibold w-24">種別</th>
@@ -268,11 +268,11 @@ function TopTable({ institutions, evalOf, accountsOf, holdings, onOpen }: {
               const amount = accs.reduce((x, a) => x + (a.balance_amount ?? 0), 0) + hs.reduce((x, h) => x + (h.amount ?? ((h.quantity ?? 0) * (h.unit_price ?? 0))), 0)
               return (
                 <tr key={i.id} onClick={() => onOpen(i.id)} className="border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-brand-50/30">
-                  <td className="px-2.5 py-2 font-medium text-gray-800">{i.name}{i.branch_name && <span className="ml-1.5 text-[11px] text-gray-400">{i.branch_name}</span>}</td>
+                  <td className="px-2.5 py-2 font-medium text-gray-800">{i.name}{i.branch_name && <span className="ml-1.5 text-[12px] text-gray-400">{i.branch_name}</span>}</td>
                   <td className="px-2.5 py-2 text-gray-600">{i.kind}</td>
                   <td className="px-2.5 py-2 text-gray-600">{i.kind === 'ほふり' ? '案件単位' : i.kind === '預金' ? `${accs.length}口座` : `${hs.length}銘柄`}</td>
-                  <td className="px-2.5 py-2"><span className={`inline-block whitespace-nowrap text-[10.5px] px-2 py-[1px] rounded-full font-semibold ${INST_STATUS_CLS[ev.status]}`}>{stageLabel(ev)}</span></td>
-                  <td className="px-2.5 py-2 text-gray-700">{ev.next}{ev.parallelNext && <span className="block text-[10.5px] text-gray-400">並行：{ev.parallelNext}</span>}</td>
+                  <td className="px-2.5 py-2"><span className={`inline-block whitespace-nowrap text-[12px] px-2 py-[1px] rounded-full font-semibold ${INST_STATUS_CLS[ev.status]}`}>{stageLabel(ev)}</span></td>
+                  <td className="px-2.5 py-2 text-gray-700">{ev.next}{ev.parallelNext && <span className="block text-[12px] text-gray-400">並行：{ev.parallelNext}</span>}</td>
                   <td className="px-2.5 py-2 text-gray-600">{md(ev.nextDeadline)}</td>
                   <td className="px-2.5 py-2 text-right tabular-nums">{amount ? yen(amount) : '—'}</td>
                 </tr>
@@ -330,11 +330,11 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
           {tab === 'accounts' && (
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[11.5px] text-gray-500">支店 → 普通・定期・その他の順。残高証明・取引履歴の状態は請求から自動で入ります。</p>
+                <p className="text-[12px] text-gray-500">支店 → 普通・定期・その他の順。残高証明・取引履歴の状態は請求から自動で入ります。</p>
                 <button type="button" onClick={addAccount} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50"><Plus className="w-3.5 h-3.5" />口座を追加</button>
               </div>
               <table className="w-full text-[13px] border-collapse">
-                <thead><tr className="bg-slate-100 border-b border-slate-300 text-[12.5px] text-gray-600">
+                <thead><tr className="bg-slate-100 border-b border-slate-300 text-[13px] text-gray-600">
                   <th className="px-2 py-2 text-left font-semibold w-40">支店</th><th className="px-2 py-2 text-left font-semibold w-24">種別</th><th className="px-2 py-2 text-left font-semibold w-36">口座番号</th>
                   <th className="px-2 py-2 text-left font-semibold w-28">残高証明</th><th className="px-2 py-2 text-left font-semibold w-28">取引履歴</th><th className="px-2 py-2 text-right font-semibold w-36">残高</th><th className="px-2 py-2 text-left font-semibold">備考</th><th className="w-8" />
                 </tr></thead>
@@ -347,8 +347,8 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
                         <td className="px-2 py-1.5"><TxtCell value={a.branch_name} onCommit={v => void saveAsset(a.id, { branch_name: v || null })} placeholder="支店" /></td>
                         <td className="px-2 py-1.5"><SelCell value={a.account_type} options={ACCOUNT_TYPES} onChange={v => void saveAsset(a.id, { account_type: v || null })} /></td>
                         <td className="px-2 py-1.5 font-mono"><TxtCell value={a.account_number} onCommit={v => void saveAsset(a.id, { account_number: v || null })} placeholder="全桁" /></td>
-                        <td className="px-2 py-1.5"><StatusChip s={b.label} />{b.count && <span className="ml-1 text-[10.5px] text-gray-400">{b.count}</span>}</td>
-                        <td className="px-2 py-1.5"><StatusChip s={h.label} />{h.count && <span className="ml-1 text-[10.5px] text-gray-400">{h.count}</span>}</td>
+                        <td className="px-2 py-1.5"><StatusChip s={b.label} />{b.count && <span className="ml-1 text-[12px] text-gray-400">{b.count}</span>}</td>
+                        <td className="px-2 py-1.5"><StatusChip s={h.label} />{h.count && <span className="ml-1 text-[12px] text-gray-400">{h.count}</span>}</td>
                         <td className="px-2 py-1.5"><MoneyCell value={a.balance_amount} onCommit={v => void saveAsset(a.id, { balance_amount: v === '' ? null : Number(v) })} /></td>
                         <td className="px-2 py-1.5"><TxtCell value={a.notes} onCommit={v => void saveAsset(a.id, { notes: v || null })} placeholder="—" /></td>
                         <td className="px-1 py-1.5 text-center"><button type="button" onClick={() => deleteAccount(a)} className="text-gray-300 hover:text-red-500" title="削除"><Trash2 className="w-3.5 h-3.5" /></button></td>
@@ -362,11 +362,11 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
           {tab === 'requests' && (
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[11.5px] text-gray-500">1行＝金融機関へ一度に出したまとまり。到着日は受信簿のW-Checkで入ります。</p>
+                <p className="text-[12px] text-gray-500">1行＝金融機関へ一度に出したまとまり。到着日は受信簿のW-Checkで入ります。</p>
                 <button type="button" onClick={openRequest} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-[12px] font-semibold text-white bg-brand-600 hover:bg-brand-700"><Plus className="w-3.5 h-3.5" />請求を登録</button>
               </div>
               <table className="w-full text-[13px] border-collapse">
-                <thead><tr className="bg-slate-100 border-b border-slate-300 text-[12.5px] text-gray-600">
+                <thead><tr className="bg-slate-100 border-b border-slate-300 text-[13px] text-gray-600">
                   <th className="px-2 py-2 text-left font-semibold w-28">請求内容</th><th className="px-2 py-2 text-left font-semibold">指定日・期間</th><th className="px-2 py-2 text-left font-semibold">対象口座</th>
                   <th className="px-2 py-2 text-left font-semibold w-24">請求日</th><th className="px-2 py-2 text-left font-semibold w-24">到着</th><th className="px-2 py-2 text-left font-semibold w-24">状況</th><th className="w-40" />
                 </tr></thead>
@@ -379,7 +379,7 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
                       <tr key={r.id} className="border-b border-gray-100 last:border-b-0 [&>td]:align-top">
                         <td className="px-2 py-2 font-medium text-gray-800">{[...new Set(its.map(it => it.doc_type))].map(t => <div key={t}>{t}</div>)}</td>
                         <td className="px-2 py-2 text-gray-700">{its.map(it => <div key={it.id}>{itemConditionLabel(it)}</div>)}</td>
-                        <td className="px-2 py-2 text-gray-600 font-mono text-[11px]">{isSec ? '保有口座全体' : accIds.map(id => { const a = accounts.find(x => x.id === id); return <div key={id}>{a ? [a.branch_name, a.account_type, a.account_number].filter(Boolean).join('｜') : '—'}</div> })}</td>
+                        <td className="px-2 py-2 text-gray-600 font-mono text-[12px]">{isSec ? '保有口座全体' : accIds.map(id => { const a = accounts.find(x => x.id === id); return <div key={id}>{a ? [a.branch_name, a.account_type, a.account_number].filter(Boolean).join('｜') : '—'}</div> })}</td>
                         <td className="px-2 py-2 text-gray-700">{md(r.request_date)}</td>
                         <td className="px-2 py-2 text-gray-700">{its.length === 0 ? '—' : arrived === its.length ? '到着済' : arrived > 0 ? `一部到着 ${arrived}/${its.length}` : '未到着'}</td>
                         <td className="px-2 py-2"><StatusChip s={requestStatus(r, its)} /></td>
@@ -410,7 +410,7 @@ const chipStatus = (done: boolean, started: boolean) => (done ? '取得済' : st
 function NotNeeded({ required, onChange }: { required: boolean; onChange: (required: boolean) => void }) {
   const off = !required
   return (
-    <label className={`inline-flex items-center gap-1 text-[11px] cursor-pointer px-1.5 py-0.5 rounded border ${off ? 'border-gray-400 bg-gray-200 text-gray-700 font-semibold' : 'border-gray-200 text-gray-500 hover:bg-gray-100'}`}>
+    <label className={`inline-flex items-center gap-1 text-[12px] cursor-pointer px-1.5 py-0.5 rounded border ${off ? 'border-gray-400 bg-gray-200 text-gray-700 font-semibold' : 'border-gray-200 text-gray-500 hover:bg-gray-100'}`}>
       <input type="checkbox" checked={off} onChange={e => onChange(!e.target.checked)} className="w-3.5 h-3.5 accent-gray-600" />
       不要
     </label>
@@ -425,7 +425,7 @@ function ProcedureCards({ inst: i, save, memberId, today }: { inst: FinancialIns
     ? (i.search_method === '要原本確認' ? '原本発送日' : '調査請求書発送日')
     : (i.search_method === '要原本確認' ? '原本提出日（来店日）' : '調査請求日（来店日）')
   const onHold = (i.survey_prohibited_designation ?? '') === '指定あり'
-  const muted = <span className="text-[11px] text-gray-400">—</span>
+  const muted = <span className="text-[12px] text-gray-400">—</span>
   return (
     <div className="space-y-2.5">
       {/* この銀行の前提。誰が請求するか（取得区分）と、お客様の「まだ調べないで」（調査禁止）。
@@ -483,7 +483,7 @@ function ProcedureCards({ inst: i, save, memberId, today }: { inst: FinancialIns
           {i.form_source === '金融機関へ請求' && <PracticeRow label="請求日"><DateCell value={i.form_request_date} onCommit={v => void save({ form_request_date: v || null })} /></PracticeRow>}
           {i.form_source === '金融機関へ請求' && <PracticeRow label="到着日"><DateCell value={i.form_arrival_date} onCommit={v => void save({ form_arrival_date: v || null })} /></PracticeRow>}
           {i.form_source === '社内在庫' && <PracticeRow label="在庫確認日"><DateCell value={i.form_stock_date} onCommit={v => void save({ form_stock_date: v || null })} /></PracticeRow>}
-          {i.form_source === '未確認' && <PracticeRow label=" "><span className="text-[11px] text-gray-500">未確認のままだと次に進めません</span></PracticeRow>}
+          {i.form_source === '未確認' && <PracticeRow label=" "><span className="text-[12px] text-gray-500">未確認のままだと次に進めません</span></PracticeRow>}
         </>)}
       </PracticeGroup>
 
@@ -495,23 +495,23 @@ function ProcedureCards({ inst: i, save, memberId, today }: { inst: FinancialIns
             <PracticeRow label="調査方法" hint="金融機関によって回答の条件が違う。電話回答／要原本確認（戸籍・委任状の原本を出す）／要請求（正式な調査請求書）">
               <SelCell value={i.search_method} options={[...SEARCH_METHODS]} onChange={v => void save({ search_method: v || '未確認' })} />
             </PracticeRow>
-            {i.search_method === '未確認' && <PracticeRow label=" "><span className="text-[11px] text-gray-500">金融機関へ確認し、回答条件に合う調査方法を選んでください</span></PracticeRow>}
+            {i.search_method === '未確認' && <PracticeRow label=" "><span className="text-[12px] text-gray-500">金融機関へ確認し、回答条件に合う調査方法を選んでください</span></PracticeRow>}
             {i.search_method === '電話回答' && (<>
               <PracticeRow label="確認日"><DateCell value={i.search_answer_date} onCommit={v => void save({ search_answer_date: v || null })} /></PracticeRow>
               <PracticeRow label="回答者" sub="金融機関担当者名"><TxtCell value={i.search_responder} onCommit={v => void save({ search_responder: v || null })} placeholder="例：相続担当 佐藤様" /></PracticeRow>
             </>)}
             {(i.search_method === '要原本確認' || i.search_method === '要請求') && (<>
               <PracticeRow label={i.search_method === '要原本確認' ? '原本提出方法' : '調査請求方法'}><SelCell value={i.search_submission_method} options={[...SUBMISSION_METHODS]} onChange={v => void save({ search_submission_method: v || '未確認' })} /></PracticeRow>
-              <PracticeRow label={searchLabel}>{i.search_submission_method === '未確認' ? <span className="text-[11px] text-gray-400">提出方法を選ぶと入力できます</span> : <DateCell value={i.search_request_date} onCommit={v => void save({ search_request_date: v || null })} />}</PracticeRow>
+              <PracticeRow label={searchLabel}>{i.search_submission_method === '未確認' ? <span className="text-[12px] text-gray-400">提出方法を選ぶと入力できます</span> : <DateCell value={i.search_request_date} onCommit={v => void save({ search_request_date: v || null })} />}</PracticeRow>
               <PracticeRow label="回答日"><DateCell value={i.search_answer_date} onCommit={v => void save({ search_answer_date: v || null })} /></PracticeRow>
             </>)}
             <PracticeRow label="調査対象" full>
               {SEARCH_TARGETS.map(t => {
                 const on = i.search_targets.includes(t)
                 return <button key={t} type="button" onClick={() => void save({ search_targets: on ? i.search_targets.filter(x => x !== t) : [...i.search_targets, t] })}
-                  className={`px-2 py-0.5 text-[11px] rounded border ${on ? 'bg-brand-50 text-brand-700 border-brand-300 font-semibold' : 'bg-white text-gray-500 border-gray-200'}`}>{t}</button>
+                  className={`px-2 py-0.5 text-[12px] rounded border ${on ? 'bg-brand-50 text-brand-700 border-brand-300 font-semibold' : 'bg-white text-gray-500 border-gray-200'}`}>{t}</button>
               })}
-              <label className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-gray-600 cursor-pointer">
+              <label className="ml-auto inline-flex items-center gap-1.5 text-[12px] text-gray-600 cursor-pointer">
                 <input type="checkbox" checked={i.search_all_accounts_registered} onChange={e => void save({ search_all_accounts_registered: e.target.checked })} className="w-3.5 h-3.5 accent-brand-600" />判明した口座をすべて口座一覧に登録済み
               </label>
             </PracticeRow>
@@ -535,7 +535,7 @@ function ProcedureCards({ inst: i, save, memberId, today }: { inst: FinancialIns
 }
 
 function MethodSteps({ inst: i, formDone, onPrepDone, onPrepUndo }: { inst: FinancialInstitutionRow; formDone: boolean; onPrepDone: () => void; onPrepUndo: () => void }) {
-  if (i.handling_method === '未確認') return <p className="text-[11px] text-gray-400">対応方法を選ぶと、以降の工程が出ます。</p>
+  if (i.handling_method === '未確認') return <p className="text-[12px] text-gray-400">対応方法を選ぶと、以降の工程が出ます。</p>
   const steps: Array<{ title: string; detail: string; state: 'done' | 'now' | 'wait' }> = i.handling_method === '郵送'
     ? [
         { title: '依頼書到着・確保', detail: '到着または社内在庫', state: formDone ? 'done' : 'now' },
@@ -553,17 +553,17 @@ function MethodSteps({ inst: i, formDone, onPrepDone, onPrepUndo }: { inst: Fina
         {steps.map((s, idx) => (
           <div key={s.title} className="flex-1 text-center relative">
             {idx < steps.length - 1 && <div className="absolute top-[9px] left-1/2 right-[-50%] h-px bg-gray-200" />}
-            <div className={`relative z-10 w-[18px] h-[18px] mx-auto rounded-full text-[10px] font-bold flex items-center justify-center ${s.state === 'done' ? 'bg-emerald-600 text-white' : s.state === 'now' ? 'bg-brand-600 text-white' : 'bg-gray-300 text-white'}`}>{s.state === 'done' ? '✓' : idx + 1}</div>
-            <div className={`mt-1 text-[11px] ${s.state === 'wait' ? 'text-gray-400' : 'text-gray-800 font-semibold'}`}>{s.title}</div>
-            <div className="text-[10px] text-gray-400">{s.detail}</div>
+            <div className={`relative z-10 w-[18px] h-[18px] mx-auto rounded-full text-[12px] font-bold flex items-center justify-center ${s.state === 'done' ? 'bg-emerald-600 text-white' : s.state === 'now' ? 'bg-brand-600 text-white' : 'bg-gray-300 text-white'}`}>{s.state === 'done' ? '✓' : idx + 1}</div>
+            <div className={`mt-1 text-[12px] ${s.state === 'wait' ? 'text-gray-400' : 'text-gray-800 font-semibold'}`}>{s.title}</div>
+            <div className="text-[12px] text-gray-400">{s.detail}</div>
           </div>
         ))}
       </div>
       {i.handling_method === '来店' && i.visit_date && (
         <div className="mt-2 flex items-center gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5">
-          <span className="text-[11px] text-gray-600">来店準備の完了：依頼書・戸籍・本人確認資料・印鑑が揃った時点で押す（この工程だけ手で完了にする）</span>
+          <span className="text-[12px] text-gray-600">来店準備の完了：依頼書・戸籍・本人確認資料・印鑑が揃った時点で押す（この工程だけ手で完了にする）</span>
           {i.visit_prep_done_at
-            ? <button type="button" onClick={onPrepUndo} className="ml-auto text-[11px] text-gray-500 underline">完了を取り消す（{i.visit_prep_done_at.slice(0, 10)}）</button>
+            ? <button type="button" onClick={onPrepUndo} className="ml-auto text-[12px] text-gray-500 underline">完了を取り消す（{i.visit_prep_done_at.slice(0, 10)}）</button>
             : <button type="button" onClick={onPrepDone} className="ml-auto px-3 py-1 rounded-md text-[12px] font-semibold text-white bg-brand-600 hover:bg-brand-700">来店準備を完了</button>}
         </div>
       )}
@@ -605,17 +605,17 @@ function AddInstitutionModal({ kind, onClose, onSubmit }: { kind: Kind; onClose:
     </>}>
       <div className="space-y-3 text-[13px]">
         {options.length > 1 && (
-          <label className="block"><span className="text-[11.5px] text-gray-500">種別</span>
+          <label className="block"><span className="text-[12px] text-gray-500">種別</span>
             <select value={k} onChange={e => setK(e.target.value as FinancialInstitutionRow['kind'])} style={{ fontFamily: 'inherit' }} className={inp}>
               {options.map(o => <option key={o} value={o}>{o === 'ほふり' ? '証券会社が不明（ほふりに開示請求）' : o}</option>)}
             </select>
           </label>
         )}
         {!isJasdec && <>
-          <label className="block"><span className="text-[11.5px] text-gray-500">{k === '株主名簿管理人' ? '株主名簿管理人（信託銀行等）' : k === '証券' ? '証券会社名' : '金融機関名'} <span className="text-red-500">*</span></span><input value={name} onChange={e => setName(e.target.value)} className={inp} placeholder={k === '預金' ? '例：横浜銀行' : k === '証券' ? '例：東都証券' : '例：三菱UFJ信託銀行'} autoFocus /></label>
+          <label className="block"><span className="text-[12px] text-gray-500">{k === '株主名簿管理人' ? '株主名簿管理人（信託銀行等）' : k === '証券' ? '証券会社名' : '金融機関名'} <span className="text-red-500">*</span></span><input value={name} onChange={e => setName(e.target.value)} className={inp} placeholder={k === '預金' ? '例：横浜銀行' : k === '証券' ? '例：東都証券' : '例：三菱UFJ信託銀行'} autoFocus /></label>
           {k !== '株主名簿管理人' && <div className="grid grid-cols-2 gap-3">
-            <label className="block"><span className="text-[11.5px] text-gray-500">支店名（任意）</span><input value={branch} onChange={e => setBranch(e.target.value)} className={inp} placeholder="例：横浜駅前支店" /></label>
-            <label className="block"><span className="text-[11.5px] text-gray-500">金融機関コード（任意）</span><input value={code} onChange={e => setCode(e.target.value)} className={inp} placeholder="例：0138" /></label>
+            <label className="block"><span className="text-[12px] text-gray-500">支店名（任意）</span><input value={branch} onChange={e => setBranch(e.target.value)} className={inp} placeholder="例：横浜駅前支店" /></label>
+            <label className="block"><span className="text-[12px] text-gray-500">金融機関コード（任意）</span><input value={code} onChange={e => setCode(e.target.value)} className={inp} placeholder="例：0138" /></label>
           </div>}
         </>}
         {isJasdec && <p className="text-[12px] text-gray-600">証券保管振替機構（ほふり）を調査先として1件追加します。開示結果から証券会社を足していきます。</p>}

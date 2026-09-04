@@ -146,7 +146,7 @@ export default function ContractDocumentsTable({ caseId, documents, documentRece
       <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 960 }}>
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
+            <tr className="bg-gray-50 border-b border-gray-300 text-[12px] text-gray-600 tracking-[0.04em]">
               <th className="px-2.5 py-2 text-left font-semibold w-56">書類</th>
               <th className="px-2.5 py-2 text-left font-semibold w-28">区分</th>
               <th className="px-2.5 py-2 text-left font-semibold w-40">受領状況</th>
@@ -166,13 +166,13 @@ export default function ContractDocumentsTable({ caseId, documents, documentRece
                 <tr className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                   <DocNameCell value={r.name} onCommit={v => saveNow(r.id, 'name', v)} />
                   <td className="px-2.5 py-1.5">
-                    <select value={r.category ?? ''} onChange={e => saveNow(r.id, 'category', e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+                    <select value={r.category ?? ''} onChange={e => saveNow(r.id, 'category', e.target.value)} className="input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none cursor-pointer">
                       <option value="">—</option>
                       {DOC_CATEGORIES.map(o => <option key={o} value={o}>{o}</option>)}
                     </select>
                   </td>
                   <td className="px-2.5 py-1.5">
-                    <select value={r.status ?? ''} onChange={e => onStatusChange(r, e.target.value)} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+                    <select value={r.status ?? ''} onChange={e => onStatusChange(r, e.target.value)} className="input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none cursor-pointer">
                       <option value="">—</option>
                       {DOC_STATUS.map(o => <option key={o} value={o}>{o}</option>)}
                     </select>
@@ -180,15 +180,15 @@ export default function ContractDocumentsTable({ caseId, documents, documentRece
                   <DateCell value={r.arrival_date} onCommit={v => commit(r.id, 'arrival_date', v)} />
                   <td className="px-2.5 py-1.5">
                     {r.arrival_date
-                      ? <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">受信済</span>
-                      : <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-50 text-gray-400 border border-gray-200">未受信</span>}
+                      ? <span className="inline-flex px-2 py-0.5 rounded-full text-[12px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">受信済</span>
+                      : <span className="inline-flex px-2 py-0.5 rounded-full text-[12px] font-semibold bg-gray-50 text-gray-400 border border-gray-200">未受信</span>}
                   </td>
                   <td className="px-2.5 py-1.5">
                     {!r.arrival_date
-                      ? <span className="text-[11px] text-gray-300">—</span>
+                      ? <span className="text-[12px] text-gray-300">—</span>
                       : (uploadedByContractDoc.get(r.id) || r.file_path)
-                        ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"><Check className="w-3 h-3" strokeWidth={2.5} />アップ済</span>
-                        : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200"><CloudOff className="w-3 h-3" strokeWidth={2} />未アップ</span>}
+                        ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"><Check className="w-3 h-3" strokeWidth={2.5} />アップ済</span>
+                        : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-semibold bg-amber-50 text-amber-800 border border-amber-200"><CloudOff className="w-3 h-3" strokeWidth={2} />未アップ</span>}
                   </td>
                   <Cell value={r.notes} onCommit={v => saveNow(r.id, 'notes', v)} placeholder="例：実印分は後日、料金 等" />
                   <td className="px-2.5 py-1.5 text-center">
@@ -208,7 +208,7 @@ export default function ContractDocumentsTable({ caseId, documents, documentRece
         </table>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-3">
-        <button type="button" onClick={() => addRow()} disabled={busy} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[12.5px] font-semibold text-white bg-brand-600 hover:bg-brand-700 transition-colors disabled:opacity-50">
+        <button type="button" onClick={() => addRow()} disabled={busy} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 transition-colors disabled:opacity-50">
           <Plus className="w-3.5 h-3.5" strokeWidth={2.5} /> 書類を追加
         </button>
         {hiddenCount > 0 && (
@@ -217,7 +217,7 @@ export default function ContractDocumentsTable({ caseId, documents, documentRece
           </button>
         )}
       </div>
-      <p className="mt-2 text-[11px] text-gray-400">
+      <p className="mt-2 text-[12px] text-gray-400">
         受領状況「不要」にした書類は非表示になります。「後日郵送 / 依頼者が取得」は案件進捗の「契約処理の残」に表示。届いたら「到着物受信簿」から各行に紐づけて登録すると到着日が入り受信済になります。<br />
         区分「戸籍 / 不動産 / 金融 / 登記」にすると、相続人調査・財産調査・相続登記の各タブに「契約時にお客様から受領した書類」として受領済/未受領が横断表示されます。<br />
         区分「<span className="font-semibold text-brand-700">お客様預かり書類</span>」にすると、案件完了時の <span className="font-semibold text-brand-700">納品タブ</span> に候補として自動で載ります（既定は<span className="font-semibold">未選択</span>。納品タブで 対象／対象外 を選びます）。
@@ -234,7 +234,7 @@ function Cell({ value, onCommit, placeholder }: { value: string | null; onCommit
         defaultValue={value ?? ''}
         onBlur={e => { if (e.target.value !== (value ?? '')) onCommit(e.target.value) }}
         placeholder={placeholder}
-        className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white"
+        className="input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none"
       />
     </td>
   )
@@ -250,7 +250,7 @@ function DocNameCell({ value, onCommit }: { value: string | null; onCommit: (v: 
         defaultValue={value ?? ''}
         onBlur={e => { if (e.target.value !== (value ?? '')) onCommit(e.target.value) }}
         placeholder="書類名（選択 or 入力）"
-        className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white"
+        className="input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none"
       />
       <datalist id="contract-doc-names">
         {DEFAULT_DOCS.map(d => <option key={d} value={d} />)}
@@ -266,7 +266,7 @@ function DateCell({ value, onCommit }: { value: string | null; onCommit: (v: str
         type="date"
         defaultValue={value ?? ''}
         onBlur={e => { if (e.target.value !== (value ?? '')) onCommit(e.target.value) }}
-        className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white"
+        className="input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none"
       />
     </td>
   )
@@ -275,7 +275,7 @@ function DateCell({ value, onCommit }: { value: string | null; onCommit: (v: str
 
 // ラベル付きの1欄（描画中に部品を作らないよう、外に出しておく）
 function SealField({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="flex flex-col gap-0.5 text-[10.5px] text-gray-500">{label}<span>{children}</span></label>
+  return <label className="flex flex-col gap-0.5 text-[12px] text-gray-500">{label}<span>{children}</span></label>
 }
 
 // 印鑑登録証明書の行の下に出す、書類の中身。cases の列に書く。
@@ -289,7 +289,7 @@ function SealCertificateRow({ caseData, patchCase }: {
     <tr className="bg-brand-50/40 border-b border-gray-100">
       <td colSpan={8} className="px-3 py-2 pl-6 border-l-2 border-brand-400">
         <div className="flex items-end gap-4 flex-wrap">
-          <span className="text-[11px] text-gray-500 self-center">依頼者の印鑑登録証明書。金融調査の請求で使う</span>
+          <span className="text-[12px] text-gray-500 self-center">依頼者の印鑑登録証明書。金融調査の請求で使う</span>
           <SealField label="最古の発行日">
             <input type="date" defaultValue={caseData.seal_cert_oldest_issue_date ?? ''} key={`si-${caseData.seal_cert_oldest_issue_date ?? ''}`}
               onBlur={e => { if (e.target.value !== (caseData.seal_cert_oldest_issue_date ?? '')) void patchCase({ seal_cert_oldest_issue_date: e.target.value || null }) }} className={inp} />
@@ -311,8 +311,8 @@ function SealCertificateRow({ caseData, patchCase }: {
             <input type="number" min={0} defaultValue={caseData.seal_cert_copies ?? ''} key={`sc-${caseData.seal_cert_copies ?? ''}`}
               onBlur={e => { const v = e.target.value === '' ? null : Number(e.target.value); if (v !== (caseData.seal_cert_copies ?? null)) void patchCase({ seal_cert_copies: v }) }} className={`${inp} w-20`} />
           </SealField>
-          {st.status === '期限間近' && <span className="self-center text-[11px] font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800">期限まであと{st.daysLeft}日</span>}
-          {st.status === '期限切れ' && <span className="self-center text-[11px] font-semibold px-2 py-0.5 rounded bg-red-100 text-red-800">期限切れ</span>}
+          {st.status === '期限間近' && <span className="self-center text-[12px] font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800">期限まであと{st.daysLeft}日</span>}
+          {st.status === '期限切れ' && <span className="self-center text-[12px] font-semibold px-2 py-0.5 rounded bg-red-100 text-red-800">期限切れ</span>}
         </div>
       </td>
     </tr>

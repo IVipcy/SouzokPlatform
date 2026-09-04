@@ -250,7 +250,7 @@ export default function ReferralTab({ caseData, referrals, onRefresh, tasks = []
               type="button"
               onClick={() => addPartner(t)}
               disabled={busy}
-              className="px-3 py-1.5 rounded-full text-[12.5px] text-gray-400 hover:text-brand-700 hover:bg-white transition-colors disabled:opacity-50 whitespace-nowrap"
+              className="px-3 py-1.5 rounded-full text-[13px] text-gray-400 hover:text-brand-700 hover:bg-white transition-colors disabled:opacity-50 whitespace-nowrap"
               title={`${t}の紹介を追加`}
             >
               ＋{t}
