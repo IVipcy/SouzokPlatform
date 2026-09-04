@@ -3,7 +3,7 @@
 // 実務タブ共通の「項目名が左・入力欄が右」の表。戸籍・金融・不動産で共用。
 //
 // 引き算の型：枠線も角丸も持たない。白い面（親）の上に、見出しと表があるだけ。
-//   文字は業務システムの標準（値14px／項目名13px／注記12px）。
+//   文字は業務システムの標準（値14px／項目名13px／注記12px）。項目名は薄い灰色（gray-500・medium）で、値より引っ込める。
 //   項目名の列は 9.5rem（152px）固定で折り返さない。長い名前は「短い名前（注記）」と書けば、
 //   カッコの中身を自動で2行目の小さな注記に落とす（InlineFields の FieldRow と同じ）。
 //   区切りはセルの下線と、項目名と値の間の細い縦線だけ。項目名の面も塗らない（太字と位置で分かる）。
@@ -68,9 +68,9 @@ export function PracticeRow({ label, hint, sub, children, full = false, disabled
   const dim = disabled ? 'opacity-45' : ''
   return (
     <div className="contents">
-      <div className={`bg-white border-b border-r border-slate-200 px-3 py-2 flex flex-col justify-center text-[13px] font-semibold text-gray-600 leading-snug whitespace-nowrap overflow-hidden ${dim} ${full ? 'sm:col-start-1' : ''}`}>
+      <div className={`bg-white border-b border-r border-slate-200 px-3 py-2 flex flex-col justify-center text-[13px] font-medium text-gray-500 leading-snug whitespace-nowrap overflow-hidden ${dim} ${full ? 'sm:col-start-1' : ''}`}>
         <span className="inline-flex items-center gap-1 truncate">{main}{hint && !disabled && <HintTip text={hint} />}</span>
-        {(sub ?? note) && <span className="text-[12px] font-normal text-gray-500 leading-tight truncate">{sub ?? note}</span>}
+        {(sub ?? note) && <span className="text-[12px] font-normal text-gray-400 leading-tight truncate">{sub ?? note}</span>}
       </div>
       <div className={`bg-white border-b border-slate-200 px-3 py-2 flex items-center gap-2 flex-wrap min-h-[44px] text-[14px] text-gray-800 ${dim} ${disabled ? 'pointer-events-none select-none' : ''} ${full ? 'sm:col-span-3' : ''}`}>
         {children}
