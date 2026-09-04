@@ -168,7 +168,7 @@ export function FieldRow({ label, children, fullWidth, labelNote, containerRef, 
   const { main, note } = splitParenLabel(label)
   return (
     <div ref={containerRef} className={`flex items-stretch ${span}`}>
-      <div className="w-[6.5rem] sm:w-[9.5rem] flex-shrink-0 bg-white border-r border-slate-200 px-3 py-2 flex flex-col justify-center text-[13px] font-medium text-gray-500 leading-snug">
+      <div className="w-[6.5rem] sm:w-[9.5rem] flex-shrink-0 bg-slate-100 border-r border-slate-200 px-3 py-2 flex flex-col justify-center text-[13px] font-medium text-gray-500 leading-snug">
         <span className="break-words">{main}{required && <span className="text-red-500 ml-0.5">*</span>}{hint && <HintTip text={hint} className="ml-1" />}</span>
         {note && <span className="text-[12px] font-normal text-gray-400 leading-tight">{note}</span>}
         {labelNote}

@@ -57,12 +57,12 @@ function PropertyGroup({ title, rows, municipalityOf }: {
         </td>
       </tr>
       {rows.map(p => (
-        <tr key={p.id} className="border-b border-gray-100">
+        <tr key={p.id} className="border-b border-gray-100 [&>td]:whitespace-nowrap">
           <td className="px-2.5 py-2 text-gray-700">{municipalityOf(p) || <span className="text-gray-300">未設定</span>}</td>
           <td className="px-2.5 py-2 font-medium text-gray-800">{p.address || <span className="text-gray-300">—</span>}</td>
           <td className="px-2.5 py-2 text-gray-600">{(land ? p.lot_number : p.kaoku_bango) || <span className="text-gray-300">—</span>}</td>
           <td className="px-2.5 py-2 text-gray-600">{(land ? p.land_category : p.building_kind) || <span className="text-gray-300">—</span>}</td>
-          <td className="px-2.5 py-2 text-gray-600">
+          <td className="px-2.5 py-2 text-gray-600 max-w-[14rem] truncate" title={land ? undefined : (p.building_structure ?? undefined)}>
             {land
               ? (p.land_area != null ? `${p.land_area}㎡` : <span className="text-gray-300">—</span>)
               : (p.building_structure || <span className="text-gray-300">—</span>)}
@@ -384,7 +384,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
                     <th className="px-2.5 py-2 text-left font-semibold w-36">市区町村</th>
-                    <th className="px-2.5 py-2 text-left font-semibold">所在</th>
+                    <th className="px-2.5 py-2 text-left font-semibold min-w-[16rem]">所在</th>
                     <th className="px-2.5 py-2 text-left font-semibold w-28">地番・家屋番号</th>
                     <th className="px-2.5 py-2 text-left font-semibold w-24">地目・種類</th>
                     <th className="px-2.5 py-2 text-left font-semibold w-40">地積・構造</th>
