@@ -31,6 +31,15 @@ type Props = {
   title?: string
   /** 着手・完了のあとに一覧を取り直す */
   onRefresh?: () => void
+  /** bands＝タブ上部の帯（既定）／panel＝右側パネルの中身（帯なし・一覧は開いたまま） */
+  variant?: 'bands' | 'panel'
+}
+
+/** チップの件数用。進行中／完了の数だけ返す */
+export function countTabTasks(tasks: TaskRow[], gyomus: string[]): { active: number; done: number } {
+  const mine = tasks.filter(t => gyomus.some(g => (t.phase ?? '') === g))
+  const done = mine.filter(t => normalizeTaskStatus(t.status) === '完了').length
+  return { active: mine.length - done, done }
 }
 
 // 完了日時 ISO → 「M/D HH:MM」表記
@@ -40,7 +49,7 @@ const fmtDateTime = (iso: string): string => {
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-export default function TabTasksSection({ gyomus, tasks, title = '完了した作業', onRefresh }: Props) {
+export default function TabTasksSection({ gyomus, tasks, title = '完了した作業', onRefresh, variant = 'bands' }: Props) {
   const router = useRouter()
   const memberId = useCurrentMember(null)
   const [open, setOpen] = useState(false)
@@ -95,26 +104,7 @@ export default function TabTasksSection({ gyomus, tasks, title = '完了した�
     router.push(`/tasks/${t.id}`)
   }
 
-  if (done.length === 0 && active.length === 0) return null
-
-  return (
-    <div className="space-y-2">
-      {/* 進行中：この業務のタスクはすべてここに出る（表の行には出さない） */}
-      {active.length > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white px-3 py-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[12px] font-semibold text-gray-600">進行中の作業</span>
-            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">{active.length}</span>
-            <button type="button" onClick={() => setActiveOpen(o => !o)} className="ml-auto inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
-              {activeOpen ? '閉じる' : '一覧'} {activeOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            </button>
-          </div>
-          {activeOpen && (
-            <div className="flex flex-col gap-1 border-t border-gray-100 pt-2 mt-2">
-              <p className="text-[11px] text-gray-400 px-0.5">
-                行を押すと、着手OKなら着手・対応中なら完了に進みます。
-              </p>
-              {active.map(t => {
+  const activeRows = active.map(t => {
                 const doing = normalizeTaskStatus(t.status) === '対応中'
                 const ready = getStartSignal(t).ready
                 const waiting = isWaitingReceipt(t)
@@ -149,7 +139,87 @@ export default function TabTasksSection({ gyomus, tasks, title = '完了した�
                     {t.due_date && <span className="flex-none text-[10px] text-gray-400 whitespace-nowrap">{t.due_date.slice(5).replace('-', '/')}</span>}
                   </button>
                 )
-              })}
+              })
+  const doneRows = done.map(({ task, execResult, completedBy, completedAt }) => {
+                const meta = `${completedBy}${completedBy && completedAt ? ' ・ ' : ''}${completedAt ? fmtDateTime(completedAt) : ''}`
+                return (
+                  <Link
+                    key={task.id}
+                    href={`/tasks/${task.id}`}
+                    className="flex items-start gap-2 px-2.5 py-1.5 rounded hover:bg-gray-50 text-[12px]"
+                  >
+                    <CircleCheck className="w-3.5 h-3.5 flex-none mt-0.5 text-emerald-600" strokeWidth={2.5} />
+                    <span className="w-56 flex-none font-medium text-gray-700 truncate">{task.title}</span>
+                    {/* 実施結果（このタブでしか読めない中身） */}
+                    <span className="flex-1 min-w-0">
+                      {execResult
+                        ? <span className="block text-[11px] text-gray-600 line-clamp-2" title={execResult}>{execResult}</span>
+                        : <span className="block text-[11px] text-gray-300">実施結果の記載なし</span>}
+                    </span>
+                    {meta && <span className="text-[10px] text-gray-400 flex-none mt-0.5 whitespace-nowrap">{meta}</span>}
+                  </Link>
+                )
+              })
+
+  const modal = completing && (
+    <CompleteTaskModal
+      task={completing}
+      onClose={() => setCompleting(null)}
+      onCompleted={() => { setCompleting(null); onRefresh?.() }}
+    />
+  )
+
+  // 右側パネル：帯にせず、進行中→完了の順に一覧を開いたまま出す
+  if (variant === 'panel') {
+    const head = (label: string, n: number, tone: string) => (
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="w-[3px] h-3.5 bg-brand-600" />
+        <span className="text-[13.5px] font-semibold text-gray-700">{label}</span>
+        <span className={`px-1.5 text-[11.5px] font-bold ${n > 0 ? tone : 'bg-gray-100 text-gray-500'}`}>{n}</span>
+      </div>
+    )
+    return (
+      <div className="space-y-5">
+        <section>
+          {head('進行中の作業', active.length, 'bg-amber-50 text-amber-700')}
+          {active.length === 0
+            ? <p className="text-[12px] text-gray-400 px-1">進行中の作業はありません</p>
+            : <div className="flex flex-col gap-0.5">
+                <p className="text-[11px] text-gray-400 px-0.5">行を押すと、着手OKなら着手・対応中なら完了に進みます。</p>
+                {activeRows}
+              </div>}
+        </section>
+        <section>
+          {head('完了した作業', done.length, 'bg-emerald-50 text-emerald-700')}
+          {done.length === 0
+            ? <p className="text-[12px] text-gray-400 px-1">完了した作業はありません</p>
+            : <div className="space-y-1">{doneRows}</div>}
+        </section>
+        {modal}
+      </div>
+    )
+  }
+
+  if (done.length === 0 && active.length === 0) return null
+
+  return (
+    <div className="space-y-2">
+      {/* 進行中：この業務のタスクはすべてここに出る（表の行には出さない） */}
+      {active.length > 0 && (
+        <div className="rounded-lg border border-gray-200 bg-white px-3 py-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[12px] font-semibold text-gray-600">進行中の作業</span>
+            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">{active.length}</span>
+            <button type="button" onClick={() => setActiveOpen(o => !o)} className="ml-auto inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
+              {activeOpen ? '閉じる' : '一覧'} {activeOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+          {activeOpen && (
+            <div className="flex flex-col gap-1 border-t border-gray-100 pt-2 mt-2">
+              <p className="text-[11px] text-gray-400 px-0.5">
+                行を押すと、着手OKなら着手・対応中なら完了に進みます。
+              </p>
+              {activeRows}
               <button type="button" onClick={() => setActiveOpen(false)} className="w-full mt-1 inline-flex items-center justify-center gap-1 text-[11px] text-gray-400 hover:text-gray-600">
                 閉じる <ChevronUp className="w-3.5 h-3.5" />
               </button>
@@ -170,26 +240,7 @@ export default function TabTasksSection({ gyomus, tasks, title = '完了した�
 
           {open && (
             <div className="space-y-1.5 border-t border-gray-100 pt-2.5 mt-2">
-              {done.map(({ task, execResult, completedBy, completedAt }) => {
-                const meta = `${completedBy}${completedBy && completedAt ? ' ・ ' : ''}${completedAt ? fmtDateTime(completedAt) : ''}`
-                return (
-                  <Link
-                    key={task.id}
-                    href={`/tasks/${task.id}`}
-                    className="flex items-start gap-2 px-2.5 py-1.5 rounded hover:bg-gray-50 text-[12px]"
-                  >
-                    <CircleCheck className="w-3.5 h-3.5 flex-none mt-0.5 text-emerald-600" strokeWidth={2.5} />
-                    <span className="w-56 flex-none font-medium text-gray-700 truncate">{task.title}</span>
-                    {/* 実施結果（このタブでしか読めない中身） */}
-                    <span className="flex-1 min-w-0">
-                      {execResult
-                        ? <span className="block text-[11px] text-gray-600 line-clamp-2" title={execResult}>{execResult}</span>
-                        : <span className="block text-[11px] text-gray-300">実施結果の記載なし</span>}
-                    </span>
-                    {meta && <span className="text-[10px] text-gray-400 flex-none mt-0.5 whitespace-nowrap">{meta}</span>}
-                  </Link>
-                )
-              })}
+              {doneRows}
               <button type="button" onClick={() => setOpen(false)} className="w-full mt-1 inline-flex items-center justify-center gap-1 text-[11px] text-gray-400 hover:text-gray-600">
                 閉じる <ChevronUp className="w-3.5 h-3.5" />
               </button>
@@ -199,13 +250,7 @@ export default function TabTasksSection({ gyomus, tasks, title = '完了した�
       )}
 
       {/* 完了ゲート（実施結果と、次に着手できるタスクの指定） */}
-      {completing && (
-        <CompleteTaskModal
-          task={completing}
-          onClose={() => setCompleting(null)}
-          onCompleted={() => { setCompleting(null); onRefresh?.() }}
-        />
-      )}
+      {modal}
     </div>
   )
 }

@@ -85,10 +85,12 @@ export function WorkContentField({ caseData, gyomu, patchCase, label = '作業�
 
   return (
     <div className="flex flex-col gap-1">
-      <span className="flex items-center gap-2">
-        <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-[1px]" />
-        <span className="text-[12.5px] font-semibold text-brand-800 tracking-[0.02em]">{label}</span>
-      </span>
+      {label !== '' && (
+        <span className="flex items-center gap-2">
+          <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-[1px]" />
+          <span className="text-[12.5px] font-semibold text-brand-800 tracking-[0.02em]">{label}</span>
+        </span>
+      )}
       {textarea}
     </div>
   )

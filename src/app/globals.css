@@ -191,6 +191,18 @@ table thead th {
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0;
+  white-space: nowrap; /* 「地番・家屋／番号」のような途中折れを出さない。幅は列の側が広がる */
+}
+
+/* ─── 表の縦線（全画面）───
+   列の境が分かるように、列と列の間に細い縦線。見出しは本文より少し濃く、上から下まで一本につながる。 */
+table :where(th) + :where(th) {
+  border-left: 1px solid #cfd8e3;
+}
+table :where(td) + :where(td),
+table :where(td) + :where(th),
+table :where(th) + :where(td) {
+  border-left: 1px solid #e8ecf1;
 }
 
 /* Tailwind v4 はボタン既定カーソルが default になったため、

@@ -17,10 +17,12 @@ import InventoryTab from './InventoryTab'
 import OtherAssetsTable from './OtherAssetsTable'
 import ProgressSummary from './ProgressSummary'
 import TabHeader from './TabHeader'
-import { WorkContentField } from './WorkContentField'
-import TabTasksSection from './TabTasksSection'
+import { TabContextChips, TabContextPanel, type TabContextTarget } from './TabContextPanel'
 import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow, ContractDocumentRow, RealEstateAcquisitionRow, TaskRow, AssetInventoryRow, CaseOtherAssetRow, HeirRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
+
+// この業務のタスク（task.phase）。チップの件数とパネルの一覧で同じ
+const ASSET_GYOMUS = ['金融資産', '不動産', '目録']
 
 type Props = {
   caseData: CaseRow
@@ -107,6 +109,8 @@ export default function AssetsTab({ caseData, properties, financialAssets, finan
   // 着地元が「読込」タスクか（re-*-read）。読込タスクは物件洗い出し＋評価額確定まで守備範囲なので物件一覧もハイライト。
   // 「請求」タスクはまだ名寄帳が届いていないので物件一覧はハイライトしない。
   const focusIsRead = /-read:/.test(focusRid)
+  // 見出し右端のチップで開く右側パネル（作業内容／この業務のタスク）。まずは財産調査だけ
+  const [ctx, setCtx] = useState<TabContextTarget | null>(null)
   const [sub, setSub] = useState<string>(() => {
     if (!focus) return 'realestate'
     if (properties.some(p => municipalityOf(p) === focus)) return 'realestate'
@@ -190,18 +194,10 @@ export default function AssetsTab({ caseData, properties, financialAssets, finan
 
   return (
     <div className="space-y-3.5">
-      {!orderSheetMode && <TabHeader title="財産調査" description="不動産・預貯金・有価証券・保険など、財産を調べて、集めた資料をここにまとめます。" />}
+      {/* 作業内容と進行中の作業は帯にせず、見出しの右端のチップ→右側パネル（TabContextPanel） */}
       {!orderSheetMode && (
-        <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-3">
-          <WorkContentField caseData={caseData} gyomu="assets" patchCase={patchCase} label="作業内容（フリー・オーダーシートと共有）" collapsible />
-        </div>
-      )}
-      {!orderSheetMode && (
-        <TabTasksSection
-          onRefresh={onRefresh}
-          gyomus={['金融資産', '不動産', '目録']}
-          tasks={tasks}
-        />
+        <TabHeader title="財産調査" description="不動産・預貯金・有価証券・保険など、財産を調べて、集めた資料をここにまとめます。"
+          right={<TabContextChips caseData={caseData} gyomu="assets" tasks={tasks} gyomus={ASSET_GYOMUS} open={ctx} onToggle={t => setCtx(c => (c === t ? null : t))} />} />
       )}
 
       {/* 財産の合計（概算）。オーダーシート（調査前のヒアリング）だけに置く。
@@ -212,6 +208,9 @@ export default function AssetsTab({ caseData, properties, financialAssets, finan
       {/* 種別タブ（不動産 / 預金 / 証券 / 信託 / 生命保険 / 財産目録）。案件詳細のみタブ表示、
           オーダーシートは各パネルを縦積みで全展開。切替時にアンマウントすると入力中の表が
           古いpropsで作り直され消えて見えるため、各パネルは常時マウントしたまま非表示(hidden)で切り替える。 */}
+      {/* パネルは重ねずに横に並べる。開いている間だけ中身の幅が縮む */}
+      <div className={orderSheetMode ? 'contents' : 'flex gap-3.5 items-start'}>
+      <div className={orderSheetMode ? 'contents' : 'flex-1 min-w-0 space-y-3.5'}>
       <div className={orderSheetMode ? 'space-y-3.5' : ''}>
         {!orderSheetMode && <SubTabs tabs={SUBTABS_FULL} active={sub} onChange={setSub} className="mb-3.5" />}
 
@@ -331,6 +330,12 @@ export default function AssetsTab({ caseData, properties, financialAssets, finan
         <Section title="財産目録（協議書・精算書へ反映）">
           <InventoryTab caseId={caseData.id} financialAssets={financialAssets} properties={properties} otherAssets={otherAssets} heirs={heirs} onRefresh={onRefresh} />
         </Section>
+      </div>
+      </div>
+      {!orderSheetMode && ctx && (
+        <TabContextPanel caseData={caseData} gyomu="assets" patchCase={patchCase} tasks={tasks} gyomus={ASSET_GYOMUS}
+          target={ctx} onClose={() => setCtx(null)} onRefresh={onRefresh} />
+      )}
       </div>
     </div>
   )
