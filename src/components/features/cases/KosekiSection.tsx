@@ -678,7 +678,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                 <div>
                   {/* 請求ごとのタブ。同じ人に2回目を出すとタブが増える。
                       状態は色の点ではなく文字のバッジ（KOSEKI_TAB_STATUS）で出す。 */}
-                  <div className="flex items-end gap-1 flex-wrap border-b border-gray-200 mb-3">
+                  <div className="flex items-end gap-1 flex-wrap border-b border-gray-200 mb-3 shadow-[0_2px_3px_-1px_rgba(15,23,42,0.10)]">
                     {personRequests.map((r, i) => {
                       const on = (activeReqId ?? personRequests[0]?.id) === r.id
                       const st = KOSEKI_TAB_STATUS[kosekiTabStatus(r)]
@@ -690,7 +690,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                           onClick={() => setActiveReqId(r.id)}
                           title={kosekiTabTitle(r)}
                           className={`inline-flex items-center gap-2 px-3 py-1.5 text-[13px] rounded-t-lg border border-b-0 -mb-px transition-colors ${
-                            on ? 'bg-white border-gray-200 text-gray-800 font-semibold'
+                            on ? 'relative z-10 bg-white border-gray-200 text-gray-800 font-semibold shadow-[0_-2px_6px_rgba(15,23,42,0.06),0_3px_0_0_#fff]'
                               : `bg-gray-50 border-transparent hover:text-gray-800 ${finished ? 'text-gray-400' : 'text-gray-500'}`
                           }`}
                         >

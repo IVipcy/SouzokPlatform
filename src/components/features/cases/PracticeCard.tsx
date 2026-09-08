@@ -6,7 +6,7 @@
 //   文字は業務システムの標準（値14px／項目名13px／注記12px）。項目名は薄い灰色（gray-500・medium）で、値より引っ込める。
 //   項目名の列は 9.5rem（152px）固定で折り返さない。長い名前は「短い名前（注記）」と書けば、
 //   カッコの中身を自動で2行目の小さな注記に落とす（InlineFields の FieldRow と同じ）。
-//   塗るのは項目名の面（slate-200・文字gray-700）だけ。見出しも値の面も白。
+//   塗るのは項目名の面（ブルーグレー #e6edf5・文字slate-700。表の見出し thead th と同じ色）だけ。見出しも値の面も白。
 //   項目名どうしは白い2pxの線で切る（面と同じ色の線だとくっついて見える）。値の側は薄い下線。
 //   Step は白地に太字＋下線の見出し。
 //   入力欄は PracticeTableCells の .input-flat（オーダーシートと同じ薄い灰色の面）。
@@ -69,9 +69,9 @@ export function PracticeRow({ label, hint, sub, children, full = false, disabled
   const dim = disabled ? 'opacity-45' : ''
   return (
     <div className="contents">
-      <div className={`bg-slate-200 border-b-2 border-r-2 border-white px-3 py-2 flex flex-col justify-center text-[13px] font-medium text-gray-700 leading-snug whitespace-nowrap overflow-hidden ${dim} ${full ? 'sm:col-start-1' : ''}`}>
+      <div className={`bg-[#e6edf5] border-b-2 border-r-2 border-white px-3 py-2 flex flex-col justify-center text-[13px] font-medium text-slate-700 leading-snug whitespace-nowrap overflow-hidden ${dim} ${full ? 'sm:col-start-1' : ''}`}>
         <span className="inline-flex items-center gap-1 truncate">{main}{hint && !disabled && <HintTip text={hint} />}</span>
-        {(sub ?? note) && <span className="text-[12px] font-normal text-gray-500 leading-tight truncate">{sub ?? note}</span>}
+        {(sub ?? note) && <span className="text-[12px] font-normal text-slate-500 leading-tight truncate">{sub ?? note}</span>}
       </div>
       <div className={`bg-white border-b border-slate-200 px-3 py-2 flex items-center gap-2 flex-wrap min-h-[44px] text-[14px] text-gray-800 ${dim} ${disabled ? 'pointer-events-none select-none' : ''} ${full ? 'sm:col-span-3' : ''}`}>
         {children}

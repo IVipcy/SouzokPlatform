@@ -305,13 +305,13 @@ function CommunicationsSection({ caseData, rows, onRefresh, allMembers, currentM
         <div className="overflow-x-auto">
           <table className="w-full text-[13px] border-collapse">
             <thead>
-              <tr className="bg-brand-700">
-                <th className="px-2 py-1.5 text-left font-semibold text-white border border-brand-600" style={{ width: 130 }}>日付</th>
-                <th className="px-2 py-1.5 text-left font-semibold text-white border border-brand-600" style={{ width: 180 }}>連絡内容</th>
-                <th className="px-2 py-1.5 text-left font-semibold text-white border border-brand-600" style={{ width: 110 }}>連絡方法</th>
-                <th className="px-2 py-1.5 text-left font-semibold text-white border border-brand-600">やり取り詳細</th>
-                <th className="px-2 py-1.5 text-center font-semibold text-white border border-brand-600" style={{ width: 130 }}>ステータス</th>
-                <th className="px-2 py-1.5 text-center font-semibold text-white border border-brand-600" style={{ width: 40 }} />
+              <tr>
+                <th className="px-2 py-1.5 text-left font-semibold border border-slate-300" style={{ width: 130 }}>日付</th>
+                <th className="px-2 py-1.5 text-left font-semibold border border-slate-300" style={{ width: 180 }}>連絡内容</th>
+                <th className="px-2 py-1.5 text-left font-semibold border border-slate-300" style={{ width: 110 }}>連絡方法</th>
+                <th className="px-2 py-1.5 text-left font-semibold border border-slate-300">やり取り詳細</th>
+                <th className="px-2 py-1.5 text-center font-semibold border border-slate-300" style={{ width: 130 }}>ステータス</th>
+                <th className="px-2 py-1.5 text-center font-semibold border border-slate-300" style={{ width: 40 }} />
               </tr>
             </thead>
             <tbody>

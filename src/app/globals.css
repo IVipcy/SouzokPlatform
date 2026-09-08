@@ -181,6 +181,18 @@ table :where(tr) {
   border-color: #cbd5e1;
 }
 
+/* ─── 表の見出しの型（全画面）───
+   面はブルーグレー #e6edf5（実務タブの項目名の面と同じ色）、文字は slate-700・13px・semibold。
+   表ごとに tr へ bg-gray-50 や text-[11px] が付いていても、ここが勝つ（無レイヤー）。
+   見出しが薄く見えた原因は色より文字の細さ・小ささなので、文字を先に直している。 */
+table thead th {
+  background-color: #e6edf5;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
 /* Tailwind v4 はボタン既定カーソルが default になったため、
    操作可能なコントロールに指カーソルを復活させる（アプリ全体）。 */
 button:not(:disabled),

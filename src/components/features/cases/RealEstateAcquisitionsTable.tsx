@@ -171,7 +171,7 @@ function AcquisitionCards({
   return (
     <div>
       {/* 請求ごとのタブ。役所ぶんが先、法務局ぶんが後ろ（rows は既にその順で並んでいる）。 */}
-      <div className="flex items-end gap-1 flex-wrap border-b border-gray-200 mb-3">
+      <div className="flex items-end gap-1 flex-wrap border-b border-gray-200 mb-3 shadow-[0_2px_3px_-1px_rgba(15,23,42,0.10)]">
         {rows.map(r => {
           const on = cur?.id === r.id
           const st = RE_TAB_STATUS[reTabStatus(r)]
@@ -181,7 +181,7 @@ function AcquisitionCards({
             <button key={r.id} type="button" onClick={() => setActiveId(r.id)}
               title={`${isProp ? '法務局へ請求' : '役所へ請求'}／${st.label}`}
               className={`inline-flex items-center gap-2 px-3 py-1.5 text-[13px] rounded-t-lg border border-b-0 -mb-px transition-colors ${
-                on ? 'bg-white border-gray-200 text-gray-800 font-semibold'
+                on ? 'relative z-10 bg-white border-gray-200 text-gray-800 font-semibold shadow-[0_-2px_6px_rgba(15,23,42,0.06),0_3px_0_0_#fff]'
                   : `bg-gray-50 border-transparent hover:text-gray-800 ${finished ? 'text-gray-400' : 'text-gray-500'}`}`}>
               <span className={`text-[9.5px] px-1.5 rounded flex-none ${isProp ? 'bg-gray-100 text-gray-500' : 'bg-brand-50 text-brand-700'}`}>
                 {isProp ? '法務局' : '役所'}
