@@ -60,9 +60,10 @@ export function Section({ title, icon: _icon, children, actionLabel, onAction, c
   const actionCls = 'text-brand-600 hover:text-brand-700'
   const contentCls = nested ? 'pl-[11px]' : 'px-4 pb-4'
 
+  // title が空文字＝見出しを出さない（親の帯や見出しと同じ名前が重なるとき。オーダーシートの受注内容など）
   return (
     <section className={sectionCls}>
-      <div className={headerCls}>
+      {title !== '' && <div className={headerCls}>
         <span className={`inline-block w-[3px] ${nested ? 'h-3.5' : 'h-4'} bg-brand-600 flex-shrink-0`} />
         {collapsible ? (
           <button
@@ -87,7 +88,7 @@ export function Section({ title, icon: _icon, children, actionLabel, onAction, c
         {actionLabel && onAction && (
           <button onClick={onAction} className={`ml-auto text-[14px] font-semibold ${actionCls}`}>＋ {actionLabel}</button>
         )}
-      </div>
+      </div>}
       {isOpen && (
         <div className={contentCls}>
           {children}

@@ -120,7 +120,8 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
   return (
     <div className="space-y-3.5">
       {!orderSheetMode && <TabHeader title="受注内容" description="受注内容（提案内容）と実施する予定の作業を選びます" />}
-      <Section title="受注内容">
+      {/* オーダーシートの中では上の帯が「受注内容」なので、同じ名前の見出しを重ねない */}
+      <Section title={orderSheetMode ? '' : '受注内容'}>
         {/* 受注内容（提案内容）＝フリー欄。面談シート(order)と同じキーで共有・引き継ぎ（エクセルR24）
             面談シート①のときは、親のMemoField(タイピング/手書き切替)が同じ work_content['order'] に書くため、
             こちらの WorkContentField は非表示にして二重欄を回避する。 */}
