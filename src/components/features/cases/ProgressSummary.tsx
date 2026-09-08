@@ -4,7 +4,6 @@
 // 状態（未着手/対応中/追加調査中/完了）＋文章をワンセットで管理。戸籍相関図など他UIからも参照する。
 
 import { useEffect, useState } from 'react'
-import { Pencil, Check, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useCurrentMember } from '@/lib/useCurrentMember'
@@ -34,9 +33,8 @@ export default function ProgressSummary({ caseId, scopeKey, title, onSaved }: {
   const [body, setBody] = useState('')
   const [status, setStatus] = useState<string>('未着手')
   const [meta, setMeta] = useState<{ name: string | null; at: string | null }>({ name: null, at: null })
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState('')
-  const [saving, setSaving] = useState(false)
+  // 直近に保存した本文。欄から出たときに変わっていれば保存する（作業内容フリー欄と同じ仕様）
+  const [savedBody, setSavedBody] = useState('')
 
   useEffect(() => {
     let alive = true
@@ -48,6 +46,7 @@ export default function ProgressSummary({ caseId, scopeKey, title, onSaved }: {
       if (!alive || !data) return
       const d = data as { body: string | null; status: string | null; updated_at: string | null; member: { name: string } | { name: string }[] | null }
       setBody(d.body ?? '')
+      setSavedBody(d.body ?? '')
       setStatus(d.status ?? '未着手')
       const m = Array.isArray(d.member) ? d.member[0] : d.member
       setMeta({ name: m?.name ?? null, at: d.updated_at ? d.updated_at.slice(0, 16).replace('T', ' ') : null })
@@ -66,12 +65,11 @@ export default function ProgressSummary({ caseId, scopeKey, title, onSaved }: {
     return true
   }
 
-  // 本文（メモ）の保存。状態は廃止したため既存値をそのまま維持して保存する。
+  // 本文（メモ）の保存。欄から出たとき、変わっていれば保存。状態は廃止したため既存値を維持する。
   const saveBody = async () => {
-    setSaving(true)
-    const ok = await persist(draft, status || '未着手')
-    setSaving(false)
-    if (ok) { setBody(draft); setEditing(false); onSaved?.({ body: draft }) }
+    if (body === savedBody) return
+    const ok = await persist(body, status || '未着手')
+    if (ok) { setSavedBody(body); onSaved?.({ body }) }
   }
 
   return (
@@ -79,29 +77,12 @@ export default function ProgressSummary({ caseId, scopeKey, title, onSaved }: {
       <div className="flex items-center gap-2 mb-1.5">
         <span className="w-[3px] h-4 bg-brand-600" />
         <span className="text-[15px] font-semibold text-gray-800">{title}</span>
-        {!editing && (
-          <button type="button" onClick={() => { setDraft(body); setEditing(true) }} className="ml-auto inline-flex items-center gap-1 text-[13px] text-brand-600 hover:text-brand-700 font-semibold">
-            <Pencil className="w-3 h-3" /> メモを編集
-          </button>
-        )}
+        {meta.at && <span className="ml-auto text-[12px] text-gray-400">最終更新：{meta.name ?? '—'}・{meta.at}</span>}
       </div>
-
-      {editing ? (
-        <div>
-          <textarea value={draft} onChange={e => setDraft(e.target.value)} rows={3} placeholder="現時点で分かったこと・現状をまとめて記入" className="w-full px-2.5 py-1.5 text-[14px] border border-slate-300 outline-none focus:border-brand-400 bg-white" />
-          <div className="flex justify-end gap-2 mt-1.5">
-            <button type="button" onClick={() => setEditing(false)} className="inline-flex items-center gap-1 px-2.5 py-1 text-[13px] text-gray-500 hover:text-gray-700"><X className="w-3 h-3" />取消</button>
-            <button type="button" onClick={saveBody} disabled={saving} className="inline-flex items-center gap-1 px-3 py-1 text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-50"><Check className="w-3 h-3" />保存</button>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className={`text-[14px] leading-relaxed whitespace-pre-line px-1 py-1 ${body ? 'text-gray-800' : 'text-gray-400'}`}>
-            {body || '現状メモは未記入です。「メモを編集」から記入してください。'}
-          </div>
-          {meta.at && <div className="text-[12px] text-gray-400 mt-1.5">最終更新：{meta.name ?? '—'}・{meta.at}</div>}
-        </>
-      )}
+      {/* 作業内容フリー欄と同じ：書いて欄から出れば保存。ボタンは置かない */}
+      <textarea value={body} onChange={e => setBody(e.target.value)} onBlur={() => void saveBody()} rows={3}
+        placeholder="現時点で分かったこと・現状をまとめて記入"
+        className="w-full px-3 py-2.5 text-[14px] leading-relaxed outline-none rounded-lg" />
     </div>
   )
 }

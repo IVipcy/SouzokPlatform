@@ -5,7 +5,7 @@
 // FreeWorkTab：専用タブが無い業務（手紙・執行通知 等）の実務タブ。作業内容＋進捗/結果のみ。
 
 import { useState, useEffect } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import type { CaseRow } from '@/types'
 import TabHeader from './TabHeader'
 import ProgressSummary from './ProgressSummary'
@@ -68,12 +68,15 @@ export function WorkContentField({ caseData, gyomu, patchCase, label = '作業�
   if (collapsible) {
     return (
       <div className="flex flex-col gap-1">
-        <button type="button" onClick={() => setOpen(o => !o)} className="flex items-center gap-1.5 text-left">
-          <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={2.25} />
-          <span className="inline-block w-[3px] h-3.5 bg-brand-600 rounded-[1px]" />
-          <span className="text-[12.5px] font-semibold text-brand-800 tracking-[0.02em]">{label}</span>
-          {!open && stored && <span className="text-[11px] text-slate-400 truncate max-w-[50%]">：{stored}</span>}
-          {!open && !stored && <span className="text-[11px] text-slate-300">（未記入）</span>}
+        {/* 開閉は右端（進行中の作業と同じ形）。左に山形を置くと青い縦線が他の見出しとずれる */}
+        <button type="button" onClick={() => setOpen(o => !o)} className="flex items-center gap-2 text-left w-full">
+          <span className="inline-block w-[3px] h-4 bg-brand-600" />
+          <span className="text-[13.5px] font-semibold text-gray-700">{label}</span>
+          {!open && stored && <span className="text-[12px] text-slate-400 truncate max-w-[50%]">：{stored}</span>}
+          {!open && !stored && <span className="text-[12px] text-slate-400">（未記入）</span>}
+          <span className="ml-auto inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600">
+            {open ? '閉じる' : '開く'} {open ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </span>
         </button>
         {open && textarea}
       </div>
