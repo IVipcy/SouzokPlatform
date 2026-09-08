@@ -31,7 +31,7 @@ export function workContentPlaceholder(gyomu: string): string | undefined {
   return WORK_CONTENT_PLACEHOLDERS[gyomu]
 }
 
-export function WorkContentField({ caseData, gyomu, patchCase, label = '作業内容（フリー）', placeholder, large, collapsible }: {
+export function WorkContentField({ caseData, gyomu, patchCase, label = '作業内容（フリー）', placeholder, large, collapsible, onSaved }: {
   caseData: CaseRow
   gyomu: string
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
@@ -40,6 +40,8 @@ export function WorkContentField({ caseData, gyomu, patchCase, label = '作業�
   large?: boolean
   /** true で見出しクリックによる折りたたみを有効化（初期は記入があれば開く／無ければ閉じる）。 */
   collapsible?: boolean
+  /** 保存したあとに呼ぶ（保存済み表示など） */
+  onSaved?: () => void
 }) {
   const stored = (caseData.work_content ?? {})[gyomu] ?? ''
   const [val, setVal] = useState(stored)
@@ -52,6 +54,7 @@ export function WorkContentField({ caseData, gyomu, patchCase, label = '作業�
     if (val.trim()) next[gyomu] = val
     else delete next[gyomu]
     await patchCase({ work_content: Object.keys(next).length ? next : null })
+    onSaved?.()
   }
 
   const textarea = (

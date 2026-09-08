@@ -208,9 +208,6 @@ export default function AssetsTab({ caseData, properties, financialAssets, finan
       {/* 種別タブ（不動産 / 預金 / 証券 / 信託 / 生命保険 / 財産目録）。案件詳細のみタブ表示、
           オーダーシートは各パネルを縦積みで全展開。切替時にアンマウントすると入力中の表が
           古いpropsで作り直され消えて見えるため、各パネルは常時マウントしたまま非表示(hidden)で切り替える。 */}
-      {/* パネルは重ねずに横に並べる。開いている間だけ中身の幅が縮む */}
-      <div className={orderSheetMode ? 'contents' : 'flex gap-3.5 items-start'}>
-      <div className={orderSheetMode ? 'contents' : 'flex-1 min-w-0 space-y-3.5'}>
       <div className={orderSheetMode ? 'space-y-3.5' : ''}>
         {!orderSheetMode && <SubTabs tabs={SUBTABS_FULL} active={sub} onChange={setSub} className="mb-3.5" />}
 
@@ -331,12 +328,11 @@ export default function AssetsTab({ caseData, properties, financialAssets, finan
           <InventoryTab caseId={caseData.id} financialAssets={financialAssets} properties={properties} otherAssets={otherAssets} heirs={heirs} onRefresh={onRefresh} />
         </Section>
       </div>
-      </div>
+      {/* 右サイドパネル（画面右端に重ねる。位置はここに置いても fixed なので関係ない） */}
       {!orderSheetMode && ctx && (
-        <TabContextPanel caseData={caseData} gyomu="assets" patchCase={patchCase} tasks={tasks} gyomus={ASSET_GYOMUS}
+        <TabContextPanel key={ctx} title="財産調査" caseData={caseData} gyomu="assets" patchCase={patchCase} tasks={tasks} gyomus={ASSET_GYOMUS}
           target={ctx} onClose={() => setCtx(null)} onRefresh={onRefresh} />
       )}
-      </div>
     </div>
   )
 }
