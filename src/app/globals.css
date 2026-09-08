@@ -102,30 +102,23 @@ input.input-naked:focus {
   box-shadow: none;
 }
 
-/* ─── 実務タブのカード用：箱に見せない入力欄 ───
-   他事業者紹介の「文字に見えて、触ると編集」に寄せる。ふだんは文字＋破線の下線だけ。
-   フォーカスしたときだけ下線を青の実線にする（面もリングも出さない）。
-   カードに入力欄が3つ並んだとき、箱の壁にならないようにするため。 */
+/* ─── 実務タブの表の入力欄 ───
+   オーダーシートの入力欄と同じ「薄い灰色の面・枠なし・角4px」。以前の文字＋破線は
+   項目どうしがつながって見えるのでやめた（2026-09-08）。フォーカスで白地＋青いリング（既定と同じ）。 */
 input.input-flat,
 select.input-flat,
 textarea.input-flat {
-  background-color: transparent;
+  background-color: #f3f5f8;
   border: 0;
-  border-bottom: 1px dashed #cbd5e1;
-  border-radius: 0;
+  border-radius: 4px;
   box-shadow: none;
 }
 input.input-flat:focus,
 select.input-flat:focus,
 textarea.input-flat:focus {
-  background-color: transparent;
-  border-bottom: 1px solid var(--color-brand-500);
-  box-shadow: none;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 2px var(--color-brand-400);
   outline: none;
-}
-input.input-flat:hover,
-select.input-flat:hover {
-  border-bottom-color: var(--color-brand-400);
 }
 
 /* ─── 一覧テーブルの型（案件一覧・タスク一覧・請求一覧・マイページの表に付与）───

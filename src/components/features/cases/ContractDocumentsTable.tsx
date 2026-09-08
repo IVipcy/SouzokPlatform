@@ -166,13 +166,13 @@ export default function ContractDocumentsTable({ caseId, documents, documentRece
                 <tr className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                   <DocNameCell value={r.name} onCommit={v => saveNow(r.id, 'name', v)} />
                   <td className="px-2.5 py-1.5">
-                    <select value={r.category ?? ''} onChange={e => saveNow(r.id, 'category', e.target.value)} className="input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none cursor-pointer">
+                    <select value={r.category ?? ''} onChange={e => saveNow(r.id, 'category', e.target.value)} className="input-flat w-full px-2.5 py-1.5 text-[14px] text-gray-800 outline-none cursor-pointer">
                       <option value="">—</option>
                       {DOC_CATEGORIES.map(o => <option key={o} value={o}>{o}</option>)}
                     </select>
                   </td>
                   <td className="px-2.5 py-1.5">
-                    <select value={r.status ?? ''} onChange={e => onStatusChange(r, e.target.value)} className="input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none cursor-pointer">
+                    <select value={r.status ?? ''} onChange={e => onStatusChange(r, e.target.value)} className="input-flat w-full px-2.5 py-1.5 text-[14px] text-gray-800 outline-none cursor-pointer">
                       <option value="">—</option>
                       {DOC_STATUS.map(o => <option key={o} value={o}>{o}</option>)}
                     </select>
@@ -234,7 +234,7 @@ function Cell({ value, onCommit, placeholder }: { value: string | null; onCommit
         defaultValue={value ?? ''}
         onBlur={e => { if (e.target.value !== (value ?? '')) onCommit(e.target.value) }}
         placeholder={placeholder}
-        className="input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none"
+        className="input-flat w-full px-2.5 py-1.5 text-[14px] text-gray-800 outline-none"
       />
     </td>
   )
@@ -250,7 +250,7 @@ function DocNameCell({ value, onCommit }: { value: string | null; onCommit: (v: 
         defaultValue={value ?? ''}
         onBlur={e => { if (e.target.value !== (value ?? '')) onCommit(e.target.value) }}
         placeholder="書類名（選択 or 入力）"
-        className="input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none"
+        className="input-flat w-full px-2.5 py-1.5 text-[14px] text-gray-800 outline-none"
       />
       <datalist id="contract-doc-names">
         {DEFAULT_DOCS.map(d => <option key={d} value={d} />)}
@@ -266,7 +266,7 @@ function DateCell({ value, onCommit }: { value: string | null; onCommit: (v: str
         type="date"
         defaultValue={value ?? ''}
         onBlur={e => { if (e.target.value !== (value ?? '')) onCommit(e.target.value) }}
-        className="input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none"
+        className="input-flat w-full px-2.5 py-1.5 text-[14px] text-gray-800 outline-none"
       />
     </td>
   )

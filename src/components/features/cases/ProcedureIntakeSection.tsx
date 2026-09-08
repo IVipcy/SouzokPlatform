@@ -225,7 +225,7 @@ export function IntakeRolesEditor({ roles, onSave, gyomuOptions = GYOMU_LIST, pr
                           <select
                             value={effKind(r)}
                             onChange={e => setRole(i, { kind: e.target.value as ServiceKind })}
-                            className="input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none cursor-pointer"
+                            className="input-flat w-full px-2.5 py-1.5 text-[14px] text-gray-800 outline-none cursor-pointer"
                             title="請求・受領＝受信簿で受け取りを管理する書類 / 作業＝進捗を管理する作業"
                           >
                             <option value="task">作業</option>
@@ -366,7 +366,7 @@ function Cell({ value, onCommit, placeholder }: { value: string; onCommit: (v: s
         defaultValue={value}
         onBlur={e => { if (e.target.value !== value) onCommit(e.target.value) }}
         placeholder={placeholder}
-        className="input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none"
+        className="input-flat w-full px-2.5 py-1.5 text-[14px] text-gray-800 outline-none"
       />
     </td>
   )
@@ -375,7 +375,7 @@ function Cell({ value, onCommit, placeholder }: { value: string; onCommit: (v: s
 function SelectCell({ value, options, onChange, noEmpty }: { value: string; options: string[]; onChange: (v: string) => void; noEmpty?: boolean }) {
   return (
     <td className="px-2.5 py-1.5">
-      <select value={value} onChange={e => onChange(e.target.value)} className="input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none cursor-pointer">
+      <select value={value} onChange={e => onChange(e.target.value)} className="input-flat w-full px-2.5 py-1.5 text-[14px] text-gray-800 outline-none cursor-pointer">
         {!noEmpty && <option value="">—</option>}
         {options.map(o => <option key={o} value={o}>{o}</option>)}
       </select>

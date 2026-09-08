@@ -10,10 +10,10 @@ import HankoStamp from '@/components/ui/HankoStamp'
 
 // 箱に見せない（文字＋破線の下線。触ると下線が青くなる）。見た目は globals.css の .input-flat が持つ。
 // 他事業者紹介の「文字に見えて、触ると編集」に寄せるため。文字は他事業者紹介と同じ13px。
-const cellInp = 'input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none'
+const cellInp = 'input-flat w-full px-2.5 py-1.5 text-[14px] text-gray-800 outline-none'
 // 全角→半角、数字以外を除去した「生の数字文字列」を返す。
 const toDigits = (s: string) => s.replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0)).replace(/[^\d]/g, '')
-const cellSel = 'input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none cursor-pointer'
+const cellSel = 'input-flat w-full px-2.5 py-1.5 text-[14px] text-gray-800 outline-none cursor-pointer'
 
 export function TxtCell({ value, onCommit, placeholder, list }: { value: string | null; onCommit: (v: string) => void; placeholder?: string; list?: string }) {
   return <input type="text" defaultValue={value ?? ''} onBlur={e => { if (e.target.value !== (value ?? '')) onCommit(e.target.value) }} placeholder={placeholder} list={list} className={cellInp} />

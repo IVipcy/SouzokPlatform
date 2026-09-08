@@ -216,8 +216,8 @@ function AcquisitionCards({
         const noRequest = acq !== '自社取得'
         const muted = <span className="text-[12px] text-gray-400">{acq === '受領済' ? '受領済' : '依頼者負担'}</span>
         // 金融・戸籍の PracticeTableCells と同じ：入力欄は列いっぱい（w-full）の文字＋破線
-        const dateCls = 'input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none'
-        const selCls = 'input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none cursor-pointer'
+        const dateCls = 'input-flat w-full px-2.5 py-1.5 text-[14px] text-gray-800 outline-none'
+        const selCls = 'input-flat w-full px-2.5 py-1.5 text-[14px] text-gray-800 outline-none cursor-pointer'
         return (
           <div className={`space-y-2.5 ${isMistakenRequest(r.request_kind) ? 'ring-1 ring-red-200 p-2 bg-red-50/30' : ''}`}>
             <div className="flex items-center justify-end">
@@ -550,8 +550,8 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
     setRows(prev => prev.filter(r => r.id !== id))
   }
 
-  const dateCls = 'input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none'
-  const selCls = 'input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none cursor-pointer'
+  const dateCls = 'input-flat w-full px-2.5 py-1.5 text-[14px] text-gray-800 outline-none'
+  const selCls = 'input-flat w-full px-2.5 py-1.5 text-[14px] text-gray-800 outline-none cursor-pointer'
 
   // 状態列は撤去（作業状態は tasks.status に一本化・行状態は請求日/到着日/W-Checkから自明）
   const colCount = progressMode ? (fullCost ? 15 : 13) : 4  // 請求区分/取得区分/対象/請求先/取得資料/年度(+日付/費用/W-Check/受領)/削除

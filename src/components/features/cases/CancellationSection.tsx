@@ -123,7 +123,7 @@ export default function CancellationSection({ caseId, financialAssets, instituti
                           <td className="px-2.5 py-1.5">
                             {locked
                               ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-semibold text-amber-700 bg-amber-50 border border-amber-200" title="凍結確認済になると解約手続を編集できます"><Lock className="w-3 h-3" strokeWidth={2} />凍結確認待ち</span>
-                              : <select value={r.cancellation_required ?? ''} onChange={e => save(r.id, 'cancellation_required', e.target.value)} className="input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none cursor-pointer">
+                              : <select value={r.cancellation_required ?? ''} onChange={e => save(r.id, 'cancellation_required', e.target.value)} className="input-flat w-full px-2.5 py-1.5 text-[14px] text-gray-800 outline-none cursor-pointer">
                                   <option value="">—</option>{cancelOptionsOf(r.asset_type).map(o => <option key={o} value={o}>{o}</option>)}
                                 </select>}
                           </td>
@@ -133,10 +133,10 @@ export default function CancellationSection({ caseId, financialAssets, instituti
                               : <span className="inline-flex items-center px-2 py-0.5 rounded text-[12px] font-semibold bg-gray-50 text-gray-400 border border-gray-200">未受領</span>}
                           </td>
                           <td className={`px-2.5 py-1.5 ${lock}`}>
-                            <input type="date" defaultValue={r.cancellation_date ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_date ?? '')) save(r.id, 'cancellation_date', e.target.value || null) }} title="日付を入れると解約完了扱いになります" className="input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none" />
+                            <input type="date" defaultValue={r.cancellation_date ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_date ?? '')) save(r.id, 'cancellation_date', e.target.value || null) }} title="日付を入れると解約完了扱いになります" className="input-flat w-full px-2.5 py-1.5 text-[14px] text-gray-800 outline-none" />
                           </td>
                           <td className={`px-2.5 py-1.5 ${lock}`}>
-                            <input type="text" defaultValue={r.cancellation_restrictions ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_restrictions ?? '')) save(r.id, 'cancellation_restrictions', e.target.value || null) }} placeholder="特記事項・備考（例：相続人全員の同意が必要 等）" className="input-flat w-full px-1 py-1 text-[14px] text-gray-800 outline-none" />
+                            <input type="text" defaultValue={r.cancellation_restrictions ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_restrictions ?? '')) save(r.id, 'cancellation_restrictions', e.target.value || null) }} placeholder="特記事項・備考（例：相続人全員の同意が必要 等）" className="input-flat w-full px-2.5 py-1.5 text-[14px] text-gray-800 outline-none" />
                           </td>
                         </tr>
                       ) })}
