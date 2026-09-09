@@ -379,6 +379,8 @@ function TopTable({ layout, institutions, evalOf, accountsOf, holdings, requests
   }
   const bankTd = 'px-2.5 py-2 align-middle'
   const bankBorder = 'border-b border-slate-300'
+  // 縦に結合したセルは2行目以降で td+td の縦線が付かないので、結合セル自身に左右の線を持たせる
+  const spanL = 'border-l border-[#e8ecf1]', spanR = 'border-r border-[#e8ecf1]'
   const holdingAmt = (h: SecuritiesHoldingRow) => h.amount ?? ((h.quantity ?? 0) * (h.unit_price ?? 0))
   if (layout === 'securities') {
     // ほふりは先頭、次に証券会社、最後に株主名簿管理人
@@ -439,14 +441,14 @@ function TopTable({ layout, institutions, evalOf, accountsOf, holdings, requests
                   const adminInst = h.administrator ? institutions.find(x => x.kind === '株主名簿管理人' && x.name.trim() === h.administrator!.trim()) : null
                   return (
                     <tr key={h.id} onClick={() => onOpen(i.id)} className={`${rowCls} ${last ? bankBorder : 'border-b border-gray-100'}`}>
-                      {idx === 0 && <td rowSpan={n} className={`${bankTd} ${bankBorder} font-medium text-gray-800`}>{i.name}{kindTag}</td>}
+                      {idx === 0 && <td rowSpan={n} className={`${bankTd} ${bankBorder} ${spanR} font-medium text-gray-800`}>{i.name}{kindTag}</td>}
                       <td className={`${bankTd} text-gray-800`}>{h.brand_name || <span className="text-gray-300">—</span>}{h.code && <span className="ml-1.5 text-[11px] text-gray-400">{h.code}</span>}</td>
                       <td className={`${bankTd} text-gray-600 text-[12px]`}>{h.kind ?? '—'}</td>
                       <td className={`${bankTd} text-right tabular-nums`}>{h.quantity != null ? h.quantity.toLocaleString('ja-JP') : '—'}</td>
                       <td className={`${bankTd} text-right tabular-nums`}>{holdingAmt(h) ? yen(holdingAmt(h)) : '—'}</td>
                       <td className={`${bankTd} text-[12px]`}>{i.kind === '株主名簿管理人' ? <span className="text-gray-300">—</span> : h.admin_status === '対象外' ? <span className="text-gray-400">対象外</span> : h.administrator ? <span className="text-gray-700">{h.administrator}{adminInst ? <span className="ml-1 text-emerald-700">✓</span> : <span className="ml-1 text-amber-700">未追加</span>}</span> : <span className="text-amber-700">未特定</span>}</td>
-                      {idx === 0 && <td rowSpan={n} className={`${bankTd} ${bankBorder} text-gray-700`}>{nextCell}</td>}
-                      {idx === 0 && <td rowSpan={n} className={`${bankTd} ${bankBorder}`}>{taskCell(i)}</td>}
+                      {idx === 0 && <td rowSpan={n} className={`${bankTd} ${bankBorder} ${spanL} text-gray-700`}>{nextCell}</td>}
+                      {idx === 0 && <td rowSpan={n} className={`${bankTd} ${bankBorder} ${spanL}`}>{taskCell(i)}</td>}
                     </tr>
                   )
                 })
@@ -505,14 +507,14 @@ function TopTable({ layout, institutions, evalOf, accountsOf, holdings, requests
                 const last = idx === n - 1
                 return (
                   <tr key={a.id} onClick={() => onOpen(i.id)} className={`${rowCls} ${last ? bankBorder : 'border-b border-gray-100'}`}>
-                    {idx === 0 && <td rowSpan={n} className={`${bankTd} ${bankBorder} font-medium text-gray-800`}>{i.name}<span className="ml-1.5 text-[11px] text-gray-400">{i.kind}</span></td>}
+                    {idx === 0 && <td rowSpan={n} className={`${bankTd} ${bankBorder} ${spanR} font-medium text-gray-800`}>{i.name}<span className="ml-1.5 text-[11px] text-gray-400">{i.kind}</span></td>}
                     <td className={`${bankTd} text-gray-700`}>{a.branch_name || <span className="text-gray-300">—</span>}</td>
                     <td className={`${bankTd} text-gray-700`}>{a.account_type || <span className="text-gray-300">—</span>}</td>
                     <td className={`${bankTd} font-mono text-gray-700`}>{a.account_number || <span className="text-gray-300">—</span>}</td>
                     <td className={`${bankTd} text-[12px] text-gray-600`}><span className="font-semibold text-gray-700">{b.label}</span>／{h.label}</td>
                     <td className={`${bankTd} text-right tabular-nums`}>{a.balance_amount != null ? yen(a.balance_amount) : '—'}</td>
-                    {idx === 0 && <td rowSpan={n} className={`${bankTd} ${bankBorder} text-gray-700`}>{nextCell}</td>}
-                    {idx === 0 && <td rowSpan={n} className={`${bankTd} ${bankBorder}`}>{taskCell(i)}</td>}
+                    {idx === 0 && <td rowSpan={n} className={`${bankTd} ${bankBorder} ${spanL} text-gray-700`}>{nextCell}</td>}
+                    {idx === 0 && <td rowSpan={n} className={`${bankTd} ${bankBorder} ${spanL}`}>{taskCell(i)}</td>}
                   </tr>
                 )
               })
