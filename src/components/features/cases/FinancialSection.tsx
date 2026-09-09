@@ -559,25 +559,10 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
             名前・種別の修正は手続きタブ「この銀行の前提」の先頭行。状態は右の「次の対応」が言う */}
         <div className="flex items-center justify-between gap-4 px-3.5 py-2.5 border-b border-gray-200">
           <SubTabs tabs={tabs} active={tab} onChange={k => setTab(k as typeof tab)} />
-          {/* 次の対応。この画面でできること（主の対応待ちがある）ならボタンにして、押すとその入口へ。待ちのときは文字だけ */}
+          {/* 次の対応は文字だけ。押す動線は④「請求する」の操作バーに一本化 */}
           <div className="min-w-0 flex items-center justify-end gap-2 text-[13px] text-gray-500">
             <span>次の対応</span>
-            {(() => {
-              const main = ev.pending.find(p => !p.parallel)
-              if (!main) return <span className="text-[14px] font-semibold text-gray-800 truncate">{ev.next}</span>
-              const go = () => {
-                if (main.key === 'submit' || main.key === 'register') { openRequest(); return }
-                if (main.key === 'irregular') { setTab('requests'); return }
-                if (main.key === 'holdings' || main.key === 'administrator') { setTab('holdings'); return }
-                setTab('procedure')
-              }
-              return (
-                <button type="button" onClick={go} title={main.detail}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700">
-                  {ev.next} →
-                </button>
-              )
-            })()}
+            <span className="text-[14px] font-semibold text-gray-800 truncate">{ev.next}</span>
             {ev.nextDeadline && <span className="text-[13px] text-amber-700">期限 {ev.nextDeadline.slice(5).replace('-', '/')}</span>}
             {ev.parallelNext && <span className="text-[12px] text-gray-500 truncate">並行：{ev.parallelNext}</span>}
           </div>
