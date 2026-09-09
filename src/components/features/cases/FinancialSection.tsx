@@ -19,7 +19,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { LeftRail } from './LeftRail'
-import { PracticeGroup, PracticeRow } from './PracticeCard'
+import { PracticeRow } from './PracticeCard'
 import { SubTabs } from '@/components/ui/SubTabs'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import ProgressSummary from './ProgressSummary'
@@ -559,15 +559,31 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
             名前・種別の修正は手続きタブ「この銀行の前提」の先頭行。状態は右の「次の対応」が言う */}
         <div className="flex items-center justify-between gap-4 px-3.5 py-2.5 border-b border-gray-200">
           <SubTabs tabs={tabs} active={tab} onChange={k => setTab(k as typeof tab)} />
-          <div className="min-w-0 text-right text-[13px] text-gray-500 truncate">
-            次の対応
-            <span className="ml-2 text-[14px] font-semibold text-gray-800">{ev.next}</span>
-            {ev.nextDeadline && <span className="ml-2 text-[13px] text-amber-700">期限 {ev.nextDeadline.slice(5).replace('-', '/')}</span>}
-            {ev.parallelNext && <span className="ml-2 text-[12px] text-gray-500">並行：{ev.parallelNext}</span>}
+          {/* 次の対応。この画面でできること（主の対応待ちがある）ならボタンにして、押すとその入口へ。待ちのときは文字だけ */}
+          <div className="min-w-0 flex items-center justify-end gap-2 text-[13px] text-gray-500">
+            <span>次の対応</span>
+            {(() => {
+              const main = ev.pending.find(p => !p.parallel)
+              if (!main) return <span className="text-[14px] font-semibold text-gray-800 truncate">{ev.next}</span>
+              const go = () => {
+                if (main.key === 'submit' || main.key === 'register') { openRequest(); return }
+                if (main.key === 'irregular') { setTab('requests'); return }
+                if (main.key === 'holdings' || main.key === 'administrator') { setTab('holdings'); return }
+                setTab('procedure')
+              }
+              return (
+                <button type="button" onClick={go} title={main.detail}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-700">
+                  {ev.next} →
+                </button>
+              )
+            })()}
+            {ev.nextDeadline && <span className="text-[13px] text-amber-700">期限 {ev.nextDeadline.slice(5).replace('-', '/')}</span>}
+            {ev.parallelNext && <span className="text-[12px] text-gray-500 truncate">並行：{ev.parallelNext}</span>}
           </div>
         </div>
         <div className="p-3.5">
-          {tab === 'procedure' && (<ProcedureCards inst={inst} ev={ev} requests={requests} save={saveInst} memberId={memberId} today={today} caseData={caseData} patchCase={patchCase} goRequests={() => setTab('requests')} />)}
+          {tab === 'procedure' && (<ProcedureCards inst={inst} ev={ev} requests={requests} save={saveInst} memberId={memberId} today={today} caseData={caseData} patchCase={patchCase} openRequest={openRequest} />)}
           {tab === 'accounts' && (
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -663,12 +679,13 @@ function NotNeeded({ required, onChange }: { required: boolean; onChange: (requi
 }
 
 /** ①②③ の見出し */
-function PhaseHeading({ no, title, sub }: { no: number; title: string; sub?: string }) {
+function PhaseHeading({ no, title, sub, right }: { no: number; title: string; sub?: string; right?: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2.5 px-3 pt-4 pb-1.5 border-b border-slate-300">
       <span className="w-[22px] h-[22px] rounded-full bg-brand-600 text-white text-[12px] font-bold flex items-center justify-center">{no}</span>
       <span className="text-[14px] font-bold text-gray-900">{title}</span>
       {sub && <span className="text-[12px] text-gray-500 ml-1">{sub}</span>}
+      {right && <span className="ml-auto flex items-center gap-2">{right}</span>}
     </div>
   )
 }
@@ -722,11 +739,12 @@ function ProcedureStepper({ inst: i, ev, requests }: { inst: FinancialInstitutio
       <div className="flex">
         {nodes.map((n, idx) => {
           const k = idx + 1
-          const st = done || k < stage ? 'done' : k === stage ? 'now' : 'wait'
+          const st: 'done' | 'now' | 'wait' = done || k < stage ? 'done' : k === stage ? 'now' : 'wait'
           return (
             <div key={n.label} className="flex-1 text-center relative">
               {idx < nodes.length - 1 && <div className={`absolute top-[11px] left-1/2 right-[-50%] h-[2px] ${st === 'done' ? 'bg-emerald-600' : 'bg-gray-200'}`} />}
-              <div className={`relative z-10 w-[22px] h-[22px] mx-auto rounded-full text-[11px] font-bold flex items-center justify-center ${st === 'done' ? 'bg-emerald-600 text-white' : st === 'now' ? 'bg-brand-600 text-white ring-4 ring-brand-100' : 'bg-gray-200 text-white'}`}>{st === 'done' ? '✓' : k}</div>
+              {/* 番号は付けない（見出しの①〜④と食い違うため）。済＝緑の✓、今＝青の点、先＝灰色 */}
+              <div className={`relative z-10 w-[20px] h-[20px] mx-auto rounded-full text-[11px] font-bold flex items-center justify-center ${st === 'done' ? 'bg-emerald-600 text-white' : st === 'now' ? 'bg-brand-600 ring-4 ring-brand-100' : 'bg-gray-200'}`}>{st === 'done' ? '✓' : ''}</div>
               <div className={`mt-1.5 text-[12.5px] ${st === 'now' ? 'text-brand-800 font-bold' : st === 'done' ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>{n.label}</div>
               <div className={`text-[11.5px] ${st === 'now' ? 'text-brand-700' : 'text-gray-400'}`}>{n.sub}</div>
             </div>
@@ -744,10 +762,13 @@ function ProcedureStepper({ inst: i, ev, requests }: { inst: FinancialInstitutio
   )
 }
 
-/** 印鑑登録証明書の行（②の表の中）。状態は文字の色で言う。未登録・期限切れのときだけ入力の行が続く。値は案件に1つ（契約手続きタブと同じ列） */
+/** 印鑑登録証明書の行（④請求するの表の中）。状態は文字の色で言い、「編集」で発行日・有効期間・使用期限・受領通数が開く。
+    未登録・期限切れのときは最初から開く。値は案件に1つ（契約手続きタブと同じ列） */
 function SealRows({ caseData, patchCase, today }: { caseData: CaseRow; patchCase: (p: Partial<CaseRow>) => Promise<void>; today: string }) {
   const st = sealCertificateStatus(caseData, today)
-  const needInput = st.status === '未登録' || st.status === '期限切れ'
+  const mustInput = st.status === '未登録' || st.status === '期限切れ'
+  const [editing, setEditing] = useState(false)
+  const needInput = mustInput || editing
   const inp = 'input-flat w-full px-2.5 py-1.5 text-[14px] text-gray-800 outline-none'
   const status = st.status === '有効' ? <span className="text-emerald-700 font-semibold">有効<span className="ml-1.5 font-normal text-gray-500">期限 {st.expiry?.replace(/-/g, '/')}</span></span>
     : st.status === '期限間近' ? <span className="text-amber-700 font-semibold">期限間近<span className="ml-1.5 font-normal text-gray-500">あと{st.daysLeft}日（{st.expiry?.replace(/-/g, '/')}）</span></span>
@@ -757,8 +778,11 @@ function SealRows({ caseData, patchCase, today }: { caseData: CaseRow; patchCase
     <>
       <PracticeRow label="印鑑登録証明書" sub="依頼者・案件に1つ" full>
         {status}
-        {needInput && <span className="text-[12px] text-gray-400">発行日を入れると使用期限が出ます。契約手続きタブと同じ値です</span>}
-        {caseData.seal_cert_copies != null && !needInput && <span className="text-[12px] text-gray-400">受領 {caseData.seal_cert_copies}通</span>}
+        {caseData.seal_cert_copies != null && <span className="text-[12px] text-gray-500">手元 {caseData.seal_cert_copies}通</span>}
+        {!mustInput && (
+          <button type="button" onClick={() => setEditing(e => !e)} className="text-[12px] text-brand-600 underline underline-offset-2 hover:text-brand-700">{editing ? '閉じる' : '編集'}</button>
+        )}
+        <span className="text-[12px] text-gray-400">{mustInput ? '発行日を入れると使用期限が出ます。' : ''}契約手続きタブと同じ値です</span>
       </PracticeRow>
       {needInput && (<>
         <PracticeRow label="発行日" sub="最古の1通">
@@ -787,10 +811,10 @@ function SealRows({ caseData, patchCase, today }: { caseData: CaseRow; patchCase
   )
 }
 
-function ProcedureCards({ inst: i, ev, requests, save, memberId, today, caseData, patchCase, goRequests }: {
+function ProcedureCards({ inst: i, ev, requests, save, memberId, today, caseData, patchCase, openRequest }: {
   inst: FinancialInstitutionRow; ev: InstitutionEvaluation; requests: FinancialRequestRow[]
   save: (p: Partial<FinancialInstitutionRow>) => Promise<void>; memberId: string | null; today: string
-  caseData: CaseRow; patchCase: (p: Partial<CaseRow>) => Promise<void>; goRequests: () => void
+  caseData: CaseRow; patchCase: (p: Partial<CaseRow>) => Promise<void>; openRequest: () => void
 }) {
   const isSec = i.kind === '証券', isAdmin = i.kind === '株主名簿管理人'
   const onHold = (i.survey_prohibited_designation ?? '') === '指定あり'
@@ -817,9 +841,10 @@ function ProcedureCards({ inst: i, ev, requests, save, memberId, today, caseData
     <div className="space-y-1">
       <ProcedureStepper inst={i} ev={ev} requests={requests} />
 
-      {/* この銀行の前提。誰が請求するか（取得区分）と、お客様の「まだ調べないで」（調査禁止）。
-          どちらも Step1 より前に決まることなので、工程の上に置く。調査禁止が立っている間はどの工程も進めない */}
-      <PracticeGroup title="この銀行の前提" right={onHold ? <span className="text-[12px] font-semibold px-2 py-[1px] bg-gray-200 text-gray-700">調査禁止中</span> : undefined}>
+      {/* ① 基本情報。誰が請求するか（取得区分）と、お客様の「まだ調べないで」（調査禁止）。
+          どちらも連絡の前に決まることなので先頭に置く。調査禁止が立っている間はどの工程も進めない */}
+      <PhaseHeading no={1} title="基本情報" sub="誰が取るか（取得区分）と、お客様からの「まだ調べないで」" right={onHold ? <span className="text-[12px] font-semibold px-2 py-[1px] bg-gray-200 text-gray-700">調査禁止中</span> : undefined} />
+      <div className={grid4}>
         <PracticeRow label="金融機関名"><TxtCell value={i.name} onCommit={v => { if (v.trim()) void save({ name: v.trim() }) }} placeholder="金融機関名" /></PracticeRow>
         <PracticeRow label="種別"><span>{i.kind}</span></PracticeRow>
         <PracticeRow label="取得区分" hint="自社＝うちが請求する。依頼者＝依頼者が自分で取ってくる（請求のタスクは出ない）">
@@ -849,10 +874,10 @@ function ProcedureCards({ inst: i, ev, requests, save, memberId, today, caseData
             </PracticeRow>
           )}
         </>)}
-      </PracticeGroup>
+      </div>
 
-      {/* ① 最初の連絡：日付は連絡日の1つ。3項目は連絡の結果 */}
-      <PhaseHeading no={1} title={isAdmin ? '株主名簿管理人への最初の連絡' : isSec ? '証券会社への最初の連絡' : '銀行への最初の連絡'} sub={isAdmin ? '依頼書式をどう手に入れるか' : '同じ電話でまとめて済ませる。ここで分かった結果を残す'} />
+      {/* ② 最初の連絡：日付は連絡日の1つ。3項目は連絡の結果 */}
+      <PhaseHeading no={2} title={isAdmin ? '株主名簿管理人への最初の連絡' : isSec ? '証券会社への最初の連絡' : '銀行への最初の連絡'} sub={isAdmin ? '依頼書式をどう手に入れるか' : '同じ電話でまとめて済ませる。ここで分かった結果を残す'} />
       <div className={grid4}>
         <PracticeRow label="連絡日"><DateCell value={i.first_contact_date} onCommit={v => void save({ first_contact_date: v || null })} /></PracticeRow>
         <PracticeRow label="相手" sub="金融機関の担当者名"><TxtCell value={i.first_contact_person} onCommit={v => void save({ first_contact_person: v || null })} placeholder="例：相続センター 佐藤様" /></PracticeRow>
@@ -904,9 +929,9 @@ function ProcedureCards({ inst: i, ev, requests, save, memberId, today, caseData
         )}
       </div>
 
-      {/* ② 請求方法：郵送か来店か。確認日は選んだ瞬間に裏で記録 */}
+      {/* ③ 請求方法：郵送か来店か。確認日は選んだ瞬間に裏で記録 */}
       {!isAdmin && (<>
-        <PhaseHeading no={2} title="残高証明・取引履歴の請求方法" sub="郵送で送るか、窓口に持って行くか。銀行に聞いた結果" />
+        <PhaseHeading no={3} title="残高証明・取引履歴の請求方法" sub="郵送で送るか、窓口に持って行くか。銀行に聞いた結果" />
         <div className={grid4}>
           <PracticeRow label="請求方法">
             <Seg value={i.handling_method} options={['郵送', '来店']} onChange={v => void save({ handling_method: v, ...(i.method_confirm_date ? {} : { method_confirm_date: today }) })} />
@@ -914,25 +939,55 @@ function ProcedureCards({ inst: i, ev, requests, save, memberId, today, caseData
           {i.handling_method === '来店'
             ? <PracticeRow label="来店日" sub="予約した訪問日"><DateCell value={i.visit_date} onCommit={v => void save({ visit_date: v || null })} /></PracticeRow>
             : <PracticeRow label=" "><span className="text-[12px] text-gray-400">{i.handling_method === '郵送' ? '請求は郵送。来店の予定はありません' : '選ぶと次へ進めます'}</span></PracticeRow>}
-          {i.handling_method === '来店' && i.visit_date && (
-            <PracticeRow label="来店準備" sub="前々日まで" full>
-              {i.visit_prep_done_at
-                ? <><span className="text-emerald-700 text-[13px]">準備完了 {md(i.visit_prep_done_at.slice(0, 10))}</span><button type="button" onClick={() => void save({ visit_prep_done_at: null, visit_prep_done_by: null })} className="ml-2 text-[12px] text-gray-500 underline underline-offset-2">取り消す</button></>
-                : <><span className="text-[12px] text-gray-500">依頼書・戸籍・本人確認資料・印鑑が揃ったら</span><button type="button" onClick={() => void save({ visit_prep_done_at: new Date().toISOString(), visit_prep_done_by: memberId })} className="px-3 py-1 text-[12px] font-semibold text-white bg-brand-600 hover:bg-brand-700">来店準備を完了</button></>}
-            </PracticeRow>
-          )}
-          <SealRows caseData={caseData} patchCase={patchCase} today={today} />
         </div>
       </>)}
 
-      {/* ③ 請求する：請求タブへ。ここでは登録まで */}
-      <PhaseHeading no={isAdmin ? 2 : 3} title="請求する" sub="請求タブで請求内容を登録する" />
-      <div className="flex items-center gap-3 px-3 py-3 text-[13px] text-gray-700 flex-wrap">
-        {onHold ? <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[12px]">調査禁止中</span>
-          : !formSecured(i) ? <><span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[12px]">依頼書の到着待ち</span><span className="text-gray-500">「依頼書の手配」で届いたにチェックすると登録できます</span></>
-          : <><span>依頼書は手元にあります。</span><button type="button" onClick={goRequests} className="px-3 py-1.5 text-[12px] font-semibold text-white bg-brand-600 hover:bg-brand-700">請求タブで登録</button>
-              {requests.length > 0 && <span className="text-[12px] text-gray-400">登録済み {requests.length}件</span>}</>}
-      </div>
+      {/* ④ 請求する：必要なもの（依頼書・印鑑登録証明書・来店なら来店準備）が揃っているかの表＋下の操作バー。
+          揃っていなければ主ボタンは押せず、足りないものを左に書く。押すとその場で請求の登録ウィンドウが開く */}
+      {(() => {
+        const seal = sealCertificateStatus(caseData, today)
+        const sealBlocked = seal.status === '未登録' || seal.status === '期限切れ'
+        const visit = !isAdmin && i.handling_method === '来店'
+        const missing: string[] = []
+        if (onHold) missing.push('調査禁止中')
+        if (!formSecured(i)) missing.push(i.form_source === '窓口で受け取る' ? '依頼書を受け取っていません' : '依頼書の到着待ち')
+        if (!isAdmin && i.handling_method === '未確認') missing.push('請求方法（郵送か来店か）が未選択')
+        if (sealBlocked) missing.push(seal.status === '期限切れ' ? '印鑑登録証明書が期限切れ' : '印鑑登録証明書が未登録')
+        if (visit && !i.visit_date) missing.push('来店日が未入力')
+        if (visit && i.visit_date && !i.visit_prep_done_at) missing.push('来店準備が未完了')
+        const ready = missing.length === 0
+        return (<>
+          <PhaseHeading no={isAdmin ? 3 : 4} title="請求する" sub="必要なものが揃ったら、請求内容を登録する" />
+          <div className={grid4}>
+            <PracticeRow label="依頼書" full>
+              {!i.form_required ? <span className="text-gray-500">不要</span>
+                : formSecured(i) ? <><span className="text-emerald-700 font-semibold">手元にある</span><span className="text-[12px] text-gray-500">{i.form_source === '社内在庫' ? `社内在庫 ${md(i.form_stock_date)}` : `${i.form_source === '窓口で受け取る' ? '受け取り' : '到着'} ${md(i.form_arrival_date)}`}</span></>
+                : <><span className="text-amber-700 font-semibold">{i.form_source === '未確認' ? '手配方法が未選択' : i.form_source === '窓口で受け取る' ? '受け取り待ち' : '到着待ち'}</span><span className="text-[12px] text-gray-400">②の「依頼書の手配」で記録します</span></>}
+            </PracticeRow>
+            <SealRows caseData={caseData} patchCase={patchCase} today={today} />
+            {visit && (
+              <PracticeRow label="来店準備" sub="前々日まで" full>
+                {!i.visit_date ? <span className="text-amber-700 font-semibold">来店日が未入力<span className="ml-1.5 font-normal text-[12px] text-gray-400">③で来店日を入れてください</span></span>
+                  : i.visit_prep_done_at
+                    ? <><span className="text-emerald-700 font-semibold">準備完了</span><span className="text-[12px] text-gray-500">{md(i.visit_prep_done_at.slice(0, 10))}</span><button type="button" onClick={() => void save({ visit_prep_done_at: null, visit_prep_done_by: null })} className="text-[12px] text-gray-500 underline underline-offset-2">取り消す</button></>
+                    : <><span className="text-amber-700 font-semibold">未完了</span><span className="text-[12px] text-gray-500">依頼書・戸籍・本人確認資料・印鑑が揃ったら</span><button type="button" onClick={() => void save({ visit_prep_done_at: new Date().toISOString(), visit_prep_done_by: memberId })} className="px-3 py-1 text-[12px] font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50">来店準備を完了にする</button></>}
+              </PracticeRow>
+            )}
+          </div>
+          <div className="mt-2.5 flex items-center gap-3 px-3 py-2.5 bg-slate-50 border-t border-slate-200 flex-wrap">
+            <span className="text-[13px] text-gray-700">
+              {ready
+                ? <><span className="text-emerald-700 font-semibold">✓ 必要なものが揃っています</span><span className="ml-2">{isAdmin ? '所有株式数証明書などの請求内容を登録してください' : isSec ? '残高証明などの請求内容を登録してください' : '残高証明・取引履歴の請求内容を登録してください'}</span></>
+                : <><span className="text-amber-700 font-semibold">まだ請求できません</span><span className="ml-2 text-gray-600">{missing.join('／')}</span></>}
+              {requests.length > 0 && <span className="ml-2 text-[12px] text-gray-400">登録済み {requests.length}件</span>}
+            </span>
+            <button type="button" onClick={openRequest} disabled={!ready}
+              className={`ml-auto inline-flex items-center gap-1 px-4 py-2 text-[13px] font-semibold ${ready ? 'text-white bg-brand-600 hover:bg-brand-700' : 'text-gray-400 bg-gray-200 cursor-not-allowed'}`}>
+              <Plus className="w-3.5 h-3.5" />請求を登録
+            </button>
+          </div>
+        </>)
+      })()}
     </div>
   )
 }
