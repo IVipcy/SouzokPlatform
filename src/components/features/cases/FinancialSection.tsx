@@ -440,7 +440,8 @@ function ProcedureCards({ inst: i, save, memberId, today }: { inst: FinancialIns
           <SelCell value={i.survey_prohibited_designation ?? '指定なし'} options={[...SURVEY_BAN_DESIGNATIONS]} onChange={v => void save({ survey_prohibited_designation: v || '指定なし' })} />
         </PracticeRow>
         {onHold && (<>
-          <PracticeRow label="禁止方法"><SelCell value={i.survey_prohibited_method} options={[...SURVEY_BAN_METHODS]} onChange={v => void save({ survey_prohibited_method: v || null })} /></PracticeRow>
+          {/* 解除済にしたあとに禁止方法を「期間指定」へ変えられると、解除の記録と食い違うので触れなくする */}
+          <PracticeRow label="禁止方法" disabled={!!i.prohibition_released_at} disabledNote="解除済のため変更できません"><SelCell value={i.survey_prohibited_method} options={[...SURVEY_BAN_METHODS]} onChange={v => void save({ survey_prohibited_method: v || null })} /></PracticeRow>
           <PracticeRow label="理由"><TxtCell value={i.survey_prohibited_reason} onCommit={v => void save({ survey_prohibited_reason: v || null })} placeholder="禁止理由" /></PracticeRow>
           {i.survey_prohibited_method === '期間指定' ? (<>
             <PracticeRow label="開始日"><DateCell value={i.survey_prohibited_start} onCommit={v => void save({ survey_prohibited_start: v || null })} /></PracticeRow>
@@ -449,7 +450,8 @@ function ProcedureCards({ inst: i, save, memberId, today }: { inst: FinancialIns
             <PracticeRow label="お客様の連絡" full>
               {i.prohibition_released_at
                 ? <span className="text-[12px] text-emerald-700">連絡あり・解除済 {i.prohibition_released_at.slice(0, 10)}</span>
-                : <button type="button" onClick={() => void save({ prohibition_released_at: new Date().toISOString() })} className="px-2.5 py-1 rounded-md text-[12px] font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50">お客様からOKの連絡があった（解除）</button>}
+                : <button type="button" onClick={() => { if (window.confirm('お客様からOKの連絡があったものとして、この調査先の調査禁止を解除します。
+解除すると禁止方法は変更できなくなります。よろしいですか？')) void save({ prohibition_released_at: new Date().toISOString() }) }} className="px-2.5 py-1 rounded-md text-[12px] font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50">お客様からOKの連絡があった（解除）</button>}
             </PracticeRow>
           )}
         </>)}
