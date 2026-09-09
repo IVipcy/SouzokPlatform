@@ -450,8 +450,7 @@ function ProcedureCards({ inst: i, save, memberId, today }: { inst: FinancialIns
             <PracticeRow label="お客様の連絡" full>
               {i.prohibition_released_at
                 ? <span className="text-[12px] text-emerald-700">連絡あり・解除済 {i.prohibition_released_at.slice(0, 10)}</span>
-                : <button type="button" onClick={() => { if (window.confirm('お客様からOKの連絡があったものとして、この調査先の調査禁止を解除します。
-解除すると禁止方法は変更できなくなります。よろしいですか？')) void save({ prohibition_released_at: new Date().toISOString() }) }} className="px-2.5 py-1 rounded-md text-[12px] font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50">お客様からOKの連絡があった（解除）</button>}
+                : <button type="button" onClick={() => { if (window.confirm('お客様からOKの連絡があったものとして、この調査先の調査禁止を解除します。\n解除すると禁止方法は変更できなくなります。よろしいですか？')) void save({ prohibition_released_at: new Date().toISOString() }) }} className="px-2.5 py-1 rounded-md text-[12px] font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50">お客様からOKの連絡があった（解除）</button>}
             </PracticeRow>
           )}
         </>)}
