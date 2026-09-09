@@ -113,7 +113,7 @@ export default function FinancialRequestModal({ isOpen, onClose, institution, ac
   )
 
   return (
-    <FloatingWindow isOpen={isOpen} onClose={onClose} title={`請求を登録 ─ ${institution.name}`} width={640} height={600} resizable fitContent
+    <FloatingWindow isOpen={isOpen} onClose={onClose} title={`${isAdmin ? '所有株式数証明書等' : isSec ? '残高証明等' : '残高証明・取引履歴'}の請求を登録 ─ ${institution.name}`} width={640} height={600} resizable fitContent
       footer={
         <div className="flex items-center gap-3 w-full">
           <span className="text-[11px] text-gray-500 flex-1 min-w-0 truncate">

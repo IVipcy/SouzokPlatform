@@ -270,9 +270,9 @@ export function evaluateInstitution({ institution: i, requests, items, holdings,
   if (irregular) {
     push('irregular', '要確認・再請求の対応', '到着書類の不足・不備を確認し、金融機関へ照会または再請求する', { urgent: true, target: 'requests' })
   } else if (!contactDone || !formOrdered(i)) {
-    if (i.kind === '預金') push('freeze-form', '凍結連絡・依頼書請求', '死亡連絡で口座を凍結し、依頼書を請求する（または社内在庫を確認する）')
-    else if (isSec) push('freeze-form', '証券会社への死亡連絡・依頼書請求', '死亡連絡と、残高証明書等を取るための依頼書の請求（または社内在庫の確認）')
-    else push('form', '依頼書請求', '所有株式数証明書等の依頼書を請求する（または社内書式を確認する）')
+    if (i.kind === '預金') push('freeze-form', '凍結連絡・依頼書の取り寄せ', '死亡連絡で口座を凍結し、残高証明・取引履歴の依頼書を取り寄せる（または社内在庫を確認する）')
+    else if (isSec) push('freeze-form', '死亡連絡・依頼書の取り寄せ', '証券会社へ死亡を連絡し、残高証明書等の依頼書を取り寄せる（または社内在庫を確認する）')
+    else push('form', '依頼書の取り寄せ', '所有株式数証明書等の依頼書を取り寄せる（または社内書式を確認する）')
   } else if (!formSecured(i)) {
     waiting = '依頼書の到着待ち'
   } else if (!isAdmin && i.handling_method === '未確認') {
@@ -285,9 +285,9 @@ export function evaluateInstitution({ institution: i, requests, items, holdings,
     push('visit-prepare', '来店準備', `${i.visit_date.slice(5).replace('-', '/')}の来店に向けて、依頼書・戸籍・本人確認資料・印鑑を揃える`, { deadline: subtractDays(i.visit_date, 2) })
   } else if (!submitted) {
     if (!isOwn) waiting = '依頼者が取得'
-    else if (isAdmin) push(prepared ? 'submit' : 'register', prepared ? '株主名簿管理人へ請求' : '請求内容の登録', prepared ? '登録済みの請求内容を確認し、請求日を入れる' : '対象銘柄と書類を登録する', { target: 'requests' })
-    else if (i.handling_method === '来店') push('submit', '来店（証明書発行依頼）', '来店して依頼書を提出し、来店日を請求日として入れる', { deadline: i.visit_date, target: 'requests' })
-    else push('submit', '依頼書発送', prepared ? '登録済みの請求内容を確認し、発送日を請求日として入れる' : '請求内容を登録して発送し、請求日を入れる', { target: 'requests' })
+    else if (isAdmin) push(prepared ? 'submit' : 'register', prepared ? '所有株式数証明書等の請求' : '請求内容の登録', prepared ? '登録済みの請求内容を確認し、請求日を入れる' : '対象銘柄と書類を登録する', { target: 'requests' })
+    else if (i.handling_method === '来店') push('submit', isSec ? '残高証明等の請求（来店）' : '残高証明・取引履歴の請求（来店）', '来店して依頼書を提出し、来店日を請求日として入れる', { deadline: i.visit_date, target: 'requests' })
+    else push('submit', isSec ? '残高証明等の請求（郵送）' : '残高証明・取引履歴の請求（郵送）', prepared ? '登録済みの請求内容を確認し、依頼書を発送した日を請求日として入れる' : '請求内容を登録して依頼書を発送し、請求日を入れる', { target: 'requests' })
   } else if (!complete) {
     waiting = '証明書の到着待ち'
   } else if (isSec && holdings.length === 0) {
@@ -334,7 +334,7 @@ export function stageLabel(ev: InstitutionEvaluation): string {
       'visit-reserve': '来店予約', 'visit-prepare': '来店準備', submit: '提出', register: '請求登録',
       holdings: '銘柄登録', administrator: '管理人特定', 'jasdec-request': '開示請求', 'jasdec-register': '証券会社追加',
     }
-    if (main.key === 'submit') return main.title.startsWith('来店') ? '来店' : main.title.startsWith('依頼書発送') ? '発送' : '請求'
+    if (main.key === 'submit') return main.title.includes('来店') ? '来店' : main.title.includes('郵送') ? '発送' : '請求'
     return m[main.key] ?? main.title
   }
   if (ev.waiting) {
