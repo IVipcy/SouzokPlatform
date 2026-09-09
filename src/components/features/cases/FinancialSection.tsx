@@ -4,7 +4,7 @@
 //
 // いままでは口座の表1枚に、口座の話でないもの（凍結・全店調査・請求日・到着日）まで書いていた。
 // ここでは「銀行に1回のこと」「口座のこと」「請求のこと」を3つのタブに分ける。
-//   手続き … 01 凍結／死亡連絡 → 02 依頼書 → 03 全店調査（並行） → 04 郵送か来店か
+//   手続き … 工程図 → ①最初の連絡（凍結・依頼書・全店調査を同じ電話で） → ②郵送か来店か → ③請求タブへ
 //   口座   … 支店・種別・口座番号・残高。状態は請求から自動で入る
 //   請求   … 1行＝金融機関へ一度に出したまとまり。到着処理はここから
 //
@@ -14,7 +14,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Plus, Trash2, Check, ExternalLink } from 'lucide-react'
+import { Plus, Trash2, Copy, ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useCurrentMember } from '@/lib/useCurrentMember'
@@ -29,10 +29,12 @@ import { TxtCell, SelCell, DateCell, MoneyCell } from './PracticeTableCells'
 import FinancialRequestModal from './FinancialRequestModal'
 import FinancialArrivalModal, { StatusChip } from './FinancialArrivalModal'
 import {
-  evaluateInstitution, sealCertificateStatus, sealOriginalStatus, stageLabel, accountDocStatus, requestStatus, itemConditionLabel,
-  FORM_SOURCES, SEARCH_METHODS, SUBMISSION_METHODS, HANDLING_METHODS, SEARCH_TARGETS, JASDEC_KNOWN,
+  evaluateInstitution, sealCertificateStatus, sealOriginalStatus, accountDocStatus, requestStatus, itemConditionLabel,
+  procedureStage, formSecured, allBranchSearchDone,
+  FORM_SOURCES, FORM_SOURCE_LABEL, SEARCH_METHODS, SEARCH_METHOD_LABEL, SUBMISSION_METHODS, JASDEC_KNOWN,
   type InstitutionEvaluation,
 } from '@/lib/financialWorkflow'
+import { normalizeTaskStatus, getStartSignal } from '@/lib/taskReadiness'
 import { SURVEY_BAN_DESIGNATIONS, SURVEY_BAN_METHODS } from '@/lib/financialBan'
 import type {
   FinancialAssetRow, FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow, CaseRow, TaskRow, ContractDocumentRow,
@@ -47,15 +49,6 @@ const collator = new Intl.Collator('ja')
 const yen = (n: number | null) => (n == null ? '—' : `¥${Math.round(n).toLocaleString('ja-JP')}`)
 const md = (d: string | null | undefined) => (d ? d.slice(5).replace('-', '/') : '—')
 const todayYmd = () => new Date().toLocaleDateString('sv-SE')
-
-const INST_STATUS_CLS: Record<InstitutionEvaluation['status'], string> = {
-  '未着手': 'text-gray-400 border border-gray-200',
-  '対応中': 'text-brand-700 bg-brand-50 border border-brand-200',
-  '請求中': 'text-brand-700 bg-brand-50 border border-brand-200',
-  '要確認': 'text-amber-700 bg-amber-50 border border-amber-200',
-  '完了': 'text-gray-400 bg-gray-100',
-  '調査禁止中': 'text-gray-600 bg-gray-100 border border-gray-300',
-}
 
 type Props = {
   caseId: string
@@ -76,7 +69,7 @@ type Props = {
   focus?: string | null   // タスク詳細からの着地：金融機関名
 }
 
-export default function FinancialSection({ caseId, kind, scopePrefix, assets, institutions: rawInstitutions, requests: allRequests, requestItems: allItems, holdings: allHoldings, caseData, onRefresh, focus }: Props) {
+export default function FinancialSection({ caseId, kind, scopePrefix, assets, institutions: rawInstitutions, requests: allRequests, requestItems: allItems, holdings: allHoldings, caseData, patchCase, onRefresh, tasks = [], focus }: Props) {
   const supabase = createClient()
   const memberId = useCurrentMember(null)
   const today = todayYmd()
@@ -109,8 +102,9 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
     const ids = new Set(reqs.map(r => r.id))
     return evaluateInstitution({ institution: inst, requests: reqs, items: allItems.filter(it => ids.has(it.request_id)), holdings: allHoldings.filter(h => h.institution_id === inst.id), seal, today })
   }
+  // 口座は登録した順のまま。支店や種別で並べ直すと、種別を変えた瞬間に行が飛んで気持ち悪い
   const accountsOf = (inst: FinancialInstitutionRow) => assets.filter(a => a.institution_id === inst.id)
-    .sort((a, b) => collator.compare(a.branch_name ?? '', b.branch_name ?? '') || ACCOUNT_TYPES.indexOf(a.account_type ?? 'その他') - ACCOUNT_TYPES.indexOf(b.account_type ?? 'その他'))
+    .sort((a, b) => ((a as { created_at?: string }).created_at ?? '').localeCompare((b as { created_at?: string }).created_at ?? '') || a.id.localeCompare(b.id))
 
   const railItems = [
     { key: 'top', label: '一覧（TOP）' },
@@ -164,6 +158,25 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
     if (error) { showToast(`削除に失敗: ${error.message}`, 'error'); return }
     onRefresh?.()
   }
+  // 請求のコピー：同じ内容（書類・日付・対象口座）で「請求準備中」の請求をもう1つ作る。請求日は空
+  const copyRequest = async (r: FinancialRequestRow) => {
+    const its = allItems.filter(it => it.request_id === r.id)
+    const { data: created, error } = await supabase.from('financial_requests')
+      .insert({ case_id: r.case_id, institution_id: r.institution_id, request_date: null, seal_original_sent: r.seal_original_sent, notes: r.notes })
+      .select('id').single()
+    if (error || !created) { showToast(`コピーに失敗: ${error?.message ?? ''}`, 'error'); return }
+    const newId = (created as { id: string }).id
+    for (const it of its) {
+      const { data: ni, error: ie } = await supabase.from('financial_request_items')
+        .insert({ case_id: it.case_id, request_id: newId, doc_type: it.doc_type, balance_date: it.balance_date, balance_recent: it.balance_recent, history_start: it.history_start, history_end: it.history_end, sort_order: it.sort_order })
+        .select('id').single()
+      if (ie || !ni) continue
+      const accs = (it.financial_request_item_accounts ?? []).map(a => ({ item_id: (ni as { id: string }).id, asset_id: a.asset_id }))
+      if (accs.length > 0) await supabase.from('financial_request_item_accounts').insert(accs)
+    }
+    showToast('請求をコピーしました（請求準備中）', 'success')
+    onRefresh?.()
+  }
   const deleteRequest = async (r: FinancialRequestRow) => {
     if (!window.confirm('この請求を削除しますか？明細も一緒に消えます。')) return
     const { error } = await supabase.from('financial_requests').delete().eq('id', r.id)
@@ -183,7 +196,7 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
           {!active ? (
             <>
               <SealWarning caseData={caseData} requests={allRequests} institutions={allInstitutions} today={today} />
-              <TopTable institutions={institutions} evalOf={evalOf} accountsOf={accountsOf} holdings={allHoldings} onOpen={id => { setSub(id); setTab('procedure') }} />
+              <TopTable institutions={institutions} evalOf={evalOf} accountsOf={accountsOf} holdings={allHoldings} requests={allRequests} items={allItems} tasks={tasks} onOpen={id => { setSub(id); setTab('procedure') }} />
             </>
           ) : (
             <InstitutionPage
@@ -191,9 +204,10 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
               requests={allRequests.filter(r => r.institution_id === active.id).sort((a, b) => (b.request_date ?? '9999').localeCompare(a.request_date ?? '9999') || b.created_at.localeCompare(a.created_at))}
               items={allItems} holdings={allHoldings.filter(h => h.institution_id === active.id)}
               tab={tab} setTab={setTab} scopePrefix={scopePrefix} caseId={caseId} memberId={memberId} today={today}
+              caseData={caseData} patchCase={patchCase}
               sealWarning={<SealWarning caseData={caseData} requests={allRequests} institutions={allInstitutions} today={today} />}
               saveInst={p => saveInst(active, p)} saveAsset={saveAsset} addAccount={() => addAccount(active)} deleteAccount={deleteAccount}
-              openRequest={() => setRequestOpen(true)} openArrival={setArrivalId} deleteRequest={deleteRequest}
+              openRequest={() => setRequestOpen(true)} openArrival={setArrivalId} deleteRequest={deleteRequest} copyRequest={copyRequest}
             />
           )}
         </div>
@@ -232,55 +246,104 @@ function SealWarning({ caseData, requests, institutions, today }: {
   )
 }
 
-// ── TOP：調査先の一覧 ─────────────────────────────────────────
-function TopTable({ institutions, evalOf, accountsOf, holdings, onOpen }: {
+// ── TOP：調査先の一覧（1行1口座。調査先・次の対応・進行中のタスクは銀行ごとに縦に結合） ──
+// 工程と期限の列は置かない。工程は次の対応を短くしただけで、期限はタスクが持つ。
+function taskIsForBank(t: TaskRow, bank: string): boolean {
+  const m = (t.source_rid ?? '').match(/^(?:fin|fin-wf|fin-freeze|fin-read|cancel):([^:]+)/)
+  if (m && m[1].trim() === bank) return true
+  return !!bank && (t.title ?? '').includes(bank)
+}
+function TopTable({ institutions, evalOf, accountsOf, holdings, requests, items, tasks, onOpen }: {
   institutions: FinancialInstitutionRow[]
   evalOf: (i: FinancialInstitutionRow) => InstitutionEvaluation
   accountsOf: (i: FinancialInstitutionRow) => FinancialAssetRow[]
   holdings: SecuritiesHoldingRow[]
+  requests: FinancialRequestRow[]
+  items: FinancialRequestItemRow[]
+  tasks: TaskRow[]
   onOpen: (id: string) => void
 }) {
-  const total = institutions.reduce((s, i) => s + accountsOf(i).reduce((x, a) => x + (a.balance_amount ?? 0), 0) + holdings.filter(h => h.institution_id === i.id).reduce((x, h) => x + (h.amount ?? ((h.quantity ?? 0) * (h.unit_price ?? 0))), 0), 0)
+  const holdingAmount = (i: FinancialInstitutionRow) => holdings.filter(h => h.institution_id === i.id).reduce((x, h) => x + (h.amount ?? ((h.quantity ?? 0) * (h.unit_price ?? 0))), 0)
+  const total = institutions.reduce((s, i) => s + accountsOf(i).reduce((x, a) => x + (a.balance_amount ?? 0), 0) + holdingAmount(i), 0)
+  const openTaskOf = (i: FinancialInstitutionRow) => tasks
+    .filter(t => normalizeTaskStatus(t.status) !== '完了' && taskIsForBank(t, i.name.trim()))
+    .sort((a, b) => (normalizeTaskStatus(a.status) === '対応中' ? 0 : 1) - (normalizeTaskStatus(b.status) === '対応中' ? 0 : 1))[0]
+  const taskCell = (i: FinancialInstitutionRow) => {
+    const t = openTaskOf(i)
+    if (!t) return <span className="text-[12px] text-gray-400">なし</span>
+    const doing = normalizeTaskStatus(t.status) === '対応中'
+    const ready = getStartSignal(t).ready
+    const who = (t.task_assignees ?? []).map(a => a.members?.name).filter(Boolean).join('・')
+    return (
+      <span className="inline-flex items-center gap-1.5 min-w-0">
+        <span className={`flex-none px-1.5 text-[11px] font-semibold ${doing ? 'bg-blue-50 text-blue-700' : ready ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>{doing ? '対応中' : ready ? '着手OK' : '着手前'}</span>
+        <span className="truncate text-gray-800">{t.title}</span>
+        <span className="flex-none text-[12px] text-gray-400">{who || '未割当'}</span>
+      </span>
+    )
+  }
+  const bankTd = 'px-2.5 py-2 align-middle'
+  const bankBorder = 'border-b border-slate-300'
   return (
     <div>
-      <SectionHeading title="調査先の一覧" hint="行を押すとその調査先を開きます。工程と次の対応は入力内容から自動で出ます。" className="mb-1.5 pb-1.5 border-b border-gray-200" />
+      <SectionHeading title="調査先の一覧" hint="1行＝1口座。調査先・次の対応・進行中のタスクは銀行ごとに1つ。行を押すとその調査先を開きます。" className="mb-1.5 pb-1.5 border-b border-gray-200" />
       <div className="overflow-x-auto">
-        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 820 }}>
+        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 980 }}>
           <thead>
-            <tr className="bg-slate-100 border-b border-slate-300 text-[13px] text-gray-600">
-              {/* 調査先に幅を付けないと余った幅を全部取って表が間延びする。伸びるのは「次の対応」だけにする */}
-              <th className="px-2.5 py-2 text-left font-semibold w-60">調査先</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-24">種別</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-24">口座・銘柄</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-28">工程</th>
-              <th className="px-2.5 py-2 text-left font-semibold">次の対応</th>
-              <th className="px-2.5 py-2 text-left font-semibold w-20">期限</th>
-              <th className="px-2.5 py-2 text-right font-semibold w-32">残高・評価額</th>
+            <tr>
+              <th className="px-2.5 py-2 text-left w-44">調査先</th>
+              <th className="px-2.5 py-2 text-left w-28">支店</th>
+              <th className="px-2.5 py-2 text-left w-16">種別</th>
+              <th className="px-2.5 py-2 text-left w-28">口座番号</th>
+              <th className="px-2.5 py-2 text-left w-40">残高証明・取引履歴</th>
+              <th className="px-2.5 py-2 text-right w-32">残高・評価額</th>
+              <th className="px-2.5 py-2 text-left">次の対応</th>
+              <th className="px-2.5 py-2 text-left w-64">進行中のタスク</th>
             </tr>
           </thead>
           <tbody>
             {institutions.length === 0 ? (
-              <tr><td colSpan={7} className="px-3 py-6 text-center text-gray-400">調査先がありません。左下の「＋ 調査先」から追加してください。</td></tr>
+              <tr><td colSpan={8} className="px-3 py-6 text-center text-gray-400">調査先がありません。左下の「＋ 調査先」から追加してください。</td></tr>
             ) : institutions.map(i => {
               const ev = evalOf(i)
-              const accs = accountsOf(i)
-              const hs = holdings.filter(h => h.institution_id === i.id)
-              const amount = accs.reduce((x, a) => x + (a.balance_amount ?? 0), 0) + hs.reduce((x, h) => x + (h.amount ?? ((h.quantity ?? 0) * (h.unit_price ?? 0))), 0)
-              return (
-                <tr key={i.id} onClick={() => onOpen(i.id)} className="border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-brand-50/30">
-                  <td className="px-2.5 py-2 font-medium text-gray-800">{i.name}{i.branch_name && <span className="ml-1.5 text-[12px] text-gray-400">{i.branch_name}</span>}</td>
-                  <td className="px-2.5 py-2 text-gray-600">{i.kind}</td>
-                  <td className="px-2.5 py-2 text-gray-600">{i.kind === 'ほふり' ? '案件単位' : i.kind === '預金' ? `${accs.length}口座` : `${hs.length}銘柄`}</td>
-                  <td className="px-2.5 py-2"><span className={`inline-block whitespace-nowrap text-[12px] px-2 py-[1px] rounded-full font-semibold ${INST_STATUS_CLS[ev.status]}`}>{stageLabel(ev)}</span></td>
-                  <td className="px-2.5 py-2 text-gray-700">{ev.next}{ev.parallelNext && <span className="block text-[12px] text-gray-400">並行：{ev.parallelNext}</span>}</td>
-                  <td className="px-2.5 py-2 text-gray-600">{md(ev.nextDeadline)}</td>
-                  <td className="px-2.5 py-2 text-right tabular-nums">{amount ? yen(amount) : '—'}</td>
-                </tr>
-              )
+              const accs = i.kind === '預金' ? accountsOf(i) : []
+              const n = Math.max(1, accs.length)
+              const nextCell = <>{ev.next}{ev.parallelNext && <span className="block text-[12px] text-gray-400">並行：{ev.parallelNext}</span>}</>
+              const rowCls = 'cursor-pointer hover:bg-brand-50/30'
+              if (accs.length === 0) {
+                const hs = holdings.filter(h => h.institution_id === i.id)
+                return (
+                  <tr key={i.id} onClick={() => onOpen(i.id)} className={`${rowCls} ${bankBorder}`}>
+                    <td className={`${bankTd} font-medium text-gray-800`}>{i.name}<span className="ml-1.5 text-[11px] text-gray-400">{i.kind}</span></td>
+                    <td className={`${bankTd} text-gray-400 text-[12px]`} colSpan={3}>{i.kind === 'ほふり' ? '—' : i.kind === '預金' ? '口座なし' : `銘柄 ${hs.length}`}</td>
+                    <td className={`${bankTd} text-[12px] text-gray-500`}>{i.kind === 'ほふり' ? '—' : requests.some(r => r.institution_id === i.id) ? requestStatus(requests.find(r => r.institution_id === i.id)!, items.filter(it => requests.some(r => r.id === it.request_id && r.institution_id === i.id))) : '未請求'}</td>
+                    <td className={`${bankTd} text-right tabular-nums`}>{holdingAmount(i) ? yen(holdingAmount(i)) : '—'}</td>
+                    <td className={`${bankTd} text-gray-700`}>{nextCell}</td>
+                    <td className={`${bankTd}`}>{taskCell(i)}</td>
+                  </tr>
+                )
+              }
+              return accs.map((a, idx) => {
+                const b = accountDocStatus(a.id, '残高証明', (a.balance_cert_required ?? '要') !== '不要', requests, items)
+                const h = accountDocStatus(a.id, '取引履歴', (a.transaction_detail_required ?? '') === '要', requests, items)
+                const last = idx === n - 1
+                return (
+                  <tr key={a.id} onClick={() => onOpen(i.id)} className={`${rowCls} ${last ? bankBorder : 'border-b border-gray-100'}`}>
+                    {idx === 0 && <td rowSpan={n} className={`${bankTd} ${bankBorder} font-medium text-gray-800`}>{i.name}<span className="ml-1.5 text-[11px] text-gray-400">{i.kind}</span></td>}
+                    <td className={`${bankTd} text-gray-700`}>{a.branch_name || <span className="text-gray-300">—</span>}</td>
+                    <td className={`${bankTd} text-gray-700`}>{a.account_type || <span className="text-gray-300">—</span>}</td>
+                    <td className={`${bankTd} font-mono text-gray-700`}>{a.account_number || <span className="text-gray-300">—</span>}</td>
+                    <td className={`${bankTd} text-[12px] text-gray-600`}><span className="font-semibold text-gray-700">{b.label}</span>／{h.label}</td>
+                    <td className={`${bankTd} text-right tabular-nums`}>{a.balance_amount != null ? yen(a.balance_amount) : '—'}</td>
+                    {idx === 0 && <td rowSpan={n} className={`${bankTd} ${bankBorder} text-gray-700`}>{nextCell}</td>}
+                    {idx === 0 && <td rowSpan={n} className={`${bankTd} ${bankBorder}`}>{taskCell(i)}</td>}
+                  </tr>
+                )
+              })
             })}
           </tbody>
           {institutions.length > 0 && (
-            <tfoot><tr className="bg-gray-50 font-semibold text-gray-700"><td className="px-2.5 py-2 text-right" colSpan={6}>合計（入力済みの金額）</td><td className="px-2.5 py-2 text-right tabular-nums">{yen(total)}</td></tr></tfoot>
+            <tfoot><tr className="bg-gray-50 font-semibold text-gray-700"><td className="px-2.5 py-2 text-right" colSpan={5}>合計（入力済みの金額）</td><td className="px-2.5 py-2 text-right tabular-nums">{yen(total)}</td><td colSpan={2} /></tr></tfoot>
           )}
         </table>
       </div>
@@ -289,17 +352,18 @@ function TopTable({ institutions, evalOf, accountsOf, holdings, onOpen }: {
 }
 
 // ── 調査先のページ ────────────────────────────────────────────
-function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, setTab, scopePrefix, caseId, memberId, today, sealWarning, saveInst, saveAsset, addAccount, deleteAccount, openRequest, openArrival, deleteRequest }: {
+function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, setTab, scopePrefix, caseId, memberId, today, caseData, patchCase, sealWarning, saveInst, saveAsset, addAccount, deleteAccount, openRequest, openArrival, deleteRequest, copyRequest }: {
   inst: FinancialInstitutionRow; ev: InstitutionEvaluation; accounts: FinancialAssetRow[]
   requests: FinancialRequestRow[]; items: FinancialRequestItemRow[]; holdings: SecuritiesHoldingRow[]
   tab: 'procedure' | 'accounts' | 'requests' | 'holdings'; setTab: (t: 'procedure' | 'accounts' | 'requests' | 'holdings') => void
   scopePrefix: string; caseId: string; memberId: string | null; today: string
+  caseData: CaseRow; patchCase: (p: Partial<CaseRow>) => Promise<void>
   /** 印鑑登録証明書の期限警告（期限間近・切れのときだけ中身がある） */
   sealWarning: React.ReactNode
   saveInst: (p: Partial<FinancialInstitutionRow>) => Promise<void>
   saveAsset: (id: string, p: Partial<FinancialAssetRow>) => Promise<void>
   addAccount: () => void; deleteAccount: (a: FinancialAssetRow) => void
-  openRequest: () => void; openArrival: (id: string) => void; deleteRequest: (r: FinancialRequestRow) => void
+  openRequest: () => void; openArrival: (id: string) => void; deleteRequest: (r: FinancialRequestRow) => void; copyRequest: (r: FinancialRequestRow) => void
 }) {
   const isDeposit = inst.kind === '預金', isSec = inst.kind === '証券', isAdmin = inst.kind === '株主名簿管理人', isJasdec = inst.kind === 'ほふり'
   const reqItems = (r: FinancialRequestRow) => items.filter(it => it.request_id === r.id)
@@ -311,7 +375,7 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
   ]
   return (
     <div className="space-y-3.5">
-      <ProgressSummary caseId={caseId} scopeKey={`${scopePrefix}_inst_${inst.id}`} title={`進捗/結果（${inst.name}）`} />
+      <ProgressSummary caseId={caseId} scopeKey={`${scopePrefix}_inst_${inst.id}`} title={`進捗/結果（${inst.name}）`} collapsible />
       <div className="bg-white">
         {/* 銀行名の見出しは置かない。どの銀行かは左レール（選択中）と進捗タイトルで分かる。
             名前・種別の修正は手続きタブ「この銀行の前提」の先頭行。状態は右の「次の対応」が言う */}
@@ -326,11 +390,11 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
           </div>
         </div>
         <div className="p-3.5">
-          {tab === 'procedure' && (isJasdec ? <JasdecCard inst={inst} save={saveInst} /> : <ProcedureCards inst={inst} save={saveInst} memberId={memberId} today={today} />)}
+          {tab === 'procedure' && (isJasdec ? <JasdecCard inst={inst} save={saveInst} /> : <ProcedureCards inst={inst} ev={ev} requests={requests} save={saveInst} memberId={memberId} today={today} caseData={caseData} patchCase={patchCase} goRequests={() => setTab('requests')} />)}
           {tab === 'accounts' && (
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[12px] text-gray-500">支店 → 普通・定期・その他の順。残高証明・取引履歴の状態は請求から自動で入ります。</p>
+                <p className="text-[12px] text-gray-500">残高証明・取引履歴の状態は請求から自動で入ります。</p>
                 <button type="button" onClick={addAccount} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50"><Plus className="w-3.5 h-3.5" />口座を追加</button>
               </div>
               <table className="w-full text-[13px] border-collapse">
@@ -385,6 +449,7 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
                         <td className="px-2 py-2"><StatusChip s={requestStatus(r, its)} /></td>
                         <td className="px-2 py-2 text-right whitespace-nowrap">
                           <button type="button" onClick={() => openArrival(r.id)} className="text-[12px] font-semibold text-brand-700 hover:underline">{r.request_date ? '到着処理' : '請求日を登録'}</button>
+                          <button type="button" onClick={() => void copyRequest(r)} className="ml-2 text-gray-400 hover:text-brand-700 align-middle" title="この請求をコピーして新しい請求を作る"><Copy className="w-3.5 h-3.5 inline" /></button>
                           <button type="button" onClick={() => deleteRequest(r)} className="ml-2 text-gray-300 hover:text-red-500 align-middle" title="削除"><Trash2 className="w-3.5 h-3.5 inline" /></button>
                         </td>
                       </tr>
@@ -403,31 +468,180 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
   )
 }
 
-// ── 手続きカード（Step1〜4）。項目名が左・入力欄が右（戸籍タブと同じ PracticeGroup / PracticeRow） ──
-const chipStatus = (done: boolean, started: boolean) => (done ? '取得済' : started ? '請求中' : '請求準備中')
+// ── 手続き：工程図 → ①最初の連絡 → ②請求方法 → ③請求 ──
+// Step の番号はやめた。凍結・依頼書・全店調査は銀行への最初の電話で一度に済むもので順番がない。
+// 順番があるのは ①→②→③ の大枠だけ。手で入れる日付は「連絡日」と「来店日」の2つ。あとは選択とチェックで、
+// 日付は裏で記録する（凍結依頼日＝連絡日、届いた＝今日、など）。判定は financialWorkflow のまま。
 
 /** 見出し右端の「不要」チェック。ふだんは要なので触らず、要らないときだけチェックする */
 function NotNeeded({ required, onChange }: { required: boolean; onChange: (required: boolean) => void }) {
   const off = !required
   return (
-    <label className={`inline-flex items-center gap-1 text-[12px] cursor-pointer px-1.5 py-0.5 rounded border ${off ? 'border-gray-400 bg-gray-200 text-gray-700 font-semibold' : 'border-gray-200 text-gray-500 hover:bg-gray-100'}`}>
+    <label className={`inline-flex items-center gap-1 text-[12px] cursor-pointer px-1.5 py-0.5 border ${off ? 'border-gray-400 bg-gray-200 text-gray-700 font-semibold' : 'border-gray-200 text-gray-500 hover:bg-gray-100'}`}>
       <input type="checkbox" checked={off} onChange={e => onChange(!e.target.checked)} className="w-3.5 h-3.5 accent-gray-600" />
       不要
     </label>
   )
 }
 
-function ProcedureCards({ inst: i, save, memberId, today }: { inst: FinancialInstitutionRow; save: (p: Partial<FinancialInstitutionRow>) => Promise<void>; memberId: string | null; today: string }) {
-  const isSec = i.kind === '証券', isAdmin = i.kind === '株主名簿管理人'
-  const formDone = !!i.form_arrival_date || (i.form_source === '社内在庫' && !!i.form_stock_date)
-  const formStarted = !!i.form_request_date || !!i.form_stock_date
-  const searchLabel = i.search_submission_method === '郵送'
-    ? (i.search_method === '要原本確認' ? '原本発送日' : '調査請求書発送日')
-    : (i.search_method === '要原本確認' ? '原本提出日（来店日）' : '調査請求日（来店日）')
-  const onHold = (i.survey_prohibited_designation ?? '') === '指定あり'
-  const muted = <span className="text-[12px] text-gray-400">—</span>
+/** ①②③ の見出し */
+function PhaseHeading({ no, title, sub }: { no: number; title: string; sub?: string }) {
   return (
-    <div className="space-y-2.5">
+    <div className="flex items-center gap-2.5 px-3 pt-4 pb-1.5 border-b border-slate-300">
+      <span className="w-[22px] h-[22px] rounded-full bg-brand-600 text-white text-[12px] font-bold flex items-center justify-center">{no}</span>
+      <span className="text-[14px] font-bold text-gray-900">{title}</span>
+      {sub && <span className="text-[12px] text-gray-500 ml-1">{sub}</span>}
+    </div>
+  )
+}
+
+/** ①の3列のうちの1列（凍結／依頼書／全店調査） */
+function ContactCol({ title, required, onRequired, children }: { title: string; required: boolean; onRequired: (v: boolean) => void; children: React.ReactNode }) {
+  return (
+    <div className={`border border-slate-200 ${required ? '' : 'opacity-55'}`}>
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-[#e6edf5] border-b border-slate-300">
+        <span className="text-[13px] font-semibold text-slate-700">{title}</span>
+        <span className="ml-auto"><NotNeeded required={required} onChange={onRequired} /></span>
+      </div>
+      {required ? <div className="grid grid-cols-[6rem_minmax(0,1fr)]">{children}</div> : <div className="px-3 py-2 text-[12px] text-gray-500">この銀行では不要</div>}
+    </div>
+  )
+}
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <>
+      <div className="bg-[#e6edf5] border-b-2 border-r-2 border-white px-2.5 py-2 text-[12.5px] font-medium text-slate-700 whitespace-nowrap flex items-center">{label}</div>
+      <div className="bg-white border-b border-slate-200 px-2.5 py-1.5 min-h-[40px] flex items-center gap-2 flex-wrap text-[13px] text-gray-800">{children}</div>
+    </>
+  )
+}
+/** チェック＋（付いた日） */
+function Chk({ checked, onChange, label, note }: { checked: boolean; onChange: (on: boolean) => void; label: string; note?: string | null }) {
+  return (
+    <label className="inline-flex items-center gap-1.5 cursor-pointer text-[13px]">
+      <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} className="w-4 h-4 accent-brand-600" />
+      <span className={checked ? 'text-gray-800' : 'text-gray-600'}>{label}</span>
+      {checked && note && <span className="text-[12px] text-gray-400">{note}</span>}
+    </label>
+  )
+}
+/** 2択の切替（郵送／来店） */
+function Seg({ value, options, onChange }: { value: string; options: readonly string[]; onChange: (v: string) => void }) {
+  return (
+    <div className="inline-flex border border-gray-300">
+      {options.map(o => (
+        <button key={o} type="button" onClick={() => onChange(o)}
+          className={`px-4 py-1 text-[13px] font-semibold ${value === o ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>{o}</button>
+      ))}
+    </div>
+  )
+}
+const selCls = 'input-flat w-full px-2.5 py-1.5 text-[13px] text-gray-800 outline-none cursor-pointer'
+
+/** 手続きタブの一番上：この銀行の工程図。今いる場所は右上の「次の対応」と同じ判定（procedureStage） */
+function ProcedureStepper({ inst: i, ev, requests }: { inst: FinancialInstitutionRow; ev: InstitutionEvaluation; requests: FinancialRequestRow[] }) {
+  const isSec = i.kind === '証券', isAdmin = i.kind === '株主名簿管理人'
+  const stage = procedureStage(ev)
+  const done = ev.status === '完了'
+  const submitted = requests.filter(r => !!r.request_date).sort((a, b) => (b.request_date ?? '').localeCompare(a.request_date ?? ''))[0]
+  const formSub = !i.form_required ? '不要' : formSecured(i) ? (i.form_source === '社内在庫' ? '社内在庫' : `到着 ${md(i.form_arrival_date)}`) : i.form_source === '未確認' ? '手配方法を選ぶ' : '到着待ち'
+  const nodes: Array<{ label: string; sub: string }> = [
+    { label: '最初の連絡', sub: i.first_contact_date ? `${md(i.first_contact_date)}${isAdmin ? '' : isSec ? ' 死亡連絡・依頼書' : ' 凍結・依頼書・全店調査'}` : (isAdmin ? '依頼書' : isSec ? '死亡連絡・依頼書' : '凍結・依頼書・全店調査') },
+    { label: '依頼書', sub: formSub },
+    { label: '請求方法', sub: isAdmin ? '—' : i.handling_method === '未確認' ? '郵送か来店か・印鑑証明' : i.handling_method + (i.handling_method === '来店' && i.visit_date ? ` ${md(i.visit_date)}` : '') },
+    { label: '請求', sub: submitted ? `請求日 ${md(submitted.request_date)}` : '残高証明・取引履歴' },
+    { label: '到着・完了', sub: done ? '完了' : ev.waiting === '証明書の到着待ち' ? '到着待ち' : ev.status === '要確認' ? '要確認あり' : isSec ? '銘柄を登録' : '残高を口座へ' },
+  ]
+  const searchText = !i.search_required ? null
+    : allBranchSearchDone(i) ? `全店調査 完了${i.search_other_accounts ? `・他店口座${i.search_other_accounts}` : ''}`
+    : ev.parallelNext ? `全店調査 ${ev.parallelNext.replace('全店調査', '')}` : '全店調査'
+  return (
+    <div className="px-2 pt-1 pb-2">
+      <div className="flex">
+        {nodes.map((n, idx) => {
+          const k = idx + 1
+          const st = done || k < stage ? 'done' : k === stage ? 'now' : 'wait'
+          return (
+            <div key={n.label} className="flex-1 text-center relative">
+              {idx < nodes.length - 1 && <div className={`absolute top-[11px] left-1/2 right-[-50%] h-[2px] ${st === 'done' ? 'bg-emerald-600' : 'bg-gray-200'}`} />}
+              <div className={`relative z-10 w-[22px] h-[22px] mx-auto rounded-full text-[11px] font-bold flex items-center justify-center ${st === 'done' ? 'bg-emerald-600 text-white' : st === 'now' ? 'bg-brand-600 text-white ring-4 ring-brand-100' : 'bg-gray-200 text-white'}`}>{st === 'done' ? '✓' : k}</div>
+              <div className={`mt-1.5 text-[12.5px] ${st === 'now' ? 'text-brand-800 font-bold' : st === 'done' ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>{n.label}</div>
+              <div className={`text-[11.5px] ${st === 'now' ? 'text-brand-700' : 'text-gray-400'}`}>{n.sub}</div>
+            </div>
+          )
+        })}
+      </div>
+      {searchText && !isAdmin && (
+        <div className="mt-2 ml-2 flex items-center gap-2 text-[12px] text-gray-500">
+          <span className="w-10 border-t-2 border-dashed border-gray-300" />
+          <span>並行</span>
+          <span className={`px-2 py-[1px] text-[11.5px] font-semibold ${allBranchSearchDone(i) ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{searchText}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** 印鑑登録証明書が未登録・期限切れのとき、②の下に出す1行。値は案件に1つ（契約手続きタブと同じ列） */
+function SealInline({ caseData, patchCase, today }: { caseData: CaseRow; patchCase: (p: Partial<CaseRow>) => Promise<void>; today: string }) {
+  const st = sealCertificateStatus(caseData, today)
+  if (st.status !== '未登録' && st.status !== '期限切れ') return null
+  const inp = 'input-flat px-2.5 py-1.5 text-[13px] text-gray-800 outline-none'
+  return (
+    <div className="mx-3 mt-2.5 border border-amber-300 bg-amber-50 px-3 py-2 flex items-center gap-3 flex-wrap text-[12.5px] text-amber-900">
+      <span className="font-semibold">{st.status === '期限切れ' ? '印鑑登録証明書が期限切れ' : '印鑑登録証明書が未登録'}</span>
+      <span>依頼者の印鑑証明の{st.status === '期限切れ' ? '差し替え後の' : ''}発行日を入れてください（案件に1つ。契約手続きタブと同じ値）</span>
+      <label className="inline-flex items-center gap-1.5">発行日
+        <input type="date" key={`si-${caseData.seal_cert_oldest_issue_date ?? ''}`} defaultValue={caseData.seal_cert_oldest_issue_date ?? ''}
+          onBlur={e => { if (e.target.value !== (caseData.seal_cert_oldest_issue_date ?? '')) void patchCase({ seal_cert_oldest_issue_date: e.target.value || null }) }} className={inp} style={{ background: '#fff' }} />
+      </label>
+      <label className="inline-flex items-center gap-1.5">有効期間
+        <select value={caseData.seal_cert_validity_months == null ? 'custom' : String(caseData.seal_cert_validity_months)}
+          onChange={e => void patchCase({ seal_cert_validity_months: e.target.value === 'custom' ? null : Number(e.target.value) })}
+          style={{ fontFamily: 'inherit', background: '#fff' }} className={`${inp} cursor-pointer`}>
+          <option value="6">発行後6か月</option><option value="3">発行後3か月</option><option value="custom">個別指定</option>
+        </select>
+      </label>
+      {caseData.seal_cert_validity_months == null && (
+        <label className="inline-flex items-center gap-1.5">使用期限
+          <input type="date" key={`se-${caseData.seal_cert_custom_expiry ?? ''}`} defaultValue={caseData.seal_cert_custom_expiry ?? ''}
+            onBlur={e => { if (e.target.value !== (caseData.seal_cert_custom_expiry ?? '')) void patchCase({ seal_cert_custom_expiry: e.target.value || null }) }} className={inp} style={{ background: '#fff' }} />
+        </label>
+      )}
+    </div>
+  )
+}
+
+function ProcedureCards({ inst: i, ev, requests, save, memberId, today, caseData, patchCase, goRequests }: {
+  inst: FinancialInstitutionRow; ev: InstitutionEvaluation; requests: FinancialRequestRow[]
+  save: (p: Partial<FinancialInstitutionRow>) => Promise<void>; memberId: string | null; today: string
+  caseData: CaseRow; patchCase: (p: Partial<CaseRow>) => Promise<void>; goRequests: () => void
+}) {
+  const isSec = i.kind === '証券', isAdmin = i.kind === '株主名簿管理人'
+  const onHold = (i.survey_prohibited_designation ?? '') === '指定あり'
+  const stamp = () => i.first_contact_date || today
+  const grid4 = 'grid grid-cols-[minmax(0,1fr)] sm:grid-cols-[9.5rem_minmax(0,1fr)_9.5rem_minmax(0,1fr)]'
+  const needsSubmit = i.search_method === '要原本確認' || i.search_method === '要請求'
+  // 依頼書の手配の結果。選んだ瞬間に日付を裏で入れる（頼んだ日＝連絡日、在庫確認日＝連絡日）
+  const setFormSource = (v: string) => {
+    if (v === '社内在庫') return save({ form_source: v, form_stock_date: stamp(), form_request_date: null, form_arrival_date: null })
+    if (v === '金融機関へ請求' || v === '窓口で受け取る') return save({ form_source: v, form_request_date: stamp(), form_stock_date: null, form_arrival_date: null })
+    return save({ form_source: '未確認', form_request_date: null, form_stock_date: null, form_arrival_date: null })
+  }
+  const setSearchMethod = (v: string) => {
+    if (v === '電話回答') return save({ search_method: v, search_answer_date: stamp(), search_request_date: null, search_submission_method: '未確認' })
+    if (v === '要原本確認' || v === '要請求') return save({ search_method: v, search_answer_date: null, search_request_date: null, search_other_accounts: null })
+    return save({ search_method: '未確認', search_answer_date: null, search_request_date: null, search_other_accounts: null, search_submission_method: '未確認' })
+  }
+  const otherSel = (
+    <select value={i.search_other_accounts ?? ''} onChange={e => void save({ search_other_accounts: e.target.value || null, ...(e.target.value !== 'あり' ? { search_all_accounts_registered: false } : {}) })} style={{ fontFamily: 'inherit' }} className={selCls}>
+      <option value="">—</option><option value="なし">他店口座 なし</option><option value="あり">他店口座 あり</option>
+    </select>
+  )
+  return (
+    <div className="space-y-1">
+      <ProcedureStepper inst={i} ev={ev} requests={requests} />
+
       {/* この銀行の前提。誰が請求するか（取得区分）と、お客様の「まだ調べないで」（調査禁止）。
           どちらも Step1 より前に決まることなので、工程の上に置く。調査禁止が立っている間はどの工程も進めない */}
       <PracticeGroup title="この銀行の前提" right={onHold ? <span className="text-[12px] font-semibold px-2 py-[1px] bg-gray-200 text-gray-700">調査禁止中</span> : undefined}>
@@ -462,118 +676,87 @@ function ProcedureCards({ inst: i, save, memberId, today }: { inst: FinancialIns
         </>)}
       </PracticeGroup>
 
-      {!isAdmin && (
-        <PracticeGroup no="Step1" title={isSec ? '死亡連絡' : '口座凍結'} sub={isSec ? '口座名義人の死亡を証券会社へ連絡' : '口座名義人の死亡連絡による一括凍結'}
-          tone={i.freeze_required ? 'normal' : 'muted'}
-          right={<><NotNeeded required={i.freeze_required} onChange={v => void save({ freeze_required: v })} />{i.freeze_required && <StatusChip s={i.freeze_date ? '取得済' : '請求準備中'} />}</>}>
-          {i.freeze_required && (<>
-            <PracticeRow label={isSec ? '死亡連絡日' : '凍結依頼日（凍結日）'}><DateCell value={i.freeze_date} onCommit={v => void save({ freeze_date: v || null })} /></PracticeRow>
-            {!isSec ? (
-              <PracticeRow label="凍結してよいか" sub="管理担当の確認" hint="解約に進む前のゲート。確認したらチェック。">
-                <label className="inline-flex items-center gap-1.5 text-[12px] cursor-pointer">
-                  <input type="checkbox" checked={i.freeze_confirmed} onChange={e => void save(e.target.checked
-                    ? { freeze_confirmed: true, freeze_confirmed_at: new Date().toISOString(), freeze_confirmed_by: memberId }
-                    : { freeze_confirmed: false, freeze_confirmed_at: null, freeze_confirmed_by: null, freeze_confirmed_name: null })} className="w-4 h-4 accent-emerald-600" />
-                  {i.freeze_confirmed ? <span className="text-emerald-700 inline-flex items-center gap-1"><Check className="w-3.5 h-3.5" />確認済{i.freeze_confirmed_name ? `（${i.freeze_confirmed_name}）` : ''}</span> : <span className="text-gray-500">未確認</span>}
-                </label>
-              </PracticeRow>
-            ) : <PracticeRow label=" ">{muted}</PracticeRow>}
-          </>)}
-        </PracticeGroup>
-      )}
-
-      <PracticeGroup no="Step2" title="依頼書の手配" sub={isAdmin ? '所有株式数証明書等の請求書式' : isSec ? '残高証明書等を取るための証券会社所定書式' : '金融機関所定書式の取り寄せ、または社内在庫'}
-        tone={i.form_required ? 'normal' : 'muted'}
-        right={<><NotNeeded required={i.form_required} onChange={v => void save({ form_required: v })} />{i.form_required && <StatusChip s={chipStatus(formDone, formStarted)} />}</>}>
-        {i.form_required && (<>
-          <PracticeRow label="入手方法"><SelCell value={i.form_source} options={[...FORM_SOURCES]} onChange={v => void save({ form_source: v || '未確認' })} /></PracticeRow>
-          {i.form_source === '金融機関へ請求' && <PracticeRow label="請求日"><DateCell value={i.form_request_date} onCommit={v => void save({ form_request_date: v || null })} /></PracticeRow>}
-          {i.form_source === '金融機関へ請求' && <PracticeRow label="到着日"><DateCell value={i.form_arrival_date} onCommit={v => void save({ form_arrival_date: v || null })} /></PracticeRow>}
-          {i.form_source === '社内在庫' && <PracticeRow label="在庫確認日"><DateCell value={i.form_stock_date} onCommit={v => void save({ form_stock_date: v || null })} /></PracticeRow>}
-          {i.form_source === '未確認' && <PracticeRow label=" "><span className="text-[12px] text-gray-500">未確認のままだと次に進めません</span></PracticeRow>}
-        </>)}
-      </PracticeGroup>
-
-      {!isAdmin && (
-        <PracticeGroup no="Step3" title="全店調査" sub="他支店・旧取引店を含む口座の有無（並行して進める）"
-          tone={i.search_required ? 'normal' : 'muted'}
-          right={<><NotNeeded required={i.search_required} onChange={v => void save({ search_required: v })} />{i.search_required && <StatusChip s={i.search_answer_date ? '取得済' : i.search_request_date ? '請求中' : '請求準備中'} />}</>}>
-          {i.search_required && (<>
-            <PracticeRow label="調査方法" hint="金融機関によって回答の条件が違う。電話回答／要原本確認（戸籍・委任状の原本を出す）／要請求（正式な調査請求書）">
-              <SelCell value={i.search_method} options={[...SEARCH_METHODS]} onChange={v => void save({ search_method: v || '未確認' })} />
-            </PracticeRow>
-            {i.search_method === '未確認' && <PracticeRow label=" "><span className="text-[12px] text-gray-500">金融機関へ確認し、回答条件に合う調査方法を選んでください</span></PracticeRow>}
-            {i.search_method === '電話回答' && (<>
-              <PracticeRow label="確認日"><DateCell value={i.search_answer_date} onCommit={v => void save({ search_answer_date: v || null })} /></PracticeRow>
-              <PracticeRow label="回答者" sub="金融機関担当者名"><TxtCell value={i.search_responder} onCommit={v => void save({ search_responder: v || null })} placeholder="例：相続担当 佐藤様" /></PracticeRow>
-            </>)}
-            {(i.search_method === '要原本確認' || i.search_method === '要請求') && (<>
-              <PracticeRow label={i.search_method === '要原本確認' ? '原本提出方法' : '調査請求方法'}><SelCell value={i.search_submission_method} options={[...SUBMISSION_METHODS]} onChange={v => void save({ search_submission_method: v || '未確認' })} /></PracticeRow>
-              <PracticeRow label={searchLabel}>{i.search_submission_method === '未確認' ? <span className="text-[12px] text-gray-400">提出方法を選ぶと入力できます</span> : <DateCell value={i.search_request_date} onCommit={v => void save({ search_request_date: v || null })} />}</PracticeRow>
-              <PracticeRow label="回答日"><DateCell value={i.search_answer_date} onCommit={v => void save({ search_answer_date: v || null })} /></PracticeRow>
-            </>)}
-            <PracticeRow label="調査対象" full>
-              {SEARCH_TARGETS.map(t => {
-                const on = i.search_targets.includes(t)
-                return <button key={t} type="button" onClick={() => void save({ search_targets: on ? i.search_targets.filter(x => x !== t) : [...i.search_targets, t] })}
-                  className={`px-2 py-0.5 text-[12px] rounded border ${on ? 'bg-brand-50 text-brand-700 border-brand-300 font-semibold' : 'bg-white text-gray-500 border-gray-200'}`}>{t}</button>
-              })}
-              <label className="ml-auto inline-flex items-center gap-1.5 text-[12px] text-gray-600 cursor-pointer">
-                <input type="checkbox" checked={i.search_all_accounts_registered} onChange={e => void save({ search_all_accounts_registered: e.target.checked })} className="w-3.5 h-3.5 accent-brand-600" />判明した口座をすべて口座一覧に登録済み
-              </label>
-            </PracticeRow>
-          </>)}
-        </PracticeGroup>
-      )}
-
-      {!isAdmin && (
-        <PracticeGroup no="Step4" title="証明書発行依頼の方法" sub="郵送か来店か。以降の工程がここで分かれる"
-          right={<StatusChip s={i.handling_method === '未確認' ? '請求準備中' : '取得済'} />}>
-          <PracticeRow label="対応方法"><SelCell value={i.handling_method} options={[...HANDLING_METHODS]} onChange={v => void save({ handling_method: v || '未確認', ...(v !== '未確認' && !i.method_confirm_date ? { method_confirm_date: today } : {}) })} /></PracticeRow>
-          <PracticeRow label="対応方法確認日"><DateCell value={i.method_confirm_date} onCommit={v => void save({ method_confirm_date: v || null })} /></PracticeRow>
-          {i.handling_method === '来店' && <PracticeRow label="来店日" sub="予約済みの訪問日"><DateCell value={i.visit_date} onCommit={v => void save({ visit_date: v || null })} /></PracticeRow>}
-          <PracticeRow label="工程" full>
-            <div className="w-full"><MethodSteps inst={i} formDone={formDone} onPrepDone={() => void save({ visit_prep_done_at: new Date().toISOString(), visit_prep_done_by: memberId })} onPrepUndo={() => void save({ visit_prep_done_at: null, visit_prep_done_by: null })} /></div>
-          </PracticeRow>
-        </PracticeGroup>
-      )}
-    </div>
-  )
-}
-
-function MethodSteps({ inst: i, formDone, onPrepDone, onPrepUndo }: { inst: FinancialInstitutionRow; formDone: boolean; onPrepDone: () => void; onPrepUndo: () => void }) {
-  if (i.handling_method === '未確認') return <p className="text-[12px] text-gray-400">対応方法を選ぶと、以降の工程が出ます。</p>
-  const steps: Array<{ title: string; detail: string; state: 'done' | 'now' | 'wait' }> = i.handling_method === '郵送'
-    ? [
-        { title: '依頼書到着・確保', detail: '到着または社内在庫', state: formDone ? 'done' : 'now' },
-        { title: '依頼書発送', detail: '請求を登録して請求日を入れる', state: formDone ? 'now' : 'wait' },
-      ]
-    : [
-        { title: '依頼書到着・確保', detail: '到着または社内在庫', state: formDone ? 'done' : 'now' },
-        { title: '来店予約', detail: '来店日を入れる', state: !formDone ? 'wait' : i.visit_date ? 'done' : 'now' },
-        { title: '来店準備', detail: i.visit_date ? `期限 ${new Date(new Date(`${i.visit_date}T00:00:00`).getTime() - 2 * 86400000).toLocaleDateString('sv-SE').slice(5).replace('-', '/')}（前々日）` : '依頼書・戸籍・本人確認資料・印鑑', state: !i.visit_date ? 'wait' : i.visit_prep_done_at ? 'done' : 'now' },
-        { title: '来店（証明書発行依頼）', detail: '来店日を請求日として入れる', state: i.visit_prep_done_at ? 'now' : 'wait' },
-      ]
-  return (
-    <div className="mt-1">
-      <div className="flex">
-        {steps.map((s, idx) => (
-          <div key={s.title} className="flex-1 text-center relative">
-            {idx < steps.length - 1 && <div className="absolute top-[9px] left-1/2 right-[-50%] h-px bg-gray-200" />}
-            <div className={`relative z-10 w-[18px] h-[18px] mx-auto rounded-full text-[12px] font-bold flex items-center justify-center ${s.state === 'done' ? 'bg-emerald-600 text-white' : s.state === 'now' ? 'bg-brand-600 text-white' : 'bg-gray-300 text-white'}`}>{s.state === 'done' ? '✓' : idx + 1}</div>
-            <div className={`mt-1 text-[12px] ${s.state === 'wait' ? 'text-gray-400' : 'text-gray-800 font-semibold'}`}>{s.title}</div>
-            <div className="text-[12px] text-gray-400">{s.detail}</div>
-          </div>
-        ))}
+      {/* ① 最初の連絡：日付は連絡日の1つ。3項目は連絡の結果 */}
+      <PhaseHeading no={1} title={isAdmin ? '株主名簿管理人への最初の連絡' : isSec ? '証券会社への最初の連絡' : '銀行への最初の連絡'} sub={isAdmin ? '依頼書式をどう手に入れるか' : '同じ電話でまとめて済ませる。ここで分かった結果を残す'} />
+      <div className={grid4}>
+        <PracticeRow label="連絡日"><DateCell value={i.first_contact_date} onCommit={v => void save({ first_contact_date: v || null })} /></PracticeRow>
+        <PracticeRow label="相手" sub="金融機関の担当者名"><TxtCell value={i.first_contact_person} onCommit={v => void save({ first_contact_person: v || null })} placeholder="例：相続センター 佐藤様" /></PracticeRow>
       </div>
-      {i.handling_method === '来店' && i.visit_date && (
-        <div className="mt-2 flex items-center gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5">
-          <span className="text-[12px] text-gray-600">来店準備の完了：依頼書・戸籍・本人確認資料・印鑑が揃った時点で押す（この工程だけ手で完了にする）</span>
-          {i.visit_prep_done_at
-            ? <button type="button" onClick={onPrepUndo} className="ml-auto text-[12px] text-gray-500 underline">完了を取り消す（{i.visit_prep_done_at.slice(0, 10)}）</button>
-            : <button type="button" onClick={onPrepDone} className="ml-auto px-3 py-1 rounded-md text-[12px] font-semibold text-white bg-brand-600 hover:bg-brand-700">来店準備を完了</button>}
+      <div className={`grid gap-2.5 pt-2.5 px-1 ${isAdmin ? 'grid-cols-1' : 'md:grid-cols-3'}`}>
+        {!isAdmin && (
+          <ContactCol title={isSec ? '死亡連絡' : '口座の凍結'} required={i.freeze_required} onRequired={v => void save({ freeze_required: v, ...(v ? {} : { freeze_date: null }) })}>
+            <Row label="結果"><Chk checked={!!i.freeze_date} onChange={on => void save({ freeze_date: on ? stamp() : null })} label={isSec ? '死亡を連絡した' : '凍結を依頼した'} note={md(i.freeze_date)} /></Row>
+          </ContactCol>
+        )}
+        <ContactCol title="依頼書の手配" required={i.form_required} onRequired={v => void save({ form_required: v })}>
+          <Row label="結果">
+            <select value={i.form_source} onChange={e => void setFormSource(e.target.value)} style={{ fontFamily: 'inherit' }} className={selCls}>
+              {FORM_SOURCES.map(o => <option key={o} value={o}>{FORM_SOURCE_LABEL[o]}</option>)}
+            </select>
+          </Row>
+          {(i.form_source === '金融機関へ請求' || i.form_source === '窓口で受け取る') && (
+            <Row label="その後"><Chk checked={!!i.form_arrival_date} onChange={on => void save({ form_arrival_date: on ? today : null })} label={i.form_source === '窓口で受け取る' ? '受け取った' : '届いた'} note={md(i.form_arrival_date)} />
+              {!i.form_arrival_date && <span className="text-[12px] text-gray-400">{i.form_source === '窓口で受け取る' ? '受け取るまで請求に進めません' : '到着待ち。受信簿でチェックしても入ります'}</span>}</Row>
+          )}
+          {i.form_source === '社内在庫' && <Row label="確認"><span className="text-gray-700">在庫あり<span className="ml-1.5 text-[12px] text-gray-400">{md(i.form_stock_date)}</span></span></Row>}
+        </ContactCol>
+        {!isAdmin && (
+          <ContactCol title="全店調査" required={i.search_required} onRequired={v => void save({ search_required: v })}>
+            <Row label="結果">
+              <select value={i.search_method} onChange={e => void setSearchMethod(e.target.value)} style={{ fontFamily: 'inherit' }} className={selCls}>
+                {SEARCH_METHODS.map(o => <option key={o} value={o}>{SEARCH_METHOD_LABEL[o]}</option>)}
+              </select>
+            </Row>
+            {i.search_method === '電話回答' && (<>
+              <Row label="回答">{otherSel}</Row>
+              <Row label="回答者"><TxtCell value={i.search_responder} onCommit={v => void save({ search_responder: v || null })} placeholder="例：相続担当 佐藤様" /></Row>
+            </>)}
+            {needsSubmit && (<>
+              <Row label="提出方法">
+                <select value={i.search_submission_method} onChange={e => void save({ search_submission_method: e.target.value || '未確認' })} style={{ fontFamily: 'inherit' }} className={selCls}>
+                  {SUBMISSION_METHODS.map(o => <option key={o} value={o}>{o === '未確認' ? '—' : o}</option>)}
+                </select>
+              </Row>
+              <Row label="提出"><Chk checked={!!i.search_request_date} onChange={on => void save({ search_request_date: on ? today : null, ...(on ? {} : { search_answer_date: null }) })} label={i.search_method === '要原本確認' ? '原本を提出した' : '調査依頼書を提出した'} note={md(i.search_request_date)} /></Row>
+              {i.search_request_date && <Row label="回答"><Chk checked={!!i.search_answer_date} onChange={on => void save({ search_answer_date: on ? today : null, ...(on ? {} : { search_other_accounts: null }) })} label="回答が来た" note={md(i.search_answer_date)} /></Row>}
+              {i.search_answer_date && <Row label="内容">{otherSel}</Row>}
+            </>)}
+            {i.search_other_accounts === 'あり' && (
+              <Row label="口座登録"><Chk checked={i.search_all_accounts_registered} onChange={on => void save({ search_all_accounts_registered: on })} label="判明した口座を口座一覧に登録済み" /></Row>
+            )}
+          </ContactCol>
+        )}
+      </div>
+
+      {/* ② 請求方法：郵送か来店か。確認日は選んだ瞬間に裏で記録 */}
+      {!isAdmin && (<>
+        <PhaseHeading no={2} title="残高証明・取引履歴の請求方法" sub="郵送で送るか、窓口に持って行くか。銀行に聞いた結果" />
+        <div className={grid4}>
+          <PracticeRow label="請求方法">
+            <Seg value={i.handling_method} options={['郵送', '来店']} onChange={v => void save({ handling_method: v, ...(i.method_confirm_date ? {} : { method_confirm_date: today }) })} />
+          </PracticeRow>
+          {i.handling_method === '来店'
+            ? <PracticeRow label="来店日" sub="予約した訪問日"><DateCell value={i.visit_date} onCommit={v => void save({ visit_date: v || null })} /></PracticeRow>
+            : <PracticeRow label=" "><span className="text-[12px] text-gray-400">{i.handling_method === '郵送' ? '請求は郵送。来店の予定はありません' : '選ぶと次へ進めます'}</span></PracticeRow>}
+          {i.handling_method === '来店' && i.visit_date && (
+            <PracticeRow label="来店準備" sub="前々日まで" full>
+              {i.visit_prep_done_at
+                ? <><span className="text-emerald-700 text-[13px]">準備完了 {md(i.visit_prep_done_at.slice(0, 10))}</span><button type="button" onClick={() => void save({ visit_prep_done_at: null, visit_prep_done_by: null })} className="ml-2 text-[12px] text-gray-500 underline underline-offset-2">取り消す</button></>
+                : <><span className="text-[12px] text-gray-500">依頼書・戸籍・本人確認資料・印鑑が揃ったら</span><button type="button" onClick={() => void save({ visit_prep_done_at: new Date().toISOString(), visit_prep_done_by: memberId })} className="px-3 py-1 text-[12px] font-semibold text-white bg-brand-600 hover:bg-brand-700">来店準備を完了</button></>}
+            </PracticeRow>
+          )}
         </div>
-      )}
+        <SealInline caseData={caseData} patchCase={patchCase} today={today} />
+      </>)}
+
+      {/* ③ 請求する：請求タブへ。ここでは登録まで */}
+      <PhaseHeading no={isAdmin ? 2 : 3} title="請求する" sub="請求タブで請求内容を登録する" />
+      <div className="flex items-center gap-3 px-3 py-3 text-[13px] text-gray-700 flex-wrap">
+        {onHold ? <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[12px]">調査禁止中</span>
+          : !formSecured(i) ? <><span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[12px]">依頼書の到着待ち</span><span className="text-gray-500">「依頼書の手配」で届いたにチェックすると登録できます</span></>
+          : <><span>依頼書は手元にあります。</span><button type="button" onClick={goRequests} className="px-3 py-1.5 text-[12px] font-semibold text-white bg-brand-600 hover:bg-brand-700">請求タブで登録</button>
+              {requests.length > 0 && <span className="text-[12px] text-gray-400">登録済み {requests.length}件</span>}</>}
+      </div>
     </div>
   )
 }

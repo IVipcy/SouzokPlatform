@@ -13,7 +13,10 @@ import type {
 } from '@/types'
 
 export const INSTITUTION_KINDS = ['預金', '証券', '株主名簿管理人', 'ほふり'] as const
-export const FORM_SOURCES = ['未確認', '金融機関へ請求', '社内在庫'] as const
+export const FORM_SOURCES = ['未確認', '社内在庫', '金融機関へ請求', '窓口で受け取る'] as const
+/** 画面の言い方（値は変えない） */
+export const FORM_SOURCE_LABEL: Record<string, string> = { '未確認': '—', '社内在庫': '社内在庫あり', '金融機関へ請求': '銀行から送ってもらう', '窓口で受け取る': '窓口で受け取る' }
+export const SEARCH_METHOD_LABEL: Record<string, string> = { '未確認': '—', '電話回答': '電話で回答あり', '要原本確認': '原本の提出が必要', '要請求': '調査依頼書の提出が必要' }
 export const SEARCH_METHODS = ['未確認', '電話回答', '要原本確認', '要請求'] as const
 export const SUBMISSION_METHODS = ['未確認', '郵送', '来店'] as const
 export const HANDLING_METHODS = ['未確認', '郵送', '来店'] as const
@@ -182,19 +185,33 @@ export type InstitutionInput = {
   today: string
 }
 
-/** 依頼書が手元にあるか（到着 or 社内在庫） */
+/** 依頼書が手元にあるか（到着 or 社内在庫）。「窓口で受け取る」も受け取った日＝到着日 */
 export const formSecured = (i: FinancialInstitutionRow) =>
   !i.form_required || !!i.form_arrival_date || (i.form_source === '社内在庫' && !!i.form_stock_date)
-/** 依頼書を頼んだ／在庫を確かめた */
+/** 依頼書を頼んだ／在庫を確かめた（最初の連絡で決まる） */
 export const formOrdered = (i: FinancialInstitutionRow) =>
-  !i.form_required || (i.form_source === '金融機関へ請求' && !!i.form_request_date) || (i.form_source === '社内在庫' && !!i.form_stock_date)
+  !i.form_required || ((i.form_source === '金融機関へ請求' || i.form_source === '窓口で受け取る') && !!i.form_request_date) || (i.form_source === '社内在庫' && !!i.form_stock_date)
 
-/** 全店調査が終わったか */
+/** 全店調査が終わったか。回答があり、他店口座が「あり」なら口座一覧へ登録し終えていること */
 export function allBranchSearchDone(i: FinancialInstitutionRow): boolean {
   if (!i.search_required) return true
-  if (i.search_method === '電話回答') return !!i.search_answer_date && !!(i.search_responder ?? '').trim()
-  if (i.search_method === '要原本確認' || i.search_method === '要請求') return !!i.search_answer_date
-  return false
+  const answered = i.search_method === '電話回答'
+    ? !!i.search_answer_date
+    : (i.search_method === '要原本確認' || i.search_method === '要請求') && !!i.search_answer_date
+  if (!answered) return false
+  if (i.search_other_accounts === 'あり') return !!i.search_all_accounts_registered
+  return true
+}
+
+/** 手続きタブの工程図：いまどの丸か（1 最初の連絡／2 依頼書／3 請求方法／4 請求／5 到着・完了）。次の対応と同じ判定 */
+export function procedureStage(ev: InstitutionEvaluation): 1 | 2 | 3 | 4 | 5 {
+  if (ev.status === '完了') return 5
+  const key = ev.pending.find(p => !p.parallel)?.key
+  if (key === 'freeze-form' || key === 'form') return 1
+  if (ev.waiting === '依頼書の到着待ち') return 2
+  if (key === 'method' || key === 'seal' || key === 'visit-reserve' || key === 'visit-prepare') return 3
+  if (key === 'submit' || key === 'register' || ev.waiting === '依頼者が取得') return 4
+  return 5   // 証明書の到着待ち・要確認・銘柄登録・管理人特定
 }
 
 export function evaluateInstitution({ institution: i, requests, items, holdings, seal, today }: InstitutionInput): InstitutionEvaluation {
@@ -275,6 +292,7 @@ export function evaluateInstitution({ institution: i, requests, items, holdings,
     else if (i.search_method !== '未確認' && i.search_submission_method === '未確認') { title = '全店調査提出方法の確認'; detail = '原本または調査請求書を郵送・来店のどちらで出すか確認する' }
     else if (i.search_method !== '未確認' && !i.search_request_date) { title = '全店調査書類の提出'; detail = '原本または調査請求書を提出し、提出日を登録する' }
     else if (i.search_method !== '未確認' && i.search_request_date && !i.search_answer_date) { title = ''; }   // 回答待ち＝手をつけられない
+    if (i.search_answer_date && i.search_other_accounts === 'あり' && !i.search_all_accounts_registered) { title = '判明した口座の登録'; detail = '全店調査で分かった口座を口座一覧に登録し、「登録済み」にチェックする' }
     if (title) push('search', title, detail, { parallel: true })
     parallelNext = title || '全店調査の回答待ち'
   }

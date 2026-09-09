@@ -646,10 +646,13 @@ export type FinancialInstitutionRow = {
   acquirer: string                     // 自社 / 依頼者
   sort_order: number
   notes: string | null
+  // 最初の連絡（凍結・依頼書・全店調査を同じ電話で）migration 273
+  first_contact_date: string | null
+  first_contact_person: string | null
   // 01 凍結／死亡連絡
   freeze_required: boolean
   freeze_date: string | null
-  freeze_confirmed: boolean
+  freeze_confirmed: boolean                // migration 273 から自動（凍結依頼日あり or 凍結不要）。画面では触らない
   freeze_confirmed_by: string | null
   freeze_confirmed_at: string | null
   freeze_confirmed_name: string | null
@@ -657,7 +660,7 @@ export type FinancialInstitutionRow = {
   freeze_confirm_requested_by: string | null
   // 02 依頼書
   form_required: boolean
-  form_source: string                  // 未確認 / 金融機関へ請求 / 社内在庫
+  form_source: string                  // 未確認 / 金融機関へ請求 / 社内在庫 / 窓口で受け取る
   form_request_date: string | null
   form_arrival_date: string | null
   form_stock_date: string | null
@@ -669,7 +672,8 @@ export type FinancialInstitutionRow = {
   search_request_date: string | null
   search_answer_date: string | null
   search_targets: string[]
-  search_all_accounts_registered: boolean
+  search_other_accounts: string | null     // 全店調査の回答：あり / なし（migration 273）
+  search_all_accounts_registered: boolean  // 判明した口座を口座一覧に登録済み（他店口座ありのとき全店調査の完了条件）
   // 04 対応方法
   handling_method: string              // 未確認 / 郵送 / 来店
   method_confirm_date: string | null

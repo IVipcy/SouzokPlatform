@@ -4,6 +4,7 @@
 // 状態（未着手/対応中/追加調査中/完了）＋文章をワンセットで管理。戸籍相関図など他UIからも参照する。
 
 import { useEffect, useState } from 'react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useCurrentMember } from '@/lib/useCurrentMember'
@@ -21,13 +22,16 @@ export function summaryStatusClass(status: string | null | undefined): string {
   }
 }
 
-export default function ProgressSummary({ caseId, scopeKey, title, onSaved }: {
+export default function ProgressSummary({ caseId, scopeKey, title, onSaved, collapsible = false }: {
   caseId: string
   scopeKey: string
   title: string
   // メモを保存したら親へ通知（相関図のホバー等をリロードなしで即反映するため）
   onSaved?: (v: { body: string }) => void
+  /** true＝閉じた状態で出し、見出しの右の「開く」で開く。閉じているときは1行目を薄く見せる */
+  collapsible?: boolean
 }) {
+  const [open, setOpen] = useState(!collapsible)
   const supabase = createClient()
   const memberId = useCurrentMember(null)
   const [body, setBody] = useState('')
@@ -77,12 +81,22 @@ export default function ProgressSummary({ caseId, scopeKey, title, onSaved }: {
       <div className="flex items-center gap-2 mb-1.5">
         <span className="w-[3px] h-4 bg-brand-600" />
         <span className="text-[15px] font-semibold text-gray-800">{title}</span>
-        {meta.at && <span className="ml-auto text-[12px] text-gray-400">最終更新：{meta.name ?? '—'}・{meta.at}</span>}
+        {!open && <span className="text-[12px] text-gray-400 truncate max-w-[50%]">{body ? body.split('\n')[0] : '（未記入）'}</span>}
+        <span className="ml-auto flex items-center gap-3">
+          {meta.at && open && <span className="text-[12px] text-gray-400">最終更新：{meta.name ?? '—'}・{meta.at}</span>}
+          {collapsible && (
+            <button type="button" onClick={() => setOpen(o => !o)} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700">
+              {open ? '閉じる' : '開く'} {open ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
+          )}
+        </span>
       </div>
       {/* 作業内容フリー欄と同じ：書いて欄から出れば保存。ボタンは置かない */}
-      <textarea value={body} onChange={e => setBody(e.target.value)} onBlur={() => void saveBody()} rows={3}
-        placeholder="現時点で分かったこと・現状をまとめて記入"
-        className="w-full px-3 py-2.5 text-[14px] leading-relaxed outline-none rounded-lg" />
+      {open && (
+        <textarea value={body} onChange={e => setBody(e.target.value)} onBlur={() => void saveBody()} rows={3}
+          placeholder="現時点で分かったこと・現状をまとめて記入"
+          className="w-full px-3 py-2.5 text-[14px] leading-relaxed outline-none rounded-lg" />
+      )}
     </div>
   )
 }
