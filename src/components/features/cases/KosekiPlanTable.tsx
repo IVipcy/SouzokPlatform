@@ -159,8 +159,9 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
                   />
                 </td>
                 <td className="px-2 py-1.5">
+                  {/* 亡くなっている相続人の住所関係書類は取らないので、未入力なら「不要」を見せる（被相続人本人は除票・附票が要るので対象外） */}
                   <SelectOrTextField
-                    value={plan?.address_doc ?? null}
+                    value={plan?.address_doc ?? (p.dead && p.role !== '被相続人' ? '不要' : null)}
                     options={KOSEKI_PLAN_ADDRESS_DOCS}
                     onSave={v => save(p.name, 'address_doc', v)}
                     placeholder="住民票 等"

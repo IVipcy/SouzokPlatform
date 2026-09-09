@@ -513,7 +513,7 @@ export const KOSEKI_PLAN_RANGES = ['出生～死亡すべて', '死亡のみ', '
 // 「依頼者が取得」は取得区分（自社／依頼者）で表すので、ここには入れない。
 export const KOSEKI_AUTHORITIES = ['委任状', '職務上請求'] as const
 
-export const KOSEKI_PLAN_ADDRESS_DOCS = ['住民票', '戸籍の附票', 'どちらでも'] as const
+export const KOSEKI_PLAN_ADDRESS_DOCS = ['住民票', '戸籍の附票', 'どちらでも', '不要'] as const   // 不要＝亡くなっている相続人など（被相続人本人は除票・附票が要る）
 
 // 複数選択は「・」でつないだ1つの文字列で持つ（列を増やさないため）
 export const splitMulti = (v: string | null | undefined): string[] =>

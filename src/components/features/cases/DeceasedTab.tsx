@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { toPng } from 'html-to-image'
 import { showToast } from '@/components/ui/Toast'
 import { HEIR_RELATIONSHIPS, isFormerSpouse } from '@/lib/constants'
+import { CHILD_TYPES, GRANDCHILD_TYPES, NEPHEW_TYPES, SIBLING_TYPES, relOf } from '@/lib/legalShare'
 import { toWareki } from '@/lib/wareki'
 import type { CaseRow, HeirRow, KosekiRequestRow, ContractDocumentRow, CaseClientRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
@@ -86,7 +87,19 @@ const emptyHeirForm = () => ({
   is_deceased: false,
   // もう一方の親（前妻・前夫）。前婚の子だけ設定する。migration 225
   other_parent_heir_id: '',
+  // 代襲（孫・甥・姪）の親。行があれば parent_heir_id、無ければ続柄だけ。migration 277
+  parent_heir_id: '',
+  parent_relationship_type: '',
+  // 氏名不明（続柄は分かっている）。name は「姪（氏名不明）」の仮名にする
+  name_unknown: false,
 })
+/** 代襲相続人（孫・ひ孫・甥・姪）か */
+const isRepType = (r: string) => (GRANDCHILD_TYPES as readonly string[]).includes(r) || (NEPHEW_TYPES as readonly string[]).includes(r)
+/** 代襲の親になり得る続柄（孫→子、甥姪→兄弟姉妹） */
+const parentTypesFor = (r: string): readonly string[] =>
+  (GRANDCHILD_TYPES as readonly string[]).includes(r) ? CHILD_TYPES.filter(t => t !== '子') : SIBLING_TYPES.filter(t => t !== '兄弟姉妹')
+/** 氏名不明のときの仮名 */
+const unknownNameFor = (rel: string) => `${rel || '相続人'}（氏名不明）`
 
 export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRefresh, patchCase, orderSheetMode = false, contractDocuments = [], caseClients = [], tasks = [] }: Props) {
   // アラート（追加戸籍請求の承認依頼）から ?sub=koseki で戸籍請求サブタブに直接遷移
@@ -216,6 +229,9 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       is_client: heir.is_client ?? false,
       lived_together: heir.lived_together ?? false,
       other_parent_heir_id: heir.other_parent_heir_id ?? '',
+      parent_heir_id: heir.parent_heir_id ?? '',
+      parent_relationship_type: heir.parent_relationship_type ?? '',
+      name_unknown: !!heir.name_unknown,
     })
     // 郵便番号は heirs に保存しないので、依頼者の郵便番号を編集時の初期値に載せる
     setHeirPostal(isMainClientHeir ? (caseData.clients?.postal_code ?? '') : '')
@@ -260,10 +276,25 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
     }
     if ('birth_date' in patch) body.birth_date = (next.birth_date || '').trim() || null
     if ('other_parent_heir_id' in patch) body.other_parent_heir_id = (next.other_parent_heir_id || '').trim() || null
+    if ('parent_heir_id' in patch) body.parent_heir_id = (next.parent_heir_id || '').trim() || null
+    if ('parent_relationship_type' in patch) body.parent_relationship_type = (next.parent_relationship_type || '').trim() || null
+    // 氏名不明：仮名を入れる（続柄を変えたら仮名も追従）
+    if (('name_unknown' in patch || 'relationship' in patch) && next.name_unknown) body.name = unknownNameFor(next.relationship)
     const { error } = await supabase.from('heirs').update(body).eq('id', editingHeirId)
     if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
+    // 戸籍の取得計画・戸籍請求は氏名を鍵にしているので、氏名が変わったら一緒に直す（判明して仮名から書き換えたとき等）
+    if (typeof body.name === 'string') await renameInKoseki(editingHeirId, body.name)
     setAutoSavedAt(new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }))
     onRefresh()
+  }
+  /** 相続人の氏名が変わったら、その名前を鍵にしている戸籍の取得計画・戸籍請求も同じ名前に直す */
+  const renameInKoseki = async (heirId: string, newName: string) => {
+    const old = heirs.find(h => h.id === heirId)?.name?.trim()
+    const nn = newName.trim()
+    if (!old || !nn || old === nn) return
+    const supabase = createClient()
+    await supabase.from('koseki_plans').update({ person_name: nn }).eq('case_id', caseData.id).eq('person_name', old)
+    await supabase.from('koseki_requests').update({ target_person: nn }).eq('case_id', caseData.id).eq('target_person', old)
   }
   /** 入力を画面に反映しつつ、編集中なら保存もする */
   const setAndSave = (patch: Partial<typeof heirForm>) => {
@@ -272,7 +303,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
   }
 
   const handleSaveHeir = async () => {
-    if (!heirForm.name.trim()) return
+    if (!heirForm.name.trim() && !heirForm.name_unknown) return
     const supabase = createClient()
     // 申出人は1案件1名のみ
     if (heirForm.is_applicant) {
@@ -290,11 +321,15 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       relationship_type: trimmed.relationship || null,
       birth_date: trimmed.birth_date || null,
       other_parent_heir_id: trimmed.other_parent_heir_id || null,
+      parent_heir_id: trimmed.parent_heir_id || null,
+      parent_relationship_type: trimmed.parent_relationship_type || null,
+      name: trimmed.name_unknown ? unknownNameFor(trimmed.relationship) : trimmed.name,
       // 前妻・前夫は離婚しているので相続人にはならない（図に描くためだけの行）
       is_legal_heir: isFormerSpouse(trimmed.relationship) ? false : trimmed.is_legal_heir,
     }
     if (editingHeirId) {
       await supabase.from('heirs').update(payload).eq('id', editingHeirId)
+      await renameInKoseki(editingHeirId, payload.name)
       showToast('相続人情報を更新しました', 'success')
     } else {
       await supabase.from('heirs').insert({ case_id: caseData.id, ...payload, sort_order: heirs.length })
@@ -472,6 +507,10 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                           {heir.is_deceased && (
                             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-gray-200 text-gray-700">故</span>
                           )}
+                          {(heir.parent_heir_id || heir.parent_relationship_type) && (() => {
+                            const parent = heir.parent_heir_id ? heirs.find(h => h.id === heir.parent_heir_id) : null
+                            return <span className="text-[11px] text-gray-500">（{parent ? `${relOf(parent)} ${parent.name}` : `${heir.parent_relationship_type}（未登録）`}の子）</span>
+                          })()}
                         </div>
                       </td>
                       {/* 依頼者・同居・存命/死亡。面談シートと同じ3つを同じ並びで出す。
@@ -601,12 +640,20 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                   <input
                     type="text"
                     value={heirForm.name}
+                    disabled={heirForm.name_unknown}
                     onChange={e => setHeirForm(f => ({ ...f, name: e.target.value }))}
                     onBlur={e => setAndSave({ name: normalizePersonName(e.target.value) })}
                     placeholder="山田　太郎"
-                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
+                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition disabled:text-gray-400"
                   />
-                  <NameHint value={heirForm.name} />
+                  {/* 続柄は分かっているが名前が分からない相続人。仮名「姪（氏名不明）」で登録し、判明したら外して書き換える */}
+                  <label className="mt-1 inline-flex items-center gap-1.5 text-[12px] text-gray-600 cursor-pointer">
+                    <input type="checkbox" checked={heirForm.name_unknown}
+                      onChange={e => { const on = e.target.checked; setAndSave({ name_unknown: on, name: on ? unknownNameFor(heirForm.relationship) : (heirForm.name.endsWith('（氏名不明）') ? '' : heirForm.name) }) }}
+                      className="w-3.5 h-3.5 accent-brand-600" />
+                    氏名不明（続柄だけ分かっている）
+                  </label>
+                  {!heirForm.name_unknown && <NameHint value={heirForm.name} />}
                 </FormField>
                 <FormField label="被相続人との続柄">
                   <select
@@ -620,6 +667,40 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                     ))}
                   </select>
                 </FormField>
+                {/* 代襲（孫・ひ孫・甥・姪）は「誰の子か」。登録済みの子／兄弟姉妹の行から選ぶ。
+                    親が行として無いときは「一覧にない」を選んで、親の続柄だけ入れる（相関図はその続柄で仮の箱を立てる） */}
+                {isRepType(heirForm.relationship) && (() => {
+                  const cands = heirs.filter(h => h.id !== editingHeirId && parentTypesFor(heirForm.relationship).includes(relOf(h)))
+                  const noneSelected = !heirForm.parent_heir_id
+                  return (
+                    <>
+                      <FormField label={`親（誰の${heirForm.relationship}か）`}>
+                        <select
+                          value={heirForm.parent_heir_id || (heirForm.parent_relationship_type ? '__none__' : '')}
+                          onChange={e => {
+                            const v = e.target.value
+                            if (v === '__none__') setAndSave({ parent_heir_id: '', parent_relationship_type: heirForm.parent_relationship_type || parentTypesFor(heirForm.relationship)[0] })
+                            else setAndSave({ parent_heir_id: v, parent_relationship_type: '' })
+                          }}
+                          className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
+                        >
+                          <option value="">選択してください</option>
+                          {cands.map(c => <option key={c.id} value={c.id}>{relOf(c)}　{c.name || '（氏名未入力）'}{c.is_deceased ? '（故）' : ''}</option>)}
+                          <option value="__none__">一覧にない（続柄だけ入れる）</option>
+                        </select>
+                        {cands.length === 0 && <p className="mt-1 text-[11px] text-gray-400">親になる{(GRANDCHILD_TYPES as readonly string[]).includes(heirForm.relationship) ? '子' : '兄弟姉妹'}の行がまだありません。先に登録するか「一覧にない」を選んでください</p>}
+                      </FormField>
+                      {noneSelected && heirForm.parent_relationship_type && (
+                        <FormField label="親の続柄（被相続人からみて）">
+                          <select value={heirForm.parent_relationship_type} onChange={e => setAndSave({ parent_relationship_type: e.target.value })}
+                            className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition">
+                            {parentTypesFor(heirForm.relationship).map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        </FormField>
+                      )}
+                    </>
+                  )
+                })()}
                 {/* 前妻・前夫が登録されているときだけ「誰との子か」を聞く。
                     未選択＝現配偶者との子として相関図に描くので、通常の案件では出てこない。 */}
                 {formerSpouseHeirs.length > 0 && !isFormerSpouse(heirForm.relationship) && (

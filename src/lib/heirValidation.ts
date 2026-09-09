@@ -1,4 +1,5 @@
 import type { HeirRow } from '@/types'
+import { heirCategory } from '@/lib/legalShare'
 
 export type HeirValidationWarning = {
   severity: 'error' | 'warning'
@@ -25,13 +26,12 @@ export function validateHeirs(heirs: HeirRow[]): HeirValidationWarning[] {
     return h.relationship ?? ''
   }
 
-  const legalHeirs = heirs.filter(h => h.is_legal_heir)
-  const hasChildAsLegal = legalHeirs.some(h => {
-    const t = typeOf(h)
-    return t === '子' || ['長男','長女','二男','二女','三男','三女','養子'].includes(h.relationship ?? '')
-  })
-  const hasParentAsLegal = legalHeirs.some(h => ['父', '母'].includes(typeOf(h)))
-  const hasSiblingAsLegal = legalHeirs.some(h => typeOf(h) === '兄弟姉妹')
+  // 死亡している人は相続人ではないので順位の判定に入れない（死亡した父母を登録しても兄弟姉妹は相続人）
+  const legalHeirs = heirs.filter(h => h.is_legal_heir && !h.is_deceased)
+  const hasChildAsLegal = legalHeirs.some(h => heirCategory(h) === '子')
+  const hasParentAsLegal = legalHeirs.some(h => heirCategory(h) === '直系尊属')
+  const hasSiblingAsLegal = legalHeirs.some(h => heirCategory(h) === '兄弟姉妹')
+  void typeOf
 
   // 1. 子がいる場合、父母・兄弟姉妹は法定相続人にならない
   if (hasChildAsLegal && hasParentAsLegal) {
