@@ -245,7 +245,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, finan
           {orderSheetMode ? (
             <>
               <SectionHeading title="預金口座（金融機関名を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-              <FinancialAssetsTable caseId={caseData.id} kind="預貯金" assets={financialAssets} onRefresh={onRefresh} progressMode={false} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} contractDocs={finContractDocs} />
+              <FinancialAssetsTable caseId={caseData.id} kind="預貯金" assets={financialAssets} onRefresh={onRefresh} progressMode={false} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} contractDocs={finContractDocs} dateOfDeath={caseData.date_of_death} />
             </>
           ) : (
             <FinancialSection caseId={caseData.id} kind="預貯金" scopePrefix="asset_deposit" assets={financialAssets} institutions={financialInstitutions} requests={financialRequests} requestItems={financialRequestItems} holdings={securitiesHoldings} caseData={caseData} patchCase={patchCase} onRefresh={onRefresh} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} contractDocs={finContractDocs} focus={focus} />

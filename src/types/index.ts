@@ -1056,6 +1056,8 @@ export type FinancialAssetRow = {
   survey_period_type: string | null         // 旧：相続開始日 / 任意指定（migration 245 で balance_cert_* に移行。表示では使わない）
   survey_date: string | null                // 旧：調査基準日（任意指定時）
   balance_cert_on_death: boolean            // 残高証明を相続開始日で取る（migration 245）
+  balance_cert_recent: boolean              // 残高証明を直近日でも取る（migration 275）
+  tx_five_years: boolean                    // 取引明細「相続開始日まで5年」のチェック（migration 275）
   balance_cert_dates: string[] | null       // 残高証明の取得日（任意の日付・複数。migration 245）
   has_investment_trust: boolean                // 投信有無（預金・メモ。migration 214）
   has_safe_deposit: boolean                    // 貸金庫有無（預金・タスク生成。migration 214）

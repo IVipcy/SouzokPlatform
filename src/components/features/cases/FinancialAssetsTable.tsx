@@ -16,6 +16,11 @@ import { PriorityCell } from './PracticeTableCells'
 const REQ = ['要', '不要', '確認中']
 const CANCEL = ['有', '無', '確認中']
 const ACCOUNT_TYPES = ['普通', '定期', '当座', '積立', '貯蓄', 'その他']
+/** 口座種別の選択肢。ゆうちょ銀行だけ「通常」（通常貯金）が入る */
+const accountTypesFor = (institutionName: string | null | undefined) =>
+  (institutionName ?? '').includes('ゆうちょ') ? ['通常', ...ACCOUNT_TYPES] : ACCOUNT_TYPES
+/** 証券会社の全店調査を「要」にするときの確認 */
+const SEC_SURVEY_CONFIRM = '証券会社の全店調査を「要」にしますか？\n\n証券会社の全店調査は回答まで2〜3か月かかり、その間この証券会社の調査は先に進めません。\n保有先が分かっていれば不要です。分からない場合は、ほふり照会（実務タブの証券・信託）で口座のある証券会社をまとめて確認できます。'
 
 type Kind = '預貯金' | '証券' | '信託銀行'
 type ColType = 'text' | 'req' | 'cancel' | 'accountType' | 'acquirer'
@@ -32,9 +37,9 @@ const COLUMNS: Record<Kind, Col[]> = {
   '預貯金': [
     { key: 'institution_name', label: '金融機関名', type: 'text' },
     { key: 'branch_name', label: '支店', type: 'text', width: 'w-28' },
-    // 財産目録の表記に使う（「みずほ銀行 渋谷支店 普通 1234567」の形）
-    { key: 'account_number', label: '口座番号', type: 'text', width: 'w-32' },
+    // 財産目録の表記と同じ並び（「みずほ銀行 渋谷支店 普通 1234567」）で、口座種別→口座番号
     { key: 'account_type', label: '口座種別', type: 'accountType', width: 'w-24' },
+    { key: 'account_number', label: '口座番号', type: 'text', width: 'w-32' },
     { key: 'all_branch_survey', label: '全店調査', type: 'req', width: 'w-24' },
     { key: 'balance_cert_required', label: '残高証明', type: 'req', width: 'w-24' },
     { key: 'accrued_interest_required', label: '経過利息', type: 'req', width: 'w-24' },
@@ -80,10 +85,12 @@ type Props = {
   cardLayout?: boolean
   /** 金融機関タブで使用：残高確定トグル列を表示（管理担当のみ操作可） */
   showConfirmed?: boolean
+  /** 相続開始日（死亡日）。「相続開始日まで5年」の期間を自動で入れるのに使う */
+  dateOfDeath?: string | null
 }
 
 /** 金融機関の表（預金/証券/信託で列が変わる）。インライン編集・行追加。 */
-export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, progressMode = false, contractDocs = [], institutionFilter, accountId, cardLayout = false, showConfirmed = false }: Props) {
+export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, progressMode = false, contractDocs = [], institutionFilter, accountId, cardLayout = false, showConfirmed = false, dateOfDeath = null }: Props) {
   const supabase = createClient()
   const memberId = useCurrentMember(null)
   const authUser = useAuth()
@@ -225,9 +232,34 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
     commit(r.id, 'transaction_periods', list)
   // 取引明細を「要」にした時点で、空の1本目を用意する（毎回「追加」を押さずに済むように）
   const selectCol = async (r: FinancialAssetRow, key: keyof FinancialAssetRow, v: string) => {
+    // 証券会社の全店調査は時間がかかる。「要」にする前に一度止める（OKしたときだけ保存）
+    if (kind === '証券' && key === 'all_branch_survey' && v === '要' && (r.all_branch_survey ?? '') !== '要') {
+      if (!window.confirm(SEC_SURVEY_CONFIRM)) return
+    }
     await commit(r.id, key, v)
     if (key === 'transaction_detail_required' && v === '要' && txPeriodsOf(r).length === 0) {
       await saveTxPeriods(r, [{ start: null, end: null }])
+    }
+  }
+  // 「相続開始日まで5年」：チェックで（相続開始日−5年 〜 相続開始日）を1本入れる。空の1本目があればそこへ入れる。外すとその1本を消す
+  const fiveYearPeriod = (): { start: string; end: string } | null => {
+    if (!dateOfDeath) return null
+    const d = new Date(`${dateOfDeath}T00:00:00Z`); d.setUTCFullYear(d.getUTCFullYear() - 5)
+    return { start: d.toISOString().slice(0, 10), end: dateOfDeath }
+  }
+  const toggleFiveYears = async (r: FinancialAssetRow, on: boolean) => {
+    const list = txPeriodsOf(r)
+    const p5 = fiveYearPeriod()
+    if (on) {
+      if (!p5) return
+      const emptyIdx = list.findIndex(x => !x.start && !x.end)
+      const next = emptyIdx >= 0 ? list.map((x, i) => (i === emptyIdx ? p5 : x)) : [p5, ...list]
+      await saveTxPeriods(r, next)
+      await commit(r.id, 'tx_five_years', true)
+    } else {
+      const next = p5 ? list.filter(x => !(x.start === p5.start && x.end === p5.end)) : list
+      await saveTxPeriods(r, next)
+      await commit(r.id, 'tx_five_years', false)
     }
   }
   const renderTxPeriodsCell = (r: FinancialAssetRow) => {
@@ -239,8 +271,17 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
       saveTxPeriods(r, list.map((x, j) => (j === i ? { ...x, [key]: v || null } : x)))
     const removeAt = (i: number) => saveTxPeriods(r, list.filter((_, j) => j !== i))
     const dCls = 'px-1 py-1 text-[11px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500'
+    const p5 = fiveYearPeriod()
     return (
       <div className="flex flex-col gap-1 min-w-[248px]">
+        {need && (
+          <label className="inline-flex items-center gap-1.5 text-[11.5px] cursor-pointer">
+            <input type="checkbox" checked={!!r.tx_five_years} disabled={!p5} onChange={e => void toggleFiveYears(r, e.target.checked)} className="w-4 h-4 accent-brand-600" />
+            <span className={r.tx_five_years ? 'text-gray-700 font-semibold' : 'text-gray-500'}>相続開始日まで5年</span>
+            {!p5 && <span className="text-[10.5px] text-amber-700">相続開始日が未入力です</span>}
+            {p5 && r.tx_five_years && <span className="text-[10.5px] text-gray-400">{p5.start.replace(/-/g, '/')} 〜 {p5.end.replace(/-/g, '/')}（手で直せます）</span>}
+          </label>
+        )}
         {list.map((x, i) => (
           <div key={i} className="flex items-center gap-1">
             <span className="text-[10.5px] text-gray-400 w-3 flex-none">{i + 1}</span>
@@ -275,6 +316,11 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
           <input type="checkbox" checked={!!r.balance_cert_on_death} onChange={e => commit(r.id, 'balance_cert_on_death', e.target.checked)} className="w-4 h-4 accent-brand-600" />
           <span className={r.balance_cert_on_death ? 'text-gray-700 font-semibold' : 'text-gray-500'}>相続開始日</span>
         </label>
+        {/* 直近日：金融機関が発行できる直近時点。相続開始日と併用できる（請求モーダルの「直近日」に対応） */}
+        <label className="inline-flex items-center gap-1.5 text-[11.5px] cursor-pointer">
+          <input type="checkbox" checked={!!r.balance_cert_recent} onChange={e => commit(r.id, 'balance_cert_recent', e.target.checked)} className="w-4 h-4 accent-brand-600" />
+          <span className={r.balance_cert_recent ? 'text-gray-700 font-semibold' : 'text-gray-500'}>直近日</span>
+        </label>
         {list.map((d, i) => (
           <div key={i} className="flex items-center gap-1">
             <input type="date" value={d ?? ''} onChange={e => saveBalCertDates(r, list.map((x, j) => (j === i ? e.target.value : x)))} className={dCls} />
@@ -301,7 +347,10 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
         <CardRow key={c.key} label={c.label}>
           {c.type === 'text'
             ? <TextInput value={(r[c.key] as string) ?? null} onChange={v => setLocal(r.id, c.key, v)} onCommit={v => commit(r.id, c.key, v)} />
-            : <SmallSelect value={(r[c.key] as string) ?? ''} options={c.type === 'cancel' ? CANCEL : c.type === 'accountType' ? ACCOUNT_TYPES : REQ} onChange={v => selectCol(r, c.key, v)} />}
+            : <>
+                <SmallSelect value={(r[c.key] as string) ?? ''} options={c.type === 'cancel' ? CANCEL : c.type === 'accountType' ? accountTypesFor(r.institution_name) : REQ} onChange={v => selectCol(r, c.key, v)} />
+                {kind === '証券' && c.key === 'all_branch_survey' && (r.all_branch_survey ?? '') === '要' && <span className="block mt-0.5 text-[11px] text-amber-700">⚠ 回答まで2〜3か月</span>}
+              </>}
         </CardRow>
       ))}
       {showTxPeriods && <CardRow label="取引明細の取得期間">{renderTxPeriodsCell(r)}</CardRow>}
@@ -368,7 +417,10 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
                       {c.type === 'text' ? (
                         <TextInput value={(r[c.key] as string) ?? null} onChange={v => setLocal(r.id, c.key, v)} onCommit={v => commit(r.id, c.key, v)} />
                       ) : (
-                        <SmallSelect value={(r[c.key] as string) ?? ''} options={c.type === 'cancel' ? CANCEL : c.type === 'accountType' ? ACCOUNT_TYPES : REQ} onChange={v => selectCol(r, c.key, v)} />
+                        <>
+                          <SmallSelect value={(r[c.key] as string) ?? ''} options={c.type === 'cancel' ? CANCEL : c.type === 'accountType' ? accountTypesFor(r.institution_name) : REQ} onChange={v => selectCol(r, c.key, v)} />
+                          {kind === '証券' && c.key === 'all_branch_survey' && (r.all_branch_survey ?? '') === '要' && <span className="block mt-0.5 text-[11px] text-amber-700">⚠ 回答まで2〜3か月</span>}
+                        </>
                       )}
                     </td>
                   ))}
