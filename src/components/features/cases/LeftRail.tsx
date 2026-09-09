@@ -23,6 +23,8 @@ export type RailItem = {
   locked?: boolean
   /** 到着物があるか。true で右端に「到着」 */
   received?: boolean
+  /** true＝押せない小見出し（「証券会社」「株主名簿管理人」など） */
+  heading?: boolean
 }
 
 export function LeftRail({ items, active, onChange, extra, onDelete, width = 'w-56' }: {
@@ -39,6 +41,7 @@ export function LeftRail({ items, active, onChange, extra, onDelete, width = 'w-
       {items.map(it => {
         const isTop = it.key === 'top'
         const on = active === it.key
+        if (it.heading) return <div key={it.key} className="px-2.5 pt-3 pb-1 text-[11px] font-semibold text-gray-400 tracking-wide">{it.label}</div>
         return (
           <div key={it.key} className="group/rail relative flex items-center">
             <button type="button" onClick={() => onChange(it.key)}

@@ -31,19 +31,22 @@ import FinancialArrivalModal, { StatusChip } from './FinancialArrivalModal'
 import {
   evaluateInstitution, sealCertificateStatus, sealOriginalStatus, accountDocStatus, requestStatus, itemConditionLabel,
   procedureStage, formSecured, allBranchSearchDone,
-  FORM_SOURCES, FORM_SOURCE_LABEL, SEARCH_METHODS, SEARCH_METHOD_LABEL, SUBMISSION_METHODS, JASDEC_KNOWN,
+  FORM_SOURCES, FORM_SOURCE_LABEL, SEARCH_METHODS, SEARCH_METHOD_LABEL, SUBMISSION_METHODS,
+  HOLDING_KINDS, KNOWN_ADMINISTRATORS, JASDEC_RESULT_KINDS, JASDEC_ACCOUNT_KINDS, canonicalAdministratorName,
   type InstitutionEvaluation,
 } from '@/lib/financialWorkflow'
 import { normalizeTaskStatus, getStartSignal } from '@/lib/taskReadiness'
 import { SURVEY_BAN_DESIGNATIONS, SURVEY_BAN_METHODS } from '@/lib/financialBan'
 import type {
-  FinancialAssetRow, FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow, CaseRow, TaskRow, ContractDocumentRow,
+  FinancialAssetRow, FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow, FinancialJasdecResultRow, CaseRow, TaskRow, ContractDocumentRow,
 } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
-type Kind = '預貯金' | '証券' | '信託銀行'
-/** 実務タブの種別 → 調査先の種別。証券タブにはほふりも出す（証券会社を生やす起点） */
-const KINDS_OF: Record<Kind, FinancialInstitutionRow['kind'][]> = { '預貯金': ['預金'], '証券': ['証券', 'ほふり'], '信託銀行': ['株主名簿管理人'] }
+type Kind = '預貯金' | '証券' | '信託銀行' | '証券・信託'
+/** 実務タブの種別 → 調査先の種別。「証券・信託」は証券会社・株主名簿管理人・ほふりを1つのタブで扱う
+    （ほふりの開示結果から証券会社と信託銀行の特別口座が一緒に判明し、証券会社の銘柄から株主名簿管理人への請求が生まれるため） */
+const KINDS_OF: Record<Kind, FinancialInstitutionRow['kind'][]> = { '預貯金': ['預金'], '証券': ['証券', 'ほふり'], '信託銀行': ['株主名簿管理人'], '証券・信託': ['証券', '株主名簿管理人', 'ほふり'] }
+const JASDEC_NAME = '証券保管振替機構（ほふり）'
 const ACCOUNT_TYPES = ['普通', '定期', '当座', '貯蓄', 'その他']
 const collator = new Intl.Collator('ja')
 const yen = (n: number | null) => (n == null ? '—' : `¥${Math.round(n).toLocaleString('ja-JP')}`)
@@ -59,6 +62,8 @@ type Props = {
   requests: FinancialRequestRow[]
   requestItems: FinancialRequestItemRow[]
   holdings: SecuritiesHoldingRow[]
+  /** ほふり開示結果（証券・信託タブ） */
+  jasdecResults?: FinancialJasdecResultRow[]
   caseData: CaseRow
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
   onRefresh?: () => void
@@ -69,7 +74,7 @@ type Props = {
   focus?: string | null   // タスク詳細からの着地：金融機関名
 }
 
-export default function FinancialSection({ caseId, kind, scopePrefix, assets, institutions: rawInstitutions, requests: allRequests, requestItems: allItems, holdings: allHoldings, caseData, patchCase, onRefresh, tasks = [], focus }: Props) {
+export default function FinancialSection({ caseId, kind, scopePrefix, assets, institutions: rawInstitutions, requests: allRequests, requestItems: allItems, holdings: allHoldings, jasdecResults = [], caseData, patchCase, onRefresh, tasks = [], focus }: Props) {
   const supabase = createClient()
   const memberId = useCurrentMember(null)
   const today = todayYmd()
@@ -100,22 +105,35 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
   const evalOf = (inst: FinancialInstitutionRow): InstitutionEvaluation => {
     const reqs = allRequests.filter(r => r.institution_id === inst.id)
     const ids = new Set(reqs.map(r => r.id))
-    return evaluateInstitution({ institution: inst, requests: reqs, items: allItems.filter(it => ids.has(it.request_id)), holdings: allHoldings.filter(h => h.institution_id === inst.id), seal, today })
+    return evaluateInstitution({ institution: inst, requests: reqs, items: allItems.filter(it => ids.has(it.request_id)), holdings: allHoldings.filter(h => h.institution_id === inst.id), seal, today,
+      jasdecResults: inst.kind === 'ほふり' ? jasdecResults.filter(r => r.jasdec_id === inst.id) : undefined })
   }
   // 口座は登録した順のまま。支店や種別で並べ直すと、種別を変えた瞬間に行が飛んで気持ち悪い
   const accountsOf = (inst: FinancialInstitutionRow) => assets.filter(a => a.institution_id === inst.id)
     .sort((a, b) => ((a as { created_at?: string }).created_at ?? '').localeCompare((b as { created_at?: string }).created_at ?? '') || a.id.localeCompare(b.id))
 
-  const railItems = [
-    { key: 'top', label: '一覧（TOP）' },
-    ...institutions.map(i => ({
-      key: i.id, label: i.name || '（名称未入力）',
-      note: i.kind === '預金' ? null : i.kind,
-      count: i.kind === '預金' ? accountsOf(i).length : i.kind === 'ほふり' ? null : allHoldings.filter(h => h.institution_id === i.id).length,
-      received: allItems.some(it => allRequests.some(r => r.id === it.request_id && r.institution_id === i.id) && !!it.arrival_date),
-    })),
-  ]
-  const active = institutions.find(i => i.id === sub) ?? null
+  const isSecTab = kind === '証券・信託'
+  const jasdec = isSecTab ? (institutions.find(i => i.kind === 'ほふり') ?? null) : null
+  const jasdecRows = jasdec ? jasdecResults.filter(r => r.jasdec_id === jasdec.id).sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at)) : []
+  const railOf = (i: FinancialInstitutionRow) => ({
+    key: i.id, label: i.name || '（名称未入力）',
+    note: i.kind === '預金' || isSecTab ? null : i.kind,
+    count: i.kind === '預金' ? accountsOf(i).length : i.kind === 'ほふり' ? null : allHoldings.filter(h => h.institution_id === i.id).length,
+    received: allItems.some(it => allRequests.some(r => r.id === it.request_id && r.institution_id === i.id) && !!it.arrival_date),
+  })
+  const railItems = isSecTab
+    ? [
+        { key: 'top', label: '一覧（TOP）' },
+        // ほふり照会は調査先ではなく案件に1つの入口。レールの先頭に固定で置く（無ければ押したときに作る）
+        { key: 'jasdec', label: 'ほふり照会', note: jasdec ? (jasdec.jasdec_company_known === '調査不要' ? '不要' : jasdec.jasdec_arrival_date ? '結果あり' : jasdec.jasdec_request_date ? '回答待ち' : '未請求') : '未着手',
+          dotColor: jasdec ? (jasdec.jasdec_company_known === '調査不要' || (jasdec.jasdec_arrival_date && jasdecRows.length > 0 && jasdecRows.every(r => !!r.institution_id)) ? '#059669' : jasdec.jasdec_request_date ? '#f59e0b' : '#9ca3af') : '#d1d5db' },
+        { key: 'h-sec', label: '証券会社', heading: true },
+        ...institutions.filter(i => i.kind === '証券').map(railOf),
+        { key: 'h-adm', label: '株主名簿管理人（信託銀行等）', heading: true },
+        ...institutions.filter(i => i.kind === '株主名簿管理人').map(railOf),
+      ]
+    : [{ key: 'top', label: '一覧（TOP）' }, ...institutions.map(railOf)]
+  const active = sub === 'jasdec' ? jasdec : (institutions.find(i => i.id === sub && i.kind !== 'ほふり') ?? null)
 
   // ── 調査先の追加・削除 ──
   const addInstitution = async (form: { kind: FinancialInstitutionRow['kind']; name: string; branch: string; code: string }) => {
@@ -129,8 +147,74 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
     if (error || !data) { showToast(`追加に失敗しました: ${error?.message ?? ''}`, 'error'); return }
     setAddOpen(false); setSub((data as { id: string }).id); setTab('procedure'); onRefresh?.()
   }
+  // ほふり照会を開く。まだ無ければ調査先（kind=ほふり）を作ってから開く
+  const openJasdec = async () => {
+    setSub('jasdec'); setTab('procedure')
+    if (jasdec) return
+    const { error } = await supabase.from('financial_institutions').insert({
+      case_id: caseId, kind: 'ほふり', name: JASDEC_NAME, jasdec_company_known: '不明', freeze_required: false, form_required: false, search_required: false, sort_order: 0,
+    })
+    if (error) { showToast(`ほふり照会を作れませんでした: ${error.message}`, 'error'); return }
+    onRefresh?.()
+  }
+  const addJasdecRow = async () => {
+    if (!jasdec) return
+    const { error } = await supabase.from('financial_jasdec_results').insert({ case_id: caseId, jasdec_id: jasdec.id, name: '', kind: '証券会社', account_kind: '取引口座', sort_order: jasdecRows.length })
+    if (error) { showToast(`追加に失敗: ${error.message}`, 'error'); return }
+    onRefresh?.()
+  }
+  const saveJasdecRow = async (id: string, patch: Partial<FinancialJasdecResultRow>) => {
+    const { error } = await supabase.from('financial_jasdec_results').update(patch).eq('id', id)
+    if (error) showToast(`保存に失敗: ${error.message}`, 'error'); else onRefresh?.()
+  }
+  const deleteJasdecRow = async (r: FinancialJasdecResultRow) => {
+    if (!window.confirm(`「${r.name || '（名称未入力）'}」を開示結果から外しますか？（調査先は消えません）`)) return
+    const { error } = await supabase.from('financial_jasdec_results').delete().eq('id', r.id)
+    if (error) showToast(`削除に失敗: ${error.message}`, 'error'); else onRefresh?.()
+  }
+  /** 開示結果の1行を調査先にする。同名の調査先があればそれに紐づける */
+  const addInstitutionFromJasdec = async (r: FinancialJasdecResultRow) => {
+    const isAdminKind = r.kind === '株主名簿管理人'
+    const name = (isAdminKind ? canonicalAdministratorName(r.name) : r.name).trim()
+    if (!name) { showToast('機関名を入れてから追加してください', 'error'); return }
+    const existing = allInstitutions.find(i => i.kind === (isAdminKind ? '株主名簿管理人' : '証券') && i.name.trim() === name)
+    let instId = existing?.id ?? null
+    if (!instId) {
+      const { data, error } = await supabase.from('financial_institutions').insert({
+        case_id: caseId, kind: isAdminKind ? '株主名簿管理人' : '証券', name, sort_order: institutions.length,
+        freeze_required: !isAdminKind, search_required: false,
+      }).select('id').single()
+      if (error || !data) { showToast(`調査先の追加に失敗: ${error?.message ?? ''}`, 'error'); return }
+      instId = (data as { id: string }).id
+    }
+    await saveJasdecRow(r.id, { institution_id: instId })
+    showToast(existing ? `既にある「${name}」に紐づけました` : `「${name}」を調査先に追加しました`, 'success')
+  }
+  /** 銘柄の株主名簿管理人から調査先を作る（無ければ） */
+  const addAdministratorInstitution = async (adminName: string) => {
+    const name = canonicalAdministratorName(adminName).trim(); if (!name) return
+    if (allInstitutions.some(i => i.kind === '株主名簿管理人' && i.name.trim() === name)) { showToast('その株主名簿管理人はもう調査先にあります', 'info'); return }
+    const { error } = await supabase.from('financial_institutions').insert({ case_id: caseId, kind: '株主名簿管理人', name, sort_order: institutions.length, freeze_required: false, search_required: false })
+    if (error) { showToast(`調査先の追加に失敗: ${error.message}`, 'error'); return }
+    showToast(`「${name}」を調査先に追加しました`, 'success'); onRefresh?.()
+  }
+  const addHolding = async (inst: FinancialInstitutionRow) => {
+    const n = allHoldings.filter(h => h.institution_id === inst.id).length
+    const { error } = await supabase.from('securities_holdings').insert({ case_id: caseId, institution_id: inst.id, kind: inst.kind === '株主名簿管理人' ? '国内株式' : null, admin_status: inst.kind === '株主名簿管理人' ? '対象外' : '未特定', request_need: '未判断', sort_order: n })
+    if (error) { showToast(`追加に失敗: ${error.message}`, 'error'); return }
+    onRefresh?.()
+  }
+  const saveHolding = async (id: string, patch: Partial<SecuritiesHoldingRow>) => {
+    const { error } = await supabase.from('securities_holdings').update(patch).eq('id', id)
+    if (error) showToast(`保存に失敗: ${error.message}`, 'error'); else onRefresh?.()
+  }
+  const deleteHolding = async (h: SecuritiesHoldingRow) => {
+    if (!window.confirm(`銘柄「${h.brand_name || '（名称未入力）'}」を削除しますか？`)) return
+    const { error } = await supabase.from('securities_holdings').delete().eq('id', h.id)
+    if (error) showToast(`削除に失敗: ${error.message}`, 'error'); else onRefresh?.()
+  }
   const deleteInstitution = async (key: string) => {
-    const inst = institutions.find(i => i.id === key); if (!inst) return
+    const inst = key === 'jasdec' ? jasdec : institutions.find(i => i.id === key); if (!inst) return
     const n = accountsOf(inst).length, m = allRequests.filter(r => r.institution_id === inst.id).length
     if (!window.confirm(`「${inst.name}」を削除します。\n口座 ${n}件・請求 ${m}件も一緒に消えます。よろしいですか？`)) return
     const { error } = await supabase.from('financial_institutions').delete().eq('id', inst.id)
@@ -187,7 +271,7 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
   return (
     <div className="space-y-3">
       <div className="flex gap-3 items-start">
-        <LeftRail items={railItems} active={sub} onChange={k => { setSub(k); setTab('procedure') }} onDelete={deleteInstitution} extra={
+        <LeftRail items={railItems} active={sub} onChange={k => { if (k === 'jasdec') { void openJasdec(); return } setSub(k); setTab('procedure') }} onDelete={deleteInstitution} extra={
           <button type="button" onClick={() => setAddOpen(true)} className="mt-1 text-left text-[12px] px-2.5 py-1.5 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-brand-700 hover:border-brand-300 inline-flex items-center gap-1">
             <Plus className="w-3 h-3" /> 調査先
           </button>
@@ -196,8 +280,15 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
           {!active ? (
             <>
               <SealWarning caseData={caseData} requests={allRequests} institutions={allInstitutions} today={today} />
-              <TopTable institutions={institutions} evalOf={evalOf} accountsOf={accountsOf} holdings={allHoldings} requests={allRequests} items={allItems} tasks={tasks} onOpen={id => { setSub(id); setTab('procedure') }} />
+              <TopTable layout={isSecTab ? 'securities' : 'deposit'} institutions={institutions} evalOf={evalOf} accountsOf={accountsOf} holdings={allHoldings} requests={allRequests} items={allItems} tasks={tasks} jasdecRows={jasdecRows}
+                onOpen={id => { const i = institutions.find(x => x.id === id); if (i?.kind === 'ほふり') { void openJasdec(); return } setSub(id); setTab('procedure') }} />
             </>
+          ) : sub === 'jasdec' && !active ? (
+            <div className="bg-white px-4 py-8 text-center text-[13px] text-gray-500">ほふり照会を準備しています…</div>
+          ) : active.kind === 'ほふり' ? (
+            <JasdecPage inst={active} ev={evalOf(active)} rows={jasdecRows} institutions={allInstitutions} caseId={caseId} scopePrefix={scopePrefix} today={today}
+              save={p => saveInst(active, p)} addRow={addJasdecRow} saveRow={saveJasdecRow} deleteRow={deleteJasdecRow} addInstitution={addInstitutionFromJasdec}
+              openInstitution={id => { setSub(id); setTab('procedure') }} />
           ) : (
             <InstitutionPage
               inst={active} ev={evalOf(active)} accounts={accountsOf(active)}
@@ -208,6 +299,8 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
               sealWarning={<SealWarning caseData={caseData} requests={allRequests} institutions={allInstitutions} today={today} />}
               saveInst={p => saveInst(active, p)} saveAsset={saveAsset} addAccount={() => addAccount(active)} deleteAccount={deleteAccount}
               openRequest={() => setRequestOpen(true)} openArrival={setArrivalId} deleteRequest={deleteRequest} copyRequest={copyRequest}
+              institutions={allInstitutions} addHolding={() => addHolding(active)} saveHolding={saveHolding} deleteHolding={deleteHolding}
+              addAdministratorInstitution={addAdministratorInstitution} openInstitution={id => { setSub(id); setTab('procedure') }}
             />
           )}
         </div>
@@ -253,7 +346,10 @@ function taskIsForBank(t: TaskRow, bank: string): boolean {
   if (m && m[1].trim() === bank) return true
   return !!bank && (t.title ?? '').includes(bank)
 }
-function TopTable({ institutions, evalOf, accountsOf, holdings, requests, items, tasks, onOpen }: {
+function TopTable({ layout, institutions, evalOf, accountsOf, holdings, requests, items, tasks, jasdecRows, onOpen }: {
+  /** deposit＝1行1口座／securities＝1行1銘柄（ほふりは1行） */
+  layout: 'deposit' | 'securities'
+  jasdecRows: FinancialJasdecResultRow[]
   institutions: FinancialInstitutionRow[]
   evalOf: (i: FinancialInstitutionRow) => InstitutionEvaluation
   accountsOf: (i: FinancialInstitutionRow) => FinancialAssetRow[]
@@ -284,6 +380,87 @@ function TopTable({ institutions, evalOf, accountsOf, holdings, requests, items,
   }
   const bankTd = 'px-2.5 py-2 align-middle'
   const bankBorder = 'border-b border-slate-300'
+  const holdingAmt = (h: SecuritiesHoldingRow) => h.amount ?? ((h.quantity ?? 0) * (h.unit_price ?? 0))
+  if (layout === 'securities') {
+    // ほふりは先頭、次に証券会社、最後に株主名簿管理人
+    const order = (i: FinancialInstitutionRow) => (i.kind === 'ほふり' ? 0 : i.kind === '証券' ? 1 : 2)
+    const list = [...institutions].sort((a, b) => order(a) - order(b))
+    return (
+      <div>
+        <SectionHeading title="調査先の一覧" hint="1行＝1銘柄。調査先・次の対応・進行中のタスクは調査先ごとに1つ。銘柄の株主名簿管理人から、信託銀行を調査先に足せます。" className="mb-1.5 pb-1.5 border-b border-gray-200" />
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px] border-collapse" style={{ minWidth: 980 }}>
+            <thead>
+              <tr>
+                <th className="px-2.5 py-2 text-left w-48">調査先</th>
+                <th className="px-2.5 py-2 text-left">銘柄</th>
+                <th className="px-2.5 py-2 text-left w-24">種類</th>
+                <th className="px-2.5 py-2 text-right w-24">数量</th>
+                <th className="px-2.5 py-2 text-right w-32">評価額</th>
+                <th className="px-2.5 py-2 text-left w-40">株主名簿管理人</th>
+                <th className="px-2.5 py-2 text-left w-56">次の対応</th>
+                <th className="px-2.5 py-2 text-left w-60">進行中のタスク</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.length === 0 ? (
+                <tr><td colSpan={8} className="px-3 py-6 text-center text-gray-400">調査先がありません。左の「ほふり照会」から始めるか、「＋ 調査先」で証券会社を追加してください。</td></tr>
+              ) : list.map(i => {
+                const ev = evalOf(i)
+                const nextCell = <>{ev.next}{ev.parallelNext && <span className="block text-[12px] text-gray-400">並行：{ev.parallelNext}</span>}</>
+                const rowCls = 'cursor-pointer hover:bg-brand-50/30'
+                if (i.kind === 'ほふり') {
+                  const linked = jasdecRows.filter(r => !!r.institution_id).length
+                  return (
+                    <tr key={i.id} onClick={() => onOpen(i.id)} className={`${rowCls} ${bankBorder}`}>
+                      <td className={`${bankTd} font-medium text-gray-800`}>ほふり照会<span className="ml-1.5 text-[11px] text-gray-400">案件に1つ</span></td>
+                      <td className={`${bankTd} text-[12px] text-gray-500`} colSpan={5}>
+                        {i.jasdec_company_known === '調査不要' ? '不要（保有先が判明している）' : !i.jasdec_request_date ? '未請求' : !i.jasdec_arrival_date ? `開示請求 ${md(i.jasdec_request_date)}・結果待ち` : `開示結果 ${jasdecRows.length}機関 → 調査先へ ${linked}／${jasdecRows.length}`}
+                      </td>
+                      <td className={`${bankTd} text-gray-700`}>{nextCell}</td>
+                      <td className={bankTd}>{taskCell(i)}</td>
+                    </tr>
+                  )
+                }
+                const hs = holdings.filter(h => h.institution_id === i.id)
+                const n = Math.max(1, hs.length)
+                const kindTag = <span className="ml-1.5 text-[11px] text-gray-400">{i.kind === '証券' ? '証券会社' : i.kind}</span>
+                if (hs.length === 0) {
+                  return (
+                    <tr key={i.id} onClick={() => onOpen(i.id)} className={`${rowCls} ${bankBorder}`}>
+                      <td className={`${bankTd} font-medium text-gray-800`}>{i.name}{kindTag}</td>
+                      <td className={`${bankTd} text-[12px] text-gray-400`} colSpan={5}>銘柄なし{requests.some(r => r.institution_id === i.id) ? `（${requestStatus(requests.find(r => r.institution_id === i.id)!, items.filter(it => requests.some(r => r.id === it.request_id && r.institution_id === i.id)))}）` : ''}</td>
+                      <td className={`${bankTd} text-gray-700`}>{nextCell}</td>
+                      <td className={bankTd}>{taskCell(i)}</td>
+                    </tr>
+                  )
+                }
+                return hs.map((h, idx) => {
+                  const last = idx === n - 1
+                  const adminInst = h.administrator ? institutions.find(x => x.kind === '株主名簿管理人' && x.name.trim() === h.administrator!.trim()) : null
+                  return (
+                    <tr key={h.id} onClick={() => onOpen(i.id)} className={`${rowCls} ${last ? bankBorder : 'border-b border-gray-100'}`}>
+                      {idx === 0 && <td rowSpan={n} className={`${bankTd} ${bankBorder} font-medium text-gray-800`}>{i.name}{kindTag}</td>}
+                      <td className={`${bankTd} text-gray-800`}>{h.brand_name || <span className="text-gray-300">—</span>}{h.code && <span className="ml-1.5 text-[11px] text-gray-400">{h.code}</span>}</td>
+                      <td className={`${bankTd} text-gray-600 text-[12px]`}>{h.kind ?? '—'}</td>
+                      <td className={`${bankTd} text-right tabular-nums`}>{h.quantity != null ? h.quantity.toLocaleString('ja-JP') : '—'}</td>
+                      <td className={`${bankTd} text-right tabular-nums`}>{holdingAmt(h) ? yen(holdingAmt(h)) : '—'}</td>
+                      <td className={`${bankTd} text-[12px]`}>{i.kind === '株主名簿管理人' ? <span className="text-gray-300">—</span> : h.admin_status === '対象外' ? <span className="text-gray-400">対象外</span> : h.administrator ? <span className="text-gray-700">{h.administrator}{adminInst ? <span className="ml-1 text-emerald-700">✓</span> : <span className="ml-1 text-amber-700">未追加</span>}</span> : <span className="text-amber-700">未特定</span>}</td>
+                      {idx === 0 && <td rowSpan={n} className={`${bankTd} ${bankBorder} text-gray-700`}>{nextCell}</td>}
+                      {idx === 0 && <td rowSpan={n} className={`${bankTd} ${bankBorder}`}>{taskCell(i)}</td>}
+                    </tr>
+                  )
+                })
+              })}
+            </tbody>
+            {list.length > 0 && (
+              <tfoot><tr className="bg-gray-50 font-semibold text-gray-700"><td className="px-2.5 py-2 text-right" colSpan={4}>合計（入力済みの評価額）</td><td className="px-2.5 py-2 text-right tabular-nums">{yen(holdings.filter(h => list.some(i => i.id === h.institution_id)).reduce((x, h) => x + holdingAmt(h), 0))}</td><td colSpan={3} /></tr></tfoot>
+            )}
+          </table>
+        </div>
+      </div>
+    )
+  }
   return (
     <div>
       <SectionHeading title="調査先の一覧" hint="1行＝1口座。調査先・次の対応・進行中のタスクは銀行ごとに1つ。行を押すとその調査先を開きます。" className="mb-1.5 pb-1.5 border-b border-gray-200" />
@@ -352,7 +529,7 @@ function TopTable({ institutions, evalOf, accountsOf, holdings, requests, items,
 }
 
 // ── 調査先のページ ────────────────────────────────────────────
-function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, setTab, scopePrefix, caseId, memberId, today, caseData, patchCase, sealWarning, saveInst, saveAsset, addAccount, deleteAccount, openRequest, openArrival, deleteRequest, copyRequest }: {
+function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, setTab, scopePrefix, caseId, memberId, today, caseData, patchCase, sealWarning, saveInst, saveAsset, addAccount, deleteAccount, openRequest, openArrival, deleteRequest, copyRequest, institutions, addHolding, saveHolding, deleteHolding, addAdministratorInstitution, openInstitution }: {
   inst: FinancialInstitutionRow; ev: InstitutionEvaluation; accounts: FinancialAssetRow[]
   requests: FinancialRequestRow[]; items: FinancialRequestItemRow[]; holdings: SecuritiesHoldingRow[]
   tab: 'procedure' | 'accounts' | 'requests' | 'holdings'; setTab: (t: 'procedure' | 'accounts' | 'requests' | 'holdings') => void
@@ -364,6 +541,10 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
   saveAsset: (id: string, p: Partial<FinancialAssetRow>) => Promise<void>
   addAccount: () => void; deleteAccount: (a: FinancialAssetRow) => void
   openRequest: () => void; openArrival: (id: string) => void; deleteRequest: (r: FinancialRequestRow) => void; copyRequest: (r: FinancialRequestRow) => void
+  /** 銘柄タブ用：全調査先（管理人が調査先にあるか）と銘柄の操作 */
+  institutions: FinancialInstitutionRow[]
+  addHolding: () => void; saveHolding: (id: string, p: Partial<SecuritiesHoldingRow>) => Promise<void>; deleteHolding: (h: SecuritiesHoldingRow) => void
+  addAdministratorInstitution: (name: string) => Promise<void>; openInstitution: (id: string) => void
 }) {
   const isDeposit = inst.kind === '預金', isSec = inst.kind === '証券', isAdmin = inst.kind === '株主名簿管理人', isJasdec = inst.kind === 'ほふり'
   const reqItems = (r: FinancialRequestRow) => items.filter(it => it.request_id === r.id)
@@ -390,7 +571,7 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
           </div>
         </div>
         <div className="p-3.5">
-          {tab === 'procedure' && (isJasdec ? <JasdecCard inst={inst} save={saveInst} /> : <ProcedureCards inst={inst} ev={ev} requests={requests} save={saveInst} memberId={memberId} today={today} caseData={caseData} patchCase={patchCase} goRequests={() => setTab('requests')} />)}
+          {tab === 'procedure' && (<ProcedureCards inst={inst} ev={ev} requests={requests} save={saveInst} memberId={memberId} today={today} caseData={caseData} patchCase={patchCase} goRequests={() => setTab('requests')} />)}
           {tab === 'accounts' && (
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -460,7 +641,8 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
             </div>
           )}
           {tab === 'holdings' && (
-            <p className="text-[12px] text-gray-500 px-1 py-4">銘柄の登録と株主名簿管理人の特定は段階4で作ります。いまは従来の銘柄明細（証券タブ）をご利用ください。</p>
+            <HoldingsTable inst={inst} holdings={holdings} institutions={institutions} addHolding={addHolding} saveHolding={saveHolding} deleteHolding={deleteHolding}
+              addAdministratorInstitution={addAdministratorInstitution} openInstitution={openInstitution} />
           )}
         </div>
       </div>
@@ -761,28 +943,152 @@ function ProcedureCards({ inst: i, ev, requests, save, memberId, today, caseData
   )
 }
 
-// ── ほふり ─────────────────────────────────────────────────────
-function JasdecCard({ inst: i, save }: { inst: FinancialInstitutionRow; save: (p: Partial<FinancialInstitutionRow>) => Promise<void> }) {
+// ── ほふり照会のページ ──────────────────────────────────────────
+// 証券・信託タブの入口。どこに株があるか分からないときに、証券保管振替機構へ開示請求する。
+// 開示結果には証券会社の取引口座と、信託銀行（株主名簿管理人）の特別口座が一緒に載るので、
+// 1行1機関で表に入れ、「調査先に追加」で左レールに増やす。全行を追加したら照会は完了。
+function JasdecPage({ inst: i, ev, rows, institutions, caseId, scopePrefix, today, save, addRow, saveRow, deleteRow, addInstitution, openInstitution }: {
+  inst: FinancialInstitutionRow; ev: InstitutionEvaluation; rows: FinancialJasdecResultRow[]; institutions: FinancialInstitutionRow[]
+  caseId: string; scopePrefix: string; today: string
+  save: (p: Partial<FinancialInstitutionRow>) => Promise<void>
+  addRow: () => Promise<void>; saveRow: (id: string, p: Partial<FinancialJasdecResultRow>) => Promise<void>; deleteRow: (r: FinancialJasdecResultRow) => Promise<void>
+  addInstitution: (r: FinancialJasdecResultRow) => Promise<void>; openInstitution: (id: string) => void
+}) {
+  const notNeeded = i.jasdec_company_known === '調査不要'
+  const grid4 = 'grid grid-cols-[minmax(0,1fr)] sm:grid-cols-[9.5rem_minmax(0,1fr)_9.5rem_minmax(0,1fr)]'
+  const linked = rows.filter(r => !!r.institution_id).length
   return (
-    <div className="space-y-2.5">
-      <PracticeGroup title="この調査先の前提" sub="ほふりは証券会社ではなく、開示結果から証券会社を追加する起点">
-        <PracticeRow label="名称"><TxtCell value={i.name} onCommit={v => { if (v.trim()) void save({ name: v.trim() }) }} placeholder="名称" /></PracticeRow>
-        <PracticeRow label="種別"><span>{i.kind}</span></PracticeRow>
-      </PracticeGroup>
-      <PracticeGroup no="Step1" title="開示請求" sub="登録済加入者情報の開示請求" right={<StatusChip s={i.jasdec_arrival_date ? '取得済' : i.jasdec_request_date ? '請求中' : '請求準備中'} />}>
-        <PracticeRow label="判明状況"><SelCell value={i.jasdec_company_known} options={[...JASDEC_KNOWN]} onChange={v => void save({ jasdec_company_known: v || null })} /></PracticeRow>
-        <PracticeRow label="開示請求日"><DateCell value={i.jasdec_request_date} onCommit={v => void save({ jasdec_request_date: v || null })} /></PracticeRow>
-        <PracticeRow label="結果到着日"><DateCell value={i.jasdec_arrival_date} onCommit={v => void save({ jasdec_arrival_date: v || null })} /></PracticeRow>
-        <PracticeRow label="調査対象住所" sub="現住所・旧住所。複数可" full><TxtCell value={i.jasdec_searched_addresses} onCommit={v => void save({ jasdec_searched_addresses: v || null })} placeholder="住所を「、」区切りで" /></PracticeRow>
-        <PracticeRow label="判明した証券会社" full><TxtCell value={i.jasdec_result_institutions} onCommit={v => void save({ jasdec_result_institutions: v || null })} placeholder="例：○○証券、△△証券" /></PracticeRow>
-      </PracticeGroup>
+    <div className="space-y-3.5">
+      <ProgressSummary caseId={caseId} scopeKey={`${scopePrefix}_inst_${i.id}`} title="進捗/結果（ほふり照会）" collapsible />
+      <div className="bg-white">
+        <div className="flex items-center justify-between gap-4 px-3.5 py-2.5 border-b border-gray-200">
+          <span className="text-[14px] font-bold text-gray-800">ほふり照会<span className="ml-2 text-[12px] font-normal text-gray-500">証券保管振替機構への登録済加入者情報の開示請求</span></span>
+          <div className="min-w-0 text-right text-[13px] text-gray-500 truncate">次の対応<span className="ml-2 text-[14px] font-semibold text-gray-800">{ev.next}</span></div>
+        </div>
+        <div className="p-3.5 space-y-1">
+          <PhaseHeading no={1} title="ほふり照会" sub="どこに株があるか分からないときの入口。保有先が判明していれば「不要」" />
+          <div className={grid4}>
+            <PracticeRow label="要否" full>
+              <Chk checked={notNeeded} onChange={on => void save({ jasdec_company_known: on ? '調査不要' : '不明' })} label="不要（保有先が判明している）" />
+            </PracticeRow>
+            {!notNeeded && (<>
+              <PracticeRow label="調査対象住所" sub="現住所・旧住所。複数可" full><TxtCell value={i.jasdec_searched_addresses} onCommit={v => void save({ jasdec_searched_addresses: v || null })} placeholder="住所を「、」区切りで" /></PracticeRow>
+              <PracticeRow label="開示請求日"><DateCell value={i.jasdec_request_date} onCommit={v => void save({ jasdec_request_date: v || null })} /></PracticeRow>
+              <PracticeRow label="結果到着"><Chk checked={!!i.jasdec_arrival_date} onChange={on => void save({ jasdec_arrival_date: on ? today : null })} label="届いた" note={md(i.jasdec_arrival_date)} /></PracticeRow>
+            </>)}
+          </div>
+
+          {!notNeeded && (<>
+            <PhaseHeading no={2} title="判明した口座管理機関" sub="開示結果の一覧をそのまま入れる。「調査先に追加」で左レールに増える" />
+            <div className="px-1 pt-2">
+              <table className="w-full text-[13px] border-collapse">
+                <thead><tr>
+                  <th className="px-2 py-2 text-left">機関名</th><th className="px-2 py-2 text-left w-36">区分</th><th className="px-2 py-2 text-left w-28">口座の種類</th><th className="px-2 py-2 text-left w-40">調査先</th><th className="w-8" />
+                </tr></thead>
+                <tbody>
+                  {rows.length === 0 ? (
+                    <tr><td colSpan={5} className="px-3 py-5 text-center text-gray-400 text-[12.5px]">{i.jasdec_arrival_date ? '開示結果に載っている機関を1行ずつ追加してください' : '結果が届いたら、載っている機関をここに入れます'}</td></tr>
+                  ) : rows.map(r => {
+                    const linkedInst = r.institution_id ? institutions.find(x => x.id === r.institution_id) : null
+                    return (
+                      <tr key={r.id} className="border-b border-gray-100">
+                        <td className="px-2 py-1.5"><TxtCell value={r.name} onCommit={v => void saveRow(r.id, { name: v })} placeholder={r.kind === '株主名簿管理人' ? '例：三井住友信託銀行' : '例：野村證券 横浜支店'} /></td>
+                        <td className="px-2 py-1.5"><SelCell value={r.kind} options={[...JASDEC_RESULT_KINDS]} onChange={v => void saveRow(r.id, { kind: v || '証券会社', account_kind: v === '株主名簿管理人' ? '特別口座' : '取引口座' })} /></td>
+                        <td className="px-2 py-1.5"><SelCell value={r.account_kind} options={[...JASDEC_ACCOUNT_KINDS]} onChange={v => void saveRow(r.id, { account_kind: v || null })} /></td>
+                        <td className="px-2 py-1.5">
+                          {linkedInst
+                            ? <button type="button" onClick={() => openInstitution(linkedInst.id)} className="inline-flex items-center gap-1 text-[12px] font-semibold text-emerald-700 hover:underline">✓ 追加済み（{linkedInst.name}）</button>
+                            : <button type="button" onClick={() => void addInstitution(r)} className="px-2.5 py-1 text-[12px] font-semibold text-brand-700 bg-white border border-brand-400 hover:bg-brand-50">＋ 調査先に追加</button>}
+                        </td>
+                        <td className="px-1 py-1.5 text-center"><button type="button" onClick={() => void deleteRow(r)} className="text-gray-300 hover:text-red-500" title="外す"><Trash2 className="w-3.5 h-3.5" /></button></td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              <div className="flex items-center gap-3 mt-2">
+                <button type="button" onClick={() => void addRow()} className="inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-semibold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50"><Plus className="w-3.5 h-3.5" />機関を追加</button>
+                {rows.length > 0 && <span className="text-[12px] text-gray-500">調査先へ {linked}／{rows.length}</span>}
+              </div>
+            </div>
+          </>)}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── 銘柄の表（証券会社・株主名簿管理人） ──────────────────────
+// 証券会社の残高証明が届いたら、銘柄をここに登録する。国内株式は株主名簿管理人（信託銀行）を入れると
+// 「調査先に追加」で信託銀行のページが生まれる（特別口座・未受領配当の請求はそちら）。
+function NumCell({ value, onCommit, step = 1 }: { value: number | null; onCommit: (v: number | null) => void; step?: number }) {
+  return <input type="number" step={step} defaultValue={value ?? ''} key={`n-${value ?? ''}`} onBlur={e => { const v = e.target.value === '' ? null : Number(e.target.value); if (v !== (value ?? null)) onCommit(v) }} className="input-flat w-full px-2.5 py-1.5 text-[14px] text-gray-800 outline-none text-right tabular-nums" />
+}
+function HoldingsTable({ inst, holdings, institutions, addHolding, saveHolding, deleteHolding, addAdministratorInstitution, openInstitution }: {
+  inst: FinancialInstitutionRow; holdings: SecuritiesHoldingRow[]; institutions: FinancialInstitutionRow[]
+  addHolding: () => void; saveHolding: (id: string, p: Partial<SecuritiesHoldingRow>) => Promise<void>; deleteHolding: (h: SecuritiesHoldingRow) => void
+  addAdministratorInstitution: (name: string) => Promise<void>; openInstitution: (id: string) => void
+}) {
+  const isAdmin = inst.kind === '株主名簿管理人'
+  const rows = [...holdings].sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
+  const total = rows.reduce((x, h) => x + (h.amount ?? ((h.quantity ?? 0) * (h.unit_price ?? 0))), 0)
+  const adminApplies = (h: SecuritiesHoldingRow) => h.kind === '国内株式' || h.kind === 'ETF・REIT' || h.kind == null
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[12px] text-gray-500">{isAdmin ? '特別口座の株式や未受領配当。所有株式数証明書から転記します。' : '残高証明書から銘柄・数量・評価額を転記します。国内株式は株主名簿管理人を入れると、その信託銀行を調査先に足せます。'}</p>
+        <button type="button" onClick={addHolding} className="inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-semibold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50"><Plus className="w-3.5 h-3.5" />銘柄を追加</button>
+      </div>
+      <datalist id="admin-candidates">{KNOWN_ADMINISTRATORS.map(a => <option key={a} value={a} />)}</datalist>
+      <table className="w-full text-[13px] border-collapse">
+        <thead><tr>
+          <th className="px-2 py-2 text-left">銘柄名</th><th className="px-2 py-2 text-left w-20">コード</th><th className="px-2 py-2 text-left w-28">種類</th>
+          <th className="px-2 py-2 text-right w-24">数量</th><th className="px-2 py-2 text-right w-24">単価</th><th className="px-2 py-2 text-right w-32">評価額</th><th className="px-2 py-2 text-left w-32">基準日</th>
+          {!isAdmin && <th className="px-2 py-2 text-left w-56">株主名簿管理人</th>}
+          <th className="px-2 py-2 text-left">備考</th><th className="w-8" />
+        </tr></thead>
+        <tbody>
+          {rows.length === 0 ? <tr><td colSpan={isAdmin ? 9 : 10} className="px-3 py-5 text-center text-gray-400">銘柄がありません</td></tr> : rows.map(h => {
+            const adminInst = h.administrator ? institutions.find(x => x.kind === '株主名簿管理人' && x.name.trim() === h.administrator!.trim()) : null
+            return (
+              <tr key={h.id} className="border-b border-gray-100 [&>td]:align-middle">
+                <td className="px-2 py-1"><TxtCell value={h.brand_name} onCommit={v => void saveHolding(h.id, { brand_name: v || null })} placeholder="例：トヨタ自動車" /></td>
+                <td className="px-2 py-1"><TxtCell value={h.code} onCommit={v => void saveHolding(h.id, { code: v || null })} placeholder="7203" /></td>
+                <td className="px-2 py-1"><SelCell value={h.kind} options={[...HOLDING_KINDS]} onChange={v => void saveHolding(h.id, { kind: v || null, ...(v && v !== '国内株式' && v !== 'ETF・REIT' && !h.administrator ? { admin_status: '対象外' } : {}), ...((v === '国内株式' || v === 'ETF・REIT') && h.admin_status === '対象外' ? { admin_status: h.administrator ? '特定済' : '未特定' } : {}) })} /></td>
+                <td className="px-2 py-1"><NumCell value={h.quantity} onCommit={v => void saveHolding(h.id, { quantity: v })} /></td>
+                <td className="px-2 py-1"><NumCell value={h.unit_price} onCommit={v => void saveHolding(h.id, { unit_price: v })} step={0.01} /></td>
+                <td className="px-2 py-1"><MoneyCell value={h.amount ?? ((h.quantity != null && h.unit_price != null) ? h.quantity * h.unit_price : null)} onCommit={v => void saveHolding(h.id, { amount: v === '' ? null : Number(v) })} /></td>
+                <td className="px-2 py-1"><DateCell value={h.base_date} onCommit={v => void saveHolding(h.id, { base_date: v || null })} /></td>
+                {!isAdmin && (
+                  <td className="px-2 py-1">
+                    {!adminApplies(h) && h.admin_status === '対象外'
+                      ? <span className="text-[12px] text-gray-400">対象外（{h.kind}）</span>
+                      : (
+                        <div className="flex items-center gap-1.5">
+                          <TxtCell value={h.administrator} list="admin-candidates" placeholder="例：三井住友信託銀行" onCommit={v => { const name = v.trim() ? canonicalAdministratorName(v) : null; void saveHolding(h.id, { administrator: name, admin_status: name ? '特定済' : '未特定' }) }} />
+                          {h.administrator && (adminInst
+                            ? <button type="button" onClick={() => openInstitution(adminInst.id)} className="flex-none text-[11.5px] font-semibold text-emerald-700 hover:underline" title="調査先を開く">✓</button>
+                            : <button type="button" onClick={() => void addAdministratorInstitution(h.administrator!)} className="flex-none px-2 py-0.5 text-[11.5px] font-semibold text-brand-700 bg-white border border-brand-400 hover:bg-brand-50 whitespace-nowrap">＋ 調査先</button>)}
+                        </div>
+                      )}
+                  </td>
+                )}
+                <td className="px-2 py-1"><TxtCell value={h.note} onCommit={v => void saveHolding(h.id, { note: v || null })} placeholder="—" /></td>
+                <td className="px-1 py-1 text-center"><button type="button" onClick={() => deleteHolding(h)} className="text-gray-300 hover:text-red-500" title="削除"><Trash2 className="w-3.5 h-3.5" /></button></td>
+              </tr>
+            )
+          })}
+        </tbody>
+        {rows.length > 0 && <tfoot><tr className="bg-gray-50 font-semibold text-gray-700"><td colSpan={5} className="px-2 py-2 text-right">合計</td><td className="px-2 py-2 text-right tabular-nums">{yen(total)}</td><td colSpan={isAdmin ? 3 : 4} /></tr></tfoot>}
+      </table>
     </div>
   )
 }
 
 // ── 調査先を追加 ──────────────────────────────────────────────
 function AddInstitutionModal({ kind, onClose, onSubmit }: { kind: Kind; onClose: () => void; onSubmit: (f: { kind: FinancialInstitutionRow['kind']; name: string; branch: string; code: string }) => Promise<void> }) {
-  const options = KINDS_OF[kind]
+  // 証券・信託タブでは、ほふりはレール先頭の「ほふり照会」から作るので、ここでは選ばせない
+  const options = kind === '証券・信託' ? KINDS_OF[kind].filter(o => o !== 'ほふり') : KINDS_OF[kind]
   const [k, setK] = useState<FinancialInstitutionRow['kind']>(options[0])
   const [name, setName] = useState(''); const [branch, setBranch] = useState(''); const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
@@ -797,7 +1103,7 @@ function AddInstitutionModal({ kind, onClose, onSubmit }: { kind: Kind; onClose:
         {options.length > 1 && (
           <label className="block"><span className="text-[12px] text-gray-500">種別</span>
             <select value={k} onChange={e => setK(e.target.value as FinancialInstitutionRow['kind'])} style={{ fontFamily: 'inherit' }} className={inp}>
-              {options.map(o => <option key={o} value={o}>{o === 'ほふり' ? '証券会社が不明（ほふりに開示請求）' : o}</option>)}
+              {options.map(o => <option key={o} value={o}>{o === 'ほふり' ? '証券会社が不明（ほふりに開示請求）' : o === '証券' ? '証券会社' : o === '株主名簿管理人' ? '株主名簿管理人（信託銀行等）' : o}</option>)}
             </select>
           </label>
         )}

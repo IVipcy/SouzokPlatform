@@ -7,7 +7,8 @@
 //   2 残高証明 … 指定日ごとに1行。日付を指定するか「直近日」。行ごとに対象口座を選ぶ。
 //   3 取引履歴 … 取得期間ごとに1行。行ごとに対象口座を選ぶ。証券会社では顧客勘定元帳。
 //
-// 証券会社は口座を持たない（銘柄で管理）ので、対象口座の選択は出さない。
+// 証券会社・株主名簿管理人は口座を持たない（銘柄で管理）ので、対象口座の選択は出さない。
+// 株主名簿管理人の書類は 所有株式数証明書（基準日ごと）／未受領配当金明細書（期間）。
 // 移動できるウィンドウにしているのは、オーダーシートの予定や受領書類を見ながら入れるため。
 
 import { useMemo, useState } from 'react'
@@ -37,6 +38,10 @@ export default function FinancialRequestModal({ isOpen, onClose, institution, ac
   onSaved: () => void
 }) {
   const isSec = institution.kind === '証券'
+  const isAdmin = institution.kind === '株主名簿管理人'
+  const noAccounts = isSec || isAdmin
+  const balanceDoc = isAdmin ? '所有株式数証明書' : '残高証明'
+  const historyDoc = isAdmin ? '未受領配当金明細書' : isSec ? '顧客勘定元帳' : '取引履歴'
   const allIds = useMemo(() => accounts.map(a => a.id), [accounts])
   const [requestDate, setRequestDate] = useState('')
   const [sealSent, setSealSent] = useState(false)   // 依頼者の印鑑登録証明書の原本を同封（来店なら持参）
@@ -44,8 +49,8 @@ export default function FinancialRequestModal({ isOpen, onClose, institution, ac
   const [historyLines, setHistoryLines] = useState<HistoryLine[]>([])
   const [saving, setSaving] = useState(false)
 
-  const validBalance = balanceLines.filter(l => (l.recent || l.date) && (isSec || l.accountIds.length > 0))
-  const validHistory = historyLines.filter(l => l.start && l.end && (isSec || l.accountIds.length > 0))
+  const validBalance = balanceLines.filter(l => (l.recent || l.date) && (noAccounts || l.accountIds.length > 0))
+  const validHistory = historyLines.filter(l => l.start && l.end && (noAccounts || l.accountIds.length > 0))
   const count = validBalance.length + validHistory.length
 
   const toggleAccount = (kind: 'b' | 'h', lineId: number, accountId: string) => {
@@ -64,14 +69,14 @@ export default function FinancialRequestModal({ isOpen, onClose, institution, ac
     if (error || !req) { setSaving(false); showToast(`請求の登録に失敗しました: ${error?.message ?? ''}`, 'error'); return }
     const requestId = (req as { id: string }).id
     const items = [
-      ...validBalance.map((l, i) => ({ case_id: institution.case_id, request_id: requestId, doc_type: '残高証明', balance_date: l.recent ? null : l.date, balance_recent: l.recent, sort_order: i, _accounts: l.accountIds })),
-      ...validHistory.map((l, i) => ({ case_id: institution.case_id, request_id: requestId, doc_type: isSec ? '顧客勘定元帳' : '取引履歴', history_start: l.start, history_end: l.end, sort_order: 100 + i, _accounts: l.accountIds })),
+      ...validBalance.map((l, i) => ({ case_id: institution.case_id, request_id: requestId, doc_type: balanceDoc, balance_date: l.recent ? null : l.date, balance_recent: l.recent, sort_order: i, _accounts: l.accountIds })),
+      ...validHistory.map((l, i) => ({ case_id: institution.case_id, request_id: requestId, doc_type: historyDoc, history_start: l.start, history_end: l.end, sort_order: 100 + i, _accounts: l.accountIds })),
     ]
     for (const it of items) {
       const { _accounts, ...row } = it
       const { data: created, error: ie } = await supabase.from('financial_request_items').insert(row).select('id').single()
       if (ie || !created) { showToast(`明細の登録に失敗しました: ${ie?.message ?? ''}`, 'error'); continue }
-      if (!isSec && _accounts.length > 0) {
+      if (!noAccounts && _accounts.length > 0) {
         await supabase.from('financial_request_item_accounts').insert(_accounts.map(asset_id => ({ item_id: (created as { id: string }).id, asset_id })))
       }
     }
@@ -83,8 +88,8 @@ export default function FinancialRequestModal({ isOpen, onClose, institution, ac
 
   const inp = 'px-2 py-1 text-[12.5px] border border-gray-300 rounded bg-white outline-none focus:border-brand-500'
   const AccountPicker = ({ kind, line }: { kind: 'b' | 'h'; line: { id: number; accountIds: string[] } }) => (
-    isSec ? (
-      <div className="text-[11px] text-gray-500 mt-1.5">対象：この証券会社の保有口座全体</div>
+    noAccounts ? (
+      <div className="text-[11px] text-gray-500 mt-1.5">{isAdmin ? '対象：この管理人が管理する銘柄全体（特別口座）' : '対象：この証券会社の保有口座全体'}</div>
     ) : (
       <div className="mt-1.5">
         <div className="text-[10.5px] text-gray-400 mb-1">対象口座（支店｜種別｜口座番号）</div>
@@ -142,8 +147,8 @@ export default function FinancialRequestModal({ isOpen, onClose, institution, ac
         <section className="rounded-lg border border-gray-200 overflow-hidden">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border-b border-gray-200">
             <span className="w-4 h-4 rounded-full bg-brand-600 text-white text-[10px] font-bold flex items-center justify-center">2</span>
-            <span className="text-[12px] font-semibold text-gray-700">残高証明</span>
-            <span className="text-[10.5px] text-gray-400">指定日ごとに対象口座を選ぶ</span>
+            <span className="text-[12px] font-semibold text-gray-700">{balanceDoc}</span>
+            <span className="text-[10.5px] text-gray-400">{isAdmin ? '基準日（相続開始日など）ごとに1行' : noAccounts ? '指定日ごとに1行' : '指定日ごとに対象口座を選ぶ'}</span>
           </div>
           <div className="px-3 py-2 space-y-2">
             {balanceLines.map((l, i) => (
@@ -173,8 +178,8 @@ export default function FinancialRequestModal({ isOpen, onClose, institution, ac
         <section className="rounded-lg border border-gray-200 overflow-hidden">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border-b border-gray-200">
             <span className="w-4 h-4 rounded-full bg-brand-600 text-white text-[10px] font-bold flex items-center justify-center">3</span>
-            <span className="text-[12px] font-semibold text-gray-700">{isSec ? '取引資料（任意）' : '取引履歴'}</span>
-            <span className="text-[10.5px] text-gray-400">{isSec ? '入出金の確認が要るときだけ、顧客勘定元帳を足す' : '取得期間ごとに対象口座を選ぶ'}</span>
+            <span className="text-[12px] font-semibold text-gray-700">{isAdmin ? '未受領配当金明細書（任意）' : isSec ? '取引資料（任意）' : '取引履歴'}</span>
+            <span className="text-[10.5px] text-gray-400">{isAdmin ? '未払いの配当がありそうなときだけ、期間を入れて足す' : isSec ? '入出金の確認が要るときだけ、顧客勘定元帳を足す' : '取得期間ごとに対象口座を選ぶ'}</span>
           </div>
           <div className="px-3 py-2 space-y-2">
             {historyLines.map((l, i) => (

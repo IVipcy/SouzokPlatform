@@ -72,7 +72,7 @@ type LoadedCase = {
  */
 export async function loadNextCandidates(caseId: string): Promise<NextCandidate[]> {
   const supabase = createClient()
-  const [{ data: c }, { data: ks }, { data: hs }, { data: props }, { data: fins }, { data: ts }, { data: freqs }, { data: fitems }, { data: fholds }] = await Promise.all([
+  const [{ data: c }, { data: ks }, { data: hs }, { data: props }, { data: fins }, { data: ts }, { data: freqs }, { data: fitems }, { data: fholds }, { data: jres }] = await Promise.all([
     supabase.from('cases').select('deceased_name, deceased_address, seal_cert_oldest_issue_date, seal_cert_validity_months, seal_cert_custom_expiry').eq('id', caseId).maybeSingle(),
     supabase.from('koseki_requests').select('target_person, relation_koseki_done').eq('case_id', caseId),
     supabase.from('heirs').select('name, is_client').eq('case_id', caseId),
@@ -83,6 +83,7 @@ export async function loadNextCandidates(caseId: string): Promise<NextCandidate[
     supabase.from('financial_requests').select('*').eq('case_id', caseId),
     supabase.from('financial_request_items').select('*, financial_request_item_accounts(*)').eq('case_id', caseId),
     supabase.from('securities_holdings').select('*').eq('case_id', caseId),
+    supabase.from('financial_jasdec_results').select('jasdec_id, institution_id').eq('case_id', caseId),
   ])
 
   const cs = c as { deceased_name: string | null; deceased_address: string | null; seal_cert_oldest_issue_date: string | null; seal_cert_validity_months: number | null; seal_cert_custom_expiry: string | null } | null
@@ -157,7 +158,7 @@ export async function loadNextCandidates(caseId: string): Promise<NextCandidate[
     for (const inst of [...institutions].sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'ja'))) {
       const reqs = requests.filter(r => r.institution_id === inst.id)
       const ids = new Set(reqs.map(r => r.id))
-      const ev = evaluateInstitution({ institution: inst, requests: reqs, items: items.filter(it => ids.has(it.request_id)), holdings: holdings.filter(h => h.institution_id === inst.id), seal, today })
+      const ev = evaluateInstitution({ institution: inst, requests: reqs, items: items.filter(it => ids.has(it.request_id)), holdings: holdings.filter(h => h.institution_id === inst.id), seal, today, jasdecResults: ((jres ?? []) as Array<{ jasdec_id: string; institution_id: string | null }>).filter(r => r.jasdec_id === inst.id) })
       for (const p of ev.pending) {
         const rid = pendingRid(p)
         if (have.has(rid)) continue

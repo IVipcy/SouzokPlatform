@@ -697,6 +697,20 @@ export type FinancialInstitutionRow = {
   updated_at: string
 }
 
+/** ほふり開示結果の1行1機関（migration 274）。調査先に追加すると institution_id が入る */
+export type FinancialJasdecResultRow = {
+  id: string
+  case_id: string
+  jasdec_id: string
+  name: string
+  kind: string                 // 証券会社 / 株主名簿管理人
+  account_kind: string | null  // 取引口座 / 特別口座 / その他
+  institution_id: string | null
+  note: string | null
+  sort_order: number
+  created_at: string
+}
+
 export type FinancialRequestRow = {
   id: string
   case_id: string

@@ -6,7 +6,7 @@ import type { TimelineReceipt } from '@/components/features/cases/CaseTimeline'
 import type { MemoLite } from '@/components/features/cases/MeetingMemoViewer'
 import { computeCaseAlerts } from '@/lib/alerts'
 import { overdueSeverity } from '@/lib/overdue'
-import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow, FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow, DivisionDetailRow, AgreementDispatchRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow, CaseFileRow, AssetInventoryRow, CaseOtherAssetRow } from '@/types'
+import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow, FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow, FinancialJasdecResultRow, DivisionDetailRow, AgreementDispatchRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow, CaseFileRow, AssetInventoryRow, CaseOtherAssetRow } from '@/types'
 
 type Props = {
   params: Promise<{ id: string }>
@@ -17,7 +17,7 @@ export default async function CaseDetailPage({ params }: Props) {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
 
-  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, kosekiRequestsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult, invoicesResult, reportsResult, receiptsResult, statusHistoryResult, referralsResult, caseClientsResult, contractDocumentsResult, sagyoDocumentsResult, createdDocsResult, acquisitionsResult, agreementDispatchesResult, caseFilesResult, assetInventoryResult, rewardItemsResult, whiteboardMemosResult, otherAssetsResult, financialInstitutionsResult, financialRequestsResult, financialRequestItemsResult, securitiesHoldingsResult] = await Promise.all([
+  const [caseResult, membersResult, tasksResult, allMembersResult, templatesResult, heirsResult, kosekiRequestsResult, propertiesResult, financialAssetsResult, divisionDetailsResult, expensesResult, documentsResult, clientCommsResult, invoicesResult, reportsResult, receiptsResult, statusHistoryResult, referralsResult, caseClientsResult, contractDocumentsResult, sagyoDocumentsResult, createdDocsResult, acquisitionsResult, agreementDispatchesResult, caseFilesResult, assetInventoryResult, rewardItemsResult, whiteboardMemosResult, otherAssetsResult, financialInstitutionsResult, financialRequestsResult, financialRequestItemsResult, securitiesHoldingsResult, jasdecResultsResult] = await Promise.all([
     supabase
       .from('cases')
       .select('*, clients(*)')
@@ -124,6 +124,7 @@ export default async function CaseDetailPage({ params }: Props) {
     supabase.from('financial_requests').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
     supabase.from('financial_request_items').select('*, financial_request_item_accounts(*), financial_request_item_holdings(holding_id)').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
     supabase.from('securities_holdings').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
+    supabase.from('financial_jasdec_results').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
   ])
 
   if (caseResult.error || !caseResult.data) {
@@ -204,6 +205,7 @@ export default async function CaseDetailPage({ params }: Props) {
       financialRequests={(financialRequestsResult.data ?? []) as FinancialRequestRow[]}
       financialRequestItems={(financialRequestItemsResult.data ?? []) as unknown as FinancialRequestItemRow[]}
       securitiesHoldings={(securitiesHoldingsResult.data ?? []) as SecuritiesHoldingRow[]}
+      jasdecResults={(jasdecResultsResult.data ?? []) as FinancialJasdecResultRow[]}
     />
   )
 }

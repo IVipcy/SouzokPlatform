@@ -24,6 +24,11 @@ export const SEARCH_TARGETS = ['預金', '投資信託', '貸金庫', '共済'] 
 export const IRREGULAR_STATUSES = ['正常', '要確認', '再請求中'] as const
 export const IRREGULAR_TYPES = ['書類・内容不足', '対象口座・指定日の相違', '記載内容が不明', 'その他'] as const
 export const JASDEC_KNOWN = ['判明済み', '一部判明', '不明', '調査不要'] as const
+/** ほふり開示結果の機関の区分と口座の種類 */
+export const JASDEC_RESULT_KINDS = ['証券会社', '株主名簿管理人'] as const
+export const JASDEC_ACCOUNT_KINDS = ['取引口座', '特別口座', 'その他'] as const
+/** よくある株主名簿管理人（入力候補）。東京証券代行・日本証券代行は三井住友信託銀行に名寄せ */
+export const KNOWN_ADMINISTRATORS = ['三井住友信託銀行', '三菱UFJ信託銀行', 'みずほ信託銀行', '日本カストディ銀行', 'アイ・アールジャパン'] as const
 export const HOLDING_KINDS = ['国内株式', 'ETF・REIT', '投資信託', '債券', '外国証券', 'その他'] as const
 export const ADMIN_STATUSES = ['未特定', '特定済', '対象外'] as const
 export const REQUEST_NEEDS = ['未判断', '請求要', '請求不要'] as const
@@ -183,6 +188,8 @@ export type InstitutionInput = {
   holdings: SecuritiesHoldingRow[]
   seal: SealStatus
   today: string
+  /** ほふりのとき：開示結果の行（調査先に追加済みか）。渡さないときは旧来の文字欄で判定 */
+  jasdecResults?: Array<{ institution_id: string | null }>
 }
 
 /** 依頼書が手元にあるか（到着 or 社内在庫）。「窓口で受け取る」も受け取った日＝到着日 */
@@ -214,25 +221,30 @@ export function procedureStage(ev: InstitutionEvaluation): 1 | 2 | 3 | 4 | 5 {
   return 5   // 証明書の到着待ち・要確認・銘柄登録・管理人特定
 }
 
-export function evaluateInstitution({ institution: i, requests, items, holdings, seal, today }: InstitutionInput): InstitutionEvaluation {
+export function evaluateInstitution({ institution: i, requests, items, holdings, seal, today, jasdecResults }: InstitutionInput): InstitutionEvaluation {
   const pending: PendingAction[] = []
   const push = (key: string, title: string, detail: string, opt: Partial<PendingAction> = {}) =>
     pending.push({ institutionId: i.id, institutionName: i.name, kind: i.kind, key, title, detail, urgent: false, parallel: false, deadline: null, target: 'procedure', ...opt })
 
   // ── ほふり：案件単位の開示調査。証券会社の一種ではない ──
   if (i.kind === 'ほふり') {
-    if (i.jasdec_company_known === '調査不要') return { status: '完了', next: '調査不要', nextDeadline: null, parallelNext: null, pending: [], waiting: null }
+    if (i.jasdec_company_known === '調査不要') return { status: '完了', next: '照会不要（保有先が判明）', nextDeadline: null, parallelNext: null, pending: [], waiting: null }
     if (!i.jasdec_request_date) {
       push('jasdec-request', 'ほふりへ開示請求', '証券保管振替機構へ登録済加入者情報の開示を請求し、開示請求日を入れる', { target: 'jasdec' })
       return { status: '未着手', next: 'ほふりへ開示請求', nextDeadline: null, parallelNext: null, pending, waiting: null }
     }
     if (!i.jasdec_arrival_date) return { status: '請求中', next: '開示結果の到着待ち', nextDeadline: null, parallelNext: null, pending: [], waiting: '開示結果の到着待ち' }
-    const registered = i.jasdec_company_known === '判明済み' && !!(i.jasdec_result_institutions ?? '').trim()
+    // 開示結果の行が全部「調査先に追加」済みなら完了。行を渡されない呼び出し元（進捗一覧など）は旧来の文字欄で見る
+    const rs = jasdecResults
+    const registered = rs
+      ? rs.length > 0 && rs.every(r => !!r.institution_id)
+      : i.jasdec_company_known === '判明済み' && !!(i.jasdec_result_institutions ?? '').trim()
     if (!registered) {
-      push('jasdec-register', '証券会社を確認して追加', '開示結果に載っている証券会社を、調査先として追加する', { target: 'jasdec' })
-      return { status: '対応中', next: '証券会社を確認して追加', nextDeadline: null, parallelNext: null, pending, waiting: null }
+      const title = rs && rs.length > 0 ? '判明した機関を調査先に追加' : '開示結果の機関を登録'
+      push('jasdec-register', title, '開示結果に載っている証券会社・株主名簿管理人を表に入れ、「調査先に追加」を押す', { target: 'jasdec' })
+      return { status: '対応中', next: title, nextDeadline: null, parallelNext: null, pending, waiting: null }
     }
-    return { status: '完了', next: '調査完了', nextDeadline: null, parallelNext: null, pending: [], waiting: null }
+    return { status: '完了', next: '照会完了', nextDeadline: null, parallelNext: null, pending: [], waiting: null }
   }
 
   // ── 調査禁止で止まっている ──

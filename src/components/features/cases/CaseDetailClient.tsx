@@ -62,7 +62,7 @@ import { GYOMU_TAB } from '@/lib/serviceMaster'
 import { getSelectableCaseStatuses, isContractProcDone, isContractDocsReceived } from '@/lib/constants'
 import { countReceiptsNeedingLink } from '@/lib/receiptLink'
 import type { TimelineReceipt, TimelineStatusEvent } from './CaseTimeline'
-import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow, FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow, DivisionDetailRow, AgreementDispatchRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow, CaseFileRow, AssetInventoryRow, CaseOtherAssetRow } from '@/types'
+import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow, FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow, FinancialJasdecResultRow, DivisionDetailRow, AgreementDispatchRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow, CaseFileRow, AssetInventoryRow, CaseOtherAssetRow } from '@/types'
 
 type Props = {
   caseData: CaseRow
@@ -80,6 +80,7 @@ type Props = {
   financialRequests?: FinancialRequestRow[]
   financialRequestItems?: FinancialRequestItemRow[]
   securitiesHoldings?: SecuritiesHoldingRow[]
+  jasdecResults?: FinancialJasdecResultRow[]
   assetInventory?: AssetInventoryRow[]
   otherAssets?: CaseOtherAssetRow[]
   divisionDetails: DivisionDetailRow[]
@@ -120,7 +121,7 @@ const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'progress', 'ownerSales
 // 管理担当の割振り依頼ポップを出すステータス。依頼確定待ちの段階から割り振っておく運用。
 const ASSIGN_PROMPT_STATUSES = new Set(['受注', '戻り受注', '作業着手準備', '検討中（契約書待ち）'])
 
-export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, acquisitions = [], financialAssets, financialInstitutions = [], financialRequests = [], financialRequestItems = [], securitiesHoldings = [], assetInventory = [], otherAssets = [], divisionDetails, agreementDispatches = [], expenses, documents, clientCommunications, currentMemberId, viewerRole = null, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [], createdDocuments = [], caseFiles = [], reopenCount = 0, advancePaid = false, advanceInvoiceIssued = false, whiteboardMemos = [] }: Props) {
+export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, acquisitions = [], financialAssets, financialInstitutions = [], financialRequests = [], financialRequestItems = [], securitiesHoldings = [], jasdecResults = [], assetInventory = [], otherAssets = [], divisionDetails, agreementDispatches = [], expenses, documents, clientCommunications, currentMemberId, viewerRole = null, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [], createdDocuments = [], caseFiles = [], reopenCount = 0, advancePaid = false, advanceInvoiceIssued = false, whiteboardMemos = [] }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tabFromUrl = (() => {
@@ -867,7 +868,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <SuccessionTab caseData={caseState} heirs={heirs} assetInventory={assetInventory} tasks={tasks} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'assets' && (
-        <AssetsTab caseData={caseState} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} financialInstitutions={financialInstitutions} financialRequests={financialRequests} financialRequestItems={financialRequestItems} securitiesHoldings={securitiesHoldings} assetInventory={assetInventory} otherAssets={otherAssets} heirs={heirs} onRefresh={handleSaved} patchCase={patchCase} contractDocuments={contractDocuments} documentReceipts={documentReceipts} tasks={tasks} />
+        <AssetsTab caseData={caseState} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} financialInstitutions={financialInstitutions} financialRequests={financialRequests} financialRequestItems={financialRequestItems} securitiesHoldings={securitiesHoldings} jasdecResults={jasdecResults} assetInventory={assetInventory} otherAssets={otherAssets} heirs={heirs} onRefresh={handleSaved} patchCase={patchCase} contractDocuments={contractDocuments} documentReceipts={documentReceipts} tasks={tasks} />
       )}
       {effectiveTab === 'division' && (
         <DivisionTab caseData={caseState} divisionDetails={divisionDetails} heirs={heirs} assetInventory={assetInventory} agreementDispatches={agreementDispatches} onRefresh={handleSaved} patchCase={patchCase} tasks={tasks} mode="division" />

@@ -18,7 +18,7 @@ import OtherAssetsTable from './OtherAssetsTable'
 import ProgressSummary from './ProgressSummary'
 import TabHeader from './TabHeader'
 import { TabContextChips, TabContextPanel, type TabContextTarget } from './TabContextPanel'
-import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow, ContractDocumentRow, RealEstateAcquisitionRow, TaskRow, AssetInventoryRow, CaseOtherAssetRow, HeirRow } from '@/types'
+import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow, FinancialJasdecResultRow, ContractDocumentRow, RealEstateAcquisitionRow, TaskRow, AssetInventoryRow, CaseOtherAssetRow, HeirRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
 // この業務のタスク（task.phase）。チップの件数とパネルの一覧で同じ
@@ -33,6 +33,7 @@ type Props = {
   financialRequests?: FinancialRequestRow[]
   financialRequestItems?: FinancialRequestItemRow[]
   securitiesHoldings?: SecuritiesHoldingRow[]
+  jasdecResults?: FinancialJasdecResultRow[]
   onRefresh: () => void
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
   // オーダーシート埋め込み時は金融機関表の「請求日・到着日」を出さない
@@ -73,8 +74,7 @@ type Props = {
 const ASSET_SUBTABS: { key: string; label: string }[] = [
   { key: 'realestate', label: '不動産' },
   { key: 'deposit', label: '預金' },
-  { key: 'securities', label: '証券' },
-  { key: 'trust', label: '信託' },
+  { key: 'securities', label: '証券・信託' },   // 実務では証券会社・株主名簿管理人・ほふりを1つのタブで扱う
   { key: 'insurance', label: '生命保険' },
 ]
 // 案件詳細では「財産目録」も種別と同じタブ列に並べる（第1層タブを廃止して3層→2層）。
@@ -86,7 +86,7 @@ const SUBTABS_FULL: { key: string; label: string }[] = [
   ...ASSET_SUBTABS, ...OTHER_SUBTABS, { key: 'inventory', label: '財産目録' },
 ]
 
-export default function AssetsTab({ caseData, properties, financialAssets, financialInstitutions = [], financialRequests = [], financialRequestItems = [], securitiesHoldings = [], assetInventory = [], onRefresh, patchCase, orderSheetMode = false, showKinds, showOtherKinds, hideSummary = false, contractDocuments = [], acquisitions = [], documentReceipts = [], tasks = [], otherAssets = [], heirs = [] }: Props) {
+export default function AssetsTab({ caseData, properties, financialAssets, financialInstitutions = [], financialRequests = [], financialRequestItems = [], securitiesHoldings = [], jasdecResults = [], assetInventory = [], onRefresh, patchCase, orderSheetMode = false, showKinds, showOtherKinds, hideSummary = false, contractDocuments = [], acquisitions = [], documentReceipts = [], tasks = [], otherAssets = [], heirs = [] }: Props) {
   // 表示する種別のフィルタ (orderSheetMode の分割表示時のみ使用)
   const kindOn = (k: 'realestate' | 'deposit' | 'securities' | 'trust' | 'insurance') => !showKinds || showKinds.includes(k)
   const save = async (field: string, value: unknown) => {
@@ -115,10 +115,10 @@ export default function AssetsTab({ caseData, properties, financialAssets, finan
     if (!focus) return 'realestate'
     if (properties.some(p => municipalityOf(p) === focus)) return 'realestate'
     const asset = financialAssets.find(a => (a.institution_name ?? '').trim() === focus)
-    if (asset) return asset.asset_type === '証券' ? 'securities' : (asset.asset_type === '信託銀行' || asset.asset_type === '信託') ? 'trust' : 'deposit'
+    if (asset) return asset.asset_type === '証券' || asset.asset_type === '信託銀行' || asset.asset_type === '信託' ? 'securities' : 'deposit'
     // 口座を持たない調査先（証券会社・ほふり・株主名簿管理人）は調査先の種別で選ぶ
     const inst = financialInstitutions.find(i => i.name.trim() === focus)
-    if (inst) return inst.kind === '証券' || inst.kind === 'ほふり' ? 'securities' : inst.kind === '株主名簿管理人' ? 'trust' : 'deposit'
+    if (inst) return inst.kind === '預金' ? 'deposit' : 'securities'
     return 'realestate'
   })
 
@@ -130,7 +130,8 @@ export default function AssetsTab({ caseData, properties, financialAssets, finan
   const hasInsurance = !!caseData.life_insurance_company || !!caseData.life_insurance_inquiry || !!caseData.life_insurance_inquiry_notes
   const [reveal, setReveal] = useState<{ securities?: boolean; trust?: boolean; insurance?: boolean }>({})
   const showSecurities = orderSheetMode ? (kindOn('securities') && (hasKind('証券') || !!reveal.securities)) : sub === 'securities'
-  const showTrust = orderSheetMode ? (kindOn('trust') && (hasKind('信託銀行') || !!reveal.trust)) : sub === 'trust'
+  // 実務では信託は「証券・信託」タブの中（株主名簿管理人）。オーダーシートだけ別パネル
+  const showTrust = orderSheetMode ? (kindOn('trust') && (hasKind('信託銀行') || !!reveal.trust)) : false
   const showInsurance = orderSheetMode ? (kindOn('insurance') && (hasInsurance || !!reveal.insurance)) : sub === 'insurance'
 
   // その他財産／相続債務／その他費用。オーダーシートでは金融資産ブロックに同居させ、
@@ -257,7 +258,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, finan
               <FinancialAssetsTable caseId={caseData.id} kind="証券" assets={financialAssets} onRefresh={onRefresh} progressMode={false} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
             </>
           ) : (
-            <FinancialSection caseId={caseData.id} kind="証券" scopePrefix="asset_securities" assets={financialAssets} institutions={financialInstitutions} requests={financialRequests} requestItems={financialRequestItems} holdings={securitiesHoldings} caseData={caseData} patchCase={patchCase} onRefresh={onRefresh} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} focus={focus} />
+            <FinancialSection caseId={caseData.id} kind="証券・信託" scopePrefix="asset_securities" assets={financialAssets} institutions={financialInstitutions} requests={financialRequests} requestItems={financialRequestItems} holdings={securitiesHoldings} jasdecResults={jasdecResults} caseData={caseData} patchCase={patchCase} onRefresh={onRefresh} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} focus={focus} />
           )}
         </div>
         <div className={showTrust ? 'space-y-3' : 'hidden'}>
