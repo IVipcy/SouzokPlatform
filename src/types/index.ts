@@ -216,6 +216,7 @@ export type CaseRow = {
   life_insurance_amount: number | null
   life_insurance_inquiry: boolean
   life_insurance_inquiry_notes: string | null
+  securities_holding_known: string | null   // オーダーシート：株の保有先が分かるか（分かる／分からない／持っていない）migration 276
   // 法定相続情報一覧図（migration 180）
   family_tree_apply_date: string | null
   family_tree_obtain_date: string | null

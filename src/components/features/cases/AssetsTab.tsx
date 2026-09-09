@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { useSearchParams } from 'next/navigation'
 import {
   Section, SectionHeading, FieldGrid, InlineSelect, InlineEdit, InlineCheckbox, InlineTextarea,
@@ -8,6 +9,7 @@ import {
 import { municipalityOf } from './RealEstateSection'
 import { OTHER_ASSET_KINDS, isNegativeKind } from '@/lib/constants'
 import { SubTabs } from '@/components/ui/SubTabs'
+import { PracticeRow } from './PracticeCard'
 import RealEstateTable from './RealEstateTable'
 import RealEstateOrderBlocks from './RealEstateOrderBlocks'
 import FinancialAssetsTable from './FinancialAssetsTable'
@@ -129,9 +131,27 @@ export default function AssetsTab({ caseData, properties, financialAssets, finan
   const hasKind = (k: string) => financialAssets.some(a => a.asset_type === k)
   const hasInsurance = !!caseData.life_insurance_company || !!caseData.life_insurance_inquiry || !!caseData.life_insurance_inquiry_notes
   const [reveal, setReveal] = useState<{ securities?: boolean; trust?: boolean; insurance?: boolean }>({})
-  const showSecurities = orderSheetMode ? (kindOn('securities') && (hasKind('証券') || !!reveal.securities)) : sub === 'securities'
-  // 実務では信託は「証券・信託」タブの中（株主名簿管理人）。オーダーシートだけ別パネル
-  const showTrust = orderSheetMode ? (kindOn('trust') && (hasKind('信託銀行') || !!reveal.trust)) : false
+  // オーダーシートも実務と同じく証券・信託は1区画。証券会社／株主名簿管理人の行か、保有先の回答があれば出す
+  const holdingKnown = caseData.securities_holding_known ?? null
+  const showSecurities = orderSheetMode
+    ? ((kindOn('securities') || kindOn('trust')) && (hasKind('証券') || hasKind('信託銀行') || !!holdingKnown || !!reveal.securities))
+    : sub === 'securities'
+  // 保有先の3択。「分からない」なら実務の証券・信託タブに「ほふり照会」を立てる。「分かる」「持っていない」なら不要にする
+  const setHoldingKnown = async (v: string) => {
+    await patchCase({ securities_holding_known: v || null } as Partial<CaseRow>)
+    const sb = createClient()
+    const jasdec = financialInstitutions.find(i => i.kind === 'ほふり')
+    if (v === '分からない') {
+      if (!jasdec) {
+        await sb.from('financial_institutions').insert({ case_id: caseData.id, kind: 'ほふり', name: '証券保管振替機構（ほふり）', jasdec_company_known: '不明', freeze_required: false, form_required: false, search_required: false, sort_order: 0 })
+      } else if (jasdec.jasdec_company_known === '調査不要') {
+        await sb.from('financial_institutions').update({ jasdec_company_known: '不明' }).eq('id', jasdec.id)
+      }
+    } else if (jasdec && !jasdec.jasdec_request_date) {
+      await sb.from('financial_institutions').update({ jasdec_company_known: '調査不要' }).eq('id', jasdec.id)
+    }
+    onRefresh?.()
+  }
   const showInsurance = orderSheetMode ? (kindOn('insurance') && (hasInsurance || !!reveal.insurance)) : sub === 'insurance'
 
   // その他財産／相続債務／その他費用。オーダーシートでは金融資産ブロックに同居させ、
@@ -254,21 +274,32 @@ export default function AssetsTab({ caseData, properties, financialAssets, finan
         <div className={showSecurities ? 'space-y-3' : 'hidden'}>
           {orderSheetMode ? (
             <>
-              <SectionHeading title="証券口座（証券会社名を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-              <FinancialAssetsTable caseId={caseData.id} kind="証券" assets={financialAssets} onRefresh={onRefresh} progressMode={false} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
+              {/* 証券・信託：①保有先が分かるか ②証券会社（1行1社） ③株主名簿管理人（分かっている場合だけ）。銘柄は実務で */}
+              <SectionHeading title="証券・信託" hint="株式・投資信託など。面談で分かる範囲だけ。銘柄は残高証明が届いてから実務タブで登録します。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <div className="grid grid-cols-[minmax(0,1fr)] sm:grid-cols-[9.5rem_minmax(0,1fr)_9.5rem_minmax(0,1fr)]">
+                <PracticeRow label="保有先" hint="どこの証券会社に口座があるか分かっていますか。分からなければ、ほふり（証券保管振替機構）に開示請求して口座のある証券会社をまとめて確認します。" full>
+                  {(['分かる', '分からない', '持っていない'] as const).map(o => (
+                    <label key={o} className="inline-flex items-center gap-1.5 text-[13px] cursor-pointer mr-3">
+                      <input type="radio" name="securities_holding_known" checked={holdingKnown === o} onChange={() => void setHoldingKnown(o)} className="w-4 h-4 accent-brand-600" />
+                      <span className={holdingKnown === o ? 'text-gray-800 font-semibold' : 'text-gray-600'}>{o === '分かる' ? '分かる（下の表に入れる）' : o === '分からない' ? '分からない → ほふり照会をする' : '株は持っていない'}</span>
+                    </label>
+                  ))}
+                  {holdingKnown === '分からない' && <span className="w-full text-[12px] text-gray-500">実務タブの証券・信託に「ほふり照会」が立ちます。開示結果で判明した証券会社はそこから調査先に追加します</span>}
+                </PracticeRow>
+              </div>
+              {holdingKnown !== '持っていない' && (<>
+                <div className="pt-2">
+                  <div className="flex items-center gap-2 mb-1.5"><span className="w-[3px] h-3.5 bg-brand-600" /><span className="text-[13.5px] font-semibold text-gray-700">証券会社</span><span className="text-[12px] text-gray-500">1行1社。面談で聞いた銘柄は備考に</span></div>
+                  <FinancialAssetsTable caseId={caseData.id} kind="証券" assets={financialAssets} onRefresh={onRefresh} progressMode={false} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
+                </div>
+                <div className="pt-2">
+                  <div className="flex items-center gap-2 mb-1.5"><span className="w-[3px] h-3.5 bg-brand-600" /><span className="text-[13.5px] font-semibold text-gray-700">株主名簿管理人（信託銀行等）</span><span className="text-[12px] text-gray-500">配当の通知などで分かっている場合だけ</span></div>
+                  <FinancialAssetsTable caseId={caseData.id} kind="信託銀行" assets={financialAssets} onRefresh={onRefresh} progressMode={false} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
+                </div>
+              </>)}
             </>
           ) : (
             <FinancialSection caseId={caseData.id} kind="証券・信託" scopePrefix="asset_securities" assets={financialAssets} institutions={financialInstitutions} requests={financialRequests} requestItems={financialRequestItems} holdings={securitiesHoldings} jasdecResults={jasdecResults} caseData={caseData} patchCase={patchCase} onRefresh={onRefresh} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} focus={focus} />
-          )}
-        </div>
-        <div className={showTrust ? 'space-y-3' : 'hidden'}>
-          {orderSheetMode ? (
-            <>
-              <SectionHeading title="信託口座（信託銀行名を入力）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-              <FinancialAssetsTable caseId={caseData.id} kind="信託銀行" assets={financialAssets} onRefresh={onRefresh} progressMode={false} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} />
-            </>
-          ) : (
-            <FinancialSection caseId={caseData.id} kind="信託銀行" scopePrefix="asset_trust" assets={financialAssets} institutions={financialInstitutions} requests={financialRequests} requestItems={financialRequestItems} holdings={securitiesHoldings} caseData={caseData} patchCase={patchCase} onRefresh={onRefresh} roles={caseData.intake_roles ?? []} receipts={documentReceipts} tasks={tasks} focus={focus} />
           )}
         </div>
         <div className={showInsurance ? 'space-y-3' : 'hidden'}>
@@ -307,13 +338,10 @@ export default function AssetsTab({ caseData, properties, financialAssets, finan
           </div>
         )}
         {/* オーダーシート：証券/信託/生命保険が未表示なら追加ボタンで出す（優先度: 証券→信託→生命保険） */}
-        {orderSheetMode && (kindOn('securities') || kindOn('trust') || kindOn('insurance')) && (!showSecurities || !showTrust || !showInsurance) && (
+        {orderSheetMode && (kindOn('securities') || kindOn('trust') || kindOn('insurance')) && (!showSecurities || !showInsurance) && (
           <div className="flex flex-wrap gap-2 pt-1">
-            {!showSecurities && (
-              <button type="button" onClick={() => setReveal(r => ({ ...r, securities: true }))} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 border border-dashed border-brand-300 rounded-lg px-3 py-1.5">＋ 証券を追加</button>
-            )}
-            {!showTrust && (
-              <button type="button" onClick={() => setReveal(r => ({ ...r, trust: true }))} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 border border-dashed border-brand-300 rounded-lg px-3 py-1.5">＋ 信託を追加</button>
+            {!showSecurities && (kindOn('securities') || kindOn('trust')) && (
+              <button type="button" onClick={() => setReveal(r => ({ ...r, securities: true }))} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 border border-dashed border-brand-300 rounded-lg px-3 py-1.5">＋ 証券・信託を追加</button>
             )}
             {!showInsurance && (
               <button type="button" onClick={() => setReveal(r => ({ ...r, insurance: true }))} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 border border-dashed border-brand-300 rounded-lg px-3 py-1.5">＋ 生命保険を追加</button>

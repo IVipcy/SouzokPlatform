@@ -45,19 +45,17 @@ const COLUMNS: Record<Kind, Col[]> = {
     { key: 'accrued_interest_required', label: '経過利息', type: 'req', width: 'w-24' },
     { key: 'transaction_detail_required', label: '取引明細', type: 'req', width: 'w-24' },  // エクセルR79・NEW
   ],
-  // 証券は1行＝1銘柄。同じ証券会社でも銘柄によって株主名簿管理人（信託銀行）が違い、
-  // どこへ何を出すかが変わる。資料の到着日も銘柄ごとに違うので、行を分けて持つ。
+  // 証券は1行＝1証券会社。銘柄は残高証明が届いてから実務タブ（証券・信託）の銘柄タブで登録する。
+  // 面談で聞いた銘柄は備考に書く（旧「銘柄名」列の値は migration 276 で備考へ寄せた）。
   '証券': [
-    { key: 'institution_name', label: '証券会社', type: 'text' },
-    { key: 'branch_name', label: '支店名', type: 'text', width: 'w-28' },
-    { key: 'stock_name', label: '銘柄名', type: 'text' },
-    { key: 'registrar', label: '信託銀行／株主名簿管理人', type: 'text', width: 'w-48' },
-    { key: 'all_branch_survey', label: '全店調査', type: 'req', width: 'w-24' },  // エクセルR96・NEW
+    { key: 'institution_name', label: '証券会社名', type: 'text' },
+    { key: 'branch_name', label: '支店', type: 'text', width: 'w-28' },
+    { key: 'all_branch_survey', label: '全店調査', type: 'req', width: 'w-24' },  // 「要」は確認つき（回答まで2〜3か月）
     { key: 'balance_cert_required', label: '残高証明', type: 'req', width: 'w-24' },
   ],
+  // 株主名簿管理人（信託銀行等）。配当の通知などで面談時に分かっている場合だけ。1行1管理人
   '信託銀行': [
-    { key: 'institution_name', label: '信託銀行名', type: 'text' },
-    { key: 'stock_name', label: '銘柄名', type: 'text' },
+    { key: 'institution_name', label: '名称（信託銀行等）', type: 'text' },
     { key: 'share_cert_required', label: '所有株式数証明', type: 'req', width: 'w-28' },
     { key: 'unclaimed_dividend_required', label: '未受領配当金', type: 'req', width: 'w-28' },
   ],
