@@ -296,7 +296,6 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
               items={allItems} holdings={allHoldings.filter(h => h.institution_id === active.id)}
               tab={tab} setTab={setTab} scopePrefix={scopePrefix} caseId={caseId} memberId={memberId} today={today}
               caseData={caseData} patchCase={patchCase}
-              sealWarning={<SealWarning caseData={caseData} requests={allRequests} institutions={allInstitutions} today={today} />}
               saveInst={p => saveInst(active, p)} saveAsset={saveAsset} addAccount={() => addAccount(active)} deleteAccount={deleteAccount}
               openRequest={() => setRequestOpen(true)} openArrival={setArrivalId} deleteRequest={deleteRequest} copyRequest={copyRequest}
               institutions={allInstitutions} addHolding={() => addHolding(active)} saveHolding={saveHolding} deleteHolding={deleteHolding}
@@ -529,14 +528,12 @@ function TopTable({ layout, institutions, evalOf, accountsOf, holdings, requests
 }
 
 // ── 調査先のページ ────────────────────────────────────────────
-function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, setTab, scopePrefix, caseId, memberId, today, caseData, patchCase, sealWarning, saveInst, saveAsset, addAccount, deleteAccount, openRequest, openArrival, deleteRequest, copyRequest, institutions, addHolding, saveHolding, deleteHolding, addAdministratorInstitution, openInstitution }: {
+function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, setTab, scopePrefix, caseId, memberId, today, caseData, patchCase, saveInst, saveAsset, addAccount, deleteAccount, openRequest, openArrival, deleteRequest, copyRequest, institutions, addHolding, saveHolding, deleteHolding, addAdministratorInstitution, openInstitution }: {
   inst: FinancialInstitutionRow; ev: InstitutionEvaluation; accounts: FinancialAssetRow[]
   requests: FinancialRequestRow[]; items: FinancialRequestItemRow[]; holdings: SecuritiesHoldingRow[]
   tab: 'procedure' | 'accounts' | 'requests' | 'holdings'; setTab: (t: 'procedure' | 'accounts' | 'requests' | 'holdings') => void
   scopePrefix: string; caseId: string; memberId: string | null; today: string
   caseData: CaseRow; patchCase: (p: Partial<CaseRow>) => Promise<void>
-  /** 印鑑登録証明書の期限警告（期限間近・切れのときだけ中身がある） */
-  sealWarning: React.ReactNode
   saveInst: (p: Partial<FinancialInstitutionRow>) => Promise<void>
   saveAsset: (id: string, p: Partial<FinancialAssetRow>) => Promise<void>
   addAccount: () => void; deleteAccount: (a: FinancialAssetRow) => void
@@ -560,7 +557,6 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
       <div className="bg-white">
         {/* 銀行名の見出しは置かない。どの銀行かは左レール（選択中）と進捗タイトルで分かる。
             名前・種別の修正は手続きタブ「この銀行の前提」の先頭行。状態は右の「次の対応」が言う */}
-        {sealWarning}
         <div className="flex items-center justify-between gap-4 px-3.5 py-2.5 border-b border-gray-200">
           <SubTabs tabs={tabs} active={tab} onChange={k => setTab(k as typeof tab)} />
           <div className="min-w-0 text-right text-[13px] text-gray-500 truncate">
@@ -677,25 +673,9 @@ function PhaseHeading({ no, title, sub }: { no: number; title: string; sub?: str
   )
 }
 
-/** ①の3列のうちの1列（凍結／依頼書／全店調査） */
-function ContactCol({ title, required, onRequired, children }: { title: string; required: boolean; onRequired: (v: boolean) => void; children: React.ReactNode }) {
-  return (
-    <div className={`border border-slate-200 ${required ? '' : 'opacity-55'}`}>
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-[#e6edf5] border-b border-slate-300">
-        <span className="text-[13px] font-semibold text-slate-700">{title}</span>
-        <span className="ml-auto"><NotNeeded required={required} onChange={onRequired} /></span>
-      </div>
-      {required ? <div className="grid grid-cols-[6rem_minmax(0,1fr)]">{children}</div> : <div className="px-3 py-2 text-[12px] text-gray-500">この銀行では不要</div>}
-    </div>
-  )
-}
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <>
-      <div className="bg-[#e6edf5] border-b-2 border-r-2 border-white px-2.5 py-2 text-[12.5px] font-medium text-slate-700 whitespace-nowrap flex items-center">{label}</div>
-      <div className="bg-white border-b border-slate-200 px-2.5 py-1.5 min-h-[40px] flex items-center gap-2 flex-wrap text-[13px] text-gray-800">{children}</div>
-    </>
-  )
+/** 行の右端の「不要」。押すとその行の中身が消え、判定からも外れる */
+function NotNeededAtEnd({ required, onChange }: { required: boolean; onChange: (v: boolean) => void }) {
+  return <span className="ml-auto"><NotNeeded required={required} onChange={onChange} /></span>
 }
 /** チェック＋（付いた日） */
 function Chk({ checked, onChange, label, note }: { checked: boolean; onChange: (on: boolean) => void; label: string; note?: string | null }) {
@@ -764,33 +744,46 @@ function ProcedureStepper({ inst: i, ev, requests }: { inst: FinancialInstitutio
   )
 }
 
-/** 印鑑登録証明書が未登録・期限切れのとき、②の下に出す1行。値は案件に1つ（契約手続きタブと同じ列） */
-function SealInline({ caseData, patchCase, today }: { caseData: CaseRow; patchCase: (p: Partial<CaseRow>) => Promise<void>; today: string }) {
+/** 印鑑登録証明書の行（②の表の中）。状態は文字の色で言う。未登録・期限切れのときだけ入力の行が続く。値は案件に1つ（契約手続きタブと同じ列） */
+function SealRows({ caseData, patchCase, today }: { caseData: CaseRow; patchCase: (p: Partial<CaseRow>) => Promise<void>; today: string }) {
   const st = sealCertificateStatus(caseData, today)
-  if (st.status !== '未登録' && st.status !== '期限切れ') return null
-  const inp = 'input-flat px-2.5 py-1.5 text-[13px] text-gray-800 outline-none'
+  const needInput = st.status === '未登録' || st.status === '期限切れ'
+  const inp = 'input-flat w-full px-2.5 py-1.5 text-[14px] text-gray-800 outline-none'
+  const status = st.status === '有効' ? <span className="text-emerald-700 font-semibold">有効<span className="ml-1.5 font-normal text-gray-500">期限 {st.expiry?.replace(/-/g, '/')}</span></span>
+    : st.status === '期限間近' ? <span className="text-amber-700 font-semibold">期限間近<span className="ml-1.5 font-normal text-gray-500">あと{st.daysLeft}日（{st.expiry?.replace(/-/g, '/')}）</span></span>
+    : st.status === '期限切れ' ? <span className="text-red-700 font-semibold">期限切れ<span className="ml-1.5 font-normal text-gray-500">{st.expiry?.replace(/-/g, '/')}。差し替えが要ります</span></span>
+    : <span className="text-amber-700 font-semibold">未登録</span>
   return (
-    <div className="mx-3 mt-2.5 border border-amber-300 bg-amber-50 px-3 py-2 flex items-center gap-3 flex-wrap text-[12.5px] text-amber-900">
-      <span className="font-semibold">{st.status === '期限切れ' ? '印鑑登録証明書が期限切れ' : '印鑑登録証明書が未登録'}</span>
-      <span>依頼者の印鑑証明の{st.status === '期限切れ' ? '差し替え後の' : ''}発行日を入れてください（案件に1つ。契約手続きタブと同じ値）</span>
-      <label className="inline-flex items-center gap-1.5">発行日
-        <input type="date" key={`si-${caseData.seal_cert_oldest_issue_date ?? ''}`} defaultValue={caseData.seal_cert_oldest_issue_date ?? ''}
-          onBlur={e => { if (e.target.value !== (caseData.seal_cert_oldest_issue_date ?? '')) void patchCase({ seal_cert_oldest_issue_date: e.target.value || null }) }} className={inp} style={{ background: '#fff' }} />
-      </label>
-      <label className="inline-flex items-center gap-1.5">有効期間
-        <select value={caseData.seal_cert_validity_months == null ? 'custom' : String(caseData.seal_cert_validity_months)}
-          onChange={e => void patchCase({ seal_cert_validity_months: e.target.value === 'custom' ? null : Number(e.target.value) })}
-          style={{ fontFamily: 'inherit', background: '#fff' }} className={`${inp} cursor-pointer`}>
-          <option value="6">発行後6か月</option><option value="3">発行後3か月</option><option value="custom">個別指定</option>
-        </select>
-      </label>
-      {caseData.seal_cert_validity_months == null && (
-        <label className="inline-flex items-center gap-1.5">使用期限
-          <input type="date" key={`se-${caseData.seal_cert_custom_expiry ?? ''}`} defaultValue={caseData.seal_cert_custom_expiry ?? ''}
-            onBlur={e => { if (e.target.value !== (caseData.seal_cert_custom_expiry ?? '')) void patchCase({ seal_cert_custom_expiry: e.target.value || null }) }} className={inp} style={{ background: '#fff' }} />
-        </label>
-      )}
-    </div>
+    <>
+      <PracticeRow label="印鑑登録証明書" sub="依頼者・案件に1つ" full>
+        {status}
+        {needInput && <span className="text-[12px] text-gray-400">発行日を入れると使用期限が出ます。契約手続きタブと同じ値です</span>}
+        {caseData.seal_cert_copies != null && !needInput && <span className="text-[12px] text-gray-400">受領 {caseData.seal_cert_copies}通</span>}
+      </PracticeRow>
+      {needInput && (<>
+        <PracticeRow label="発行日" sub="最古の1通">
+          <input type="date" key={`si-${caseData.seal_cert_oldest_issue_date ?? ''}`} defaultValue={caseData.seal_cert_oldest_issue_date ?? ''}
+            onBlur={e => { if (e.target.value !== (caseData.seal_cert_oldest_issue_date ?? '')) void patchCase({ seal_cert_oldest_issue_date: e.target.value || null }) }} className={inp} />
+        </PracticeRow>
+        <PracticeRow label="有効期間">
+          <select value={caseData.seal_cert_validity_months == null ? 'custom' : String(caseData.seal_cert_validity_months)}
+            onChange={e => void patchCase({ seal_cert_validity_months: e.target.value === 'custom' ? null : Number(e.target.value) })}
+            style={{ fontFamily: 'inherit' }} className={`${inp} cursor-pointer`}>
+            <option value="6">発行後6か月</option><option value="3">発行後3か月</option><option value="custom">個別指定</option>
+          </select>
+        </PracticeRow>
+        <PracticeRow label="使用期限">
+          {caseData.seal_cert_validity_months == null
+            ? <input type="date" key={`se-${caseData.seal_cert_custom_expiry ?? ''}`} defaultValue={caseData.seal_cert_custom_expiry ?? ''}
+                onBlur={e => { if (e.target.value !== (caseData.seal_cert_custom_expiry ?? '')) void patchCase({ seal_cert_custom_expiry: e.target.value || null }) }} className={inp} />
+            : <span className="text-[13px] text-gray-500">自動（発行日＋{caseData.seal_cert_validity_months}か月）{st.expiry ? `：${st.expiry.replace(/-/g, '/')}` : ''}</span>}
+        </PracticeRow>
+        <PracticeRow label="受領通数">
+          <input type="number" min={0} key={`sc-${caseData.seal_cert_copies ?? ''}`} defaultValue={caseData.seal_cert_copies ?? ''}
+            onBlur={e => { const v = e.target.value === '' ? null : Number(e.target.value); if (v !== (caseData.seal_cert_copies ?? null)) void patchCase({ seal_cert_copies: v }) }} className={`${inp} max-w-[8rem]`} />
+        </PracticeRow>
+      </>)}
+    </>
   )
 }
 
@@ -863,50 +856,51 @@ function ProcedureCards({ inst: i, ev, requests, save, memberId, today, caseData
       <div className={grid4}>
         <PracticeRow label="連絡日"><DateCell value={i.first_contact_date} onCommit={v => void save({ first_contact_date: v || null })} /></PracticeRow>
         <PracticeRow label="相手" sub="金融機関の担当者名"><TxtCell value={i.first_contact_person} onCommit={v => void save({ first_contact_person: v || null })} placeholder="例：相続センター 佐藤様" /></PracticeRow>
-      </div>
-      <div className={`grid gap-2.5 pt-2.5 px-1 ${isAdmin ? 'grid-cols-1' : 'md:grid-cols-3'}`}>
         {!isAdmin && (
-          <ContactCol title={isSec ? '死亡連絡' : '口座の凍結'} required={i.freeze_required} onRequired={v => void save({ freeze_required: v, ...(v ? {} : { freeze_date: null }) })}>
-            <Row label="結果"><Chk checked={!!i.freeze_date} onChange={on => void save({ freeze_date: on ? stamp() : null })} label={isSec ? '死亡を連絡した' : '凍結を依頼した'} note={md(i.freeze_date)} /></Row>
-          </ContactCol>
+          <PracticeRow label={isSec ? '死亡連絡' : '口座の凍結'} full>
+            {i.freeze_required
+              ? <Chk checked={!!i.freeze_date} onChange={on => void save({ freeze_date: on ? stamp() : null })} label={isSec ? '死亡を連絡した' : '凍結を依頼した'} note={md(i.freeze_date)} />
+              : <span className="text-[12px] text-gray-400">この銀行では不要</span>}
+            <NotNeededAtEnd required={i.freeze_required} onChange={v => void save({ freeze_required: v, ...(v ? {} : { freeze_date: null }) })} />
+          </PracticeRow>
         )}
-        <ContactCol title="依頼書の手配" required={i.form_required} onRequired={v => void save({ form_required: v })}>
-          <Row label="結果">
-            <select value={i.form_source} onChange={e => void setFormSource(e.target.value)} style={{ fontFamily: 'inherit' }} className={selCls}>
+        <PracticeRow label="依頼書の手配" full>
+          {i.form_required ? (<>
+            <select value={i.form_source} onChange={e => void setFormSource(e.target.value)} style={{ fontFamily: 'inherit' }} className={`${selCls} max-w-[16rem]`}>
               {FORM_SOURCES.map(o => <option key={o} value={o}>{FORM_SOURCE_LABEL[o]}</option>)}
             </select>
-          </Row>
-          {(i.form_source === '金融機関へ請求' || i.form_source === '窓口で受け取る') && (
-            <Row label="その後"><Chk checked={!!i.form_arrival_date} onChange={on => void save({ form_arrival_date: on ? today : null })} label={i.form_source === '窓口で受け取る' ? '受け取った' : '届いた'} note={md(i.form_arrival_date)} />
-              {!i.form_arrival_date && <span className="text-[12px] text-gray-400">{i.form_source === '窓口で受け取る' ? '受け取るまで請求に進めません' : '到着待ち。受信簿でチェックしても入ります'}</span>}</Row>
-          )}
-          {i.form_source === '社内在庫' && <Row label="確認"><span className="text-gray-700">在庫あり<span className="ml-1.5 text-[12px] text-gray-400">{md(i.form_stock_date)}</span></span></Row>}
-        </ContactCol>
+            {i.form_source === '社内在庫' && <span className="text-[12px] text-gray-500">在庫あり {md(i.form_stock_date)}</span>}
+            {(i.form_source === '金融機関へ請求' || i.form_source === '窓口で受け取る') && (<>
+              <Chk checked={!!i.form_arrival_date} onChange={on => void save({ form_arrival_date: on ? today : null })} label={i.form_source === '窓口で受け取る' ? '受け取った' : '届いた'} note={md(i.form_arrival_date)} />
+              {!i.form_arrival_date && <span className="text-[12px] text-gray-400">{i.form_source === '窓口で受け取る' ? '受け取るまで請求に進めません' : '到着待ち'}</span>}
+            </>)}
+          </>) : <span className="text-[12px] text-gray-400">この銀行では不要</span>}
+          <NotNeededAtEnd required={i.form_required} onChange={v => void save({ form_required: v })} />
+        </PracticeRow>
         {!isAdmin && (
-          <ContactCol title="全店調査" required={i.search_required} onRequired={v => void save({ search_required: v })}>
-            <Row label="結果">
-              <select value={i.search_method} onChange={e => void setSearchMethod(e.target.value)} style={{ fontFamily: 'inherit' }} className={selCls}>
+          <PracticeRow label="全店調査" full>
+            {i.search_required ? (<>
+              <select value={i.search_method} onChange={e => void setSearchMethod(e.target.value)} style={{ fontFamily: 'inherit' }} className={`${selCls} max-w-[16rem]`}>
                 {SEARCH_METHODS.map(o => <option key={o} value={o}>{SEARCH_METHOD_LABEL[o]}</option>)}
               </select>
-            </Row>
-            {i.search_method === '電話回答' && (<>
-              <Row label="回答">{otherSel}</Row>
-              <Row label="回答者"><TxtCell value={i.search_responder} onCommit={v => void save({ search_responder: v || null })} placeholder="例：相続担当 佐藤様" /></Row>
-            </>)}
-            {needsSubmit && (<>
-              <Row label="提出方法">
-                <select value={i.search_submission_method} onChange={e => void save({ search_submission_method: e.target.value || '未確認' })} style={{ fontFamily: 'inherit' }} className={selCls}>
-                  {SUBMISSION_METHODS.map(o => <option key={o} value={o}>{o === '未確認' ? '—' : o}</option>)}
+              {i.search_method === '電話回答' && (<>
+                <span className="max-w-[11rem] w-full">{otherSel}</span>
+                <span className="max-w-[16rem] w-full"><TxtCell value={i.search_responder} onCommit={v => void save({ search_responder: v || null })} placeholder="回答者 例：相続担当 佐藤様" /></span>
+              </>)}
+              {needsSubmit && (<>
+                <select value={i.search_submission_method} onChange={e => void save({ search_submission_method: e.target.value || '未確認' })} style={{ fontFamily: 'inherit' }} className={`${selCls} max-w-[9rem]`}>
+                  {SUBMISSION_METHODS.map(o => <option key={o} value={o}>{o === '未確認' ? '提出方法 —' : `提出方法 ${o}`}</option>)}
                 </select>
-              </Row>
-              <Row label="提出"><Chk checked={!!i.search_request_date} onChange={on => void save({ search_request_date: on ? today : null, ...(on ? {} : { search_answer_date: null }) })} label={i.search_method === '要原本確認' ? '原本を提出した' : '調査依頼書を提出した'} note={md(i.search_request_date)} /></Row>
-              {i.search_request_date && <Row label="回答"><Chk checked={!!i.search_answer_date} onChange={on => void save({ search_answer_date: on ? today : null, ...(on ? {} : { search_other_accounts: null }) })} label="回答が来た" note={md(i.search_answer_date)} /></Row>}
-              {i.search_answer_date && <Row label="内容">{otherSel}</Row>}
-            </>)}
-            {i.search_other_accounts === 'あり' && (
-              <Row label="口座登録"><Chk checked={i.search_all_accounts_registered} onChange={on => void save({ search_all_accounts_registered: on })} label="判明した口座を口座一覧に登録済み" /></Row>
-            )}
-          </ContactCol>
+                <Chk checked={!!i.search_request_date} onChange={on => void save({ search_request_date: on ? today : null, ...(on ? {} : { search_answer_date: null }) })} label={i.search_method === '要原本確認' ? '原本を提出した' : '調査依頼書を提出した'} note={md(i.search_request_date)} />
+                {i.search_request_date && <Chk checked={!!i.search_answer_date} onChange={on => void save({ search_answer_date: on ? today : null, ...(on ? {} : { search_other_accounts: null }) })} label="回答が来た" note={md(i.search_answer_date)} />}
+                {i.search_answer_date && <span className="max-w-[11rem] w-full">{otherSel}</span>}
+              </>)}
+              {i.search_other_accounts === 'あり' && (
+                <Chk checked={i.search_all_accounts_registered} onChange={on => void save({ search_all_accounts_registered: on })} label="判明した口座を口座一覧に登録済み" />
+              )}
+            </>) : <span className="text-[12px] text-gray-400">この銀行では不要</span>}
+            <NotNeededAtEnd required={i.search_required} onChange={v => void save({ search_required: v })} />
+          </PracticeRow>
         )}
       </div>
 
@@ -927,8 +921,8 @@ function ProcedureCards({ inst: i, ev, requests, save, memberId, today, caseData
                 : <><span className="text-[12px] text-gray-500">依頼書・戸籍・本人確認資料・印鑑が揃ったら</span><button type="button" onClick={() => void save({ visit_prep_done_at: new Date().toISOString(), visit_prep_done_by: memberId })} className="px-3 py-1 text-[12px] font-semibold text-white bg-brand-600 hover:bg-brand-700">来店準備を完了</button></>}
             </PracticeRow>
           )}
+          <SealRows caseData={caseData} patchCase={patchCase} today={today} />
         </div>
-        <SealInline caseData={caseData} patchCase={patchCase} today={today} />
       </>)}
 
       {/* ③ 請求する：請求タブへ。ここでは登録まで */}
