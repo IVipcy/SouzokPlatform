@@ -53,7 +53,12 @@ export default async function ConfirmPage() {
     const requestTo = ((r.request_to as string) ?? '').trim()
     const isAdd = !!r.is_additional, approved = !!r.additional_approved_at
     const isClient = (r.acquirer as string) === '依頼者'
-    const fee = yen((r.cost_budget as number) ?? (r.cost_confirmed as number))
+    // 発送✓＝同封した小為替の額が正しいか。着✓＝返金されてきた額（お釣り）が正しいか。見る金額が違う。
+    const budget = (r.cost_budget as number | null) ?? (r.cost_confirmed as number | null)
+    const refund = r.cost_refund as number | null
+    const sendFee = budget != null ? `同封 ${yen(budget)}` : null
+    const recvFee = refund != null ? `返金 ${yen(refund)}` : null
+    const recvNote = budget != null ? `（同封 ${yen(budget)}）` : null
     // 追加・未承認 → 承認タブ
     if (isAdd && !approved) {
       items.push({ ...b, key: `ka-${id}`, tab: 'approve', action: 'koseki_approve', target: requestTo || '追加戸籍', content: `${person || '対象未定'}／${(r.additional_reason as string) || '理由未記入'}`, amount: null, workerId: null, workerName: null, reviewer: 'manager', meta: { acquirer: r.acquirer as string, request_to: requestTo, target_person: person } })
@@ -62,11 +67,11 @@ export default async function ConfirmPage() {
     if (isClient) continue // 依頼者取得は自社のW-checkなし
     // 発送✓待ち：発送チェック依頼が出ていて未チェック（依頼→確認モデル）
     if (r.request_check_requested_at && !r.request_check_at) {
-      items.push({ ...b, stamp: (r.request_check_requested_at as string) ?? b.stamp, key: `ks-${id}`, tab: 'request', action: 'koseki_send', target: requestTo, content: `${person || '対象未定'}の戸籍`, amount: fee, workerId: (r.request_done_by as string) ?? null, workerName: nameOf(r.request_done_by as string), reviewer: 'jimu', requestedAt: (r.request_check_requested_at as string) ?? null, requestedBy: (r.request_check_requested_by as string) ?? null, requestedByName: nameOf(r.request_check_requested_by as string) })
+      items.push({ ...b, stamp: (r.request_check_requested_at as string) ?? b.stamp, key: `ks-${id}`, tab: 'request', action: 'koseki_send', target: requestTo, content: `${person || '対象未定'}の戸籍`, amount: sendFee, workerId: (r.request_done_by as string) ?? null, workerName: nameOf(r.request_done_by as string), reviewer: 'jimu', requestedAt: (r.request_check_requested_at as string) ?? null, requestedBy: (r.request_check_requested_by as string) ?? null, requestedByName: nameOf(r.request_check_requested_by as string) })
     }
     // 着✓待ち：着チェック依頼が出ていて未チェック
     if (r.receipt_check_requested_at && !r.receipt_check_at) {
-      items.push({ ...b, stamp: (r.receipt_check_requested_at as string) ?? b.stamp, key: `kr-${id}`, tab: 'request', action: 'koseki_recv', target: requestTo || '請求先未設定', content: `${person || '対象未定'}の戸籍`, amount: fee, workerId: (r.receipt_done_by as string) ?? null, workerName: nameOf(r.receipt_done_by as string), reviewer: 'jimu', requestedAt: (r.receipt_check_requested_at as string) ?? null, requestedBy: (r.receipt_check_requested_by as string) ?? null, requestedByName: nameOf(r.receipt_check_requested_by as string) })
+      items.push({ ...b, stamp: (r.receipt_check_requested_at as string) ?? b.stamp, key: `kr-${id}`, tab: 'request', action: 'koseki_recv', target: requestTo || '請求先未設定', content: `${person || '対象未定'}の戸籍`, amount: recvFee, amountNote: recvNote, amountMissing: refund == null ? '返金 未入力' : null, workerId: (r.receipt_done_by as string) ?? null, workerName: nameOf(r.receipt_done_by as string), reviewer: 'jimu', requestedAt: (r.receipt_check_requested_at as string) ?? null, requestedBy: (r.receipt_check_requested_by as string) ?? null, requestedByName: nameOf(r.receipt_check_requested_by as string) })
     }
   }
 

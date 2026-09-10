@@ -3,9 +3,9 @@
 // 戸籍請求（実務）：TOP（進捗サマリー＋取得状況表＋相続相関図）＋左レール（請求単位タブ）。
 // 各請求はカード形式。費用（予算/返金/確定）＋ダブルチェック（自分以外）。追加請求は管理担当の承認ゲート。
 
-import { useState, useEffect } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { Plus, Lock, ShieldCheck, Trash2, Copy, FileText } from 'lucide-react'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { Plus, Lock, ShieldCheck, Trash2, Copy, FileText, ChevronRight, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useIsManager } from '@/components/providers/AuthProvider'
@@ -21,6 +21,8 @@ import {
   KOSEKI_AUTHORITIES,
   kosekiRangeDetailOptions,
   defaultKosekiPurpose,
+  includesAddressDoc,
+  kosekiRequestLabel,
 } from '@/lib/constants'
 
 // 請求区分の説明（列見出しの「?」）。定義は constants.ts の1か所。
@@ -133,7 +135,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
     const reqLabelOf = (id: string | null) => {
       if (!id) return null
       const rq = requests.find(x => x.id === id)
-      return rq ? ((rq.request_to ?? '').trim() || '請求先未設定') : null
+      return rq ? kosekiRequestLabel(rq) : null
     }
     const push = (person: string) => {
       if (seen.has(person)) return
@@ -166,9 +168,41 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
   const memberId = useCurrentMember(null)
   // タスク詳細からの着地：?focus=戸籍請求ID。該当行の対象者レールを開き、行をハイライト。
   const searchParams = useSearchParams()
+  const router = useRouter()
   const focusId = searchParams.get('focus')
   const focusReq = focusId ? requests.find(r => r.id === focusId) : undefined
-  const [sub, setSub] = useState<string>(focusReq ? ((focusReq.target_person ?? '').trim() || '__unset__') : 'top')
+  // 開いている人（person）と請求（req）はURLにも持つ。リロードしても・URLを人に送っても同じ請求が開くように。
+  // 以前は画面の中だけで持っていて、F5で一覧（TOP）に戻されていた。
+  const personParam = searchParams.get('person')
+  const reqParam = searchParams.get('req')
+  const [sub, setSubState] = useState<string>(
+    focusReq ? ((focusReq.target_person ?? '').trim() || '__unset__') : personParam || 'top')
+  // URLの書き換えは window.location から読む（同じ処理の中で2回書くとき、searchParams は古いままのため）
+  const writeUrl = (patch: Record<string, string | null>) => {
+    const p = new URLSearchParams(window.location.search)
+    for (const [k, v] of Object.entries(patch)) { if (v) p.set(k, v); else p.delete(k) }
+    const qs = p.toString()
+    router.replace(qs ? `?${qs}` : '?', { scroll: false })
+  }
+  const setSub = (key: string) => {
+    setSubState(key)
+    writeUrl({ person: key === 'top' ? null : key, req: null, focus: null })
+  }
+  // 確認簿など別の画面で押した着✓・到着日をこの画面にも映す。
+  // この画面に戻った瞬間（別タブ／別ウィンドウから戻る）と、開いている間は30秒ごとに取り直す。
+  const refreshRef = useRef(onRefresh)
+  useEffect(() => { refreshRef.current = onRefresh })
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') refreshRef.current?.() }
+    window.addEventListener('focus', onVisible)
+    document.addEventListener('visibilitychange', onVisible)
+    const timer = setInterval(onVisible, 30000)
+    return () => {
+      window.removeEventListener('focus', onVisible)
+      document.removeEventListener('visibilitychange', onVisible)
+      clearInterval(timer)
+    }
+  }, [])
   // 戸籍の追加は2通り。何が起きるかボタン名で言い切るため、モーダルも入口で分ける。
   //   new      … 戸籍を読んで出てきた人を足す（相続人一覧にも登録される）
   //   existing … 既にいる対象者の戸籍をもう1件足す（転籍先の役所など）
@@ -405,12 +439,13 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
     name.trim() === (deceasedName ?? '').trim() ? '被相続人' : relOf(name)
   // タブで開いている請求。対象者を切り替えたら先頭の請求に戻す。
   // タスク詳細や上の一覧から ?focus={請求ID} で来たときは、その請求のタブを開く。
-  const [activeReqId, setActiveReqId] = useState<string | null>(focusId)
+  const [activeReqId, setActiveReqIdState] = useState<string | null>(focusId ?? reqParam)
+  const setActiveReqId = (id: string | null) => { setActiveReqIdState(id); writeUrl({ req: id }) }
   const [seenPerson, setSeenPerson] = useState(activePerson)
-  if (seenPerson !== activePerson) { setSeenPerson(activePerson); setActiveReqId(null) }
+  if (seenPerson !== activePerson) { setSeenPerson(activePerson); setActiveReqIdState(null) }
   // focus が変わったら（上の一覧で別の行を押した等）そちらへ切り替える
   const [seenFocus, setSeenFocus] = useState(focusId)
-  if (seenFocus !== focusId) { setSeenFocus(focusId); if (focusId) setActiveReqId(focusId) }
+  if (seenFocus !== focusId) { setSeenFocus(focusId); if (focusId) setActiveReqIdState(focusId) }
 
   // 筆頭者／世帯主の候補。被相続人＋相続人の氏名（一覧に無い人は自由入力へ切り替える）
   const personNames = [...new Set(peopleRows.map(p => p.name.trim()).filter(Boolean))]
@@ -888,6 +923,7 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
   onToggleRelationDone: (on: boolean) => void
 }) {
   const wantsJuminhyo = includesJuminhyo(r.doc_types)
+  const wantsAddressDoc = includesAddressDoc(r.doc_types)   // 住民票・除票・附票＝現在住所が分かる請求
   // 誰の戸籍か。読込結果で聞くことがこれで変わる。
   const targetName = (r.target_person ?? '').trim()
   const isDeceasedTarget = !!targetName && targetName === (caseData.deceased_name ?? '').trim()
@@ -942,19 +978,6 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
 
   return (
     <div className={`space-y-2.5 ${mistaken ? 'ring-1 ring-red-200 rounded-lg p-2 bg-red-50/30' : ''}`}>
-      {/* この請求に対する操作 */}
-      <div className="flex items-center gap-2 justify-end">
-        <button type="button" onClick={onMakeDoc}
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 hover:bg-brand-50">
-          <FileText className="w-3.5 h-3.5" />この内容で請求書を作る
-        </button>
-        <button type="button" onClick={onCopy} title="請求先・対象者・範囲・種別・理由を引き継いで、日付と費用が空の請求を作る"
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50">
-          <Copy className="w-3.5 h-3.5" />同じ内容で再請求
-        </button>
-        <button type="button" onClick={onDelete} title="この請求を削除" className="text-gray-300 hover:text-red-500 px-1"><Trash2 className="w-4 h-4" /></button>
-      </div>
-
       <KosekiGroup no="Step1" title="誰が・何のために">
         <KosekiFieldRow label="取得区分">
           <SelCell value={r.acquirer} options={ACQUIRERS} onChange={v => saveField(r.id, 'acquirer', v)} />
@@ -1073,35 +1096,64 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
         </KosekiFieldRow>
       </KosekiGroup>
 
-      <KosekiGroup no="Step3" title="費用">
+      {/* Step3 は請求の前に決めること＝封筒に入れる小為替だけ。
+          返金・確定費用は届いてから分かるので Step4 へ。請求前に埋める欄と混ぜない。 */}
+      <KosekiGroup no="Step3" title="同封する小為替">
         {isClient ? (
           <KosekiFieldRow label="費用" full>
             <span className="text-[12px] text-gray-400">依頼者負担（依頼者取得のため、費用は入力しません）</span>
           </KosekiFieldRow>
         ) : (
-          <>
-            <KosekiFieldRow label="費用予算" hint="戸籍請求書の「同封小為替」欄に入ります。封筒に入れる小為替の額です。">
-              <MoneyCell value={r.cost_budget} onCommit={v => saveField(r.id, 'cost_budget', v === '' ? null : Number(v))} />
-            </KosekiFieldRow>
-            <KosekiFieldRow label="返金">
-              <MoneyCell value={r.cost_refund} onCommit={v => saveField(r.id, 'cost_refund', v === '' ? null : Number(v))} />
-            </KosekiFieldRow>
-            <KosekiFieldRow label="確定費用" full>
-              <span className={`inline-block px-2 py-1 rounded text-[12px] font-semibold border ${mistaken ? 'text-purple-700 bg-purple-50 border-purple-200' : 'text-emerald-700 bg-emerald-50 border-emerald-200'}`}
-                title={mistaken ? '誤請求のため、お客様への立替実費ではなく自社の経費として集計します' : undefined}>{yen(effConfirmed(r))}</span>
-              {mistaken && <span className="text-[12px] text-purple-600">経費として集計</span>}
-            </KosekiFieldRow>
-          </>
+          <KosekiFieldRow label="同封する小為替" full hint="戸籍請求書の「同封小為替」欄に入ります。封筒に入れる小為替の額です。">
+            <MoneyCell value={r.cost_budget} onCommit={v => saveField(r.id, 'cost_budget', v === '' ? null : Number(v))} />
+          </KosekiFieldRow>
         )}
       </KosekiGroup>
 
-      <KosekiGroup no="Step4" title="進捗">
+      {/* 操作バー。ここまでで請求できることを言い切り、この請求への操作を1か所に集める（金融の④と同じ型） */}
+      <div className="mt-2.5 flex items-center gap-2 flex-wrap px-3 py-2 bg-slate-50 border border-slate-200">
+        {isClient ? (
+          <>
+            <span className="text-[13px] font-bold text-brand-700">依頼者が取得します</span>
+            <span className="text-[12px] text-gray-500">届いたら、下の Step4 を開いて到着日を入れてください</span>
+          </>
+        ) : (
+          <>
+            <span className="text-[13px] font-bold text-brand-700">ここまでで請求できます</span>
+            <span className="text-[12px] text-gray-500">
+              {isShokumujo ? '職務上請求用紙に記入して発送したら、下の Step4 を開いて請求日を入れてください' : '請求書を出して発送したら、下の Step4 を開いて請求日を入れてください'}
+            </span>
+          </>
+        )}
+        <span className="ml-auto flex items-center gap-2">
+          {!isClient && !isShokumujo && (
+            <button type="button" onClick={onMakeDoc}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-white bg-brand-600 border border-brand-600 hover:bg-brand-700">
+              <FileText className="w-3.5 h-3.5" />この内容で請求書を作る
+            </button>
+          )}
+          <button type="button" onClick={onCopy} title="請求先・対象者・範囲・種別・理由を引き継いで、日付と費用が空の請求を作る"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50">
+            <Copy className="w-3.5 h-3.5" />同じ内容で再請求
+          </button>
+          <button type="button" onClick={onDelete} title="この請求を削除" className="text-gray-300 hover:text-red-500 px-1"><Trash2 className="w-4 h-4" /></button>
+        </span>
+      </div>
+
+      {/* ここから下は請求のあと。畳んだ見出しだけ出し、進み具合に合わせて開く（見出しを押せばいつでも開く） */}
+      <div className="flex items-center gap-2 pt-2 text-[12px] text-gray-500">
+        <span className="flex-1 border-t border-dashed border-slate-300" />
+        ここから下は、請求したあと・届いたあとに入力します
+        <span className="flex-1 border-t border-dashed border-slate-300" />
+      </div>
+
+      <FoldGroup no="Step4" title="請求したら／届いたら"
+        sub={isClient ? '到着日・到着チェック' : '請求日・発送チェック・到着日・返金・確定費用・到着チェック'}
+        autoOpen={!!r.request_date || !!r.arrival_date}
+        closedNote={isClient ? '届いたら開いて、到着日を入れます' : '請求したら開いて、請求日を入れます'}>
         <KosekiFieldRow label="請求日">
           {isClient ? <span className="text-[12px] text-gray-400">依頼者取得</span>
             : <DateCell value={r.request_date} onCommit={v => saveMany(r.id, { request_date: v || null, ...(v && !r.request_done_by ? { request_done_by: meId } : {}) })} />}
-        </KosekiFieldRow>
-        <KosekiFieldRow label="到着日" hint="到着物受信簿のW-Check（受信確定）で自動的に入ります。手で直すこともできます。">
-          <DateCell value={r.arrival_date} onCommit={v => saveMany(r.id, { arrival_date: v || null, ...(v && !r.receipt_done_by ? { receipt_done_by: meId } : {}) })} />
         </KosekiFieldRow>
         <KosekiFieldRow label="発送チェック" sub="確認簿で確認">
           {isClient ? muted : r.request_date
@@ -1110,21 +1162,41 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
                 onCancel={() => saveMany(r.id, { request_check_requested_at: null, request_check_requested_by: null })} />
             : <span className="text-[12px] text-gray-300">請求日待ち</span>}
         </KosekiFieldRow>
-        <KosekiFieldRow label="到着チェック" sub="確認簿で確認">
-          {isClient ? muted : r.arrival_date
-            ? <CheckRequestControl label="到着チェックを依頼" requestedAt={r.receipt_check_requested_at} checkedAt={r.receipt_check_at} checkedName={r.receipt_check_name}
-                onRequest={() => saveMany(r.id, { receipt_check_requested_at: new Date().toISOString(), receipt_check_requested_by: meId })}
-                onCancel={() => saveMany(r.id, { receipt_check_requested_at: null, receipt_check_requested_by: null })} />
-            : <span className="text-[12px] text-gray-300">到着待ち</span>}
+        <KosekiFieldRow label="到着日" hint="到着物受信簿のW-Check（受信確定）で自動的に入ります。手で直すこともできます。">
+          <DateCell value={r.arrival_date} onCommit={v => saveMany(r.id, { arrival_date: v || null, ...(v && !r.receipt_done_by ? { receipt_done_by: meId } : {}) })} />
         </KosekiFieldRow>
-      </KosekiGroup>
+        {isClient ? (
+          <KosekiFieldRow label="到着チェック" sub="確認簿で確認">{muted}</KosekiFieldRow>
+        ) : (
+          <>
+            <KosekiFieldRow label="返金" hint="届いた封筒に入っていた小為替（お釣り）の額。到着チェックで確認者が見比べます。返金が無ければ 0 を入れてください。">
+              <MoneyCell value={r.cost_refund} onCommit={v => saveField(r.id, 'cost_refund', v === '' ? null : Number(v))} />
+            </KosekiFieldRow>
+            <KosekiFieldRow label="確定費用" sub="同封 − 返金">
+              <span className={`inline-block px-2 py-1 rounded text-[12px] font-semibold border ${mistaken ? 'text-purple-700 bg-purple-50 border-purple-200' : 'text-emerald-700 bg-emerald-50 border-emerald-200'}`}
+                title={mistaken ? '誤請求のため、お客様への立替実費ではなく自社の経費として集計します' : undefined}>{yen(effConfirmed(r))}</span>
+              {mistaken && <span className="text-[12px] text-purple-600">経費として集計</span>}
+            </KosekiFieldRow>
+            <KosekiFieldRow label="到着チェック" sub="確認簿で確認" full>
+              {r.arrival_date
+                ? <CheckRequestControl label="到着チェックを依頼" requestedAt={r.receipt_check_requested_at} checkedAt={r.receipt_check_at} checkedName={r.receipt_check_name}
+                    onRequest={() => saveMany(r.id, { receipt_check_requested_at: new Date().toISOString(), receipt_check_requested_by: meId })}
+                    onCancel={() => saveMany(r.id, { receipt_check_requested_at: null, receipt_check_requested_by: null })} />
+                : <span className="text-[12px] text-gray-300">到着待ち</span>}
+            </KosekiFieldRow>
+          </>
+        )}
+      </FoldGroup>
 
       {/* Step5 読込結果。届いた戸籍を開けて読んだ人が最後に書く。
           「出生から死亡まで」で請求しても転籍を最後まで遡れないことがあり、それが分かるのは
           ここまで来てから。受信簿で紐づけた時点では中を読んでいないので判定できない。
           一部不足なら、残りは上の「＋ 請求を追加」で新しい請求を立てて取りに行く。
           請求範囲は書き換えない（何を請求したかの記録が消えるため）。 */}
-      <KosekiGroup no="Step5" title="読込結果">
+      <FoldGroup no="Step5" title="読込結果"
+        sub="取得の結果・住所・関係戸籍・内容"
+        autoOpen={!!r.arrival_date || !!r.read_status || !!(r.read_result ?? '').trim() || !!r.relation_koseki_done}
+        closedNote="届いたら開いて、読んだ結果を入れます">
         <KosekiFieldRow label="取得の結果" full>
           <div className="inline-flex rounded-md border border-gray-200 overflow-hidden">
             {KOSEKI_READ_STATUSES.map(s => {
@@ -1158,7 +1230,14 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
             <TxtCell value={targetInfo.lastHonseki} onCommit={v => onSaveTargetInfo('lastHonseki', v)} placeholder="例：神奈川県横浜市都筑区○○1番地" />
           </KosekiFieldRow>
         </>)}
-        {!isDeceasedTarget && (
+        {/* 現在住所が分かるのは住民票・除票・附票。戸籍だけの請求では薄くして触れなくする
+            （職務上請求で使わない欄と同じ見せ方）。 */}
+        {!isDeceasedTarget && !wantsAddressDoc && (
+          <KosekiFieldRow label="現在住所" full disabled disabledNote="戸籍の請求では使いません（住民票・附票の請求で入力）">
+            <span className="text-[12px] text-gray-400">—</span>
+          </KosekiFieldRow>
+        )}
+        {!isDeceasedTarget && wantsAddressDoc && (
           <KosekiFieldRow label="現在住所" full
             hint={targetHeir ? '相続人一覧の住所に保存されます。' : 'この人は相続人一覧にいないため保存先がありません。先に相続人として登録してください。'}>
             {targetHeir
@@ -1193,7 +1272,43 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
             </span>
           </KosekiFieldRow>
         )}
-      </KosekiGroup>
+      </FoldGroup>
     </div>
+  )
+}
+
+// 畳める Step。閉じているときは薄い見出しだけ（何を入れる欄かの一言つき）。
+// autoOpen＝進み具合から開くべきか（請求日・到着日が入った等）。手で開閉したらそちらを優先。
+// カードは請求ごとに key で作り直すので、開閉の状態も請求ごとに戻る。
+function FoldGroup({ no, title, sub, autoOpen, closedNote, children }: {
+  no: string
+  title: string
+  sub?: string
+  autoOpen: boolean
+  closedNote: string
+  children: ReactNode
+}) {
+  const [manual, setManual] = useState<boolean | null>(null)
+  const open = manual ?? autoOpen
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setManual(true)}
+        className="w-full flex items-center gap-2.5 px-3 pt-3.5 pb-1.5 min-h-[44px] bg-white border-b border-slate-200 text-left hover:bg-slate-50">
+        <span className="text-[14px] font-bold text-gray-400">{no}</span>
+        <span className="text-[14px] font-bold text-gray-400">{title}</span>
+        {sub && <span className="text-[12px] text-gray-400 ml-1 truncate">{sub}</span>}
+        <span className="ml-auto inline-flex items-center gap-1 text-[12px] text-gray-500 flex-none">{closedNote}<ChevronRight className="w-3.5 h-3.5" /></span>
+      </button>
+    )
+  }
+  return (
+    <PracticeGroup no={no} title={title} sub={sub}
+      right={
+        <button type="button" onClick={() => setManual(false)} className="inline-flex items-center gap-1 text-[12px] text-gray-500 hover:text-gray-800">
+          閉じる<ChevronDown className="w-3.5 h-3.5" />
+        </button>
+      }>
+      {children}
+    </PracticeGroup>
   )
 }

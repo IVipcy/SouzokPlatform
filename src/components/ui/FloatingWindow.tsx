@@ -25,17 +25,28 @@ export default function FloatingWindow({ isOpen, onClose, title, children, foote
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
   const [size, setSize] = useState<{ w: number; h: number }>({ w: width, h: height })
   const [minimized, setMinimized] = useState(false)
+  // ブラウザの表示領域の高さ。中身の高さをここから決め、フッターのボタンが画面の外に出ないようにする。
+  const [viewportH, setViewportH] = useState(0)
   const dragRef = useRef<{ dx: number; dy: number } | null>(null)
   const resizeRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null)
 
   // 初回オープン時に右上寄りへ配置（以降は保持）。閉じたら最小化を解除。
+  // 上端は 24px。以前は 92px で、ノートPCでは中身600px＋ヘッダー＋フッターが表示領域に収まらず、
+  // 右下の「出力」「追加」ボタンが画面の外に出ていた。
   useEffect(() => {
     if (isOpen && pos === null) {
-      setPos({ x: Math.max(16, window.innerWidth - width - 40), y: 92 })
+      setPos({ x: Math.max(16, window.innerWidth - width - 40), y: 24 })
     }
     if (!isOpen) setMinimized(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
+
+  useEffect(() => {
+    const onResize = () => setViewportH(window.innerHeight)
+    onResize()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -60,6 +71,13 @@ export default function FloatingWindow({ isOpen, onClose, title, children, foote
   }, [])
 
   if (!isOpen || !pos) return null
+
+  // 中身に使える高さ＝表示領域 − 上端 − ヘッダー(約41px) − フッター(約50px) − 下余白(16px)。
+  // 指定の高さより小さければ縮め、足りない分は中身をスクロールさせる。下へ動かしても同じ計算で追従する。
+  const bodyCap = Math.max(160, (viewportH || window.innerHeight) - pos.y - 41 - (footer ? 50 : 0) - 16)
+  const bodyStyle: React.CSSProperties = resizable
+    ? (fitContent ? { maxHeight: Math.min(size.h, bodyCap) } : { height: Math.min(size.h, bodyCap) })
+    : { maxHeight: bodyCap }
 
   const startDrag = (e: React.MouseEvent) => {
     dragRef.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y }
@@ -95,7 +113,7 @@ export default function FloatingWindow({ isOpen, onClose, title, children, foote
       </div>
       {!minimized && (
         <>
-          <div className="p-3.5 overflow-y-auto" style={resizable ? (fitContent ? { maxHeight: size.h } : { height: size.h }) : { maxHeight: '68vh' }}>{children}</div>
+          <div className="p-3.5 overflow-y-auto" style={bodyStyle}>{children}</div>
           {footer && <div className="flex justify-end gap-2 px-3.5 py-2.5 border-t border-gray-100 bg-gray-50 rounded-b-xl">{footer}</div>}
           {/* 右下のつまみ（掴んで大きさを変える） */}
           {resizable && (

@@ -43,7 +43,9 @@ export type ConfirmItem = {
   stamp: string | null       // 起票/更新の日時（ISO）
   target: string             // 請求先 / 対象
   content: string            // 内容（自動）
-  amount: string | null      // 費用/金額の表示
+  amount: string | null      // 費用/金額の表示（数字を含む。履歴にはここから数値を取る）
+  amountNote?: string | null   // 金額の横に小さく添える参考（着✓の「（同封 ¥…）」）
+  amountMissing?: string | null // 金額が未入力のときに琥珀で出す文言（着✓の「返金 未入力」）
   workerId: string | null    // 作業者（この人は押せない）
   workerName: string | null
   reviewer: 'jimu' | 'manager'
@@ -527,7 +529,10 @@ function ItemTable({ rows, busy, stamped, canAct, onAct, showGyomu = false }: { 
                   <div className="text-[11px] text-gray-500">{it.content}</div>
                 </td>
                 <td className="px-2.5 py-2 text-gray-600">{KIND_LABEL[it.action]}</td>
-                <td className="px-2.5 py-2 text-right tabular-nums text-gray-700">{it.amount ?? '—'}</td>
+                <td className="px-2.5 py-2 text-right tabular-nums text-gray-700 whitespace-nowrap">
+                  {it.amount ?? (it.amountMissing ? <span className="text-amber-700 font-semibold">{it.amountMissing}</span> : '—')}
+                  {it.amountNote && <span className="ml-1 text-[11px] text-gray-400">{it.amountNote}</span>}
+                </td>
                 <td className="px-2.5 py-2 text-gray-600">{it.workerName || '—'}</td>
                 <td className="px-2.5 py-2">
                   <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${it.reviewer === 'manager' ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-sky-50 text-sky-700 border border-sky-200'}`}>

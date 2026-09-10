@@ -533,6 +533,18 @@ export const includesJuminhyo = (docTypes: string | null | undefined): boolean =
 /** 戸籍系を含むか（種別②＝謄本/抄本の欄を出すかの判定） */
 export const includesKoseki = (docTypes: string | null | undefined): boolean =>
   splitMulti(docTypes).some(x => KOSEKI_FAMILY.includes(x))
+/** 住所が分かる書類（住民票・除票・戸籍の附票）を含むか。読込結果の「現在住所」を聞くかの判定 */
+export const includesAddressDoc = (docTypes: string | null | undefined): boolean =>
+  splitMulti(docTypes).some(x => JUMINHYO_FAMILY.includes(x) || x === '戸籍の附票')
+/** 戸籍請求の呼び名「請求先　種別①／種別②」。画像の仕切り・ビューア・請求を選ぶ画面で共通に使う。
+    同じ役所に戸籍と住民票を別々に請求すると、請求先だけでは見分けがつかないため種別まで出す。 */
+export const kosekiRequestLabel = (r: { request_to?: string | null; doc_types?: string | null; doc_form?: string | null }): string => {
+  const dest = (r.request_to ?? '').trim() || '請求先未設定'
+  const types = splitMulti(r.doc_types).join('・')
+  const form = includesKoseki(r.doc_types) ? splitMulti(r.doc_form).join('・') : ''
+  const kind = [types, form].filter(Boolean).join('／')
+  return kind ? `${dest}　${kind}` : dest
+}
 
 // === 報酬内訳の項目リスト（司法/行政 共通） ===
 export const REWARD_ITEM_OPTIONS = ['手続き一式', '相続登記', '遺産承継', '戸籍請求サポート', 'その他'] as const

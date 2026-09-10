@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState, useEffect } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { Trash2, Pencil, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toPng } from 'html-to-image'
@@ -105,7 +105,16 @@ const unknownNameFor = (rel: string) => `${rel || '相続人'}（氏名不明）
 export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRefresh, patchCase, orderSheetMode = false, contractDocuments = [], caseClients = [], tasks = [] }: Props) {
   // アラート（追加戸籍請求の承認依頼）から ?sub=koseki で戸籍請求サブタブに直接遷移
   const searchParams = useSearchParams()
-  const [sub, setSub] = useState<'heirs' | 'koseki'>(() => { const s = searchParams.get('sub'); return s === 'koseki' ? 'koseki' : 'heirs' })
+  const router = useRouter()
+  const [sub, setSubState] = useState<'heirs' | 'koseki'>(() => { const s = searchParams.get('sub'); return s === 'koseki' ? 'koseki' : 'heirs' })
+  // サブタブもURLに持つ（リロードで相続人一覧に戻されないように）。戸籍請求を離れるときは開いていた人・請求も消す。
+  const setSub = (k: 'heirs' | 'koseki') => {
+    setSubState(k)
+    const p = new URLSearchParams(window.location.search)
+    if (k === 'koseki') p.set('sub', 'koseki'); else { p.delete('sub'); p.delete('person'); p.delete('req'); p.delete('focus') }
+    const qs = p.toString()
+    router.replace(qs ? `?${qs}` : '?', { scroll: false })
+  }
   const [showAddHeir, setShowAddHeir] = useState(false)
   // 既存行の編集状態: null = 追加モード or 非編集、string = 編集中の heir.id
   const [editingHeirId, setEditingHeirId] = useState<string | null>(null)

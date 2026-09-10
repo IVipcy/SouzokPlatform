@@ -18,7 +18,7 @@ import ImageAnnotator from './ImageAnnotator'
 import AnnotatedImage from './AnnotatedImage'
 import { drawAnnotations, type Anno } from '@/lib/imageAnnotations'
 import { useKosekiImages, KOSEKI_BUCKET as BUCKET, type KosekiImageRow } from '@/lib/useKosekiImages'
-import { REQUEST_KIND_BADGE } from '@/lib/constants'
+import { REQUEST_KIND_BADGE, kosekiRequestLabel } from '@/lib/constants'
 import type { KosekiRequestRow } from '@/types'
 
 export type { KosekiImageRow }
@@ -52,7 +52,8 @@ export default function KosekiImagePanel({ caseId, targetPerson, requests = [], 
   const unassigned = rows.filter(r => !r.koseki_request_id || !requests.some(rq => rq.id === r.koseki_request_id))
   const grouped = requests.length > 0 && targetPerson !== undefined
 
-  const reqLabel = (rq: KosekiRequestRow) => (rq.request_to ?? '').trim() || '請求先未設定'
+  // 仕切りの名前は「請求先　種別」。同じ役所へ戸籍と住民票を別々に出したときに見分けるため。
+  const reqLabel = (rq: KosekiRequestRow) => kosekiRequestLabel(rq)
 
   const startUpload = (files: FileList | null) => {
     if (!files || files.length === 0) return
