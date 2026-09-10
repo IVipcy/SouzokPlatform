@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { UserCircle, ClipboardList, ListChecks, MessageSquare, MessagesSquare, Sparkles, ClipboardCheck, Receipt, AlertTriangle, PenSquare } from 'lucide-react'
+import { UserCircle, ClipboardList, ListChecks, MessageSquare, MessagesSquare, Sparkles, ClipboardCheck, Receipt, AlertTriangle, PenSquare, Landmark } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, canSeeMyPage, isSystemManager } from '@/lib/auth'
 import MyPageCasesTab from '@/components/features/my/MyPageCasesTab'
@@ -23,6 +23,9 @@ import HourenSouTable, { type HourenSouItem } from '@/components/features/my/Hou
 import MyTaskCreateButton from '@/components/features/tasks/MyTaskCreateButton'
 import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
 import CaseReportInbox from '@/components/features/my/CaseReportInbox'
+import MyToukiRequestsTab from '@/components/features/my/MyToukiRequestsTab'
+import { TOUKI_REQUEST_SELECT } from '@/lib/useToukiRequests'
+import { isOpenToukiRequest } from '@/lib/toukiRequests'
 import {
   computeSalesMetrics,
   computeSalesMetricsForDay,
@@ -37,7 +40,7 @@ import {
   type DashReferral,
   type SalesMetricsBundle,
 } from '@/lib/dashboardMetrics'
-import type { TaskRow, ProgressReportRow, CaseReportStatus } from '@/types'
+import type { TaskRow, ProgressReportRow, CaseReportStatus, ToukiRequestRow } from '@/types'
 
 /**
  * マイページ — 認証ユーザー本人のみ閲覧可能。
@@ -51,7 +54,7 @@ import type { TaskRow, ProgressReportRow, CaseReportStatus } from '@/types'
  */
 
 type SearchParams = Promise<{ tab?: string; period?: string; as?: string }>
-type TabKey = 'meetings' | 'prep' | 'cases' | 'billing' | 'referrals' | 'progress' | 'hourensou' | 'hourensouAction' | 'complaints' | 'tasks'
+type TabKey = 'meetings' | 'prep' | 'cases' | 'billing' | 'referrals' | 'progress' | 'hourensou' | 'hourensouAction' | 'touki' | 'complaints' | 'tasks'
 
 // 相談案件 = 面談〜検討〜依頼確定待ち〜失注（受注前）。
 // 依頼確定待ちは契約書が返ってきていない段階なので受注前＝相談案件。案件一覧と揃えてある。
@@ -905,6 +908,14 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   if (showProgress) validTabs.push('progress')
   if (showHourensou) validTabs.push('hourensou')
   if (showHourensou) validTabs.push('hourensouAction')
+  // 登記依頼（管理担当が登記部門へ出したもの）
+  let toukiRows: ToukiRequestRow[] = []
+  if (isManager) {
+    const { data } = await supabase.from('touki_requests').select(TOUKI_REQUEST_SELECT).eq('requester_id', memberId).order('requested_at', { ascending: false })
+    toukiRows = (data ?? []) as unknown as ToukiRequestRow[]
+    validTabs.push('touki')
+  }
+  const toukiOpenCount = toukiRows.filter(isOpenToukiRequest).length
   // クレーム報告受信タブ（受注担当のみ）
   if (isSales) validTabs.push('complaints')
   validTabs.push('tasks')
@@ -1003,6 +1014,9 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         )}
         {showHourensou && (
           <TabLink href={`/my?tab=hourensouAction${asSuffix}`} label={`報連相（要対応）${hourensouActionCount > 0 ? ` (${hourensouActionCount})` : ''}`} Icon={MessagesSquare} active={activeTab === 'hourensouAction'} />
+        )}
+        {isManager && (
+          <TabLink href={`/my?tab=touki${asSuffix}`} label={`登記依頼${toukiOpenCount > 0 ? ` (${toukiOpenCount})` : ''}`} Icon={Landmark} active={activeTab === 'touki'} />
         )}
         {isSales && (
           <TabLink href={`/my?tab=complaints${asSuffix}`} label={`クレーム報告${salesPendingComplaintsCount > 0 ? ` (${salesPendingComplaintsCount})` : ''}`} Icon={AlertTriangle} active={activeTab === 'complaints'} />
@@ -1118,6 +1132,10 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
           note="回答が無いと相手の作業が止まります。1営業日で要確認・3営業日で要注意のアラートに出ます"
           todayStr={todayStr}
         />
+      )}
+
+      {activeTab === 'touki' && isManager && (
+        <MyToukiRequestsTab rows={toukiRows} memberId={memberId} todayStr={todayStr} />
       )}
 
       {/* 個別管理案件（紹介のみ） */}

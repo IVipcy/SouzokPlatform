@@ -10,6 +10,8 @@ import { Section } from '@/components/ui/InlineFields'
 import ContractReceivedDocs from './ContractReceivedDocs'
 import { PracticeTabHeader } from './TabContextPanel'
 import RegistrationSection from './RegistrationSection'
+import { useToukiRequests } from '@/lib/useToukiRequests'
+import { isOpenToukiRequest } from '@/lib/toukiRequests'
 import type { CaseRow, RealEstatePropertyRow, ContractDocumentRow, HeirRow, TaskRow } from '@/types'
 
 type Props = {
@@ -35,6 +37,9 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
   const supabase = createClient()
   const [rows, setRows] = useState<RealEstatePropertyRow[]>(properties)
   useEffect(() => { setRows(properties) }, [properties])
+  // 登記部門への依頼（実務のときだけ読む）
+  const { rows: toukiRequests, reload: reloadTouki } = useToukiRequests(orderSheetMode ? null : caseData.id)
+  const openTouki = toukiRequests.filter(isOpenToukiRequest).length
   // 取得者selectは案件の相続人から選ぶ。相続人情報が変わったら即反映されるようEffectで取得。
   const [heirs, setHeirs] = useState<HeirRow[]>([])
   useEffect(() => {
@@ -57,9 +62,14 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
   if (!orderSheetMode) {
     return (
       <div className="space-y-3.5">
-        <PracticeTabHeader title="相続登記" description="物件ごとに、登記の種類・管轄の法務局・申請日・登録免許税を記録します。"
-          caseData={caseData} gyomu="registration" gyomus={['登記']} tasks={tasks} patchCase={patchCase} onRefresh={onRefresh} />
-        <RegistrationSection caseId={caseData.id} properties={properties} heirs={heirs} onRefresh={onRefresh} />
+        <PracticeTabHeader title="相続登記" description="法務局ごとに、登記部門への依頼と物件の登記の状況を進めます。申請書・委任状は相続の力で作ります。"
+          caseData={caseData} gyomu="registration" gyomus={['登記']} tasks={tasks} patchCase={patchCase} onRefresh={onRefresh}
+          extraRight={
+            <span className={`inline-flex items-center gap-1.5 h-8 px-3 text-[12.5px] font-semibold border bg-white ${openTouki > 0 ? 'border-amber-300 text-amber-900' : 'border-gray-300 text-gray-700'}`} title="登記部門への依頼のうち、まだ結果が返っていないもの">
+              登記依頼<span className={`px-1.5 text-[11.5px] font-bold ${openTouki > 0 ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>{openTouki}</span><span className="font-normal text-gray-400">対応待ち</span>
+            </span>
+          } />
+        <RegistrationSection caseId={caseData.id} properties={properties} heirs={heirs} requests={toukiRequests} onRefresh={onRefresh} onRefreshRequests={() => void reloadTouki()} />
         <ContractReceivedDocs documents={contractDocuments} category="登記" title="契約時にお客様から受領した登記関係書類" />
       </div>
     )

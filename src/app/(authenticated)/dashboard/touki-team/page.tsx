@@ -4,8 +4,9 @@ import { Package } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
-import TouKiTeamDashboardClient from '@/components/features/dashboard/TouKiTeamDashboardClient'
-import type { TaskRow } from '@/types'
+import ToukiTeamTabs from '@/components/features/dashboard/ToukiTeamTabs'
+import { TOUKI_REQUEST_SELECT } from '@/lib/useToukiRequests'
+import type { TaskRow, ToukiRequestRow } from '@/types'
 
 // 相続登記チーム 専用ダッシュボード。
 //   task_kind='touki_team' のタスク一覧を全案件横断で表示。
@@ -40,16 +41,20 @@ export default async function TouKiTeamDashboardPage() {
     .eq('task_kind', 'touki_team')
     .order('due_date', { ascending: true, nullsFirst: false })
   const tasks = (tasksRaw ?? []) as TaskRow[]
+  // 登記依頼（管理担当 → 登記部門）。全案件横断。完了・修正ありも履歴として渡す（絞り込みは画面側）
+  const { data: reqRaw } = await supabase.from('touki_requests').select(TOUKI_REQUEST_SELECT).order('requested_at', { ascending: false }).limit(500)
+  const requests = (reqRaw ?? []) as unknown as ToukiRequestRow[]
+  const todayStr = new Date().toLocaleDateString('sv-SE')
 
   return (
     <div>
       <PageHeader
         eyebrow="Touki Team"
-        title="相続登記チーム 進捗ダッシュボード"
+        title="相続登記チーム"
         icon={Package}
-        description="task_kind=touki_team のタスク（権利書の製本 等）を全案件横断で表示。相続登記チーム メンバー全員が着手可"
+        description="管理担当からの登記依頼（作成願い・チェック願い・申請願い・申請セットチェック願い・謄本・製本願い）を「依頼」タブで受け、チーム内の作業は「タスク」タブで管理します"
       />
-      <TouKiTeamDashboardClient tasks={tasks} currentMemberId={user.memberId} />
+      <ToukiTeamTabs requests={requests} tasks={tasks} currentMemberId={user.memberId} todayStr={todayStr} />
     </div>
   )
 }

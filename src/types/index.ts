@@ -957,6 +957,8 @@ export type RealEstatePropertyRow = {
   confirmed_name: string | null                    // ハンコ表示用（migration 186）
   confirm_requested_at: string | null              // 評価額確定の依頼（依頼→確認モデル。migration 181）
   confirm_requested_by: string | null
+  registration_receipt_no?: string | null          // 相続登記 受付番号（migration 281）
+  registration_delivery_date?: string | null       // 相続登記 権利証の納品日（migration 281）
   registration_cost: number | null                 // 相続登記 確定費用＝登録免許税（migration 148）
   registration_check_name: string | null           // 相続登記 申請時ダブルチェック（migration 148）
   registration_check_at: string | null
@@ -1408,6 +1410,36 @@ export type CaseReportRow = {
   reviewing_at: string | null
   created_at: string
   updated_at: string
+}
+
+// === 登記依頼（管理担当 → 相続登記チーム。migration 281） ===
+// 申請書は別システム（相続の力）で作るため、ここは依頼のやりとりと結果だけ。報連相とは別の表。
+export type ToukiRequestType = '作成願い' | 'チェック願い' | '申請願い' | '申請セットチェック願い' | '謄本・製本願い'
+export type ToukiRequestStatus = '依頼中' | '対応中' | '完了' | '修正あり'
+export type ToukiRequestRow = {
+  id: string
+  case_id: string
+  request_type: ToukiRequestType
+  office: string | null              // 法務局
+  registration_type: string | null   // 登記の種類
+  property_ids: string[] | null      // 対象物件
+  note: string | null
+  requester_id: string | null
+  requested_at: string
+  status: ToukiRequestStatus
+  assignee_id: string | null         // 登記部門の担当
+  started_at: string | null
+  result_comment: string | null
+  responded_by: string | null
+  responded_at: string | null
+  parent_id: string | null           // 再依頼の元
+  created_at: string
+  updated_at: string
+  // join 用
+  cases?: { id: string; case_number: string; deal_name: string } | null
+  requester?: { id: string; name: string } | null
+  assignee?: { id: string; name: string } | null
+  responder?: { id: string; name: string } | null
 }
 
 // === 戸籍の取得計画（オーダーシート。1行＝1人。migration 241） ===
