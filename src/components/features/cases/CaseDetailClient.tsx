@@ -197,13 +197,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     router.refresh()
   }
 
-  // 戸籍請求の自動シード：戸籍業務が有効な案件で、依頼者の行だけを作る。
-  //
-  // 相続人は最初から分かっていることが少なく、依頼者の戸籍を読んで芋づる式に判明していく。
-  // 全員ぶんを先に並べると、まだ取る必要のない行や、そもそも存在しない人の行が並んでしまう。
-  // 2人目以降は戸籍請求タブの「戸籍を追加」からその場で足す（相続人一覧にも同時に登録される）。
-  //
-  // 取得区分は既定「自社取得」、請求先は本籍地から自動推定。
   // 案件番号の経路コードの取りこぼしを拾う。
   // /intake の下書きは経路が決まる前に採番するので XX で始まる。受注ルートを保存した時点で
   // 実コードに直しているが、それより前に作られた案件や、直す処理を通らずにルートが入った案件が残る。
@@ -221,34 +214,58 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caseState.id, caseState.case_number, caseState.order_route])
 
+  // 戸籍請求の初期作成：案件につき1回だけ（cases.koseki_seeded_at）。
+  //
+  // 以前は「依頼者の行が無ければ空の1行を作る」を開くたびに走らせていて、消した行や名前を直した人の行が
+  // 「新しい請求」として何度も生えていた。いまは
+  //   ・オーダーシートの戸籍の取得計画（koseki_plans）に見立てがある人＝1人1行、範囲・住所関係書類・取得方法を引き継ぐ
+  //   ・計画が1行も無ければ、依頼者（無ければ被相続人）の1行だけ
+  // を作り、作った時刻を案件に残して二度と走らせない。2人目以降や消した分は戸籍請求タブの「請求を追加」で足す。
   const kosekiSeededRef = useRef(false)
   useEffect(() => {
-    if (kosekiSeededRef.current) return
+    if (kosekiSeededRef.current || caseState.koseki_seeded_at) return
+    if (kosekiRequests.length > 0) return   // 既に請求がある案件は作らない（マイグレ前の案件の保険）
     const roles = (caseState.intake_roles ?? []) as Array<{ gyomu?: string | null; owner?: string | null }>
     if (!roles.some(r => r.gyomu === '戸籍' && (r.owner ?? '') !== '不要')) return
-    // 依頼者（heirs.is_client）。未設定なら被相続人から始める（依頼者が決まる前でも1行は要る）。
-    const people: { name: string; office: string | null }[] = []
-    const client = heirs.find(h => h.is_client && (h.name ?? '').trim())
-    if (client) {
-      people.push({ name: (client.name ?? '').trim(), office: kosekiOfficeFromAddress(client.registered_address ?? null) })
-    } else {
-      const dn = (caseState.deceased_name ?? '').trim()
-      if (dn) people.push({ name: dn, office: kosekiOfficeFromAddress(caseState.deceased_registered_address ?? null) })
-    }
-    if (people.length === 0) return
-    const existing = new Set(kosekiRequests.map(r => (r.target_person ?? '').trim()).filter(Boolean))
-    const missing = people.filter(p => !existing.has(p.name))
-    if (missing.length === 0) return
     kosekiSeededRef.current = true
     ;(async () => {
       const supabase = createClient()
-      const base = kosekiRequests.length
-      const rows = missing.map((p, i) => ({ case_id: caseState.id, target_person: p.name, acquirer: '自社', request_to: p.office, sort_order: base + i }))
-      const { error } = await supabase.from('koseki_requests').insert(rows)
-      if (!error) handleSaved()
+      const { data: planRows } = await supabase.from('koseki_plans').select('person_name, range_text, address_doc, acquisition_authority').eq('case_id', caseState.id).order('sort_order').order('created_at')
+      const plans = ((planRows ?? []) as Array<{ person_name: string; range_text: string | null; address_doc: string | null; acquisition_authority: string | null }>)
+        .filter(p => (p.person_name ?? '').trim() && (p.range_text || p.address_doc || p.acquisition_authority))
+      const dn = (caseState.deceased_name ?? '').trim()
+      const officeOf = (name: string) => {
+        if (name === dn) return kosekiOfficeFromAddress(caseState.deceased_registered_address ?? null)
+        const h = heirs.find(x => (x.name ?? '').trim() === name)
+        return kosekiOfficeFromAddress(h?.registered_address ?? null)
+      }
+      // 種別①：戸籍＋（計画の住所関係書類が住民票／附票ならそれも）。「不要」「どちらでも」は付けない
+      const docTypesOf = (addressDoc: string | null) => {
+        const parts = ['戸籍']
+        if (addressDoc === '住民票' || addressDoc === '戸籍の附票') parts.push(addressDoc)
+        return parts.join('・')
+      }
+      type Row = { case_id: string; target_person: string; acquirer: string; request_to: string | null; range_text: string | null; doc_types: string; doc_form: string; acquisition_authority: string | null; sort_order: number }
+      let rows: Row[] = []
+      if (plans.length > 0) {
+        rows = plans.map((p, i) => ({
+          case_id: caseState.id, target_person: p.person_name.trim(), acquirer: '自社', request_to: officeOf(p.person_name.trim()),
+          range_text: p.range_text, doc_types: docTypesOf(p.address_doc), doc_form: '謄本', acquisition_authority: p.acquisition_authority, sort_order: i,
+        }))
+      } else {
+        const client = heirs.find(h => h.is_client && (h.name ?? '').trim())
+        const name = client ? (client.name ?? '').trim() : dn
+        if (name) rows = [{ case_id: caseState.id, target_person: name, acquirer: '自社', request_to: officeOf(name), range_text: null, doc_types: '戸籍', doc_form: '謄本', acquisition_authority: null, sort_order: 0 }]
+      }
+      if (rows.length > 0) {
+        const { error } = await supabase.from('koseki_requests').insert(rows)
+        if (error) { showToast(`戸籍請求の初期作成に失敗: ${error.message}`, 'error'); return }
+      }
+      await supabase.from('cases').update({ koseki_seeded_at: new Date().toISOString() }).eq('id', caseState.id)
+      handleSaved()
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [caseState.id, heirs.length, kosekiRequests.length])
+  }, [caseState.id, caseState.koseki_seeded_at, heirs.length, kosekiRequests.length])
 
   // 「このタスクを完了」→ まず注意（依頼のし忘れ等）を判定。該当なければそのまま完了モーダルへ。
   const handleCompleteClick = async (t: TaskRow) => {

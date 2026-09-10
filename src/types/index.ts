@@ -95,6 +95,7 @@ export type CaseRow = {
   deceased_postal_code: string | null   // 被相続人 郵便番号（migration 101）
   deceased_address: string | null
   deceased_address2: string | null        // 住所2（建物名・部屋番号）migration 278
+  koseki_seeded_at: string | null          // 戸籍請求の初期行を取得計画から作った時刻（1回だけ。migration 279）
   deceased_registered_address: string | null
   // 印鑑登録証明書は案件に1つ（原本は1通なので所在で持つ。migration 271）
   seal_cert_oldest_issue_date: string | null

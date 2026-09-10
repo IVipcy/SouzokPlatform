@@ -265,13 +265,16 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
   // モーダルで何も聞かずに空の請求を作り、そのタブを開く。請求先はカードで入力する。
   const addRequestForPerson = async (person: string) => {
     const { data: planRow } = await supabase
-      .from('koseki_plans').select('range_text, acquisition_authority').eq('case_id', caseId).eq('person_name', person).maybeSingle()
-    const plan = planRow as { range_text: string | null; acquisition_authority: string | null } | null
+      .from('koseki_plans').select('range_text, acquisition_authority, address_doc').eq('case_id', caseId).eq('person_name', person).maybeSingle()
+    const plan = planRow as { range_text: string | null; acquisition_authority: string | null; address_doc: string | null } | null
+    // 種別①は戸籍＋（計画の住所関係書類が住民票／附票ならそれも）
+    const docTypes = ['戸籍', ...(plan?.address_doc === '住民票' || plan?.address_doc === '戸籍の附票' ? [plan.address_doc] : [])].join('・')
     const { data, error } = await supabase.from('koseki_requests')
       .insert({
         case_id: caseId, sort_order: requests.length,
         target_person: person || null,
         range_text: plan?.range_text ?? null,
+        doc_types: docTypes, doc_form: '謄本',
         // 取得方法はオーダーシートの取得計画から引き継ぐ（まとめて設定した内容がそのまま入る）
         acquisition_authority: plan?.acquisition_authority ?? null,
         submit_to: KOSEKI_SUBMIT_TO_DEFAULT,
@@ -587,7 +590,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                           {(r.target_person ?? '').trim() && (
                             <button type="button" title={`${r.target_person} の戸籍を追加請求`}
                               onClick={e => { e.stopPropagation(); setSub((r.target_person ?? '').trim()); addRequestForPerson((r.target_person ?? '').trim()) }}
-                              className="ml-1.5 align-middle text-[12px] px-1.5 py-0.5 rounded border border-brand-200 text-brand-700 bg-brand-50 opacity-0 group-hover/cell:opacity-100 transition-opacity">
+                              className="ml-1.5 align-middle text-[12px] px-1.5 py-0.5 rounded border border-brand-200 text-brand-700 bg-brand-50 opacity-0 pointer-events-none group-hover/cell:opacity-100 group-hover/cell:pointer-events-auto transition-opacity">
                               ＋戸籍
                             </button>
                           )}
