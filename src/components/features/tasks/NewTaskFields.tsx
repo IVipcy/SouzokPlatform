@@ -16,7 +16,7 @@ import { isHiddenForAssistant } from '@/lib/assistantTaskTabs'
 import { koteiOf } from '@/lib/kotei'
 
 /** 担当区分。事務管理＝業務ひもづきの通常タスク。管理担当/受注担当＝systemタスクで、その担当へ割当＋通知。 */
-export type RoleKind = 'assistant' | 'manager' | 'sales'
+export type RoleKind = 'assistant' | 'manager' | 'sales' | 'touki'
 
 export type NewTaskValue = {
   roleKind: RoleKind
@@ -37,6 +37,7 @@ const ROLE_KINDS: { key: RoleKind; label: string; desc: string }[] = [
   { key: 'assistant', label: '事務管理担当タスク', desc: '業務にひもづく通常タスク（既定）' },
   { key: 'manager', label: '管理担当タスク', desc: '案件の管理担当へ割当・通知' },
   { key: 'sales', label: '受注担当タスク', desc: '案件の受注担当へ割当・通知' },
+  { key: 'touki', label: '相続登記チームタスク', desc: '権利書の製本など。相続登記チームのダッシュボード「タスク」タブに出る' },
 ]
 
 const PRIORITIES = [
@@ -76,7 +77,7 @@ export default function NewTaskFields({ caseId, value, onChange, defaultGyomu, c
       setGyomuOptions(gyomus)
       if (!value.gyomu) {
         const g0 = (defaultGyomu && gyomus.includes(defaultGyomu)) ? defaultGyomu : (gyomus[0] ?? 'その他')
-        onChange({ gyomu: value.roleKind === 'assistant' ? g0 : 'その他' })
+        onChange({ gyomu: value.roleKind === 'assistant' ? g0 : value.roleKind === 'touki' ? '登記' : 'その他' })
       }
     })()
     return () => { active = false }
@@ -90,7 +91,7 @@ export default function NewTaskFields({ caseId, value, onChange, defaultGyomu, c
     .filter(g => !isHiddenForAssistant(g))
   // 管理担当/受注担当タスクは、案件の実施業務にかかわらず全業務から選べる。
   const managerGyomuChoices = [...GYOMU_ALL.filter(g => g !== 'その他'), 'その他']
-  const choices = value.roleKind === 'assistant' ? gyomuChoices : managerGyomuChoices
+  const choices = value.roleKind === 'assistant' ? gyomuChoices : value.roleKind === 'touki' ? ['登記'] : managerGyomuChoices
 
   const label = `block ${compact ? 'text-[11.5px]' : 'text-[13px]'} font-semibold text-gray-500 mb-1`
   const inp = `w-full px-3 py-2 border border-gray-300 rounded-lg ${compact ? 'text-[12.5px]' : 'text-sm'} focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none`
@@ -110,7 +111,7 @@ export default function NewTaskFields({ caseId, value, onChange, defaultGyomu, c
                 onClick={() => onChange({
                   roleKind: rk.key,
                   // 事務管理＝案件の業務、管理担当/受注担当＝その他（随時）を既定にする
-                  gyomu: rk.key === 'assistant' ? (gyomuOptions[0] ?? 'その他') : 'その他',
+                  gyomu: rk.key === 'assistant' ? (gyomuOptions[0] ?? 'その他') : rk.key === 'touki' ? '登記' : 'その他',
                 })}
                 className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors ${on ? 'border-2 border-brand-400 bg-brand-50' : 'border border-gray-200 hover:bg-gray-50'}`}
               >

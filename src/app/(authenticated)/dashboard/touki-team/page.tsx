@@ -52,7 +52,7 @@ export default async function TouKiTeamDashboardPage() {
         eyebrow="Touki Team"
         title="相続登記チーム"
         icon={Package}
-        description="管理担当からの登記依頼（作成願い・チェック願い・申請願い・申請セットチェック願い・謄本・製本願い）を「依頼」タブで受け、チーム内の作業は「タスク」タブで管理します"
+        description="管理担当からの登記依頼（作成願い・チェック願い・申請願い・申請セットチェック願い）を「依頼」タブで受け、権利書の製本などチーム内の作業は「タスク」タブで管理します"
       />
       <ToukiTeamTabs requests={requests} tasks={tasks} currentMemberId={user.memberId} todayStr={todayStr} />
     </div>

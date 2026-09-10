@@ -69,10 +69,15 @@ export function receiptTaskDefaults(itemName: string, linkedKind: string | null,
       isRead: true,
     }
   }
+  // 手で名前を打った到着物でも、登記識別情報通知・登記完了証・登記事項証明書は「登記」の業務に寄せる。
+  // 確認タスクを完了するとき「権利書の製本」（相続登記チーム）が候補に出る。
+  const isTouki = /識別情報|登記完了|登記事項証明|登記情報/.test(name)
   return {
     title: `${name} の確認`,
-    work: `届いた「${name}」の内容を確認する。`,
-    gyomu: RECEIPT_KIND_GYOMU[kind] ?? contractGyomu ?? 'その他',
+    work: isTouki
+      ? `届いた「${name}」の内容（受付番号・物件・名義）を確認し、相続登記タブの物件に完了日を入れる。完了時に「権利書の製本」を相続登記チームへ。`
+      : `届いた「${name}」の内容を確認する。`,
+    gyomu: RECEIPT_KIND_GYOMU[kind] ?? (isTouki ? '登記' : undefined) ?? contractGyomu ?? 'その他',
     isRead: false,
   }
 }

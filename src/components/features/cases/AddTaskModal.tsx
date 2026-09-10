@@ -124,6 +124,27 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
           ext_data: readyExt,
         })
       if (taskErr) { setError(`追加に失敗しました: ${taskErr.message}`); setSaving(false); return }
+    } else if (form.roleKind === 'touki') {
+      // 相続登記チームタスク（権利書の製本など）。チームのダッシュボード「タスク」タブに出て、チームの誰でも着手できる
+      const { error: taskErr } = await supabase
+        .from('tasks')
+        .insert({
+          case_id: caseId,
+          task_kind: 'touki_team',
+          title: form.title.trim(),
+          phase: '登記',
+          category: '登記',
+          status: '着手前',
+          priority: form.priority,
+          due_date: form.dueDate || null,
+          sort_order: 99,
+          created_by: currentMemberId,
+          procedure_text: form.work.trim() || null,
+          source_rid: sourceRid,
+          work_role: 'assistant',
+          ext_data: readyExt,
+        })
+      if (taskErr) { setError(`追加に失敗しました: ${taskErr.message}`); setSaving(false); return }
     } else {
       // 管理担当/受注担当タスク（systemタスク）→ 案件のその担当へ割当＋通知
       const role = form.roleKind  // 'manager' | 'sales'

@@ -9,7 +9,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { bizDaysOverdue } from '@/lib/overdue'
 import type { ToukiRequestRow, ToukiRequestType, ToukiRequestStatus, RealEstatePropertyRow } from '@/types'
 
-export const TOUKI_REQUEST_TYPES: ToukiRequestType[] = ['作成願い', 'チェック願い', '申請願い', '申請セットチェック願い', '謄本・製本願い']
+// 依頼として出せる種別。「謄本・製本願い」は出さない（権利書の製本は相続登記チームのタスクで回す。過去の行の表示だけ残す）
+export const TOUKI_REQUEST_TYPES: ToukiRequestType[] = ['作成願い', 'チェック願い', '申請願い', '申請セットチェック願い']
 
 /** 種別の一言（依頼モーダル・キューの説明） */
 export const TOUKI_REQUEST_TYPE_NOTE: Record<ToukiRequestType, string> = {
@@ -89,7 +90,7 @@ export function toukiStages(requests: ToukiRequestRow[], props: RealEstateProper
     { label: 'チェック', sub: check ? reqSub(check, 'チェック願い') : 'チェック願い', state: 'future' },
     { label: '署名・本人確認', sub: checkDone && !applyRequested ? '郵送→返送→本人確認' : (applyRequested ? '済' : '郵送→返送→本人確認'), state: 'future' },
     { label: '申請', sub: appliedDone ? `申請日 ${md(applied[0].registration_apply_date)}` : apply ? reqSub(setCheck ?? apply, setCheck ? '申請セットチェック願い' : '申請願い') : `申請願い→申請日${n > 0 && applied.length > 0 ? `（${applied.length}/${n}）` : ''}`, state: 'future' },
-    { label: '完了・謄本', sub: completedDone ? `完了 ${md(completed[0].registration_complete_date)}` : copy ? reqSub(copy, '謄本・製本願い') : `完了日${n > 0 && completed.length > 0 ? `（${completed.length}/${n}）` : ''}・謄本・製本願い`, state: 'future' },
+    { label: '完了・製本', sub: completedDone ? `完了 ${md(completed[0].registration_complete_date)}` : copy ? reqSub(copy, '謄本・製本願い') : `完了日${n > 0 && completed.length > 0 ? `（${completed.length}/${n}）` : ''}・識別情報通知→製本`, state: 'future' },
     { label: '納品', sub: deliveredDone ? `納品 ${md(delivered[0].registration_delivery_date)}` : `納品日${n > 0 && delivered.length > 0 ? `（${delivered.length}/${n}）` : ''}`, state: 'future' },
   ]
   const doneFlags = [makeDone, checkDone, checkDone && applyRequested, appliedDone, completedDone, deliveredDone]
@@ -120,7 +121,7 @@ export function toukiNextRequest(stage: number, requests: ToukiRequestRow[]): { 
     case 2: return { type: 'チェック願い', label: 'チェックを依頼', note: '相続の力に保存した申請書・委任状のチェックを頼む' }
     case 3: return { type: '申請願い', label: '申請を依頼', note: 'お客様へ郵送→返送→本人確認が済んだら、申請セットの作成と申請を頼む' }
     case 4: return null
-    case 5: return { type: '謄本・製本願い', label: '謄本・製本を依頼', note: '登記が完了したら、完了後謄本の請求と権利証の製本を頼む' }
+    case 5: return null   // 製本は依頼ではなくタスク（識別情報通知の確認タスクの完了で「権利書の製本」を相続登記チームへ）
     default: return null
   }
 }
@@ -150,7 +151,7 @@ export async function notifyToukiRequester(supabase: SupabaseClient, r: ToukiReq
   const next = result === '完了'
     ? (r.request_type === '作成願い' ? '次はチェック願いを出してください。'
       : r.request_type === 'チェック願い' ? '次はお客様へ郵送→返送→本人確認。済んだら申請願いを出してください。'
-      : r.request_type === '申請願い' || r.request_type === '申請セットチェック願い' ? '申請日を相続登記タブの物件に入れてください。完了したら謄本・製本願いを出してください。'
+      : r.request_type === '申請願い' || r.request_type === '申請セットチェック願い' ? '申請日・受付番号を相続登記タブの物件に入れてください。登記識別情報通知が届いたら受信簿で受け、確認タスクの完了で「権利書の製本」を相続登記チームへ。'
       : '納品したら納品日を相続登記タブの物件に入れてください。')
     : result === '修正あり' ? '直して同じ種別で再依頼してください。' : ''
   await supabase.from('notifications').insert({

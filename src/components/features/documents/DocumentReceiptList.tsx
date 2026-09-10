@@ -452,13 +452,14 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
         ...(f.outing ? { outing: true } : {}),
       }
       const isAssistant = f.roleKind === 'assistant'
+      const isTouki = f.roleKind === 'touki'
       const { data: nt, error: taskErr } = await supabase.from('tasks').insert({
         case_id: receipt.case_id,
-        task_kind: isAssistant ? 'case' : 'system',
-        ...(isAssistant ? {} : { assign_role: f.roleKind, work_role: f.roleKind }),
+        task_kind: isTouki ? 'touki_team' : isAssistant ? 'case' : 'system',
+        ...(isAssistant ? {} : isTouki ? { work_role: 'assistant' } : { assign_role: f.roleKind, work_role: f.roleKind }),
         title: f.title.trim(),
-        phase: isAssistant ? f.gyomu : (f.gyomu || 'その他'),
-        category: isAssistant ? f.gyomu : '',
+        phase: isTouki ? '登記' : isAssistant ? f.gyomu : (f.gyomu || 'その他'),
+        category: isAssistant || isTouki ? (isTouki ? '登記' : f.gyomu) : '',
         status: '着手前',
         priority: f.priority,
         due_date: f.dueDate || null,
@@ -475,7 +476,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
       madeTitles.push(f.title.trim())
 
       // 管理担当/受注担当タスクは、案件のその担当へ割当＋通知（タスク追加モーダルと同じ）
-      if (!isAssistant) {
+      if (!isAssistant && !isTouki) {
         const { data: cm } = await supabase.from('case_members').select('member_id').eq('case_id', receipt.case_id).eq('role', f.roleKind).limit(1)
         const assignee = ((cm ?? []) as Array<{ member_id: string }>)[0]?.member_id
         if (assignee) {

@@ -85,7 +85,7 @@ export default function RegistrationSection({ caseId, properties, heirs = [], re
           <div className="space-y-3.5">
             {/* 法務局ごとの今どこか */}
             <div className="bg-white p-3.5">
-              <SectionHeading title="法務局ごとの進み具合" hint="申請の単位は法務局です。段は 申請書作成 → チェック → 署名・本人確認 → 申請 → 完了・謄本 → 納品。今どこかは、依頼の結果と物件の申請日・完了日・納品日から自動で決めます。" className="mb-2.5 pb-1.5 border-b border-gray-200"
+              <SectionHeading title="法務局ごとの進み具合" hint="申請の単位は法務局です。段は 申請書作成 → チェック → 署名・本人確認 → 申請 → 完了・製本 → 納品。今どこかは、依頼の結果と物件の申請日・完了日・納品日から自動で決めます。" className="mb-2.5 pb-1.5 border-b border-gray-200"
                 right={<ProgressChip caseId={caseId} scopeKey="registration" title="相続登記 全体" />} />
               {offices.length === 0 && !hasUnset ? (
                 <p className="px-3 py-5 text-center text-[12.5px] text-gray-400">財産調査タブで物件に管轄法務局を入れると、ここに法務局ごとの進み具合が出ます。</p>
@@ -168,7 +168,7 @@ export default function RegistrationSection({ caseId, properties, heirs = [], re
             <div className="space-y-3.5">
               {/* 工程図：今どこか＋根拠。手で選ぶ欄は無し */}
               <div className="bg-white p-3.5">
-                <SectionHeading title={`${label}の進み具合`} hint="段は 申請書作成 → チェック → 署名・本人確認 → 申請 → 完了・謄本 → 納品。今どこかは、この法務局の依頼の結果と、下の物件の申請日・完了日・納品日から自動で決めます。" className="mb-2.5 pb-1.5 border-b border-gray-200"
+                <SectionHeading title={`${label}の進み具合`} hint="段は 申請書作成 → チェック → 署名・本人確認 → 申請 → 完了・製本 → 納品。今どこかは、この法務局の依頼の結果と、下の物件の申請日・完了日・納品日から自動で決めます。製本は登記依頼ではなく相続登記チームのタスク（識別情報通知の確認タスクの完了で作る）。" className="mb-2.5 pb-1.5 border-b border-gray-200"
                   right={<ProgressChip caseId={caseId} scopeKey={`registration_${activeOffice || 'unset'}`} title={label} />} />
                 <ProcedureStepper nodes={st.nodes} parallel={st.parallel} parallelTone="red" />
                 {/* 操作バー：いまの段でやること＋次の依頼ボタンを1本だけ */}
@@ -176,11 +176,14 @@ export default function RegistrationSection({ caseId, properties, heirs = [], re
                   title={open.length > 0 ? `登記部門が対応中：${open.map(r => r.request_type).join('・')}`
                     : bounced ? `${bounced.request_type}が修正ありで戻っています`
                     : st.stage >= 7 ? '納品まで完了しました'
-                    : next ? next.label.replace(/を依頼$|依頼$/, '').replace(/^登記部門へ/, '') + 'の段です' : st.stage === 4 ? '申請の段です' : '進めてください'}
+                    : next ? next.label.replace(/を依頼$|依頼$/, '').replace(/^登記部門へ/, '') + 'の段です' : st.stage === 4 ? '申請の段です' : st.stage === 5 ? '完了・製本の段です' : st.stage === 6 ? '納品の段です' : '進めてください'}
                   note={open.length > 0 ? '結果が返ると通知が届きます（修正あり／完了）'
                     : bounced ? (bounced.result_comment ?? '')
                     : st.stage >= 7 ? ''
-                    : next ? next.note : st.stage === 4 ? '相続の力で申請したら、下の物件に申請日・受付番号を入れてください。完了したら完了日を' : ''}>
+                    : next ? next.note
+                    : st.stage === 4 ? '相続の力で申請したら、下の物件に申請日・受付番号を入れてください。完了したら完了日を'
+                    : st.stage === 5 ? '登記識別情報通知が届いたら受信簿で受け、確認タスクの完了で「権利書の製本」を相続登記チームへ（チームのタスクタブに出ます）'
+                    : st.stage === 6 ? '製本した権利証をお客様へ納品したら、下の物件に納品日を' : ''}>
                   {next && !open.length && <button type="button" onClick={() => openModal(next.type, bounced ?? undefined)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-white bg-brand-600 border border-brand-600 hover:bg-brand-700">{next.label}</button>}
                 </PracticeActionBar>
               </div>

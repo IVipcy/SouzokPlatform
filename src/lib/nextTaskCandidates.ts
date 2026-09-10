@@ -27,6 +27,8 @@ export type NextCandidate = {
   gyomu: string
   /** なぜ今できるのか。着手OKの理由としてそのまま残す */
   why: string
+  /** 作るタスクの種類。省略＝事務管理（case）。相続登記チームの作業は 'touki_team' */
+  taskKind?: 'case' | 'touki_team'
 }
 
 /** 住所から「都道府県＋市区町村」を切り出す。不動産タブの市区町村タブと同じ切り方。 */

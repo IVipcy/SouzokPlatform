@@ -91,11 +91,17 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
     ;(async () => {
       const list = await loadNextCandidates(task.case_id)
       if (!alive) return
-      setCands(list.map(c => ({ ...c, on: false })))
+      // 登記識別情報通知の確認を完了するとき＝権利書の製本へ（相続登記チームのタスク）。
+      // 製本は依頼ではなくタスクで回す（チームのダッシュボード「タスク」タブに出る）。
+      const isIdNotice = /識別情報|登記完了/.test(task.title ?? '')
+      const seihon: NextCandidate[] = isIdNotice
+        ? [{ rid: `touki-seihon:${task.case_id}`, title: '権利書の製本', gyomu: '登記', why: '登記識別情報通知が届いた', taskKind: 'touki_team' }]
+        : []
+      setCands([...seihon.map(c => ({ ...c, on: true })), ...list.map(c => ({ ...c, on: false }))])
       setLoading(false)
     })()
     return () => { alive = false }
-  }, [task.case_id])
+  }, [task.case_id, task.title])
 
   const picked = cands.filter(c => c.on && c.title.trim())
   const hasAction = noNext || picked.length > 0 || newTitle.trim().length > 0 || consulted
@@ -129,7 +135,7 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
       const rows = picked.map((c, i) => ({
         case_id: task.case_id,
         title: c.title.trim(),
-        task_kind: 'case',
+        task_kind: c.taskKind ?? 'case',
         work_role: 'assistant',
         phase: c.gyomu,
         category: c.gyomu,
@@ -143,7 +149,8 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
       const { data: created, error: ce } = await supabase.from('tasks').insert(rows).select('id, title, case_id')
       if (ce) showToast(`次のタスクの作成に失敗しました: ${ce.message}`, 'error')
       for (const c of ((created ?? []) as Array<{ id: string; title: string; case_id: string }>)) {
-        readied.push({ id: c.id, title: c.title, case_id: c.case_id, task_kind: 'case', assign_role: null, work_role: 'assistant', mode: 'now', note: '' })
+        const src = picked.find(x => x.title.trim() === c.title)
+        readied.push({ id: c.id, title: c.title, case_id: c.case_id, task_kind: src?.taskKind ?? 'case', assign_role: null, work_role: 'assistant', mode: 'now', note: '' })
       }
     }
 
@@ -155,15 +162,16 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
       const newExt = { ...extReady({}, task.id), ...(newTask.outing ? { outing: true } : {}), ...(refImageIds.length > 0 ? { ref_image_ids: refImageIds } : {}) }
       const newRid = await resolveTargetRid(task.case_id, newTarget)
       const isAssistant = newTask.roleKind === 'assistant'
-      const gyomu = newTask.gyomu || task.phase || 'その他'
+      const isTouki = newTask.roleKind === 'touki'
+      const gyomu = isTouki ? '登記' : (newTask.gyomu || task.phase || 'その他')
       const { data: created } = await supabase.from('tasks').insert({
         case_id: task.case_id,
         title: newTitle.trim(),
-        task_kind: isAssistant ? 'case' : 'system',
-        work_role: newTask.roleKind,
-        assign_role: isAssistant ? null : newTask.roleKind,
+        task_kind: isTouki ? 'touki_team' : isAssistant ? 'case' : 'system',
+        work_role: isTouki ? 'assistant' : newTask.roleKind,
+        assign_role: isAssistant || isTouki ? null : newTask.roleKind,
         phase: gyomu,
-        category: isAssistant ? gyomu : '',
+        category: isAssistant || isTouki ? gyomu : '',
         status: '着手前',
         priority: newTask.priority,
         due_date: newTask.dueDate || null,
@@ -175,9 +183,9 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
       if (created) {
         readied.push({
           id: (created as { id: string }).id, title: newTitle.trim(), case_id: task.case_id,
-          task_kind: isAssistant ? 'case' : 'system',
-          assign_role: isAssistant ? null : newTask.roleKind,
-          work_role: newTask.roleKind,
+          task_kind: isTouki ? 'touki_team' : isAssistant ? 'case' : 'system',
+          assign_role: isAssistant || isTouki ? null : newTask.roleKind,
+          work_role: isTouki ? 'assistant' : newTask.roleKind,
           mode: 'now', note: '',
         })
       }
