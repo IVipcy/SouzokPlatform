@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useTransition, Fragment, type ChangeEvent } from 'react'
 import Link from 'next/link'
-import { Check, Hand, Loader2, Link2, Folder, FolderUp, Trash2, X } from 'lucide-react'
+import { Hand, Loader2, Link2, Folder, FolderUp, Trash2, X, MapPin } from 'lucide-react'
 import HankoStamp from '@/components/ui/HankoStamp'
 import HintTip from '@/components/ui/HintTip'
 import { createClient } from '@/lib/supabase/client'
@@ -10,8 +10,8 @@ import { uploadFilesToCaseFolder } from '@/lib/caseFolder'
 import { showToast } from '@/components/ui/Toast'
 import { deliverableLinkLabel } from '@/lib/deliverables'
 import { READY_REASON_DOC } from '@/lib/taskReadiness'
+import { applyReceiptLinkDates, receiptItemLanding, receiptTaskDefaults } from '@/lib/receiptLinks'
 import NewTaskFields, { emptyNewTask, type NewTaskValue } from '@/components/features/tasks/NewTaskFields'
-import TaskTargetPicker, { emptyTarget, resolveTargetRid, type TaskTarget } from '@/components/features/tasks/TaskTargetPicker'
 import Modal from '@/components/ui/Modal'
 import FloatingWindow from '@/components/ui/FloatingWindow'
 import Button from '@/components/ui/Button'
@@ -35,19 +35,19 @@ type Props = {
   singleDay?: boolean
 }
 
-// 列見出しの「?」に出す説明。2つの列は役割が違うので、どちらも何をする場所か書いておく。
-//   W-Check … 物が正しいか（事務のチェック）
-//   対応     … その物で何を進めるか（業務の判断）
-const W_CHECK_HELP = [
-  '届いた物の中身が、登録した内容と合っているかを別の人が確かめる場所です。',
-  '「確認する」を押すと認印が残り、受信が確定します。確定すると各タブに受領日として反映されます（戸籍請求なら到着日、契約手続きなら「受信済」）。',
-  '確定するまで「対応」はできません。中身を確かめていない物で作業が進まないようにするためです。押し間違えたら、もう一度押して取り消せます。',
+// 列見出しの「?」に出す説明。
+//   登録者 … 受信を登録した人（自動）。以前ここにあった W-Check（受信確定）は廃止した（migration 280）。
+//            戸籍・不動産の請求には確認簿の着✓（返金額を見る二人目の確認）が別にあり、二重だったため。
+//   対応   … その物で何を進めるか（業務の判断）
+const REGISTERED_HELP = [
+  'この受信を登録した人と時刻です。登録した時点で自動で入ります（押すものはありません）。',
+  '各タブへの到着日（戸籍請求の到着日、契約手続きの「受信済」など）も登録した時点で入ります。間違い登録は番号横のゴミ箱で消すと取り消されます。',
 ].join('\n\n')
 
 const TAIOU_HELP = [
   '届いた物で次に何を進めるかを決める場所です。押した人の認印が残ります。',
-  '到着物ごとに「タスクを新規追加」か「タスクなしで完了」を選びます。入力欄はタスク追加モーダルと同じです。ここで作ったタスクは、事務管理ダッシュボードの郵便タブに並びます。',
-  'W-Checkが済むまで押せません。取り消すと結びつけが戻ります（作ったタスク自体は消えません）。',
+  '到着物ごとにタスクの名前・作業内容・業務が最初から入った状態で開くので、確認して「この内容で完了」を押すだけです。直したければその場で書き換えられます。契約書類は「タスクなしで完了」が既定です。',
+  'ここで作ったタスクは、事務管理ダッシュボードの郵便タブに並びます。着地先（実務タブのどの行か）は到着物の結び先から自動で決まります。取り消すと結びつけが戻ります（作ったタスク自体は消えません）。',
 ].join('\n\n')
 
 // 「0513/001」形式の番号を生成
@@ -56,6 +56,13 @@ function formatReceiptNumber(receivedDate: string, seq: number): string {
   const mm = receivedDate.slice(5, 7)
   const dd = receivedDate.slice(8, 10)
   return `${mm}${dd}/${String(seq).padStart(3, '0')}`
+}
+
+// 登録者欄の時刻「9/10 10:42」
+const fmtStamp = (iso: string | null | undefined) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
 // 過去日分の日付見出し「7月10日（木）」。YYYY-MM-DD を素直に分解（TZずれ回避のため new Date しない）
@@ -106,7 +113,7 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
               <col style={{ width: 60 }} />{/* 通数 */}
               <col style={{ width: 140 }} />{/* ファイル */}
               <col style={{ width: 148 }} />{/* 原本格納先 */}
-              <col style={{ width: 112 }} />{/* W-Check */}
+              <col style={{ width: 112 }} />{/* 登録者 */}
               <col style={{ width: 120 }} />{/* 対応 */}
               <col style={{ width: 200 }} />{/* 紐付けタスク */}
             </colgroup>
@@ -120,12 +127,12 @@ export default function DocumentReceiptList({ receipts, currentMemberId, current
                 <th className="px-2.5 py-2 text-center font-semibold">通数</th>
                 <th className="px-2.5 py-2 text-center font-semibold">ファイル<span className="text-[10px] font-normal text-brand-700 block">案件フォルダ</span></th>
                 <th className="px-2.5 py-2 text-left font-semibold">原本格納先<span className="text-[10px] font-normal text-brand-700 block">チームのBOX</span></th>
-                <th className="px-2.5 py-2 text-center font-semibold">
+                <th className="px-2.5 py-2 text-left font-semibold">
                   <span className="inline-flex items-center gap-1">
-                    W-Check
-                    <HintTip width={300} text={W_CHECK_HELP} />
+                    登録者
+                    <HintTip width={300} text={REGISTERED_HELP} />
                   </span>
-                  <span className="text-[10px] font-normal text-brand-700 block">受信確定</span>
+                  <span className="text-[10px] font-normal text-brand-700 block">自動記録</span>
                 </th>
                 <th className="px-2.5 py-2 text-center font-semibold">
                   <span className="inline-flex items-center gap-1">
@@ -245,7 +252,7 @@ function ReceiptCancelModal({ receipt, onClose, onDone }: {
           <li>この受領で付いた「着手OK」を「受領次第OK」に戻す</li>
           <li>対応担当の記録を解除（再度「対応」から結び直せます）</li>
         </ul>
-        <p className="text-[12px] text-gray-500">※ タスク自体は削除しません。不要なタスクは案件のタスクタブで個別に削除してください。W-Check（受信確定）はそのままです。</p>
+        <p className="text-[12px] text-gray-500">※ タスク自体は削除しません。不要なタスクは案件のタスクタブで個別に削除してください。各タブの到着日はそのままです。</p>
       </div>
     </Modal>
   )
@@ -323,13 +330,14 @@ const CONTRACT_CATEGORY_GYOMU: Record<string, string[]> = {
 
 // 到着物の「対応」＝届いた物ごとに、次に進めるタスクを決める。
 //
-// 選べるのは2つだけ。
-//   ① タスクを新規追加 … 入力欄はタスク追加モーダルと同じ（同じ NewTaskFields を使う）
-//   ② タスクなしで完了 … 契約書類など、タスクを作る必要がない物
-//
-// 以前は「既存タスクから選ぶ」「実施タスクの候補チップ」も出していたが外した。
-// タスクはこの場で作る運用になり、あらかじめ作っておいたタスクが無いため、
-// 候補を並べても空振りするだけだった。
+// 開いた時点で中身が入っている。到着物の名前と種類から、タスク名・作業内容・業務を埋め、
+// 着地先（実務タブのどの行か）は到着物の結び先（戸籍請求IDなど）から自動で決める。
+// 押す人がやるのは「作る／作らない」の判断と、気になるところの書き換えだけ。
+//   ・読込が要るもの（戸籍・不動産資料・金融資料・法定相続情報）と協議書の返送 … 「このタスクを作る」が既定
+//   ・契約書類（区分＝契約／その他） … 「タスクなしで完了」が既定
+//   ・同じ着地先の読込タスクが既にあれば、新しく作らずそれを結ぶ（二重に増やさない）
+type ItemPrep = { landing: { rid: string | null; label: string }; existing: { id: string; title: string } | null }
+
 function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   receipt: DocumentReceiptRow
   currentMemberId: string | null
@@ -345,18 +353,40 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   // 到着物ごとの入力。mode='none' なら何も作らずに閉じるだけ。
   const [mode, setMode] = useState<Record<string, 'task' | 'none'>>({})
   const [forms, setForms] = useState<Record<string, NewTaskValue>>({})
-  const [targets, setTargets] = useState<Record<string, TaskTarget>>({})
+  const [prep, setPrep] = useState<Record<string, ItemPrep>>({})
 
   const items = (receipt.items ?? []).slice().sort((a, b) => a.sort_order - b.sort_order)
 
   useEffect(() => {
     const supabase = createClient()
+    let alive = true
     ;(async () => {
       const { data } = await supabase.from('contract_documents').select('id, category').eq('case_id', receipt.case_id)
-      setContractCat(new Map(((data ?? []) as Array<{ id: string; category: string | null }>).map(d => [d.id, d.category])))
+      const catMap = new Map(((data ?? []) as Array<{ id: string; category: string | null }>).map(d => [d.id, d.category]))
+      const its = (receipt.items ?? []).slice().sort((a, b) => a.sort_order - b.sort_order)
+      const nextForms: Record<string, NewTaskValue> = {}
+      const nextPrep: Record<string, ItemPrep> = {}
+      for (const it of its) {
+        const contractGyomu = it.linked_kind === 'contract_doc' ? CONTRACT_CATEGORY_GYOMU[catMap.get(it.linked_id ?? '') ?? '']?.[0] : undefined
+        const d = receiptTaskDefaults(it.item_name, it.linked_kind, contractGyomu)
+        const landing = await receiptItemLanding(supabase, it)
+        let existing: { id: string; title: string } | null = null
+        if (landing.rid) {
+          const { data: ex } = await supabase.from('tasks').select('id, title')
+            .eq('case_id', receipt.case_id).eq('source_rid', landing.rid).neq('status', '完了').order('created_at').limit(1)
+          existing = ((ex ?? []) as Array<{ id: string; title: string }>)[0] ?? null
+        }
+        nextForms[it.id] = { ...emptyNewTask(), title: d.title, work: d.work, gyomu: d.gyomu }
+        nextPrep[it.id] = { landing, existing }
+      }
+      if (!alive) return
+      setContractCat(catMap)
+      setForms(nextForms)
+      setPrep(nextPrep)
       setLoading(false)
     })()
-  }, [receipt.case_id])
+    return () => { alive = false }
+  }, [receipt])
 
   // 契約時受領書類の区分（戸籍・評価証明などは調査系）。区分=契約/その他だけタスク不要。
   const contractGyomuFor = (it: { linked_kind: string | null; linked_id: string | null }): string[] | undefined =>
@@ -381,6 +411,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
     if (!currentMemberId) { showToast('ログイン情報が取得できませんでした', 'error'); return }
     // タスクを作る到着物には、タスク追加モーダルと同じ必須（タスク名・作業内容）を課す。
     for (const it of taskItems) {
+      if (prep[it.id]?.existing) continue   // 既存を結ぶだけなら入力は要らない
       const f = formOf(it.id)
       if (!f.title.trim()) { setError(`「${it.item_name}」のタスク名を入れてください`); return }
       if (!f.work.trim()) { setError(`「${it.item_name}」の作業内容を入れてください`); return }
@@ -395,11 +426,26 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
 
     const joinRows: { receipt_item_id: string; task_id: string }[] = []
     let firstTaskId: string | null = null
+    const madeTitles: string[] = []
+    const linkedTitles: string[] = []
 
     for (const it of taskItems) {
       const f = formOf(it.id)
-      // 対象（実務タブのどこの作業か）。戸籍は選んだ内容で新しい請求行を作ってから紐づける。
-      const sourceRid = await resolveTargetRid(receipt.case_id, targets[it.id] ?? emptyTarget())
+      const p = prep[it.id]
+      // 同じ着地先の読込タスクが既にあれば、それを結ぶ（着手OKにして）。新しくは作らない。
+      if (p?.existing) {
+        const { data: row } = await supabase.from('tasks').select('ext_data').eq('id', p.existing.id).maybeSingle()
+        const ext = ((row as { ext_data: Record<string, unknown> | null } | null)?.ext_data ?? {}) as Record<string, unknown>
+        if (ext.ready_on_receipt || !ext.ready_reason) {
+          await supabase.from('tasks').update({ ext_data: { ...ext, ready_reason: READY_REASON_DOC, ready_on_receipt: false } }).eq('id', p.existing.id)
+        }
+        joinRows.push({ receipt_item_id: it.id, task_id: p.existing.id })
+        firstTaskId = firstTaskId ?? p.existing.id
+        linkedTitles.push(p.existing.title)
+        continue
+      }
+      // 着地先（実務タブのどの行か）は到着物の結び先から。戸籍なら koseki-read:{請求ID}。
+      const sourceRid = p?.landing.rid ?? null
       // タスクは作った時点で常に着手OK。ext_data もタスク追加モーダルと同じ。
       const readyExt: Record<string, unknown> = {
         ready_reason: '着手OK', ready_on_receipt: false,
@@ -426,6 +472,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
       const taskId = (nt as { id: string }).id
       joinRows.push({ receipt_item_id: it.id, task_id: taskId })
       firstTaskId = firstTaskId ?? taskId
+      madeTitles.push(f.title.trim())
 
       // 管理担当/受注担当タスクは、案件のその担当へ割当＋通知（タスク追加モーダルと同じ）
       if (!isAssistant) {
@@ -453,7 +500,13 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
     if (firstTaskId) await supabase.from('document_receipts').update({ started_task_id: firstTaskId }).eq('id', receipt.id)
 
     setSaving(false)
-    showToast(joinRows.length > 0 ? `${joinRows.length}件のタスクを追加しました` : '処理済みにしました', 'success')
+    // 何をしたかをチップで言う。「○○ の読み込みタスクを作りました（郵便タブに入っています）」
+    const parts: string[] = []
+    if (madeTitles.length === 1) parts.push(`「${madeTitles[0]}」タスクを作りました`)
+    else if (madeTitles.length > 1) parts.push(`${madeTitles.length}件のタスクを作りました：${madeTitles.join('／')}`)
+    if (linkedTitles.length > 0) parts.push(`既にある「${linkedTitles.join('」「')}」を結びました`)
+    if (parts.length === 0) showToast('対応済にしました（タスクは作っていません）', 'success')
+    else showToast(`${parts.join('。')}（事務管理ダッシュボードの郵便タブに入っています）`, 'success')
     onDone()
   }
 
@@ -471,19 +524,19 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={saving}>キャンセル</Button>
-          <Button variant="primary" onClick={confirm} loading={saving}>
-            {taskItems.length > 0 ? `タスクを追加して完了 (${taskItems.length})` : '対応を完了'}
+          <Button variant="primary" onClick={confirm} loading={saving} disabled={loading}>
+            {taskItems.length > 0 ? `この内容で完了（タスク ${taskItems.length}件）` : '対応を完了'}
           </Button>
         </>
       }
     >
       <div className="space-y-3">
         <p className="text-[13px] text-gray-600">
-          届いた物ごとに、次に進めるタスクを作ります。契約書類のようにタスクが要らない物は<strong>「タスクなしで完了」</strong>を選んでください（受信を処理済みとして閉じるだけです）。
+          到着物ごとに、次に進めるタスクが入った状態で出ています。確認して右下を押してください。直したいところはその場で書き換えられます。
         </p>
         {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">{error}</div>}
         {loading ? (
-          <div className="py-6 text-center text-[12px] text-gray-400"><Loader2 className="w-4 h-4 animate-spin inline mr-1" />読み込み中…</div>
+          <div className="py-6 text-center text-[12px] text-gray-400"><Loader2 className="w-4 h-4 animate-spin inline mr-1" />到着物の結び先を確認しています…</div>
         ) : items.length === 0 ? (
           <div className="py-6 text-center text-[12px] text-gray-400">到着物がありません</div>
         ) : (
@@ -491,11 +544,16 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
             {items.map(it => {
               const m = modeOf(it)
               const f = formOf(it.id)
+              const p = prep[it.id]
+              const kindLabel = deliverableLinkLabel(it.linked_kind, it.linked_field)
               return (
                 <div key={it.id} className="border border-gray-200 rounded-lg p-3">
-                  <div className="text-[13px] font-semibold text-gray-800 mb-2">{it.item_name}</div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-[13px] font-semibold text-gray-800">{it.item_name}</span>
+                    {kindLabel && <span className="text-[10px] px-1.5 py-0.5 rounded-full border border-brand-200 bg-brand-50 text-brand-700 font-semibold">{kindLabel}</span>}
+                  </div>
                   <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden mb-3">
-                    {([['task', 'タスクを新規追加'], ['none', 'タスクなしで完了']] as const).map(([k, label]) => (
+                    {([['task', p?.existing ? '既にあるタスクを結ぶ' : 'このタスクを作る'], ['none', 'タスクなしで完了']] as const).map(([k, label]) => (
                       <button key={k} type="button" onClick={() => setMode(prev => ({ ...prev, [it.id]: k }))}
                         className={`px-3.5 py-1.5 text-[12.5px] font-semibold transition ${m === k ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
                         {label}
@@ -503,27 +561,35 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
                     ))}
                   </div>
                   {m === 'task' ? (
-                    <>
-                      <NewTaskFields
-                        caseId={receipt.case_id}
-                        value={f}
-                        onChange={p => patchForm(it.id, p)}
-                        defaultGyomu={gyomuForItem(it)?.[0]}
-                        compact
-                        workRequired
-                      />
-                      <div className="mt-3">
-                        <TaskTargetPicker
-                          caseId={receipt.case_id}
-                          gyomu={f.gyomu}
-                          value={targets[it.id] ?? emptyTarget()}
-                          onChange={v => setTargets(prev => ({ ...prev, [it.id]: v }))}
-                          compact
-                        />
+                    p?.existing ? (
+                      <div className="rounded-md border border-brand-200 bg-brand-50/50 px-3 py-2 text-[12.5px] text-brand-800">
+                        既にある「<strong>{p.existing.title}</strong>」を結びます（新しくは作りません）。着地先：{p.landing.label}
                       </div>
-                    </>
+                    ) : (
+                      <>
+                        <NewTaskFields
+                          caseId={receipt.case_id}
+                          value={f}
+                          onChange={patch => patchForm(it.id, patch)}
+                          defaultGyomu={gyomuForItem(it)?.[0]}
+                          compact
+                          workRequired
+                        />
+                        {/* 着地先は到着物の結び先から自動。選ぶものは無い（選び間違いが起きない） */}
+                        <div className="mt-2.5 flex items-center gap-1.5 text-[12px] text-gray-600">
+                          <MapPin className="w-3.5 h-3.5 text-brand-600 flex-none" />
+                          <span className="font-semibold text-brand-700">着地先</span>
+                          <span>{p?.landing.label ?? '—'}</span>
+                          {p?.landing.rid && <span className="text-[11px] text-gray-400">（到着物の結び先から自動）</span>}
+                        </div>
+                      </>
+                    )
                   ) : (
-                    <p className="text-[11.5px] text-gray-400">この到着物ではタスクを作りません。W-Checkで受領日は各タブに反映済みです。</p>
+                    <p className="text-[11.5px] text-gray-400">
+                      {isTaskFree(it)
+                        ? '契約書類なのでタスクは作らず、対応済にします。到着日は登録した時点で契約手続きタブに入っています。'
+                        : 'この到着物ではタスクを作りません。到着日は登録した時点で各タブに入っています。'}
+                    </p>
                   )}
                 </div>
               )
@@ -591,75 +657,15 @@ function ReceiptRow({
     startTransition(onChanged)
   }
 
-  const handleDualCheckToggle = async () => {
-    if (busyKind) return
-    if (!currentMemberId) {
-      showToast('ログイン情報が取得できませんでした', 'error')
-      return
-    }
-    setBusyKind('check')
-    const supabase = createClient()
-    const isChecked = !!receipt.dual_check_member_id
-    const patch = isChecked
-      ? { dual_check_member_id: null, dual_checked_at: null }
-      : { dual_check_member_id: currentMemberId, dual_checked_at: new Date().toISOString() }
-    const { error } = await supabase
-      .from('document_receipts')
-      .update(patch)
-      .eq('id', receipt.id)
-    if (error) {
-      setBusyKind(null)
-      showToast(`保存に失敗しました: ${error.message}`, 'error')
-      return
-    }
-
-    // W-Check 完了（受信確定）に連動して、紐づけ先の受領日を反映する。
-    // 確認前にマークが付かないよう、ここで初めて書き戻す（解除時は null に戻す）。
-    const linkVal = isChecked ? null : (receipt.received_date ?? null)
-    const linkUpdates = (receipt.items ?? [])
-      .filter(i => i.linked_kind && i.linked_id && i.linked_field)
-      .map(i => {
-        // 協議書の返送は受領日＋受領済(boolean)も連動させる
-        if (i.linked_kind === 'agreement_dispatch') {
-          return supabase.from('agreement_dispatches').update({ received_date: linkVal, received: linkVal != null }).eq('id', i.linked_id as string)
-        }
-        const table = i.linked_kind === 'financial_asset' ? 'financial_assets'
-          : i.linked_kind === 'koseki' ? 'koseki_requests'
-          : i.linked_kind === 'contract_doc' ? 'contract_documents'
-          : i.linked_kind === 'real_estate_acquisition' ? 'real_estate_acquisitions'
-          : i.linked_kind === 'legal_info' ? 'cases'  // 法定相続情報一覧図の取得日は cases.family_tree_obtain_date
-          : 'real_estate_properties'
-        return supabase.from(table).update({ [i.linked_field as string]: linkVal }).eq('id', i.linked_id as string)
-      })
-    if (linkUpdates.length > 0) {
-      const results = await Promise.all(linkUpdates)
-      if (results.some(r => r.error)) {
-        showToast('W-Checkは保存しましたが、一部の受領日反映に失敗しました', 'error')
-      }
-    }
-
-    setBusyKind(null)
-    startTransition(onChanged)
-  }
-
-  // 間違えて登録した受信を削除。W-Check反映（各タブの受領日）・着手OK・受領書類も巻き戻してから消す。
+  // 間違えて登録した受信を削除。各タブの到着日・着手OK・受領書類も巻き戻してから消す。
   const handleDelete = async () => {
     if (busyKind) return
-    if (!window.confirm(`受信 ${numberText} を削除しますか？\nこの受信の到着物・紐付け・W-Checkの反映（各タブの受領日）・受領書類が取り消されます。取り消せません。`)) return
+    if (!window.confirm(`受信 ${numberText} を削除しますか？\nこの受信の到着物・紐付け・各タブの到着日・受領書類が取り消されます。取り消せません。`)) return
     setBusyKind('start')
     const supabase = createClient()
     const its = receipt.items ?? []
-    // 1. W-Check反映（linked_field＝受領日）を取り消し
-    await Promise.all(its.filter(i => i.linked_kind && i.linked_id && i.linked_field).map(i => {
-      if (i.linked_kind === 'agreement_dispatch') return supabase.from('agreement_dispatches').update({ received_date: null, received: false }).eq('id', i.linked_id as string)
-      const table = i.linked_kind === 'financial_asset' ? 'financial_assets'
-        : i.linked_kind === 'koseki' ? 'koseki_requests'
-        : i.linked_kind === 'contract_doc' ? 'contract_documents'
-        : i.linked_kind === 'real_estate_acquisition' ? 'real_estate_acquisitions'
-        : i.linked_kind === 'legal_info' ? 'cases'
-        : 'real_estate_properties'
-      return supabase.from(table).update({ [i.linked_field as string]: null }).eq('id', i.linked_id as string)
-    }))
+    // 1. 各タブの到着日（linked_field）を取り消し
+    await applyReceiptLinkDates(supabase, its, null)
     // 2. 紐付けタスクの着手OK(必要書類受領済)を受領次第OKへ戻す
     const taskIds = [...new Set(its.flatMap(i => (i.document_receipt_item_tasks ?? []).map(j => j.task?.id).filter((v): v is string => !!v)))]
     if (taskIds.length > 0) {
@@ -795,32 +801,16 @@ function ReceiptRow({
               </td>
             )}
 
-            {/* W-Check（行統合） */}
+            {/* 登録者（行統合）。登録した人と時刻。自動で入るので押すものは無い */}
             {isFirst && (
-              <td rowSpan={rowCount} className="px-2 py-2 text-center align-middle border-l border-gray-100">
-                {receipt.dual_check_member ? (
-                  <span className="inline-flex items-center relative">
-                    <HankoStamp name={receipt.dual_check_member.name} at={receipt.dual_checked_at} size="sm" />
-                    <button
-                      type="button"
-                      onClick={handleDualCheckToggle}
-                      disabled={busyKind === 'check'}
-                      title="ダブルチェック済み（クリックで取消）"
-                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white border border-gray-300 text-gray-400 hover:text-red-500 hover:border-red-300 flex items-center justify-center disabled:opacity-50"
-                    ><X className="w-2.5 h-2.5" /></button>
-                  </span>
-                ) : !canManage ? (
-                  <span className="text-[11px] text-gray-300" title="受信確定(W-Check)は事務管理担当が行います">未確認</span>
+              <td rowSpan={rowCount} className="px-2.5 py-2 align-middle border-l border-gray-100">
+                {receipt.registered_by_member ? (
+                  <div className="text-[12px] text-gray-800 leading-snug">
+                    {receipt.registered_by_member.name}
+                    <span className="block text-[11px] text-gray-400">{fmtStamp(receipt.created_at)}</span>
+                  </div>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={handleDualCheckToggle}
-                    disabled={busyKind === 'check' || !currentMemberId}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white border border-gray-300 text-gray-500 hover:bg-brand-50 hover:border-brand-400 hover:text-brand-700 disabled:opacity-50 text-[11px] font-semibold"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    確認する
-                  </button>
+                  <span className="text-[11px] text-gray-300" title="登録者の記録が無い受信（記録を始める前の登録）">—</span>
                 )}
               </td>
             )}
@@ -839,10 +829,6 @@ function ReceiptRow({
                       className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white border border-gray-300 text-gray-400 hover:text-red-500 hover:border-red-300 flex items-center justify-center disabled:opacity-50"
                     ><X className="w-2.5 h-2.5" /></button>
                   </span>
-                ) : !receipt.dual_check_member_id ? (
-                  <span className="text-[11px] text-gray-400" title="W-Check（受信確定）後にタスク着手できます">
-                    W-Check待ち
-                  </span>
                 ) : !canManage ? (
                   <span className="text-[11px] text-gray-300" title="到着物の紐づけ・対応は管理担当のみ">管理担当</span>
                 ) : (
@@ -851,7 +837,7 @@ function ReceiptRow({
                     onClick={() => onStartRequest(receipt)}
                     disabled={!currentMemberId}
                     className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white border border-gray-300 text-gray-500 hover:bg-brand-50 hover:border-brand-400 hover:text-brand-700 disabled:opacity-50 text-[11px] font-semibold"
-                    title={currentMember ? `${currentMember.name} として対応（タスクを結ぶ／タスクなしで完了）` : '対応'}
+                    title={currentMember ? `${currentMember.name} として対応（中身が入ったタスクを確認して作る／タスクなしで完了）` : '対応'}
                   >
                     <Hand className="w-3.5 h-3.5" />
                     対応

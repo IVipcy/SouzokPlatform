@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { notifyParcelArrival } from '@/lib/arrivalParcel'
 import { buildDeliverableOptions, type DeliverableOption } from '@/lib/deliverables'
+import { applyReceiptLinkDates } from '@/lib/receiptLinks'
 
 // 再登録（開封）モード：既存の郵送物一式レコードを開いて中身を本登録し直す
 export type EditReceiptInfo = {
@@ -47,6 +48,8 @@ type Props = {
   defaultLocation?: string | null
   /** 指定時は「郵送物一式の再登録（開封）」モード：既存レコードを更新する */
   editReceipt?: EditReceiptInfo | null
+  /** 登録者として記録する自分（migration 280。W-Check の代わりに自動で残す） */
+  currentMemberId?: string | null
 }
 
 function newItem(): ItemDraft {
@@ -60,7 +63,7 @@ function newItem(): ItemDraft {
   }
 }
 
-export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams, onSaved, defaultLocation = null, editReceipt = null }: Props) {
+export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams, onSaved, defaultLocation = null, editReceipt = null, currentMemberId = null }: Props) {
   const todayYmd = new Date().toISOString().slice(0, 10)
 
   const [caseQuery, setCaseQuery] = useState('')
@@ -245,7 +248,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
       setSaving(true)
       const supabase = createClient()
       const { data: rec, error: e1 } = await supabase.from('document_receipts')
-        .insert({ case_id: selectedCaseId, received_date: receivedDate, location: location || null, is_parcel: true, postal_type: postalType || null, storage_team_id: storageTeamId || null })
+        .insert({ case_id: selectedCaseId, received_date: receivedDate, location: location || null, is_parcel: true, postal_type: postalType || null, storage_team_id: storageTeamId || null, registered_by_member_id: currentMemberId })
         .select('id').single()
       if (e1 || !rec) { setError(`受付に失敗しました: ${e1?.message ?? ''}`); setSaving(false); return }
       await supabase.from('document_receipt_items').insert({ receipt_id: (rec as { id: string }).id, item_name: '郵送物一式（未開封）', sort_order: 0 })
@@ -267,14 +270,14 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
     let receiptId: string
     if (editReceipt) {
       await supabase.from('document_receipts')
-        .update({ opened_at: new Date().toISOString(), is_parcel: false, location: location || null, postal_type: postalType || null, storage_team_id: storageTeamId || null })
+        .update({ opened_at: new Date().toISOString(), is_parcel: false, location: location || null, postal_type: postalType || null, storage_team_id: storageTeamId || null, registered_by_member_id: currentMemberId })
         .eq('id', editReceipt.id)
       await supabase.from('document_receipt_items').delete().eq('receipt_id', editReceipt.id)
       receiptId = editReceipt.id
     } else {
       const { data: receiptInserted, error: insertErr } = await supabase
         .from('document_receipts')
-        .insert({ case_id: selectedCaseId, received_date: receivedDate, location: location || null, postal_type: postalType || null, storage_team_id: storageTeamId || null })
+        .insert({ case_id: selectedCaseId, received_date: receivedDate, location: location || null, postal_type: postalType || null, storage_team_id: storageTeamId || null, registered_by_member_id: currentMemberId })
         .select('id')
         .single()
       if (insertErr || !receiptInserted) {
@@ -330,9 +333,10 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
       return
     }
 
-    // 取得物への受領日反映は「W-Check完了（受信確定）」時に行う（DocumentReceiptList）。
-    // ここでは紐づけ情報（linked_kind/linked_id/linked_field）を document_receipt_items に
-    // 記録するのみ。確認前に各タブへ受信マークが付くのを防ぐ。
+    // 取得物への到着日は登録した時点で各タブへ書く（以前は W-Check 完了時。W-Check は廃止＝migration 280）。
+    // 間違い登録は受信簿のゴミ箱で消すと取り消される。
+    const okDates = await applyReceiptLinkDates(supabase, itemRows, receivedDate)
+    if (!okDates) showToast('登録はできましたが、一部の到着日の反映に失敗しました', 'error')
 
     // 4. 受注担当へ通知（書類が届いた → クリックで案件の書類タブへ）
     const { data: salesMembers } = await supabase

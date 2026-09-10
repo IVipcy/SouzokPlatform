@@ -192,6 +192,7 @@ export default function DocumentsClient({ documents, receipts, cases, currentMem
         onSaved={refresh}
         defaultLocation={location && location !== '__none__' ? location : null}
         editReceipt={editReceipt}
+        currentMemberId={currentMemberId}
       />
     </div>
   )

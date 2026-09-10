@@ -1260,8 +1260,9 @@ export type DocumentReceiptRow = {
   is_parcel?: boolean                 // 受注/管理宛の郵送物一式（未開封の仮登録）。migration 220
   arrival_notified_at?: string | null // 到着連絡を飛ばした日時。migration 220
   opened_at?: string | null           // 受注/管理が開封・本登録した日時。migration 220
-  dual_check_member_id: string | null
+  dual_check_member_id: string | null   // 旧W-Check（migration 280 で画面からは廃止。列は残す）
   dual_checked_at: string | null
+  registered_by_member_id?: string | null  // 受信を登録した人（自動記録。migration 280）
   started_by_member_id: string | null
   started_at: string | null
   storage_team_id: string | null   // 原本（紙）の物理格納先チーム（migration 175）
@@ -1271,6 +1272,7 @@ export type DocumentReceiptRow = {
   cases?: { id: string; case_number: string; deal_name: string } | null
   items?: DocumentReceiptItemRow[]
   dual_check_member?: { id: string; name: string; avatar_color: string; avatar_url: string | null; primary_role: string | null } | null
+  registered_by_member?: { id: string; name: string; avatar_color: string; avatar_url: string | null; primary_role: string | null } | null
   started_by_member?: { id: string; name: string; avatar_color: string; avatar_url: string | null; primary_role: string | null } | null
   storage_team?: { id: string; name: string } | null
 }

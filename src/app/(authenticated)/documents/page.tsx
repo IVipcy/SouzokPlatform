@@ -40,6 +40,7 @@ export default async function DocumentsPage() {
         *,
         cases(id, case_number, deal_name),
         dual_check_member:members!document_receipts_dual_check_member_id_fkey(id, name, avatar_color, avatar_url, primary_role),
+        registered_by_member:members!document_receipts_registered_by_member_id_fkey(id, name, avatar_color, avatar_url, primary_role),
         started_by_member:members!document_receipts_started_by_member_id_fkey(id, name, avatar_color, avatar_url, primary_role),
         storage_team:teams!document_receipts_storage_team_id_fkey(id, name)
       `)
