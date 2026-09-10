@@ -77,6 +77,7 @@ const emptyHeirForm = () => ({
   relationship: '' as RelType | '',
   birth_date: '',
   address: '',
+  address2: '',
   registered_address: '',
   phone: '',
   email: '',
@@ -161,6 +162,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       birth_date: mainClient?.birth_date || null,
       address: caseData.clients?.address ?? null,
       registered_address: null,
+      address2: null,
       phone: mainClient?.phone ?? caseData.clients?.phone ?? null,
       email: mainClient?.email ?? caseData.clients?.email ?? null,
       is_legal_heir: true,
@@ -220,6 +222,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       relationship: (heir.relationship_type ?? heir.relationship ?? '') as RelType | '',
       birth_date: heir.birth_date ?? (isMainClientHeir ? (mainClient?.birth_date ?? '') : ''),
       address: heir.address ?? (isMainClientHeir ? (caseData.clients?.address ?? '') : ''),
+      address2: heir.address2 ?? (isMainClientHeir ? (caseData.clients?.address2 ?? '') : ''),
       registered_address: heir.registered_address ?? '',
       phone: heir.phone ?? (isMainClientHeir ? (mainClient?.phone ?? caseData.clients?.phone ?? '') : ''),
       email: heir.email ?? (isMainClientHeir ? (mainClient?.email ?? caseData.clients?.email ?? '') : ''),
@@ -439,7 +442,8 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
               </FieldRow>
               {/* 被相続人の郵便番号は廃止。住所は戸籍・住民票から転記するので、
                   郵便番号から引く場面が無く、欄だけが残っていた（列は残すので既存の値は消えない）。 */}
-              <InlineEdit label="被相続人住所" value={caseData.deceased_address} onSave={v => saveCaseField('deceased_address', v)} fullWidth address />
+              <InlineEdit label="被相続人住所（住所1）" value={caseData.deceased_address} onSave={v => saveCaseField('deceased_address', v)} address hint="都道府県〜番地まで。建物名・部屋番号は住所2に" />
+              <InlineEdit label="住所2（建物名・部屋番号）" value={caseData.deceased_address2} onSave={v => saveCaseField('deceased_address2', v)} />
               <InlineEdit
                 label="被相続人本籍"
                 value={caseData.deceased_registered_address}
@@ -779,6 +783,11 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                     className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
                   />
                   <AddressHint value={heirForm.address} />
+                </FormField>
+                <FormField label="住所2（建物名・部屋番号）">
+                  <input type="text" value={heirForm.address2} onChange={e => setHeirForm(f => ({ ...f, address2: e.target.value }))}
+                    onBlur={e => setAndSave({ address2: e.target.value.trim() })} placeholder="〇〇マンション 305号"
+                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition" />
                 </FormField>
               </div>
               )}

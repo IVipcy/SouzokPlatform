@@ -6,6 +6,7 @@
  * テンプレは split_keiyaku_templates.py で参照データ（数式・枠外マスタ・案件番号見本）を除去済み。
  */
 
+import { joinAddressLines } from '@/lib/address'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { readFile } from 'node:fs/promises'
@@ -84,9 +85,9 @@ export async function POST(request: NextRequest) {
       if (rows.length > 0) mainName = (rows.find(c => c.priority === 'main') ?? rows[0]).name ?? null
     } catch { /* migration 未適用環境では無視 */ }
 
-    const client = caseData.clients as { name?: string; address?: string } | null
+    const client = caseData.clients as { name?: string; address?: string; address2?: string } | null
     const clientName = mainName || client?.name || ''
-    const clientAddress = client?.address ?? ''
+    const clientAddress = joinAddressLines(client?.address, client?.address2)
     const deceasedName = caseData.deceased_name ?? ''
 
     const templatePath = path.join(process.cwd(), 'public', 'templates', 'keiyaku', `${variant}.xlsx`)
@@ -106,6 +107,7 @@ export async function POST(request: NextRequest) {
 
     const f = def.fields
     setCell(ws, f.address, clientAddress)
+    if (f.address) { const c = ws.getCell(f.address); if (c.value) c.alignment = { ...(c.alignment ?? {}), wrapText: true } }
     // 甲（依頼者）署名欄の氏名は手書き署名のため空欄で出力する（住所・本文中の氏名は印字）。
     setCell(ws, f.deceased, deceasedName)
     setCell(ws, f.bodyClientName, clientName)

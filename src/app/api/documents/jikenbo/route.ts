@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
 
   const rows = (clients ?? []) as Array<{ name?: string | null; priority?: string | null; phone?: string | null; mobile_phone?: string | null; email?: string | null }>
   const main = rows.find(c => c.priority === 'main') ?? rows[0]
-  const cl = caseData.clients as { name?: string; address?: string; phone?: string; email?: string } | null
+  const cl = caseData.clients as { name?: string; address?: string; address2?: string; phone?: string; email?: string } | null
 
   const formNos = ((kosekiRows ?? []) as Array<{ authority_form_no: string | null; acquisition_authority: string | null }>)
     .filter(r => r.acquisition_authority === '職務上請求' && (r.authority_form_no ?? '').trim())
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
   xml = fillRow(xml, '依頼者名', main?.name ?? cl?.name ?? '')
   xml = fillRow(xml, '電話・ＦＡＸ', main?.mobile_phone || main?.phone || cl?.phone || '')
   xml = fillRow(xml, 'メールアドレス', main?.email || cl?.email || '')
-  xml = fillRow(xml, '住所', cl?.address ?? '')
+  xml = fillRow(xml, '住所', [cl?.address, cl?.address2].filter(Boolean).join('　'))
   xml = fillRow(xml, '業務依頼日', caseData.order_received_date ?? '')
   xml = fillRow(xml, '業務完了日', caseData.completion_date ?? '')
 

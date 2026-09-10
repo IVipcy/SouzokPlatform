@@ -59,3 +59,10 @@ export function addressHint(v: string | null | undefined): string | null {
   if (startsWithPrefecture(s)) return null
   return '都道府県から入力してください（例：埼玉県さいたま市大宮区1-4-1）'
 }
+
+/** 住所1（番地まで）と住所2（建物名・部屋番号）を2行の文字列にする。書類のセルに入れる用（wrapText と組み合わせる） */
+export const joinAddressLines = (address: string | null | undefined, address2: string | null | undefined): string =>
+  [address, address2].map(v => (v ?? '').trim()).filter(Boolean).join('\n')
+/** 同じものを1行で（画面表示・検索用） */
+export const joinAddressInline = (address: string | null | undefined, address2: string | null | undefined): string =>
+  [address, address2].map(v => (v ?? '').trim()).filter(Boolean).join('　')

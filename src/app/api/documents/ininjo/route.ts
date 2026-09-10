@@ -6,6 +6,7 @@
  * テンプレは split_ininjo_templates.py で参照データ（数式・枠外マスタ）を除去済み。
  */
 
+import { joinAddressLines } from '@/lib/address'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { readFile } from 'node:fs/promises'
@@ -103,9 +104,9 @@ export async function POST(request: NextRequest) {
       }
     } catch { /* migration 未適用環境では無視 */ }
 
-    const client = caseData.clients as { name?: string; address?: string } | null
+    const client = caseData.clients as { name?: string; address?: string; address2?: string } | null
     // 委任者氏名は署名欄（手書き）のため出力しない。住所・生年月日のみ印字。
-    const clientAddress = client?.address ?? ''
+    const clientAddress = joinAddressLines(client?.address, client?.address2)
     const birth = toWareki(mainClient?.birth_date)
     const death = toWareki(caseData.date_of_death)
     const deceasedName = caseData.deceased_name ?? ''
@@ -139,6 +140,7 @@ export async function POST(request: NextRequest) {
 
     // 委任者
     setCell(ws, f.address, clientAddress)
+    if (f.address) { const c = ws.getCell(f.address); if (c.value) c.alignment = { ...(c.alignment ?? {}), wrapText: true } }
     // 委任者氏名は手書き署名のため空欄で出力する（住所・生年月日は印字）。
     if (birth) {
       setCell(ws, f.birthEra, birth.era)

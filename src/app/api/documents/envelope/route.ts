@@ -5,6 +5,7 @@
  * テンプレは split_envelope_templates.py で参照データ（数式・枠外マスタ・画像）を除去済み。
  */
 
+import { joinAddressLines } from '@/lib/address'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { readFile } from 'node:fs/promises'
@@ -54,10 +55,10 @@ export async function POST(request: NextRequest) {
       if (rows.length > 0) mainName = (rows.find(c => c.priority === 'main') ?? rows[0]).name ?? null
     } catch { /* migration 未適用環境では無視 */ }
 
-    const client = caseData.clients as { name?: string; address?: string; postal_code?: string } | null
+    const client = caseData.clients as { name?: string; address?: string; address2?: string; postal_code?: string } | null
     // recipient (相続人選択) が来ていればそちらを優先、無ければ case.clients フォールバック
     const clientName = recipient?.name ?? (mainName || client?.name || '')
-    const clientAddress = recipient?.address ?? (client?.address ?? '')
+    const clientAddress = recipient?.address ?? joinAddressLines(client?.address, client?.address2)
     const { p3, p4 } = splitPostal(recipient?.postal_code ?? client?.postal_code)
 
     const templatePath = path.join(process.cwd(), 'public', 'templates', 'envelope', `${variant}.xlsx`)
@@ -77,6 +78,7 @@ export async function POST(request: NextRequest) {
     def.postal3.forEach((addr, i) => setCell(ws, addr, p3[i] ?? ''))
     def.postal4.forEach((addr, i) => setCell(ws, addr, p4[i] ?? ''))
     setCell(ws, def.address, clientAddress)
+    if (def.address) { const c = ws.getCell(def.address); if (c.value) c.alignment = { ...(c.alignment ?? {}), wrapText: true } }
     // 宛名は住所と左端を揃える。テンプレは住所より右の列から結合されていて左にずれていたので、
     // 結合をやり直して住所と同じ列から始め、中央揃え→左揃えにする。
     // 文字の大きさ・書体はテンプレの宛名セルのものをそのまま引き継ぐ。

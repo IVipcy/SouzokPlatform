@@ -97,6 +97,8 @@ export default function CaseClientsTable({ caseId, clients, onRefresh, clientId,
               <th className="px-2 py-2 text-left font-semibold">ふりがな</th>
               <th className="px-2 py-2 text-left font-semibold w-24">続柄</th>
               <th className="px-2 py-2 text-left font-semibold">TEL（携帯）</th>
+              <th className="px-2 py-2 text-left font-semibold">TEL（固定）</th>
+              <th className="px-2 py-2 text-left font-semibold">メール</th>
               <th className="px-2 py-2 text-left font-semibold w-56">連絡先希望</th>
               <th className="px-2 py-2 text-center font-semibold w-12">外字</th>
               <th className="px-2 py-2 w-8" />
@@ -129,6 +131,8 @@ export default function CaseClientsTable({ caseId, clients, onRefresh, clientId,
                       </select>
                     </td>
                     <Cell value={r.mobile_phone} type="tel" onChange={v => setLocal(r.id, 'mobile_phone', v)} onCommit={v => commit(r.id, 'mobile_phone', v)} placeholder="携帯 090-..." />
+                    <Cell value={r.phone} type="tel" onChange={v => setLocal(r.id, 'phone', v)} onCommit={v => commit(r.id, 'phone', v)} placeholder="自宅 045-..." />
+                    <Cell value={r.email} type="email" onChange={v => setLocal(r.id, 'email', v)} onCommit={v => commit(r.id, 'email', v)} placeholder="mail@example.com" />
                     <PrefContactCell value={r.preferred_contact} onChange={v => commitVal(r.id, 'preferred_contact', v.length > 0 ? v : null)} />
                     <td className="px-2 py-1.5 text-center">
                       <input type="checkbox" checked={!!r.has_special_chars} onChange={e => commitVal(r.id, 'has_special_chars', e.target.checked)} className="w-4 h-4 accent-brand-600 cursor-pointer" />
@@ -243,6 +247,8 @@ function ClientCard({ r, setLocal, commit, commitVal, onDelete }: {
           <CFieldBlock label="外字有無"><label className="inline-flex items-center gap-2 h-10 text-[13px] text-gray-700"><input type="checkbox" checked={!!r.has_special_chars} onChange={e => commitVal(r.id, 'has_special_chars', e.target.checked)} className="w-4 h-4 accent-brand-600" />外字あり</label></CFieldBlock>
         </div>
         <CFieldBlock label="TEL（携帯）"><input type="tel" value={r.mobile_phone ?? ''} onChange={e => setLocal(r.id, 'mobile_phone', e.target.value)} onBlur={e => commit(r.id, 'mobile_phone', e.target.value)} placeholder="090-..." className={inputCls} /></CFieldBlock>
+        <CFieldBlock label="TEL（固定）"><input type="tel" value={r.phone ?? ''} onChange={e => setLocal(r.id, 'phone', e.target.value)} onBlur={e => commit(r.id, 'phone', e.target.value)} placeholder="045-..." className={inputCls} /></CFieldBlock>
+        <CFieldBlock label="メール"><input type="email" value={r.email ?? ''} onChange={e => setLocal(r.id, 'email', e.target.value)} onBlur={e => commit(r.id, 'email', e.target.value)} placeholder="mail@example.com" className={inputCls} /></CFieldBlock>
         <CFieldBlock label="連絡先希望">
           <div className="flex items-center gap-1.5">
             {PREF_CONTACTS.map(p => {

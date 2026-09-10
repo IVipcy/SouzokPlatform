@@ -126,7 +126,12 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
   const [memoList, setMemos] = useState<MeetingMemoRow[]>(memos)
   const [discardOpen, setDiscardOpen] = useState(false)
   // ②保存後のポップ：オーダーシートに進む？（はい/いいえ）
+  // 開いてすぐ消える不具合の対策：開く前に router.refresh() を走らせない（画面の作り直しで状態が飛ぶ）。
+  // 背景クリックで閉じるのは、開いてから0.6秒経ってから（保存ボタンの2度目のタップが背景に当たる事故を防ぐ）。
   const [orderChoiceOpen, setOrderChoiceOpen] = useState(false)
+  const orderChoiceOpenedAt = useRef(0)
+  const openOrderChoice = () => { orderChoiceOpenedAt.current = Date.now(); setOrderChoiceOpen(true) }
+  const closeOrderChoiceGuarded = () => { if (Date.now() - orderChoiceOpenedAt.current > 600) setOrderChoiceOpen(false) }
 
   // 新規（下書き未作成）モード：caseData.id が空。最初の入力で遅延作成する。
   const idRef = useRef<string>(caseData.id)          // 実案件ID（作成後に確定）
@@ -399,10 +404,10 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
               const clientName = main?.name?.trim() || ''
               if (clientName && clientName !== '無題') await supabase.from('cases').update({ deal_name: clientName }).eq('id', caseId)
             }
-            router.refresh()
             // 管理担当の割振り依頼ポップは案件詳細を開いたときに出すので、ここでは出さない。
             void status
-            setOrderChoiceOpen(true)
+            // 再取得（router.refresh）は「はい／いいえ」を押したあとに行う。先に走らせるとポップが消える
+            openOrderChoice()
           }}
         />
       )}
@@ -435,13 +440,13 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
       {/* ②保存後：このままオーダーシート作成に進む？ */}
       <Modal
         isOpen={orderChoiceOpen}
-        onClose={() => setOrderChoiceOpen(false)}
+        onClose={closeOrderChoiceGuarded}
         title="面談結果を登録しました"
         maxWidth="max-w-sm"
         footer={
           <>
             <Button variant="secondary" onClick={() => { setOrderChoiceOpen(false); showToast('相談案件一覧／未着手案件一覧から続きを作成できます', 'success'); router.push('/intake') }}>いいえ（あとで）</Button>
-            <Button variant="primary" onClick={() => { setOrderChoiceOpen(false); setTab('order'); window.scrollTo(0, 0) }}>はい（作成に進む）</Button>
+            <Button variant="primary" onClick={() => { setOrderChoiceOpen(false); setTab('order'); window.scrollTo(0, 0); router.refresh() }}>はい（作成に進む）</Button>
           </>
         }
       >

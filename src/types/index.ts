@@ -94,6 +94,7 @@ export type CaseRow = {
   deceased_birth_date: string | null
   deceased_postal_code: string | null   // 被相続人 郵便番号（migration 101）
   deceased_address: string | null
+  deceased_address2: string | null        // 住所2（建物名・部屋番号）migration 278
   deceased_registered_address: string | null
   // 印鑑登録証明書は案件に1つ（原本は1通なので所在で持つ。migration 271）
   seal_cert_oldest_issue_date: string | null
@@ -364,6 +365,7 @@ export type ClientRow = {
   mobile_phone: string | null
   email: string | null
   address: string | null
+  address2: string | null            // 住所2（建物名・部屋番号）migration 278
   postal_code: string | null
   relationship_to_deceased: string | null
   preferred_contact: string[] | null
@@ -593,6 +595,7 @@ export type HeirRow = {
   furigana: string | null
   relationship: string | null
   address: string | null
+  address2: string | null            // 住所2（建物名・部屋番号）migration 278
   registered_address: string | null
   phone: string | null
   email: string | null

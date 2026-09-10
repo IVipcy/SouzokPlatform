@@ -96,7 +96,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
   // 住民票・除票のときだけ住所で補う。戸籍の本籍は転籍のたびに変わるので、
   // 人に持たせた値で補うと古い本籍が紙に載る。カードで手入力したものだけを使う。
   const fallbackHonseki = includesJuminhyo(k?.doc_types)
-    ? (isDeceased ? (caseData.deceased_address ?? '') : (heir?.address ?? ''))
+    ? (isDeceased ? [caseData.deceased_address, caseData.deceased_address2].filter(Boolean).join('　') : [heir?.address, heir?.address2].filter(Boolean).join('　'))
     : ''
 
   const doc = {

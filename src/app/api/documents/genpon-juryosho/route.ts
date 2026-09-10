@@ -52,13 +52,15 @@ export async function POST(request: NextRequest) {
 
     // 郵送先住所・氏名の決定
     let recipientAddress = ''
+    let recipientAddress2 = ''   // 住所2（建物名・部屋番号）。あれば2行目はこれ（自動の折り返しはしない）
     if (recipientHeirId) {
-      const { data: heir } = await supabase.from('heirs').select('name, address').eq('id', recipientHeirId).single()
-      if (heir) recipientAddress = heir.address ?? ''
+      const { data: heir } = await supabase.from('heirs').select('name, address, address2').eq('id', recipientHeirId).single()
+      if (heir) { recipientAddress = heir.address ?? ''; recipientAddress2 = (heir as { address2?: string | null }).address2 ?? '' }
     } else {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const client = caseData.clients as any
       recipientAddress = client?.address ?? ''
+      recipientAddress2 = client?.address2 ?? ''
     }
 
     // 住所は2行に分けて差し込む（テンプレが2行分用意されている）。
@@ -71,7 +73,7 @@ export async function POST(request: NextRequest) {
       const at = cut >= 12 ? cut : 20
       return [a.slice(0, at).trim(), a.slice(at).trim()]
     }
-    const [addressLine1, addressLine2] = splitAddress(recipientAddress)
+    const [addressLine1, addressLine2] = recipientAddress2.trim() ? [recipientAddress.trim(), recipientAddress2.trim()] : splitAddress(recipientAddress)
 
     // 納品対象の書類: 受信簿(delivery_target=true) + 契約手続き(お客様預かり書類 & delivery_target=true)
     const [{ data: receiptItems }, { data: contractDocs }] = await Promise.all([

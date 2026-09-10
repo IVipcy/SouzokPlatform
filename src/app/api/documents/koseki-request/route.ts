@@ -7,6 +7,7 @@
  * 複数請求先がある場合、クライアント側で 1行ずつ本APIを呼び出して順次ダウンロードする。
  */
 
+import { joinAddressLines } from '@/lib/address'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { readFile } from 'node:fs/promises'
@@ -238,9 +239,9 @@ export async function POST(request: NextRequest) {
     wb.definedNames.model = []
 
     const map = CELL_MAP[variant]
-    const client = caseData.clients as { name?: string; address?: string } | null
+    const client = caseData.clients as { name?: string; address?: string; address2?: string } | null
     const clientName = client?.name ?? ''
-    const clientAddress = client?.address ?? ''
+    const clientAddress = joinAddressLines(client?.address, client?.address2)
     const deceasedName = caseData.deceased_name ?? ''
 
     // 日付: 令和元号 or yyyy/m/d で流す。Excel側でフォーマット適用（とりあえず文字列）
@@ -253,7 +254,7 @@ export async function POST(request: NextRequest) {
       setCell(ws, addr, dateObj)
     }
 
-    if (map.requesterAddress) setCell(ws, map.requesterAddress, clientAddress)
+    if (map.requesterAddress) { setCell(ws, map.requesterAddress, clientAddress); const c = ws.getCell(map.requesterAddress); if (c.value) c.alignment = { ...(c.alignment ?? {}), wrapText: true } }
     if (map.requesterName) setCell(ws, map.requesterName, clientName)
 
     // 上記代理人の欄（住所2行・代表者・電話）。

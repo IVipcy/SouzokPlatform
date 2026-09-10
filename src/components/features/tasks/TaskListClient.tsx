@@ -246,11 +246,25 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   // 表もタブの件数・色もここから作る。母集団を分けていたせいで
   //「着手OKを選んでいるのに、対応中の超急ぎタスクでタブだけ赤くなる」
   //「事務管理の表には出さない相続登記タスクで『すべて』が赤くなる」が起きていた。
+  // 完了は「その日に完了したもの」だけ。納品完了まで済んだ案件のタスクは出さない（案件詳細ではそのまま全部出す）
+  const completedToday = useCallback((t: TaskRow) => {
+    const ext = (t.ext_data ?? {}) as Record<string, unknown>
+    const iso = t.completed_at ?? (typeof ext.completed_at === 'string' ? ext.completed_at : null) ?? t.updated_at
+    if (!iso) return false
+    return new Date(iso).toLocaleDateString('sv-SE') === today
+  }, [today])
+  const doneVisible = useCallback((t: TaskRow) => {
+    if (caseScope) return true
+    if (caseMap[t.case_id]?.status === '納品完了') return false
+    return completedToday(t)
+  }, [caseScope, caseMap, completedToday])
   const scopedTasks = useMemo(() => {
     let result = assistantTasks
     if (statusFilter === 'notReady') result = result.filter(t => normalizeStatus(t.status) === '着手前' && !isReady(t))
     else if (statusFilter === '着手前') result = result.filter(t => normalizeStatus(t.status) === '着手前' && (!caseScope || isReady(t)))
-    else if (statusFilter !== 'all') result = result.filter(t => normalizeStatus(t.status) === statusFilter)
+    else if (statusFilter === '完了') result = result.filter(t => normalizeStatus(t.status) === '完了' && doneVisible(t))
+    else if (statusFilter === 'all') result = result.filter(t => normalizeStatus(t.status) !== '完了' || doneVisible(t))
+    else result = result.filter(t => normalizeStatus(t.status) === statusFilter)
     if (filterMine && currentMemberId) {
       result = result.filter(t =>
         t.started_by === currentMemberId ||
@@ -282,7 +296,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       })
     }
     return result
-  }, [assistantTasks, statusFilter, filterMine, search, caseMap, currentMemberId, today, sevFilter, priFilter, outingOnly, caseScope, isReady, roleScope])
+  }, [assistantTasks, statusFilter, filterMine, search, caseMap, currentMemberId, today, sevFilter, priFilter, outingOnly, caseScope, isReady, roleScope, doneVisible])
 
   const filtered = useMemo(() => {
     // 業務タブ（'all' 以外は そのタブに属する業務のタスクだけ）。郵便だけ業務では切らない。
@@ -353,16 +367,16 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   const kpis = useMemo(() => {
     const pre = assistantTasks.filter(t => normalizeStatus(t.status) === '着手前')
     return {
-      total: assistantTasks.length,
+      total: assistantTasks.filter(t => normalizeStatus(t.status) !== '完了' || doneVisible(t)).length,
       // 案件詳細では着手前を「未着手（まだ着手できない）」と「着手OK」に割る
       notReady: caseScope ? pre.filter(t => !isReady(t)).length : 0,
       todo: caseScope ? pre.filter(t => isReady(t)).length : pre.length,
       doing: assistantTasks.filter(t => normalizeStatus(t.status) === '対応中').length,
       // 確認中＝タスク詳細から「担当に確認する」で相談を送り、回答待ちのもの
       reviewing: assistantTasks.filter(t => normalizeStatus(t.status) === '確認中').length,
-      done: assistantTasks.filter(t => normalizeStatus(t.status) === '完了').length,
+      done: assistantTasks.filter(t => normalizeStatus(t.status) === '完了' && doneVisible(t)).length,
     }
-  }, [assistantTasks, caseScope, isReady])
+  }, [assistantTasks, caseScope, isReady, doneVisible])
 
   const myTaskCount = currentMemberId
     ? assistantTasks.filter(t =>
@@ -519,16 +533,20 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         {/* Toolbar: 大きいステータス（毎日押す）＋ 絞り込み（遅れ・優先度をたたむ）＋ 自分のタスク */}
         <div className="flex items-center gap-2.5 flex-wrap">
           {/* ステータス：よく見る「対応中・着手OK」を左に寄せ、押しやすいよう少し大きく。 */}
+          {/* 大きい2択：着手OK／全て。「全て」を選んだときだけ、その中の状態（対応中・確認中・完了・未着手）で絞れる */}
           <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
-            <FilterTab label="着手OK"   count={kpis.todo}     active={statusFilter === '着手前'} onClick={() => setStatusFilter('着手前')} big />
-            <FilterTab label="対応中"   count={kpis.doing}    active={statusFilter === '対応中'} onClick={() => setStatusFilter('対応中')} big />
-            <FilterTab label="確認中"   count={kpis.reviewing} active={statusFilter === '確認中'} onClick={() => setStatusFilter('確認中')} big />
-            {caseScope && (
-              <FilterTab label="未着手" count={kpis.notReady} active={statusFilter === 'notReady'} onClick={() => setStatusFilter('notReady')} big />
-            )}
-            <FilterTab label="完了"     count={kpis.done}     active={statusFilter === '完了'}   onClick={() => setStatusFilter('完了')} big />
-            <FilterTab label="すべて"   count={kpis.total}    active={statusFilter === 'all'}    onClick={() => setStatusFilter('all')} big />
+            <FilterTab label="着手OK" count={kpis.todo}  active={statusFilter === '着手前'} onClick={() => setStatusFilter('着手前')} big />
+            <FilterTab label="全て"   count={kpis.total} active={statusFilter !== '着手前'} onClick={() => setStatusFilter('all')} big />
           </div>
+          {statusFilter !== '着手前' && (
+            <div className="flex gap-1 bg-gray-50 border border-gray-200 rounded-lg p-0.5">
+              <FilterTab label="すべて" count={kpis.total}     active={statusFilter === 'all'}   onClick={() => setStatusFilter('all')} />
+              <FilterTab label="対応中" count={kpis.doing}     active={statusFilter === '対応中'} onClick={() => setStatusFilter('対応中')} />
+              <FilterTab label="確認中" count={kpis.reviewing} active={statusFilter === '確認中'} onClick={() => setStatusFilter('確認中')} />
+              {caseScope && <FilterTab label="未着手" count={kpis.notReady} active={statusFilter === 'notReady'} onClick={() => setStatusFilter('notReady')} />}
+              <FilterTab label="完了（本日）" count={kpis.done} active={statusFilter === '完了'} onClick={() => setStatusFilter('完了')} />
+            </div>
+          )}
 
           {/* 遅れ・優先度は普段たたんでおく。絞っている数はボタンの青バッジで見える。 */}
           <FilterMenu sevFilter={sevFilter} setSevFilter={setSevFilter} priFilter={priFilter} setPriFilter={setPriFilter} outingOnly={outingOnly} setOutingOnly={setOutingOnly} />

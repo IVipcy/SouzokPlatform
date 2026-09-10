@@ -5,6 +5,7 @@
  * 物件ブロックは最大5件（土地+家屋ペア、6行刻み）を埋める。
  */
 
+import { joinAddressLines } from '@/lib/address'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { readFile } from 'node:fs/promises'
@@ -135,15 +136,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const client = caseData.clients as { name?: string; address?: string } | null
+    const client = caseData.clients as { name?: string; address?: string; address2?: string } | null
     const clientName = client?.name ?? ''
-    const clientAddress = client?.address ?? ''
+    const clientAddress = joinAddressLines(client?.address, client?.address2)
     const dateObj = requestDate ? new Date(requestDate) : new Date()
 
     // --- 流し込み ---
     setCell(ws, CELL_MAP.municipality, municipality)
     for (const addr of CELL_MAP.requestDate) setCell(ws, addr, dateObj)
     setCell(ws, CELL_MAP.requesterAddress, clientAddress)
+    { const c = ws.getCell(CELL_MAP.requesterAddress); if (c.value) c.alignment = { ...(c.alignment ?? {}), wrapText: true } }
     setCell(ws, CELL_MAP.requesterName, clientName)
     setCell(ws, CELL_MAP.nendo, nendo)
     setCell(ws, CELL_MAP.copyCount, `${copyCount}　通`)
