@@ -86,7 +86,7 @@ export default function ToukiRequestsTable({ rows, mode, todayStr, showDone = tr
         </thead>
         <tbody>
           {list.length === 0 ? (
-            <tr><td colSpan={12} className="px-3 py-6 text-center text-[12.5px] text-gray-400">{mode === 'team' ? '依頼はありません' : 'まだ依頼はありません。「＋ 依頼を出す」から登記部門へ頼めます。'}</td></tr>
+            <tr><td colSpan={12} className="px-3 py-6 text-center text-[12.5px] text-gray-400">{mode === 'team' ? '依頼はありません' : 'まだ依頼はありません。上の操作バーのボタンから登記部門へ頼めます。'}</td></tr>
           ) : list.map(r => {
             const days = toukiOverdueDays(r, todayStr)
             const sev = toukiSeverity(r, todayStr)

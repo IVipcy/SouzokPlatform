@@ -184,17 +184,16 @@ export default function RegistrationSection({ caseId, properties, heirs = [], re
                     : st.stage === 4 ? '相続の力で申請したら、下の物件に申請日・受付番号を入れてください。完了したら完了日を'
                     : st.stage === 5 ? '登記識別情報通知が届いたら受信簿で受け、確認タスクの完了で「権利書の製本」を相続登記チームへ（チームのタスクタブに出ます）'
                     : st.stage === 6 ? '製本した権利証をお客様へ納品したら、下の物件に納品日を' : ''}>
+                  {/* 依頼のボタンはここ1か所。次の段の依頼を主ボタンで。段に依頼が無いとき（申請中・製本・納品）は従ボタンで任意の依頼 */}
                   {next && !open.length && <button type="button" onClick={() => openModal(next.type, bounced ?? undefined)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-white bg-brand-600 border border-brand-600 hover:bg-brand-700">{next.label}</button>}
+                  {!next && !open.length && st.stage < 7 && <button type="button" onClick={() => openModal()} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"><Plus className="w-3.5 h-3.5" />依頼を出す</button>}
                 </PracticeActionBar>
               </div>
 
               {/* 登記部門への依頼 */}
               <div className="bg-white p-3.5">
                 <SectionHeading title="登記部門への依頼" hint="依頼は 依頼中 → 対応中（登記部門の誰かが対応）→ 完了／修正あり。修正ありなら直して同じ種別で再依頼します。依頼中のまま1営業日で要確認、3営業日で要注意。" className="mb-2.5 pb-1.5 border-b border-gray-200"
-                  right={<span className="flex items-center gap-1.5">
-                    <button type="button" onClick={() => setShowDone(v => !v)} className="px-2.5 py-1 rounded-md text-[12px] font-semibold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50">{showDone ? '完了を隠す' : '完了も表示'}</button>
-                    <button type="button" onClick={() => openModal()} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-white bg-brand-600 border border-brand-600 hover:bg-brand-700"><Plus className="w-3.5 h-3.5" />依頼を出す</button>
-                  </span>} />
+                  right={<button type="button" onClick={() => setShowDone(v => !v)} className="px-2.5 py-1 rounded-md text-[12px] font-semibold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50">{showDone ? '完了を隠す' : '完了も表示'}</button>} />
                 <ToukiRequestsTable rows={oReqs} mode="case" todayStr={todayStr} showDone={showDone} propertyLabel={propLabel}
                   onChanged={onRefreshRequests} onRerequest={r => openModal(r.request_type, r)} />
               </div>
