@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, User, X, CheckCircle2, Trash2, ListChecks, Compass, HelpCircle, ChevronDown, ChevronsUpDown, SlidersHorizontal } from 'lucide-react'
+import { Search, User, X, CheckCircle2, Trash2, ListChecks, Compass, HelpCircle, ChevronDown, ChevronRight, ChevronsUpDown, SlidersHorizontal } from 'lucide-react'
 import { HELP_TYPE_LABEL, type HelpType } from '@/lib/managerReviewTask'
 import PageHeader from '@/components/ui/PageHeader'
 import HelpHint from '@/components/ui/HelpHint'
@@ -388,22 +388,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     : 0
 
   // 優先度は一覧のその場で変えられる（急ぎ・超急ぎは行の色が変わり、先頭に持ち上がる）
-  /**
-   * 一覧から着手する。タスク詳細の「着手する」と同じ（対応中にして、着手者と時刻を残す）。
-   * 開いて押す手間を1回ぶん減らすためのもの。
-   * 押すと対応中になるので、既定の「着手OK」の一覧からはその行が消える。
-   */
-  const startTask = useCallback(async (task: TaskRow) => {
-    if (!currentMemberId) { showToast('ログイン情報が取得できませんでした', 'error'); return }
-    const { error } = await createClient().from('tasks').update({
-      status: '対応中',
-      started_by: currentMemberId,
-      started_at: new Date().toISOString(),
-    }).eq('id', task.id)
-    if (error) { showToast(`着手に失敗しました: ${error.message}`, 'error'); return }
-    showToast(`「${task.title}」に着手しました（対応中へ移りました）`, 'success')
-    router.refresh()
-  }, [currentMemberId, router])
+  // 一覧からの着手は廃止した（2026-09-10）。行を押すとタスク詳細が開き、着手はそこで行う。
 
   const setPriority = useCallback(async (task: TaskRow, priority: string) => {
     const { error } = await createClient().from('tasks').update({ priority }).eq('id', task.id)
@@ -627,7 +612,6 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         onEdit={setEditTask}
         onDelete={setDeleteTask}
         onSetPriority={setPriority}
-        onStart={startTask}
         freezeAssetsByCase={freezeAssetsByCase}
         selectedIds={selectedIds}
         onToggleSelect={toggleSelect}
@@ -677,7 +661,6 @@ function ListView({
   onEdit: _onEdit,
   onDelete,
   onSetPriority,
-  onStart,
   freezeAssetsByCase,
   selectedIds,
   onToggleSelect,
@@ -695,7 +678,6 @@ function ListView({
   onEdit: (task: TaskRow) => void
   onDelete: (task: TaskRow) => void
   onSetPriority: (task: TaskRow, priority: string) => void
-  onStart: (task: TaskRow) => void
   /** 案件ID→金融資産（機関名・凍結確認）。解約タスクは凍結が済むまで着手させない */
   freezeAssetsByCase: Record<string, Array<{ institution_name?: string | null; freeze_confirmed?: boolean | null }>>
   selectedIds: Set<string>
@@ -723,7 +705,7 @@ function ListView({
   // sort を持つ列は見出しを押すと並び替えできる。
   const HEADERS: Array<{ key: keyof typeof widths; label: string; sort?: SortKey }> = [
     { key: 'select',     label: '' },
-    { key: 'start',      label: '着手' },
+    { key: 'start',      label: '状態' },
     { key: 'createdAt',  label: 'タスク起票日' },
     ...(!caseScope ? [
       { key: 'caseNo' as const,     label: '案件番号' },
@@ -810,7 +792,6 @@ function ListView({
                 today={today}
                 onDelete={onDelete}
                 onSetPriority={onSetPriority}
-                onStart={onStart}
                 freezeAssets={freezeAssetsByCase[task.case_id] ?? []}
                 selected={selectedIds.has(task.id)}
                 onToggleSelect={() => onToggleSelect(task.id)}
@@ -827,14 +808,13 @@ function ListView({
 }
 
 // ─── 1行 ───
-function TaskRow({ task, caseMap, allMembers: _allMembers, today, onDelete, onSetPriority, onStart, freezeAssets, selected, onToggleSelect, roleScope, caseScope }: {
+function TaskRow({ task, caseMap, allMembers: _allMembers, today, onDelete, onSetPriority, freezeAssets, selected, onToggleSelect, roleScope, caseScope }: {
   task: TaskRow
   caseMap: Record<string, CaseInfo>
   allMembers: MemberRow[]
   today: string
   onDelete: (task: TaskRow) => void
   onSetPriority: (task: TaskRow, priority: string) => void
-  onStart: (task: TaskRow) => void
   freezeAssets: Array<{ institution_name?: string | null; freeze_confirmed?: boolean | null }>
   selected: boolean
   onToggleSelect: () => void
@@ -846,9 +826,16 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onDelete, onSe
   const isOverdue = !!(task.due_date && task.due_date < today && status !== '完了')
   const workRole = getWorkRoleDef(task.work_role)
   const ext = (task.ext_data ?? {}) as Record<string, unknown>
+  const router = useRouter()
+  // 行のどこを押してもタスク詳細へ。リンク・ボタン・チェック・セレクトの上は、それぞれの動きを優先する
+  const openDetail = (e: React.MouseEvent<HTMLTableRowElement>) => {
+    const el = e.target as HTMLElement
+    if (el.closest('a,button,input,select,label,textarea')) return
+    router.push(`/tasks/${task.id}`)
+  }
 
   return (
-    <tr className={`group border-b border-gray-50 last:border-b-0 hover:bg-gray-50/60 transition-colors relative ${
+    <tr onClick={openDetail} title="押すとタスク詳細を開きます" className={`group cursor-pointer border-b border-gray-50 last:border-b-0 hover:bg-brand-50/40 transition-colors relative ${
       selected ? 'bg-brand-50/60'
       : status !== '完了' && task.priority === '超急ぎ' ? 'bg-red-50'
       : status !== '完了' && task.priority === '急ぎ' ? 'bg-amber-50/70'
@@ -865,31 +852,18 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onDelete, onSe
         />
       </td>
 
-      {/* 着手。押すと対応中になり、着手者が記録される（タスク詳細の「着手する」と同じ）。
-          解約タスクは口座の凍結が済むまで押せない（凍結前にお金を動かさないため）。 */}
+      {/* 状態。着手は一覧からはせず、行を押して詳細で行う（誤タップで着手者が付く事故をなくす） */}
       <td className="px-2 py-2.5">
-        {status === '着手前' ? (() => {
-          const blocked = isTaskFreezeBlocked(task, freezeAssets)
-          return (
-            <button
-              type="button"
-              disabled={blocked}
-              onClick={() => onStart(task)}
-              title={blocked ? '口座の凍結確認が済むまで着手できません' : 'このタスクに着手する（対応中になります）'}
-              className={`w-full px-2 py-1 rounded-md text-[11.5px] font-semibold transition-colors ${
-                blocked
-                  ? 'bg-white text-gray-300 border border-gray-200 cursor-not-allowed'
-                  : 'bg-brand-600 text-white hover:bg-brand-700'}`}
-            >
-              着手
-            </button>
-          )
-        })() : status === '完了' ? (
+        {status === '着手前' ? (
+          isTaskFreezeBlocked(task, freezeAssets)
+            ? <span className="inline-block px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-gray-100 text-gray-500" title="口座の凍結確認が済むまで着手できません">凍結確認待ち</span>
+            : <span className="inline-block px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-amber-50 text-amber-700">着手OK</span>
+        ) : status === '完了' ? (
           <span className="inline-block px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-emerald-50 text-emerald-700">完了</span>
         ) : (
           <span className="inline-flex flex-col leading-tight">
             <span className={`inline-block px-2 py-0.5 rounded-full text-[10.5px] font-semibold ${
-              status === '確認中' ? 'bg-gray-100 text-gray-600' : 'bg-amber-50 text-amber-700'}`}>{status}</span>
+              status === '確認中' ? 'bg-gray-100 text-gray-600' : 'bg-blue-50 text-blue-700'}`}>{status}</span>
             {task.started_by_member?.name && <span className="text-[10px] text-gray-400 mt-0.5 truncate">{task.started_by_member.name}</span>}
           </span>
         )}
@@ -948,7 +922,7 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onDelete, onSe
           )}
           <a
             href={`/tasks/${task.id}`}
-            className={`text-[13px] font-medium truncate ${status === '完了' ? 'text-gray-400 line-through' : 'text-gray-800 hover:text-brand-600'}`}
+            className={`text-[13px] font-semibold truncate underline-offset-2 ${status === '完了' ? 'text-gray-400 line-through' : 'text-gray-800 group-hover:text-brand-700 group-hover:underline'}`}
           >
             {task.title}
           </a>
@@ -1028,15 +1002,18 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onDelete, onSe
         ) : <span className="text-[12px] text-gray-300">—</span>}
       </td>
 
-      {/* 削除（hover時のみ） */}
-      <td className="px-3.5 py-2.5">
-        <button
-          onClick={() => onDelete(task)}
-          className="w-6 h-6 rounded flex items-center justify-center text-gray-300 hover:bg-red-50 hover:text-red-500 transition opacity-0 group-hover:opacity-100"
-          title="削除"
-        >
-          <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
-        </button>
+      {/* 右端：先に画面があることを示す「›」（行に乗せると青）＋削除（ホバー時だけ） */}
+      <td className="px-2 py-2.5">
+        <div className="flex items-center justify-end gap-1">
+          <button
+            onClick={() => onDelete(task)}
+            className="w-6 h-6 rounded flex items-center justify-center text-gray-300 hover:bg-red-50 hover:text-red-500 transition opacity-0 group-hover:opacity-100"
+            title="削除"
+          >
+            <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+          </button>
+          <ChevronRight className="w-4 h-4 flex-none text-gray-300 group-hover:text-brand-600" strokeWidth={2.25} />
+        </div>
       </td>
     </tr>
   )
