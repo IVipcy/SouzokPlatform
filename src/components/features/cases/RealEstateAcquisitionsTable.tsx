@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { PracticeGroup, PracticeRow, PracticeFoldGroup, PracticeActionBar, PracticeAfterDivider } from './PracticeCard'
 import { Plus, Trash2, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -84,6 +84,8 @@ type Props = {
   houmuOffice?: string
   /** 法務局カードで請求先を入れたとき、管轄法務局が空なら物件側にも保存する */
   onSaveHoumuOffice?: (v: string) => void
+  /** Step4 読込結果の中に出す「判明した物件」（この市区町村の物件一覧）。親が表を描く */
+  renderProperties?: () => ReactNode
 }
 
 const itemMeta = (key: string | null) => ACQUISITION_ITEMS.find(i => i.key === key)
@@ -160,6 +162,7 @@ type AcquisitionCardsProps = {
   onMakeDoc?: (r: RealEstateAcquisitionRow) => void
   houmuOffice?: string
   onSaveHoumuOffice?: (v: string) => void
+  renderProperties?: () => ReactNode
 }
 
 /**
@@ -173,7 +176,7 @@ type AcquisitionCardsProps = {
 function AcquisitionCards({
   rows, properties, muniProps, activeId, setActiveId, itemsOf, rowScopeOf, officeDefault,
   save, saveMany, toggleItem, addRow, delRow, reqCheck, cancelCheck, setAcquirer,
-  receipts, meId, fullCost, confirmedOf, onMakeDoc, houmuOffice, onSaveHoumuOffice,
+  receipts, meId, fullCost, confirmedOf, onMakeDoc, houmuOffice, onSaveHoumuOffice, renderProperties,
 }: AcquisitionCardsProps) {
   const cur = rows.find(r => r.id === activeId) ?? rows[0] ?? null
 
@@ -265,7 +268,7 @@ function AcquisitionCards({
                     placeholder="例: 名古屋市中区" className={dateCls} />
                 )}
               </ReRow>
-              <ReRow label="取得する資料" full sub="1宛先＝1請求">
+              <ReRow label="取得する資料" sub="1宛先＝1請求">
                 <div className="flex flex-wrap gap-1">
                   {availableItems.map(key => {
                     const on = items.includes(key)
@@ -282,7 +285,7 @@ function AcquisitionCards({
                   <span className="text-[12px] font-semibold text-amber-700">追加・承認待ち</span>
                 )}
               </ReRow>
-              <ReRow label="年度" sub="名寄帳・評価証明のとき" full>
+              <ReRow label="年度" sub="名寄帳・評価証明のとき">
                 {items.some(x => YEAR_ITEMS.includes(x)) ? (
                   <select value={r.doc_year ?? r.myna_year ?? ''} onChange={e => saveMany(r.id, { doc_year: e.target.value || null, myna_year: e.target.value || null })} style={{ fontFamily: 'inherit' }} className={selCls}>
                     <option value="">—</option>
@@ -298,6 +301,39 @@ function AcquisitionCards({
                     onBlur={e => { if (e.target.value !== (r.notes ?? '')) save(r.id, 'notes', e.target.value || null) }}
                     placeholder="申請書の備考欄に入れたいこと（無ければ空のまま）" className={dateCls} />
                 </ReRow>
+              )}
+              {/* 対象物件（表示のみ）。家屋番号・近傍宅地価格の要否は名寄帳・登記を読んで分かるので、
+                  入力は Step4 の「判明した物件」だけ。ここはそこにあるものを映し、申請書の「対象物件」にそのまま入る。
+                  1回目の請求では物件が無いのが普通＝「所有する全物件として申請」。 */}
+              {!isProp && !isRef && (
+                <div className="sm:col-span-4 bg-white border-b border-slate-200 px-3 py-2.5">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-[13px] font-semibold text-gray-700">対象物件</span>
+                    <span className="text-[11px] px-1.5 py-0.5 rounded-full border border-gray-300 text-gray-500">表示のみ・Step4 の判明した物件から</span>
+                    <span className="text-[12px] text-gray-400">申請書の「対象物件」欄に入ります</span>
+                  </div>
+                  {muniProps.length === 0 ? (
+                    <p className="text-[12.5px] text-gray-500">物件は未確定です。所有する全物件として申請します（届いたら Step4 で登録すると、次の請求からここに載ります）。</p>
+                  ) : (
+                    <table className="w-auto text-[12.5px] border-collapse">
+                      <thead><tr><th className="px-2 py-1 text-left">種別</th><th className="px-2 py-1 text-left">所在・地番／家屋番号</th><th className="px-2 py-1 text-left">近傍宅地価格</th></tr></thead>
+                      <tbody>
+                        {muniProps.map(p => {
+                          const land = !p.property_type || !['建物', '区分建物', 'マンション'].some(k => (p.property_type ?? '').includes(k))
+                          const where = land ? [p.address, p.lot_number].filter(Boolean).join(' ') : [p.address, p.kaoku_bango ? `家屋番号 ${p.kaoku_bango}` : ''].filter(Boolean).join('　')
+                          const near = p.near_land_price === '要' || p.near_land_price === 'あり' ? '要' : p.near_land_price === '不要' || p.near_land_price === 'なし' ? '不要' : '—'
+                          return (
+                            <tr key={p.id} className="border-t border-slate-100">
+                              <td className="px-2 py-1 text-gray-600">{p.property_type || '土地'}</td>
+                              <td className="px-2 py-1 text-gray-800">{where || <span className="text-gray-300">所在未入力</span>}</td>
+                              <td className={`px-2 py-1 ${near === '要' ? 'font-semibold text-gray-800' : 'text-gray-500'}`}>{land ? near : '—'}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
               )}
             </ReGroup>
 
@@ -384,9 +420,9 @@ function AcquisitionCards({
 
             {/* 届いた資料を読んだ結果。名寄帳は「この市区町村の物件を洗い出す」ために取るので、
                 読んで何が見つかったかを残さないと、私道の持分などを見落としたまま先へ進んでしまう。 */}
-            <PracticeFoldGroup no="Step4" title="読込結果" sub="取得の結果・内容"
+            <PracticeFoldGroup no="Step4" title="読込結果" sub="取得の結果・内容・判明した物件"
               autoOpen={!!r.arrival_date || !!r.read_status || !!(r.read_result ?? '').trim()}
-              closedNote="届いたら開いて、読んだ結果を入れます">
+              closedNote="届いたら開いて、読んだ結果と判明した物件を入れます">
               <ReRow label="取得の結果" full>
                 <div className="inline-flex border border-gray-300">
                   {RE_READ_STATUSES.map(st => {
@@ -412,9 +448,20 @@ function AcquisitionCards({
                   <span className="text-[13px] text-brand-700">
                     {isProp
                       ? '足りなかった資料について、上の「＋ 請求を追加」で法務局への請求を作ってください。'
-                      : '見つかった物件を下の物件一覧に足したうえで、「＋ 請求を追加」で法務局への請求を作ってください。'}
+                      : '見つかった物件を下の「判明した物件」に足したうえで、「＋ 請求を追加」で法務局への請求（評価証明の取り直しは役所へ）を作ってください。'}
                   </span>
                 </ReRow>
+              )}
+              {/* 判明した物件（この市区町村の物件一覧）。読んで分かった場所で分かったことを入れる。
+                  家屋番号（建物）・近傍宅地価格の要否（土地）もここ。市区町村に1つの表なので、どのカードの Step4 を開いても同じ表。 */}
+              {renderProperties && (
+                <div className="sm:col-span-4 bg-white px-3 py-2.5">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-[13px] font-semibold text-gray-700">判明した物件</span>
+                    <span className="text-[12px] text-gray-400">名寄帳・登記で分かった物件をここに登録。家屋番号・近傍宅地価格の要否もここ。財産目録に載るのは確定済みだけ</span>
+                  </div>
+                  {renderProperties()}
+                </div>
               )}
             </PracticeFoldGroup>
           </div>
@@ -430,7 +477,7 @@ function AcquisitionCards({
  * 路線価は「参照」なので請求先・日付はグレーアウトし、取得済のみ管理。
  * 物件単位（登記情報/公図/地積/路線価）は対象物件を選択、市区町村単位（評価証明/名寄帳）は市区町村を入力。
  */
-export default function RealEstateAcquisitionsTable({ caseId, acquisitions, properties, onRefresh, orderSheetMode = false, receipts = [], contractDocs = [], scope = 'all', municipalityFilter, onAfterAddRow, additionsNeedApproval = false, onAdditionalPending, layout = 'table', onMakeDoc, houmuOffice, onSaveHoumuOffice }: Props) {
+export default function RealEstateAcquisitionsTable({ caseId, acquisitions, properties, onRefresh, orderSheetMode = false, receipts = [], contractDocs = [], scope = 'all', municipalityFilter, onAfterAddRow, additionsNeedApproval = false, onAdditionalPending, layout = 'table', onMakeDoc, houmuOffice, onSaveHoumuOffice, renderProperties }: Props) {
   const supabase = createClient()
   const authUser = useAuth()
   const meId = authUser?.memberId ?? null
@@ -620,7 +667,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
           save={save} saveMany={saveMany} toggleItem={toggleItem} addRow={addRow} delRow={delRow}
           reqCheck={reqCheck} cancelCheck={cancelCheck} setAcquirer={setAcquirer}
           receipts={receipts} meId={meId} fullCost={fullCost} confirmedOf={confirmedOf}
-          onMakeDoc={onMakeDoc} houmuOffice={houmuOffice} onSaveHoumuOffice={onSaveHoumuOffice}
+          onMakeDoc={onMakeDoc} houmuOffice={houmuOffice} onSaveHoumuOffice={onSaveHoumuOffice} renderProperties={renderProperties}
         />
         {visibleRows.length > 0 && (
           <p className="mt-2 text-[12px] text-gray-500 text-right">

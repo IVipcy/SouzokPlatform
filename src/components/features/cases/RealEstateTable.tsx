@@ -239,8 +239,8 @@ function PropertyTable({ title, kind, rows, showMuni, renderRow, onAdd, busy }: 
   busy: boolean
 }) {
   const land = kind === 'land'
-  // 市区町村 +種別 +取得区分 +所在地 +番号 +区分 +面積 +持分 +評価額 +備考 [+確定] +削除
-  const colCount = (showMuni ? 1 : 0) + 10
+  // 市区町村 +種別 +取得区分 +所在地 +番号 +区分 +面積 [+近傍宅地価格(土地)] +持分 +評価額 +備考 +削除
+  const colCount = (showMuni ? 1 : 0) + 10 + (land ? 1 : 0)
   return (
     <div>
       <div className="flex items-center gap-2 mb-1.5">
@@ -259,6 +259,8 @@ function PropertyTable({ title, kind, rows, showMuni, renderRow, onAdd, busy }: 
               <th className={TH + ' w-32'}>{land ? '地番' : '家屋番号'}</th>
               <th className={TH + ' w-28'}>{land ? '地目' : '種類'}</th>
               <th className={TH + (land ? ' text-right w-28' : ' w-44')}>{land ? '地積（㎡）' : '構造・床面積'}</th>
+              {/* 近傍宅地価格の要否（私道など非課税地の評価に要る）。名寄帳を読んで分かるのでここで入れ、評価証明の申請書に載る */}
+              {land && <th className={TH + ' w-28'}>近傍宅地価格<span className="block text-[10px] font-normal text-brand-700">評価証明の申請に</span></th>}
               <th className={TH + ' w-32'}>持分<span className="block text-[10px] font-normal text-brand-700">空欄＝全部</span></th>
               <th className={TH + ' text-right w-32'}>{land ? '固定資産評価額' : '評価額'}</th>
               <th className={TH}>備考</th>
@@ -287,6 +289,10 @@ type RowProps = {
   addrOptions: string[]
 }
 
+/** 近傍宅地価格の要否の表示値。旧データ（あり／なし）を要／不要に寄せる */
+export const nearLandValue = (v: string | null | undefined) => (v === 'あり' ? '要' : v === 'なし' ? '不要' : (v ?? ''))
+export const nearLandRequired = (v: string | null | undefined) => v === '要' || v === 'あり'
+
 function LandRow(p: RowProps) {
   const { r, setLocal, commit, saveNumber } = p
   return (
@@ -297,6 +303,15 @@ function LandRow(p: RowProps) {
       <td className="px-2.5 py-1.5">
         <input type="number" step="0.01" defaultValue={r.land_area ?? ''} onBlur={e => saveNumber(r.id, 'land_area', e.target.value)}
           placeholder="0.00" className="w-full px-1.5 py-1.5 text-[12px] text-right bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500 focus:bg-white transition" />
+      </td>
+      {/* 近傍宅地価格の要否。旧データの「あり／なし」は「要／不要」として読む */}
+      <td className="px-2.5 py-1.5">
+        <select value={nearLandValue(r.near_land_price)} onChange={e => { setLocal(r.id, 'near_land_price', e.target.value); commit(r.id, 'near_land_price', e.target.value) }}
+          className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+          <option value="">—</option>
+          <option value="要">要</option>
+          <option value="不要">不要</option>
+        </select>
       </td>
       <TailCells {...p} />
     </tr>

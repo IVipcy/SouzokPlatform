@@ -45,7 +45,7 @@ export function LeftRail({ items, active, onChange, extra, onDelete, width = 'w-
         return (
           <div key={it.key} className="group/rail relative flex items-center">
             <button type="button" onClick={() => onChange(it.key)}
-              className={`flex-1 min-w-0 h-10 px-2.5 grid items-center gap-2 text-left text-[13.5px] ${isTop ? 'grid-cols-[16px_minmax(0,1fr)]' : 'grid-cols-[8px_minmax(0,1fr)_1.5rem_2.25rem]'} ${
+              className={`flex-1 min-w-0 min-h-10 py-1.5 px-2.5 grid items-center gap-2 text-left text-[13.5px] ${isTop ? 'grid-cols-[16px_minmax(0,1fr)]' : 'grid-cols-[8px_minmax(0,1fr)_1.5rem_2.25rem]'} ${
                 on ? 'bg-brand-50 text-brand-800 shadow-[inset_3px_0_0_var(--color-brand-600)]' : 'text-gray-700 hover:bg-gray-50'}`}>
               {isTop ? (
                 <>
@@ -55,7 +55,8 @@ export function LeftRail({ items, active, onChange, extra, onDelete, width = 'w-
               ) : (
                 <>
                   <span className="w-2 h-2 rounded-full" style={{ backgroundColor: it.dotColor ?? 'transparent' }} />
-                  <span className="truncate">
+                  {/* 長い名前（市区町村など）は「…」で切らず2行まで折り返す */}
+                  <span className="line-clamp-2 leading-tight">
                     {it.lead && <span className={`font-semibold ${on ? 'text-brand-800' : 'text-gray-800'}`}>{it.lead}</span>}
                     <span className={it.lead ? 'ml-1.5' : `font-medium ${on ? 'text-brand-800' : 'text-gray-800'}`}>{it.label}</span>
                     {it.note && <span className="ml-1.5 text-[12px] text-gray-400">{it.note}</span>}

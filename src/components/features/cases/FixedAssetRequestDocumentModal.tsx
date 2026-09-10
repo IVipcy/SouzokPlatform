@@ -4,7 +4,7 @@
 //
 // 戸籍の請求書と同じ「入力する場所」ではなく「確認して出す場所」。
 // 紙に載る中身（提出先・年度・証明書の種類・所有者・対象物件・同封小為替・備考）は
-// 財産調査タブの請求カード（real_estate_acquisitions）と、その市区町村の物件一覧・評価証明（物件ごと）の値。
+// 財産調査タブの請求カード（real_estate_acquisitions）と、その市区町村の「判明した物件」（Step4 読込結果の物件一覧）の値。
 // ここで直せてしまうと紙とカードが食い違うので、直すときはカードで直す。
 //
 // この画面で選ぶのは出し方だけ（様式・拠点・事業部・請求日・通数）。
@@ -129,7 +129,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
     kogawase: k?.cost_budget ?? null,
     notes: (k?.notes ?? '').trim(),
   }
-  // 対象物件：土地は「所在＋地番」、建物は「所在」＋家屋番号。近傍宅地価格の要否は評価証明（物件ごと）の値。
+  // 対象物件：土地は「所在＋地番」、建物は「所在」＋家屋番号。近傍宅地価格の要否は「判明した物件」の土地の列の値。
   const sheets: Sheet[] = muniProps.map(p => {
     const land = isLandProperty(p.property_type) || !p.property_type
     const building = isBuildingProperty(p.property_type)
@@ -138,7 +138,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
       landAddress: land ? addr : '',
       buildingAddress: building ? (p.address ?? '') : '',
       kaokuBango: building ? (p.kaoku_bango ?? '') : '',
-      needNeighborPrice: p.near_land_price === '要',
+      needNeighborPrice: p.near_land_price === '要' || p.near_land_price === 'あり',
     }
   })
   const chunks: Sheet[][] = []
@@ -295,7 +295,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
               <ConfRow label="証明書の種類" value={doc.certKinds.join('・')} from="カード：取得する資料" />
               <ConfRow label="所有者" value={[doc.ownerName ? `故 ${doc.ownerName}` : '', doc.ownerAddress].filter(Boolean).join('　')} from="被相続人・最後の住所" />
               <ConfRow label="使用目的" value={preset.purpose} from="様式" />
-              <ConfRow label="対象物件" from={`${muniKey || '市区町村'}の物件一覧・評価証明（物件ごと）`}
+              <ConfRow label="対象物件" from={`${muniKey || '市区町村'}の判明した物件（Step4 読込結果）`}
                 value={sheets.length === 0 ? '' : sheets.map((sh, i) =>
                   `${i + 1}. ${[sh.landAddress ? `${sh.landAddress}（土地）` : '', sh.buildingAddress ? `${sh.buildingAddress}${sh.kaokuBango ? ` 家屋番号${sh.kaokuBango}` : ''}（建物）` : '', sh.needNeighborPrice ? '近傍宅地価格 要' : ''].filter(Boolean).join('　')}`
                 ).join('\n')} />

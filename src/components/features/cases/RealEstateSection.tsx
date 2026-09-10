@@ -19,7 +19,6 @@ import { taxableValue, registrationTax, isLandProperty, isBuildingProperty } fro
 import { shareText } from '@/lib/constants'
 import RealEstateTable from './RealEstateTable'
 import RealEstateAcquisitionsTable from './RealEstateAcquisitionsTable'
-import EvalCertTable from './EvalCertTable'
 import FixedAssetRequestDocumentModal from './FixedAssetRequestDocumentModal'
 import type { RealEstatePropertyRow, RealEstateAcquisitionRow, TaskRow, ContractDocumentRow, CaseRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
@@ -296,7 +295,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
 
   return (
     <div className="flex gap-3 items-start">
-      <LeftRail items={railItems} active={sub} onChange={setSub} onDelete={deleteMunicipality} extra={
+      <LeftRail width="w-72" items={railItems} active={sub} onChange={setSub} onDelete={deleteMunicipality} extra={
         <button type="button" onClick={openAddMuni} className="mt-1 text-left text-[11.5px] px-2.5 py-1.5 rounded-md border border-dashed border-gray-300 text-gray-500 hover:text-brand-700 hover:border-brand-300 inline-flex items-center gap-1">
           <Plus className="w-3 h-3" /> 市区町村
         </button>
@@ -435,23 +434,19 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
                 管轄法務局は法務局カードの「請求先」に入る（以前は表の上に別の入力行があった）。 */}
             <div ref={isFocusCard('muni') ? focusCardRef : undefined} className={`bg-white p-3.5${flashCls('muni')}`}>
               <SectionHeading title={`${t.label}の請求（1タブ=1請求）`}
-                hint={`上のタブが1回の請求です。進め方は ①役所へ請求（名寄帳・評価証明）→ ②法務局へ請求（登記情報・公図など。ホームページから申請）→ ③届いた資料で下の物件一覧を確定 の順。名寄帳でこの市区町村にある物件を洗い出し（私道・持分も拾えます）、物件一覧に足したうえで法務局へ請求します。同じ宛先へまとめて頼んだ資料は1つのタブに入ります。役所への申請書はカードの「この内容で申請書を作る」から出せます。`}
+                hint={`上のタブが1回の請求です。進め方は ①役所へ請求（名寄帳・評価証明）→ ②届いたら Step4 読込結果の「判明した物件」に物件を登録（家屋番号・近傍宅地価格の要否もここ）→ ③必要なら評価証明を取り直す（役所へ）／法務局へ請求（登記情報・公図など。ホームページから申請）→ ④評価額を確定 の順。同じ宛先へまとめて頼んだ資料は1つのタブに入ります。役所への申請書はカードの「この内容で申請書を作る」から出せます。`}
                 className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <RealEstateAcquisitionsTable layout="cards" caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="all" municipalityFilter={muniKey} additionsNeedApproval={additionsNeedApproval} onAdditionalPending={() => notifyManagersAdditional('不動産の追加請求の承認依頼', `${muniKey}で取得資料が追加されました。承認するとタスクを生成します。`)} onAfterAddRow={() => promptIfMissing(muniKey, 'muni')}
                 onMakeDoc={caseData ? r => setDocAcq(r) : undefined}
                 houmuOffice={houmuOfMuni(muniKey)}
-                onSaveHoumuOffice={v => void setHoumuOfMuni(muniKey, v)} />
-            </div>
-            {/* 物件一覧（読んで分かったものの置き場）：戸籍の「○○の戸籍の画像」と同じ位置づけで請求の下に置く。
-                ヒアリング想定の物件はオーダーシートで入り、名寄帳・登記で分かった物件をここで足して評価額を確定する。 */}
-            <div className={`bg-white p-3.5${focusIsRead ? flashCls('muni') : ''}`}>
-              <SectionHeading title={`${t.label}の物件（名寄帳・登記で分かったものをここに登録）`} hint="同じ市区町村の物件をこの表にまとめて入力します。面談で聞いた想定物件はオーダーシートから入っています。名寄帳で新たに見つかった物件はここに追加し、登記情報などが揃ったら評価額を入れて確定します。財産目録に載るのは確定済の物件だけです。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-              <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} municipalityFilter={muniKey} addressSuggestions={addressSuggestions} />
-            </div>
-            {/* 評価証明（物件ごと）：名寄帳とは分ける。家屋番号・近傍宅地価格・年度を物件単位で管理（エクセルR69）。申請書の対象物件にそのまま入る。 */}
-            <div className="bg-white p-3.5">
-              <SectionHeading title={`${t.label}の評価証明（物件ごと）`} hint="固定資産評価証明は物件ごとに、家屋番号・近傍宅地価格の有無・年度（和暦）を記録します。ここの値が役所への申請書の「対象物件」に入ります。請求先は市区町村役所（役所への請求と同じ）。" className="mb-2.5 pb-1.5 border-b border-gray-200" />
-              <EvalCertTable caseId={caseId} properties={properties.filter(p => municipalityOf(p) === muniKey)} requestTo={muniKey} onRefresh={onRefresh} />
+                onSaveHoumuOffice={v => void setHoumuOfMuni(muniKey, v)}
+                renderProperties={() => (
+                  // 判明した物件＝この市区町村の物件一覧。Step4 読込結果の中に出す（読んで分かった場所で分かったことを入れる）。
+                  // 読込タスクから着地したときはここを光らせる。
+                  <div className={focusIsRead ? flashCls('muni') : ''}>
+                    <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} municipalityFilter={muniKey} addressSuggestions={addressSuggestions} />
+                  </div>
+                )} />
             </div>
             <p className="text-[11px] text-gray-400">確定費用は［請求］タブの「立替実費の取り込み」で案件全体に合算されます。</p>
           </div>
