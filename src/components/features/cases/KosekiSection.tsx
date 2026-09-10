@@ -42,6 +42,7 @@ import AnnotatedImage from './AnnotatedImage'
 import KosekiImageViewer, { type ViewerImage } from './KosekiImageViewer'
 import KosekiImageFloat from './KosekiImageFloat'
 import { siblingRequestsOf } from '@/lib/kosekiSiblings'
+import { RequestTabStrip } from './RequestTabStrip'
 import ImageAnnotator from './ImageAnnotator'
 import { useKosekiImages } from '@/lib/useKosekiImages'
 import type { Anno } from '@/lib/imageAnnotations'
@@ -746,42 +747,18 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                 </div>
               ) : (
                 <div>
-                  {/* 請求ごとのタブ。同じ人に2回目を出すとタブが増える。
-                      状態は色の点ではなく文字のバッジ（KOSEKI_TAB_STATUS）で出す。 */}
-                  <div className="flex items-end gap-1 flex-wrap border-b border-gray-200 mb-3 shadow-[0_2px_3px_-1px_rgba(15,23,42,0.10)]">
-                    {personRequests.map((r, i) => {
-                      const on = (activeReqId ?? personRequests[0]?.id) === r.id
-                      const st = KOSEKI_TAB_STATUS[kosekiTabStatus(r)]
-                      const finished = kosekiTabStatus(r) === 'done'
-                      return (
-                        <button
-                          key={r.id}
-                          type="button"
-                          onClick={() => setActiveReqId(r.id)}
-                          title={kosekiTabTitle(r)}
-                          className={`inline-flex items-center gap-2 px-3 py-1.5 text-[13px] rounded-t-lg border border-b-0 -mb-px transition-colors ${
-                            on ? 'relative z-10 bg-white border-gray-200 text-gray-800 font-semibold shadow-[0_-2px_6px_rgba(15,23,42,0.06),0_3px_0_0_#fff]'
-                              : `bg-gray-50 border-transparent hover:text-gray-800 ${finished ? 'text-gray-400' : 'text-gray-500'}`
-                          }`}
-                        >
-                          {kosekiTabLabel(r, i)}
-                          <span className={`text-[12px] tracking-wider px-2 py-[1px] rounded-full flex-none ${st.cls}`}>{st.label}</span>
-                        </button>
-                      )
-                    })}
-                    {/* 同じ対象者の戸籍をもう1件。押すと空の請求タブが増えてそこが開く。
-                        請求先はカードの中で入力するので、ここでは何も聞かない。 */}
-                    {sub !== '__unset__' && (
-                      <button
-                        type="button"
-                        onClick={() => addRequestForPerson(activePerson)}
-                        title={`${activePerson} さんの戸籍をもう1件請求する`}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[13px] text-brand-700 hover:bg-brand-50 rounded-t-lg"
-                      >
-                        <Plus className="w-3.5 h-3.5" />請求を追加
-                      </button>
-                    )}
-                  </div>
+                  {/* 請求ごとのタブ（1行・横スクロール）。同じ人に2回目を出すとタブが増える。
+                      状態は色の点ではなく文字のバッジ（KOSEKI_TAB_STATUS）。「＋」で同じ人の請求をもう1件（承認は要らない）。 */}
+                  <RequestTabStrip
+                    tabs={personRequests.map((r, i) => ({
+                      id: r.id, label: kosekiTabLabel(r, i), title: kosekiTabTitle(r),
+                      status: KOSEKI_TAB_STATUS[kosekiTabStatus(r)], finished: kosekiTabStatus(r) === 'done',
+                    }))}
+                    activeId={(activeReqId ?? personRequests[0]?.id) ?? null}
+                    onSelect={id => setActiveReqId(id)}
+                    onAdd={sub !== '__unset__' ? () => addRequestForPerson(activePerson) : undefined}
+                    addTitle={`${activePerson} さんの戸籍をもう1件請求する`}
+                  />
                   {(() => {
                     const cur = personRequests.find(r => r.id === activeReqId) ?? personRequests[0]
                     if (!cur) return null
@@ -1172,13 +1149,13 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
         {isClient ? (
           <>
             <span className="text-[13px] font-bold text-brand-700">依頼者が取得します</span>
-            <span className="text-[12px] text-gray-500">届いたら、下の Step4 を開いて到着日を入れてください</span>
+            <span className="text-[12px] text-gray-500">届いたら、Step4 に到着日を</span>
           </>
         ) : (
           <>
             <span className="text-[13px] font-bold text-brand-700">ここまでで請求できます</span>
             <span className="text-[12px] text-gray-500">
-              {isShokumujo ? '職務上請求用紙に記入して発送したら、下の Step4 を開いて請求日を入れてください' : '請求書を出して発送したら、下の Step4 を開いて請求日を入れてください'}
+              {isShokumujo ? '職務上請求用紙で発送したら、Step4 に請求日を' : '請求書を出して発送したら、Step4 に請求日を'}
             </span>
           </>
         )}
@@ -1218,14 +1195,11 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
       {/* ここから下は請求のあと。畳んだ見出しだけ出し、進み具合に合わせて開く（見出しを押せばいつでも開く） */}
       <div className="flex items-center gap-2 pt-2 text-[12px] text-gray-500">
         <span className="flex-1 border-t border-dashed border-slate-300" />
-        ここから下は、請求したあと・届いたあとに入力します
+        ここから下は、請求したあと・届いたあと
         <span className="flex-1 border-t border-dashed border-slate-300" />
       </div>
 
-      <FoldGroup no="Step4" title="請求したら／届いたら"
-        sub={isClient ? '到着日・到着チェック' : '請求日・発送チェック・到着日・返金・確定費用・到着チェック'}
-        autoOpen={!!r.request_date || !!r.arrival_date}
-        closedNote={isClient ? '届いたら開いて、到着日を入れます' : '請求したら開いて、請求日を入れます'}>
+      <FoldGroup no="Step4" title="請求したら／届いたら" autoOpen={!!r.request_date || !!r.arrival_date}>
         <KosekiFieldRow label="請求日">
           {isClient ? <span className="text-[12px] text-gray-400">依頼者取得</span>
             : <DateCell value={r.request_date} onCommit={async v => { await saveMany(r.id, { request_date: v || null, ...(v && !r.request_done_by ? { request_done_by: meId } : {}) }); onRequestDateSet?.(v || null) }} />}
@@ -1269,9 +1243,7 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
           一部不足なら、残りは上の「＋ 請求を追加」で新しい請求を立てて取りに行く。
           請求範囲は書き換えない（何を請求したかの記録が消えるため）。 */}
       <FoldGroup no="Step5" title="読込結果"
-        sub="取得の結果・住所・関係戸籍・内容"
-        autoOpen={!!r.arrival_date || !!r.read_status || !!(r.read_result ?? '').trim() || !!r.relation_koseki_done}
-        closedNote="届いたら開いて、読んだ結果を入れます">
+        autoOpen={!!r.arrival_date || !!r.read_status || !!(r.read_result ?? '').trim() || !!r.relation_koseki_done}>
         <KosekiFieldRow label="取得の結果" full>
           <div className="inline-flex rounded-md border border-gray-200 overflow-hidden">
             {KOSEKI_READ_STATUSES.map(s => {

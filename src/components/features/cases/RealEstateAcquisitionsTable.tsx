@@ -48,6 +48,9 @@ import CheckRequestControl from './CheckRequestControl'
 import { MoneyCell, PriorityCell } from './PracticeTableCells'
 import HintTip from '@/components/ui/HintTip'
 import { municipalityOf } from './RealEstateSection'
+import { RequestTabStrip } from './RequestTabStrip'
+import Modal from '@/components/ui/Modal'
+import Button from '@/components/ui/Button'
 
 const yen = (n: number | null | undefined) => (n == null ? '—' : `¥${Math.round(n).toLocaleString('ja-JP')}`)
 
@@ -115,20 +118,24 @@ const reTabStatus = (r: RealEstateAcquisitionRow): keyof typeof RE_TAB_STATUS =>
   return r.request_date ? 'request' : 'none'
 }
 
-/** タブ名。役所ぶんは「資料＋年度」、法務局ぶんは「物件＋資料」。 */
+/** タブ名。役所ぶんは「資料＋年度」、法務局ぶんは「地番　資料」。何も入っていなければ「新しい請求」（戸籍と同じ言い方） */
 function reTabLabel(
   r: RealEstateAcquisitionRow,
   properties: RealEstatePropertyRow[],
   itemsOf: (r: RealEstateAcquisitionRow) => string[],
   rowScopeOf: (r: RealEstateAcquisitionRow) => 'municipality' | 'property' | null,
+  blankIndex: number,
 ): string {
   const items = itemsOf(r)
-  const head = items.length === 0 ? '資料 未選択' : items.length === 1 ? items[0] : `${items[0]} +${items.length - 1}`
+  const head = items.length === 0 ? '' : items.length === 1 ? items[0] : `${items[0]} +${items.length - 1}`
+  const blank = `新しい請求${blankIndex > 0 ? ` (${blankIndex + 1})` : ''}`
   if (rowScopeOf(r) === 'property') {
     const p = properties.find(x => x.id === r.target_property_id)
-    const who = p ? (p.lot_number || p.address || p.property_type || '物件') : '物件 未選択'
-    return `${who}　${head}`
+    const who = p ? (p.lot_number || p.kaoku_bango || p.address || p.property_type || '物件') : ''
+    if (!who && !head) return blank
+    return [who, head].filter(Boolean).join('　')
   }
+  if (!head) return blank
   const y = (r.doc_year ?? r.myna_year ?? '').replace('年度', '')
   return y ? `${head} ${y}` : head
 }
@@ -179,44 +186,70 @@ function AcquisitionCards({
   receipts, meId, fullCost, confirmedOf, onMakeDoc, houmuOffice, onSaveHoumuOffice, renderProperties,
 }: AcquisitionCardsProps) {
   const cur = rows.find(r => r.id === activeId) ?? rows[0] ?? null
+  // 「＋」の宛先ポップアップ
+  const [addOpen, setAddOpen] = useState(false)
+  const [addScope, setAddScope] = useState<'municipality' | 'property'>('municipality')
 
   return (
     <div>
-      {/* 請求ごとのタブ。役所ぶんが先、法務局ぶんが後ろ（rows は既にその順で並んでいる）。 */}
-      <div className="flex items-end gap-1 flex-wrap border-b border-gray-200 mb-3 shadow-[0_2px_3px_-1px_rgba(15,23,42,0.10)]">
-        {rows.map(r => {
-          const on = cur?.id === r.id
-          const st = RE_TAB_STATUS[reTabStatus(r)]
-          const finished = reTabStatus(r) === 'done'
-          const isProp = rowScopeOf(r) === 'property'
-          return (
-            <button key={r.id} type="button" onClick={() => setActiveId(r.id)}
-              title={`${isProp ? '法務局へ請求' : '役所へ請求'}／${st.label}`}
-              className={`inline-flex items-center gap-2 px-3 py-1.5 text-[13px] rounded-t-lg border border-b-0 -mb-px transition-colors ${
-                on ? 'relative z-10 bg-white border-gray-200 text-gray-800 font-semibold shadow-[0_-2px_6px_rgba(15,23,42,0.06),0_3px_0_0_#fff]'
-                  : `bg-gray-50 border-transparent hover:text-gray-800 ${finished ? 'text-gray-400' : 'text-gray-500'}`}`}>
-              <span className={`text-[9.5px] px-1.5 rounded flex-none ${isProp ? 'bg-gray-100 text-gray-500' : 'bg-brand-50 text-brand-700'}`}>
-                {isProp ? '法務局' : '役所'}
-              </span>
-              {reTabLabel(r, properties, itemsOf, rowScopeOf)}
-              <span className={`text-[12px] tracking-wider px-2 py-[1px] rounded-full flex-none ${st.cls}`}>{st.label}</span>
-            </button>
-          )
-        })}
-        {/* 追加はどちらへの請求か聞く。タブを1本にしたぶん、ここで宛先を決める。 */}
-        <span className="inline-flex items-center gap-1 ml-1.5">
-          <span className="text-[12px] text-gray-400">＋ 請求を追加</span>
-          <button type="button" onClick={() => addRow('municipality')}
-            className="px-2 py-1 text-[12px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded hover:bg-brand-100">役所へ</button>
-          <button type="button" onClick={() => addRow('property')}
-            className="px-2 py-1 text-[12px] font-semibold text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50">法務局へ</button>
-        </span>
-      </div>
+      {/* 請求ごとのタブ（1行・横スクロール）。役所ぶんが先、法務局ぶんが後ろ（rows は既にその順で並んでいる）。
+          追加は「＋」→ ポップアップで宛先（役所／法務局）を選ぶ。タブ列に宛先ボタンは置かない。 */}
+      <RequestTabStrip
+        tabs={(() => {
+          let blanks = 0
+          return rows.map(r => {
+            const isProp = rowScopeOf(r) === 'property'
+            const items = itemsOf(r)
+            const isBlank = items.length === 0 && (isProp ? !r.target_property_id : true)
+            const label = reTabLabel(r, properties, itemsOf, rowScopeOf, isBlank ? blanks++ : 0)
+            const st = RE_TAB_STATUS[reTabStatus(r)]
+            return {
+              id: r.id,
+              label: (
+                <>
+                  <span className={`text-[9.5px] px-1.5 rounded flex-none ${isProp ? 'bg-gray-100 text-gray-500' : 'bg-brand-50 text-brand-700'}`}>{isProp ? '法務局' : '役所'}</span>
+                  {label}
+                </>
+              ),
+              title: `${isProp ? '法務局へ請求' : '役所へ請求'}／${label}（${st.label}）`,
+              status: st, finished: reTabStatus(r) === 'done',
+            }
+          })
+        })()}
+        activeId={cur?.id ?? null}
+        onSelect={setActiveId}
+        onAdd={() => setAddOpen(true)}
+      />
+      {/* 請求を追加：どちらへの請求かを聞く */}
+      <Modal isOpen={addOpen} onClose={() => setAddOpen(false)} title="請求を追加" maxWidth="max-w-sm"
+        footer={<>
+          <Button variant="secondary" onClick={() => setAddOpen(false)}>キャンセル</Button>
+          <Button variant="primary" onClick={() => { setAddOpen(false); addRow(addScope) }}>追加する</Button>
+        </>}>
+        <div className="space-y-2">
+          {([
+            ['municipality', '役所', '役所へ請求', '名寄帳・評価証明。市区町村役所へ申請書を郵送します', 'bg-brand-50 text-brand-700'],
+            ['property', '法務局', '法務局へ請求', '登記情報・公図・地積測量図・路線価。ホームページから申請します', 'bg-gray-100 text-gray-600'],
+          ] as const).map(([k, badge, t, d, bc]) => {
+            const on = addScope === k
+            return (
+              <button key={k} type="button" onClick={() => setAddScope(k)}
+                className={`w-full flex items-start gap-2.5 px-3 py-2.5 rounded-lg text-left transition-colors ${on ? 'border-2 border-brand-400 bg-brand-50' : 'border border-gray-200 hover:bg-gray-50'}`}>
+                <span className={`mt-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded flex-none ${bc}`}>{badge}</span>
+                <span className="min-w-0">
+                  <span className={`block text-[13px] font-semibold ${on ? 'text-brand-700' : 'text-gray-800'}`}>{t}</span>
+                  <span className="block text-[11.5px] text-gray-500">{d}</span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </Modal>
 
       {!cur ? (
         <div className="px-4 py-8 text-center">
           <div className="text-[13px] text-gray-600 mb-1">取得資料はまだ登録されていません</div>
-          <div className="text-[12px] text-gray-400 leading-relaxed">上の「＋ 請求を追加」から、役所（名寄帳・評価証明）か法務局（登記情報・公図など）を選んで作ってください。</div>
+          <div className="text-[12px] text-gray-400 leading-relaxed">上の「＋」から、役所（名寄帳・評価証明）か法務局（登記情報・公図など）を選んで作ってください。</div>
         </div>
       ) : (() => {
         const r = cur
@@ -302,39 +335,6 @@ function AcquisitionCards({
                     placeholder="申請書の備考欄に入れたいこと（無ければ空のまま）" className={dateCls} />
                 </ReRow>
               )}
-              {/* 対象物件（表示のみ）。家屋番号・近傍宅地価格の要否は名寄帳・登記を読んで分かるので、
-                  入力は Step4 の「判明した物件」だけ。ここはそこにあるものを映し、申請書の「対象物件」にそのまま入る。
-                  1回目の請求では物件が無いのが普通＝「所有する全物件として申請」。 */}
-              {!isProp && !isRef && (
-                <div className="sm:col-span-4 bg-white border-b border-slate-200 px-3 py-2.5">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-[13px] font-semibold text-gray-700">対象物件</span>
-                    <span className="text-[11px] px-1.5 py-0.5 rounded-full border border-gray-300 text-gray-500">表示のみ・Step4 の判明した物件から</span>
-                    <span className="text-[12px] text-gray-400">申請書の「対象物件」欄に入ります</span>
-                  </div>
-                  {muniProps.length === 0 ? (
-                    <p className="text-[12.5px] text-gray-500">物件は未確定です。所有する全物件として申請します（届いたら Step4 で登録すると、次の請求からここに載ります）。</p>
-                  ) : (
-                    <table className="w-auto text-[12.5px] border-collapse">
-                      <thead><tr><th className="px-2 py-1 text-left">種別</th><th className="px-2 py-1 text-left">所在・地番／家屋番号</th><th className="px-2 py-1 text-left">近傍宅地価格</th></tr></thead>
-                      <tbody>
-                        {muniProps.map(p => {
-                          const land = !p.property_type || !['建物', '区分建物', 'マンション'].some(k => (p.property_type ?? '').includes(k))
-                          const where = land ? [p.address, p.lot_number].filter(Boolean).join(' ') : [p.address, p.kaoku_bango ? `家屋番号 ${p.kaoku_bango}` : ''].filter(Boolean).join('　')
-                          const near = p.near_land_price === '要' || p.near_land_price === 'あり' ? '要' : p.near_land_price === '不要' || p.near_land_price === 'なし' ? '不要' : '—'
-                          return (
-                            <tr key={p.id} className="border-t border-slate-100">
-                              <td className="px-2 py-1 text-gray-600">{p.property_type || '土地'}</td>
-                              <td className="px-2 py-1 text-gray-800">{where || <span className="text-gray-300">所在未入力</span>}</td>
-                              <td className={`px-2 py-1 ${near === '要' ? 'font-semibold text-gray-800' : 'text-gray-500'}`}>{land ? near : '—'}</td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              )}
             </ReGroup>
 
             {/* Step2 は請求の前に決めること＝封筒に入れる小為替（役所）／印紙・手数料（法務局）だけ。
@@ -358,10 +358,10 @@ function AcquisitionCards({
                 法務局への請求はホームページ（登記情報提供サービス等）で申請するので申請書は作らない。 */}
             <PracticeActionBar
               title={isRef ? '参照のみ' : noRequest ? (acq === '受領済' ? '受領済です' : '依頼者が取得します') : 'ここまでで請求できます'}
-              note={isRef ? '路線価などは請求せず参照します。確認したら下の Step4 に結果を入れてください'
-                : noRequest ? '届いたら、下の Step3 を開いて到着日を入れてください'
-                : isProp ? 'ホームページから申請したら、下の Step3 を開いて請求日を入れてください'
-                : '申請書を出して発送したら、下の Step3 を開いて請求日を入れてください'}>
+              note={isRef ? '参照したら Step4 に結果を'
+                : noRequest ? '届いたら Step3 に到着日を'
+                : isProp ? 'ホームページから申請したら Step3 に請求日を'
+                : '申請書を出して発送したら Step3 に請求日を'}>
               {!isProp && !isRef && !noRequest && onMakeDoc && (
                 <button type="button" onClick={() => onMakeDoc(r)}
                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-white bg-brand-600 border border-brand-600 hover:bg-brand-700">
@@ -373,10 +373,7 @@ function AcquisitionCards({
 
             <PracticeAfterDivider />
 
-            <PracticeFoldGroup no="Step3" title="請求したら／届いたら"
-              sub={isRef ? '受領ファイル' : noRequest ? '到着日・受領ファイル' : `請求日・発送チェック・到着日${fullCost ? '・返金・確定費用' : ''}・到着チェック・受領ファイル`}
-              autoOpen={!!r.request_date || !!r.arrival_date}
-              closedNote={isRef ? '参照したら開きます' : noRequest ? '届いたら開いて、到着日を入れます' : '請求したら開いて、請求日を入れます'}>
+            <PracticeFoldGroup no="Step3" title="請求したら／届いたら" autoOpen={!!r.request_date || !!r.arrival_date}>
               <ReRow label="請求日">
                 {isRef || noRequest ? (noRequest ? muted : <span className="text-[12px] text-gray-400">—</span>)
                   : <input type="date" defaultValue={r.request_date ?? ''}
@@ -420,9 +417,8 @@ function AcquisitionCards({
 
             {/* 届いた資料を読んだ結果。名寄帳は「この市区町村の物件を洗い出す」ために取るので、
                 読んで何が見つかったかを残さないと、私道の持分などを見落としたまま先へ進んでしまう。 */}
-            <PracticeFoldGroup no="Step4" title="読込結果" sub="取得の結果・内容・判明した物件"
-              autoOpen={!!r.arrival_date || !!r.read_status || !!(r.read_result ?? '').trim()}
-              closedNote="届いたら開いて、読んだ結果と判明した物件を入れます">
+            <PracticeFoldGroup no="Step4" title="読込結果"
+              autoOpen={!!r.arrival_date || !!r.read_status || !!(r.read_result ?? '').trim()}>
               <ReRow label="取得の結果" full>
                 <div className="inline-flex border border-gray-300">
                   {RE_READ_STATUSES.map(st => {
@@ -447,21 +443,17 @@ function AcquisitionCards({
                 <ReRow label="次にやること" full>
                   <span className="text-[13px] text-brand-700">
                     {isProp
-                      ? '足りなかった資料について、上の「＋ 請求を追加」で法務局への請求を作ってください。'
-                      : '見つかった物件を下の「判明した物件」に足したうえで、「＋ 請求を追加」で法務局への請求（評価証明の取り直しは役所へ）を作ってください。'}
+                      ? '足りなかった資料について、上の「＋」で法務局への請求を作ってください。'
+                      : '見つかった物件を下の「判明した物件」に足したうえで、「＋」で法務局への請求（評価証明の取り直しは役所へ）を作ってください。'}
                   </span>
                 </ReRow>
               )}
               {/* 判明した物件（この市区町村の物件一覧）。読んで分かった場所で分かったことを入れる。
                   家屋番号（建物）・近傍宅地価格の要否（土地）もここ。市区町村に1つの表なので、どのカードの Step4 を開いても同じ表。 */}
               {renderProperties && (
-                <div className="sm:col-span-4 bg-white px-3 py-2.5">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-[13px] font-semibold text-gray-700">判明した物件</span>
-                    <span className="text-[12px] text-gray-400">名寄帳・登記で分かった物件をここに登録。家屋番号・近傍宅地価格の要否もここ。財産目録に載るのは確定済みだけ</span>
-                  </div>
-                  {renderProperties()}
-                </div>
+                <ReRow label="判明した物件" full hint="名寄帳・登記情報で分かった物件をここに登録します（この市区町村に1つの表。どの請求の Step4 を開いても同じ表です）。家屋番号（建物）・近傍宅地価格の要否（土地）もここで入れ、評価証明の申請書の「対象物件」にそのまま入ります。財産目録に載るのは確定済みの物件だけです。">
+                  <div className="w-full min-w-0">{renderProperties()}</div>
+                </ReRow>
               )}
             </PracticeFoldGroup>
           </div>

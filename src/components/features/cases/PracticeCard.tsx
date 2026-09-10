@@ -58,12 +58,12 @@ export function PracticeGroup({ no, title, sub, right, children, tone = 'normal'
  * autoOpen＝進み具合から開くべきか（請求日・到着日が入った等）。手で開閉したらそちらを優先。
  * カードは請求ごとに key で作り直すので、開閉の状態も請求ごとに戻る。戸籍・不動産で共用。
  */
-export function PracticeFoldGroup({ no, title, sub, autoOpen, closedNote, children }: {
+export function PracticeFoldGroup({ no, title, autoOpen, closedNote = '開く', children }: {
   no: string
   title: string
-  sub?: string
   autoOpen: boolean
-  closedNote: string
+  /** 閉じているときの右端の一言。既定「開く」。項目名の羅列は書かない（読むものが増えるだけ） */
+  closedNote?: string
   children: ReactNode
 }) {
   const [manual, setManual] = useState<boolean | null>(null)
@@ -74,13 +74,12 @@ export function PracticeFoldGroup({ no, title, sub, autoOpen, closedNote, childr
         className="w-full flex items-center gap-2.5 px-3 pt-3.5 pb-1.5 min-h-[44px] bg-white border-b border-slate-200 text-left hover:bg-slate-50">
         <span className="text-[14px] font-bold text-gray-400">{no}</span>
         <span className="text-[14px] font-bold text-gray-400">{title}</span>
-        {sub && <span className="text-[12px] text-gray-400 ml-1 truncate">{sub}</span>}
         <span className="ml-auto inline-flex items-center gap-1 text-[12px] text-gray-500 flex-none">{closedNote}<ChevronRight className="w-3.5 h-3.5" /></span>
       </button>
     )
   }
   return (
-    <PracticeGroup no={no} title={title} sub={sub}
+    <PracticeGroup no={no} title={title}
       right={
         <button type="button" onClick={() => setManual(false)} className="inline-flex items-center gap-1 text-[12px] text-gray-500 hover:text-gray-800">
           閉じる<ChevronDown className="w-3.5 h-3.5" />
@@ -103,7 +102,7 @@ export function PracticeActionBar({ title, note, children }: { title: ReactNode;
 }
 
 /** 「ここから下は、請求したあと・届いたあとに入力します」の区切り */
-export function PracticeAfterDivider({ text = 'ここから下は、請求したあと・届いたあとに入力します' }: { text?: string }) {
+export function PracticeAfterDivider({ text = 'ここから下は、請求したあと・届いたあと' }: { text?: string }) {
   return (
     <div className="flex items-center gap-2 pt-2 text-[12px] text-gray-500">
       <span className="flex-1 border-t border-dashed border-slate-300" />
