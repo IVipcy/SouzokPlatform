@@ -9,7 +9,7 @@
 // サムネイルは画像＋書き込みを canvas で重ねて描くので、拡大表示と同じ絵になる。
 
 import { useState, useRef } from 'react'
-import { Upload, Pencil, Trash2, Download, FolderInput } from 'lucide-react'
+import { Upload, Pencil, Trash2, Download, FolderInput, PictureInPicture2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import Modal from '@/components/ui/Modal'
@@ -23,7 +23,7 @@ import type { KosekiRequestRow } from '@/types'
 
 export type { KosekiImageRow }
 
-export default function KosekiImagePanel({ caseId, targetPerson, requests = [], compact = false, title }: {
+export default function KosekiImagePanel({ caseId, targetPerson, requests = [], compact = false, title, highlightIds, onOpenFloat }: {
   caseId: string
   /** 指定するとその人の画像だけ。未指定なら案件の全画像（TOP用・アップロードは出さない） */
   targetPerson?: string
@@ -32,6 +32,10 @@ export default function KosekiImagePanel({ caseId, targetPerson, requests = [], 
   /** TOPの右列など狭い場所向け。サムネイルを小さく並べる */
   compact?: boolean
   title?: string
+  /** 「この画像を見てください」の画像。琥珀の枠で光らせる */
+  highlightIds?: Set<string>
+  /** 画像を浮かせ窓で横に出す（戸籍請求タブ）。渡すと各サムネイルに「横に出す」が付く */
+  onOpenFloat?: (id: string) => void
 }) {
   const supabase = createClient()
   const { rows, urls, reload: load, setRows } = useKosekiImages(caseId, targetPerson)
@@ -189,7 +193,7 @@ export default function KosekiImagePanel({ caseId, targetPerson, requests = [], 
                       <Thumb key={r.id} row={r} url={urls[r.id]} className={thumbCls}
                         onOpen={() => setPreview(r)} onEdit={() => setEditing(r)} onDelete={() => del(r)} onDownload={() => download(r)}
                         onMove={() => setMoving(r)}
-                        showPerson={targetPerson === undefined} compact={compact} />
+                        showPerson={targetPerson === undefined} compact={compact} highlight={!!highlightIds?.has(r.id)} onFloat={onOpenFloat ? () => onOpenFloat(r.id) : undefined} />
                     ))}
                   </div>
                 )}
@@ -214,7 +218,7 @@ export default function KosekiImagePanel({ caseId, targetPerson, requests = [], 
                     <Thumb key={r.id} row={r} url={urls[r.id]} className={thumbCls}
                       onOpen={() => setPreview(r)} onEdit={() => setEditing(r)} onDelete={() => del(r)} onDownload={() => download(r)}
                       onMove={() => setMoving(r)}
-                      showPerson={targetPerson === undefined} compact={compact} />
+                      showPerson={targetPerson === undefined} compact={compact} highlight={!!highlightIds?.has(r.id)} onFloat={onOpenFloat ? () => onOpenFloat(r.id) : undefined} />
                   ))}
                 </div>
               </div>
@@ -226,7 +230,7 @@ export default function KosekiImagePanel({ caseId, targetPerson, requests = [], 
           {rows.map(r => (
             <Thumb key={r.id} row={r} url={urls[r.id]} className={thumbCls}
               onOpen={() => setPreview(r)} onEdit={() => setEditing(r)} onDelete={() => del(r)} onDownload={() => download(r)}
-              showPerson={targetPerson === undefined} compact={compact} />
+              showPerson={targetPerson === undefined} compact={compact} highlight={!!highlightIds?.has(r.id)} onFloat={onOpenFloat ? () => onOpenFloat(r.id) : undefined} />
           ))}
         </div>
       )}
@@ -307,16 +311,21 @@ export default function KosekiImagePanel({ caseId, targetPerson, requests = [], 
   )
 }
 
-function Thumb({ row, url, className, onOpen, onEdit, onDelete, onDownload, onMove, showPerson, compact }: {
+function Thumb({ row, url, className, onOpen, onEdit, onDelete, onDownload, onMove, showPerson, compact, highlight = false, onFloat }: {
   row: KosekiImageRow; url?: string; className?: string
   onOpen: () => void; onEdit: () => void; onDelete: () => void; onDownload: () => void
   /** 別の請求へ移す（請求ごとに仕切っているときだけ） */
   onMove?: () => void
   showPerson: boolean; compact: boolean
+  /** 「この画像を見てください」の画像。琥珀の枠で光らせる */
+  highlight?: boolean
+  /** 浮かせ窓で横に出す */
+  onFloat?: () => void
 }) {
   const hasAnno = (row.annotations ?? []).length > 0
   return (
-    <div className={`relative group rounded-md border border-gray-200 bg-gray-50 overflow-hidden ${className}`}>
+    <div className={`relative group rounded-md border bg-gray-50 overflow-hidden ${highlight ? 'border-amber-400 ring-2 ring-amber-300 shadow-[0_0_0_4px_rgba(251,191,36,0.18)]' : 'border-gray-200'} ${className}`}>
+      {highlight && <span className="absolute left-1 top-1 z-10 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-400 text-amber-950">見る</span>}
       <button type="button" onClick={onOpen} className="block w-full h-full">
         {url
           ? <AnnotatedImage url={url} annos={row.annotations ?? []} className="w-full object-cover" />
@@ -329,6 +338,7 @@ function Thumb({ row, url, className, onOpen, onEdit, onDelete, onDownload, onMo
       {!compact && (
         <div className="absolute inset-x-0 bottom-0 hidden group-hover:flex justify-center gap-1 bg-white/90 py-1">
           <button type="button" onClick={onEdit} className="p-1 text-gray-500 hover:text-brand-700" title="書き込む"><Pencil className="w-3.5 h-3.5" /></button>
+          {onFloat && <button type="button" onClick={onFloat} className="p-1 text-gray-500 hover:text-brand-700" title="横に出す（見ながら請求を入力）"><PictureInPicture2 className="w-3.5 h-3.5" /></button>}
           <button type="button" onClick={onDownload} className="p-1 text-gray-500 hover:text-brand-700" title="書き込み込みでダウンロード"><Download className="w-3.5 h-3.5" /></button>
           {onMove && <button type="button" onClick={onMove} className="p-1 text-gray-500 hover:text-brand-700" title="別の請求のぶんに移す"><FolderInput className="w-3.5 h-3.5" /></button>}
           <button type="button" onClick={onDelete} className="p-1 text-gray-400 hover:text-red-500" title="削除"><Trash2 className="w-3.5 h-3.5" /></button>

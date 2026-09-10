@@ -31,7 +31,26 @@ export type TextAnno = {
   leader?: { x: number; y: number } | null
 }
 
-export type Anno = PenAnno | TextAnno
+/** 赤枠。意味は1つ＝「次に請求する箇所」（転籍先の本籍・従前戸籍など）。色は固定 */
+export type RectAnno = {
+  id: string
+  type: 'rect'
+  color: string
+  /** 左上（割合）と大きさ（割合） */
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+export type Anno = PenAnno | TextAnno | RectAnno
+
+export const RECT_COLOR = '#DC2626'
+/** 赤枠の最小の大きさ（割合）。これより小さいドラッグは誤操作とみなして置かない */
+export const RECT_MIN = 0.015
+/** 赤枠の線の太さ（画像幅に対する割合） */
+export const RECT_LINE = 0.0045
+export const RECT_USE = '次に請求する箇所（転籍先の本籍・従前戸籍など）'
 
 /**
  * 蛍光ペンの色（下の文字が読める濃さで塗る）。
@@ -136,6 +155,15 @@ export function drawAnnotations(
       ctx.moveTo(a.points[0] * w, a.points[1] * h)
       for (let i = 2; i < a.points.length; i += 2) ctx.lineTo(a.points[i] * w, a.points[i + 1] * h)
       ctx.stroke()
+      ctx.restore()
+      continue
+    }
+    if (a.type === 'rect') {
+      ctx.save()
+      ctx.strokeStyle = a.color
+      ctx.lineWidth = Math.max(1.5, RECT_LINE * w)
+      ctx.lineJoin = 'miter'
+      ctx.strokeRect(a.x * w, a.y * h, a.w * w, a.h * h)
       ctx.restore()
       continue
     }

@@ -14,7 +14,6 @@ import CompleteTaskModal from '@/components/features/tasks/CompleteTaskModal'
 import CompletionCautionModal from '@/components/features/tasks/CompletionCautionModal'
 import { getCompletionCaution, type CompletionCaution } from '@/lib/completionCaution'
 import { checkCaseCompletable, billingPatternLabel, refundStageLabel, type MissingInvoice, type PendingRefund, type MissingReferral } from '@/lib/caseCompletionGate'
-import { stripGyomu } from '@/lib/kotei'
 import CaseHeader from './CaseHeader'
 import CaseTabs, { TAB_GROUP, type TabKey } from './CaseTabs'
 import BasicInfoTab from './BasicInfoTab'
@@ -551,26 +550,9 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   const FLAT_ORDER_STATUSES = ['検討中', '検討中（契約書待ち）', '受注', '戻り受注', '失注']
   const flatOrderTabs = FLAT_ORDER_STATUSES.includes(caseState.status ?? '')
 
-  // 実施タブ（受注区分/業務由来）で、紐づくタスクが全件完了しているものは折り畳み対象。
-  // タスクは task.phase(=業務区分文字列) から GYOMU_TAB マッピングで所属タブを判定。
-  const completedPracticeTabs: TabKey[] = (() => {
-    const totalByTab = new Map<TabKey, number>()
-    const openByTab = new Map<TabKey, number>()
-    for (const t of tasks) {
-      const gyomu = stripGyomu(t.phase)
-      const tab = GYOMU_TAB[gyomu]
-      if (!tab) continue
-      totalByTab.set(tab, (totalByTab.get(tab) ?? 0) + 1)
-      if (t.status !== '完了' && t.status !== 'キャンセル') {
-        openByTab.set(tab, (openByTab.get(tab) ?? 0) + 1)
-      }
-    }
-    const result: TabKey[] = []
-    for (const [tab, total] of totalByTab) {
-      if (total > 0 && (openByTab.get(tab) ?? 0) === 0) result.push(tab)
-    }
-    return result
-  })()
+  // 実務タブの「紐づくタスクが全件完了したら自動で畳む」はやめた。
+  // 相続人調査は、今いる相続人のぶんが終わっても戸籍を読むと新しい人が出てくるので、
+  // タスクが全部完了した＝業務が終わった、ではない。終わったかどうかはタブの中で読む。
 
   // タスク詳細から ?task= で来たとき、実務タブ上に「このタスクを完了」バーを出す（戻らず完了）。
   const focusTaskId = searchParams.get('task')
@@ -675,7 +657,6 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           visibleTabs={tabVis.visible}
           collapsedTabs={tabVis.collapsed}
           highlightTabs={navHighlightTabs}
-          completedTabs={completedPracticeTabs}
           groupInfoTabs={caseState.status === '対応中' || caseState.status === '完了'}
           flatOrder={flatOrderTabs}
           labelOverrides={showMeetingSheet ? { orderSheet: '面談シート' } : undefined}

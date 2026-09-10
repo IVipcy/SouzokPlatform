@@ -4,7 +4,8 @@ import { useState, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Briefcase, Play, CheckCircle2, ExternalLink, ChevronDown, ChevronUp, Check, Package, PackageCheck, ArrowRightCircle, Landmark } from 'lucide-react'
-import { resolveTaskLanding, taskLandingUrl } from '@/lib/taskLanding'
+import { resolveTaskLanding, taskLandingUrl, taskRefImageIds } from '@/lib/taskLanding'
+import { TaskRefImages } from '@/components/features/cases/KosekiImagePick'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { Section, InlineTextarea } from '@/components/ui/InlineFields'
@@ -103,6 +104,35 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
   // このタスクの作業場所（戸籍請求タブ等）。実務タブで行うタスクだけ値が入る。
   // 導線カードの出し分けと、作成物セクションを出すかどうかの判断に使う。
   const landing = (!caseData || currentStatus === '完了' || isSystemTask) ? null : resolveTaskLanding(task)
+
+  // 戸籍請求タスク（koseki:{請求ID}）なら、同じ役所への未請求が他にないかを見る。
+  // あれば「一緒に請求できます」と知らせる（タスクは別々のまま。1請求＝1タスクは変えない）。
+  const kosekiReqId = (task.source_rid ?? '').match(/^koseki:(.+)$/)?.[1] ?? null
+  const [kosekiSiblings, setKosekiSiblings] = useState<Array<{ id: string; target_person: string | null; range_text: string | null; request_to: string | null }>>([])
+  useEffect(() => {
+    if (!kosekiReqId || !caseData) return
+    let alive = true
+    ;(async () => {
+      type R = { id: string; request_to: string | null; target_person: string | null; range_text: string | null; request_date: string | null; acquirer: string | null; is_additional: boolean | null; additional_approved_at: string | null }
+      const { data } = await createClient().from('koseki_requests')
+        .select('id, request_to, target_person, range_text, request_date, acquirer, is_additional, additional_approved_at').eq('case_id', caseData.id)
+      if (!alive) return
+      const rows = (data ?? []) as R[]
+      const me = rows.find(r => r.id === kosekiReqId)
+      const dest = (me?.request_to ?? '').trim()
+      if (!me || !dest || me.request_date) { setKosekiSiblings([]); return }
+      setKosekiSiblings(rows.filter(r =>
+        r.id !== me.id && (r.request_to ?? '').trim() === dest && !r.request_date
+        && (r.acquirer ?? '自社') !== '依頼者' && !(r.is_additional && !r.additional_approved_at)))
+    })()
+    return () => { alive = false }
+  }, [kosekiReqId, caseData])
+  const refImageIds = taskRefImageIds(task)
+  // 前の作業（この画像を付けた人が完了したタスク）の名前
+  const readyFromTitle = (() => {
+    const id = (task.ext_data as { ready_from_task_id?: string } | null)?.ready_from_task_id
+    return id ? (caseTasks.find(t => t.id === id)?.title ?? null) : null
+  })()
 
   // ─── ステータス進行 ───
   const [advancing, setAdvancing] = useState(false)
@@ -568,6 +598,30 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
             )
           })()}
 
+          {/* 参照する戸籍画像。前の作業（戸籍読込）を完了した人が「この画像を見て」と付けたもの。
+              戸籍の作業なら、まだ付いていなくても枠を出して足せるようにする。 */}
+          {caseData && !isSystemTask && (refImageIds.length > 0 || (task.phase ?? '').includes('戸籍')) && (
+            <TaskRefImages task={task} caseId={caseData.id} fromLabel={readyFromTitle} />
+          )}
+
+          {/* 同じ役所への未請求が他にもある（戸籍）。一緒に請求できることを知らせる */}
+          {landing && caseData && kosekiSiblings.length > 0 && (
+            <div className="flex items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 flex-wrap">
+              <span className="text-[18px]">📮</span>
+              <div className="flex-1 min-w-0 text-[12.5px] text-amber-900">
+                <div className="font-bold">同じ{(kosekiSiblings[0].request_to ?? '').trim()}への未請求がもう{kosekiSiblings.length}件あります</div>
+                <div className="text-amber-800">
+                  {kosekiSiblings.map(s => `${(s.target_person ?? '').trim() || '対象者未設定'}${s.range_text ? `（${s.range_text}）` : ''}`).join('、')}
+                  　— 同じ封筒で一緒に請求できます（タスクは別々のままです）
+                </div>
+              </div>
+              <Link href={taskLandingUrl(caseData.id, task.id, landing, { imgs: refImageIds, bundle: true })}
+                className="flex-none inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-[12.5px] font-bold text-amber-900 bg-white border border-amber-400 hover:bg-amber-100">
+                {kosekiSiblings.length + 1}件まとめて請求書を作る
+              </Link>
+            </div>
+          )}
+
           {/* 実務タブへの導線。作業内容を読み終えた位置に置き、そのまま次の一手へ行けるようにする
               （以前はヘッダー直下の細いバーで、読み終えた目線から遠かった）。 */}
           {landing && caseData && (
@@ -582,7 +636,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                 </div>
               </div>
               <Link
-                href={taskLandingUrl(caseData.id, task.id, landing)}
+                href={taskLandingUrl(caseData.id, task.id, landing, { imgs: refImageIds })}
                 className="flex-none inline-flex items-center gap-1.5 h-10 px-4 rounded-lg text-[13.5px] font-bold text-white bg-brand-600 hover:bg-brand-700 shadow-sm"
               >
                 <ExternalLink className="w-4 h-4" strokeWidth={2.25} />{landing.label}タブを開く

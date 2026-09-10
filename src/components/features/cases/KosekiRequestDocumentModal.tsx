@@ -25,7 +25,8 @@ import {
   type KosekiVariant,
   type KosekiAgentOfficeId,
 } from '@/lib/officeProfiles'
-import { KOSEKI_REQUEST_TYPES, KOSEKI_DOC_FORMS, defaultKosekiPurpose, includesJuminhyo } from '@/lib/constants'
+import { KOSEKI_REQUEST_TYPES, KOSEKI_DOC_FORMS, defaultKosekiPurpose, includesJuminhyo, kosekiBundleNote } from '@/lib/constants'
+import { siblingRequestsOf } from '@/lib/kosekiSiblings'
 import type { CaseRow, TaskRow, HeirRow, KosekiRequestRow } from '@/types'
 
 type Props = {
@@ -42,6 +43,8 @@ type Props = {
   kosekiRequests?: KosekiRequestRow[]
   /** タスク詳細から作成する際に紐づけるタスクID */
   defaultTaskId?: string
+  /** 案件の戸籍請求 全件。同じ役所への未請求があるか（備考の重複1通の一言）を見るのに使う */
+  allRequests?: KosekiRequestRow[]
 }
 
 // 請求書に印字する種別＝実務タブの請求の種別（戸籍/除籍/…）＋種別②（謄本/抄本）。
@@ -55,7 +58,7 @@ function parseRequestTypes(...docTypes: (string | null | undefined)[]): string[]
 
 const toDigits = (s: string) => s.replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0)).replace(/[^\d]/g, '')
 
-export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, heirs, kosekiRequests = [], defaultTaskId }: Props) {
+export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, heirs, kosekiRequests = [], defaultTaskId, allRequests = [] }: Props) {
   const [variant, setVariant] = useState<KosekiVariant>(defaultKosekiVariant(caseData.contract_type))
   const [requestDate, setRequestDate] = useState<string>(new Date().toISOString().slice(0, 10))
   const [copyCount, setCopyCount] = useState<number>(1)
@@ -65,9 +68,19 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
   const [generating, setGenerating] = useState(false)
   // どの請求を出すか。1件だけ渡されたときは選ばせない。
   const [pick, setPick] = useState(0)
+  // 同じ役所への請求をまとめて出す（「○○の分も一緒に作る」から）。全部同じ請求先のときだけ。
+  const sameDest = kosekiRequests.length > 1 && kosekiRequests.every(q => (q.request_to ?? '').trim() === (kosekiRequests[0].request_to ?? '').trim())
+  const bundleMode = sameDest
+  // 備考に「別請求と重複する内容については1通にしてください」を足すか。同じ役所への別請求があれば既定ON。
+  const [bundleNote, setBundleNote] = useState(true)
 
   const preset = KOSEKI_VARIANT_PRESETS[variant]
   const k = kosekiRequests[pick] ?? kosekiRequests[0] ?? null
+  // 今回出す請求（まとめモードなら全部）
+  const targets = bundleMode ? kosekiRequests : (k ? [k] : [])
+  /** その請求と同じ封筒に入る別請求（まとめモードなら残り／単独なら案件全体から探す） */
+  const othersOf = (q: KosekiRequestRow): KosekiRequestRow[] =>
+    bundleMode ? kosekiRequests.filter(x => x.id !== q.id) : siblingRequestsOf(allRequests, q)
 
   // 上記代理人の所在地（拠点）。カードに入っていなければ共同ビル。
   const agentOffice = (OFFICE_BRANCH_OPTIONS.find(o => o.id === k?.branch_office)?.id ?? 'kyodo') as KosekiAgentOfficeId
@@ -80,6 +93,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
     setRequestDate(new Date().toISOString().slice(0, 10))
     setCopyCount(1)
     setPick(0)
+    setBundleNote(true)
   }, [isOpen, caseData.contract_type])
 
   // 拠点が変わったら、その拠点にある事業部の先頭に寄せる（無い事業部が残らないように）
@@ -90,75 +104,91 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
   // 紙に載る中身。すべてカードの値。
   // 本籍・住所だけ、カード未入力のときに人（被相続人・相続人）の登録住所で補う。
   // 住民票・除票は住所、それ以外は本籍。
-  const who = (k?.target_person ?? '').trim() || (caseData.deceased_name ?? '')
-  const isDeceased = !!caseData.deceased_name && who === caseData.deceased_name
-  const heir = isDeceased ? undefined : heirs.find(h => (h.name ?? '').trim() === who)
-  // 住民票・除票のときだけ住所で補う。戸籍の本籍は転籍のたびに変わるので、
-  // 人に持たせた値で補うと古い本籍が紙に載る。カードで手入力したものだけを使う。
-  const fallbackHonseki = includesJuminhyo(k?.doc_types)
-    ? (isDeceased ? [caseData.deceased_address, caseData.deceased_address2].filter(Boolean).join('　') : [heir?.address, heir?.address2].filter(Boolean).join('　'))
-    : ''
-
-  const doc = {
-    municipality: (k?.request_to ?? '').trim(),
-    honseki: (k?.honseki_address ?? '').trim() || fallbackHonseki,
-    hittousha: (k?.head_person ?? '').trim() || (isDeceased ? (caseData.deceased_name ?? '') : ''),
-    targetName: who,
-    requestTypes: parseRequestTypes(k?.doc_types, k?.doc_form),
-    purpose: (k?.request_reason ?? '').trim() || defaultKosekiPurpose(caseData.service_category, caseData.service_category_2),
-    notes: (k?.range_detail ?? '').trim(),
-    // 同封小為替＝費用予算。封筒に入れる小為替はこの金額。
-    // 返金・確定費用は戸籍が届いた後の数字なので、出す時点ではまだ存在しない。
-    kogawase: k?.cost_budget ?? null,
+  const docOf = (q: KosekiRequestRow | null) => {
+    const who = (q?.target_person ?? '').trim() || (caseData.deceased_name ?? '')
+    const isDeceased = !!caseData.deceased_name && who === caseData.deceased_name
+    const heir = isDeceased ? undefined : heirs.find(h => (h.name ?? '').trim() === who)
+    // 住民票・除票のときだけ住所で補う。戸籍の本籍は転籍のたびに変わるので、
+    // 人に持たせた値で補うと古い本籍が紙に載る。カードで手入力したものだけを使う。
+    const fallbackHonseki = includesJuminhyo(q?.doc_types)
+      ? (isDeceased ? [caseData.deceased_address, caseData.deceased_address2].filter(Boolean).join('　') : [heir?.address, heir?.address2].filter(Boolean).join('　'))
+      : ''
+    // 同じ役所へ別の請求を同封するときは、備考の末尾に重複1通の一言（相手の名前入り）
+    const others = q ? othersOf(q) : []
+    const base = (q?.range_detail ?? '').trim()
+    const extra = bundleNote && others.length > 0 ? kosekiBundleNote(others.map(o => (o.target_person ?? '').trim() || '対象者未設定')) : ''
+    const notes = extra && !base.includes('重複する内容') ? [base, extra].filter(Boolean).join('\n') : base
+    return {
+      municipality: (q?.request_to ?? '').trim(),
+      honseki: (q?.honseki_address ?? '').trim() || fallbackHonseki,
+      hittousha: (q?.head_person ?? '').trim() || (isDeceased ? (caseData.deceased_name ?? '') : ''),
+      targetName: who,
+      requestTypes: parseRequestTypes(q?.doc_types, q?.doc_form),
+      purpose: (q?.request_reason ?? '').trim() || defaultKosekiPurpose(caseData.service_category, caseData.service_category_2),
+      notes,
+      // 同封小為替＝費用予算。封筒に入れる小為替はこの金額。
+      // 返金・確定費用は戸籍が届いた後の数字なので、出す時点ではまだ存在しない。
+      kogawase: q?.cost_budget ?? null,
+      others,
+    }
   }
+  const doc = docOf(k)
+  const siblingsOfK = k ? othersOf(k) : []
 
   const handleGenerate = async () => {
-    if (!k) { showToast('出力する戸籍請求がありません', 'error'); return }
+    if (targets.length === 0) { showToast('出力する戸籍請求がありません', 'error'); return }
     if (!caseData.clients?.name || !caseData.clients?.address) {
       showToast('依頼者の氏名・住所が未入力です', 'error')
       return
     }
     setGenerating(true)
     try {
-      const res = await fetch('/api/documents/koseki-request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          caseId: caseData.id,
-          variant,
-          requestDate,
-          purpose: doc.purpose,
-          rows: [{
-            municipality: doc.municipality,
-            honseki: doc.honseki,
-            hittousha: doc.hittousha,
-            targetName: doc.targetName,
-            requestTypes: doc.requestTypes,
-            copyCount: Number(copyCount) || 1,
-            kogawaseAmount: doc.kogawase,
-            notes: doc.notes,
-          }],
-          rowIndex: 0,
-          taskId: defaultTaskId ?? null,
-          agentOffice,
-          division,
-        }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: '生成に失敗しました' }))
-        showToast(`生成に失敗: ${err.error ?? '不明なエラー'}`, 'error')
-        return
+      // まとめモードは1人1枚ずつ順に出す（請求に係る者が違うので用紙は別）
+      let made = 0
+      for (const q of targets) {
+        const d = docOf(q)
+        const res = await fetch('/api/documents/koseki-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            caseId: caseData.id,
+            variant,
+            requestDate,
+            purpose: d.purpose,
+            rows: [{
+              municipality: d.municipality,
+              honseki: d.honseki,
+              hittousha: d.hittousha,
+              targetName: d.targetName,
+              requestTypes: d.requestTypes,
+              copyCount: Number(copyCount) || 1,
+              kogawaseAmount: d.kogawase,
+              notes: d.notes,
+            }],
+            rowIndex: 0,
+            taskId: defaultTaskId ?? null,
+            agentOffice,
+            division,
+          }),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: '生成に失敗しました' }))
+          showToast(`生成に失敗（${d.targetName}）: ${err.error ?? '不明なエラー'}`, 'error')
+          continue
+        }
+        const blob = await res.blob()
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `戸籍請求書_${caseData.case_number ?? ''}_${d.municipality || '請求'}_${d.targetName}_${requestDate}.xlsx`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        made += 1
       }
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `戸籍請求書_${caseData.case_number ?? ''}_${doc.municipality || '請求'}_${requestDate}.xlsx`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-      showToast('戸籍請求書を生成しました', 'success')
+      if (made === 0) return
+      showToast(made > 1 ? `戸籍請求書を${made}枚生成しました（同じ封筒に入れてください）` : '戸籍請求書を生成しました', 'success')
       onClose()
     } catch (e) {
       showToast(`通信エラー: ${(e as Error).message}`, 'error')
@@ -188,7 +218,7 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
           </button>
           <button onClick={handleGenerate} disabled={generating || !k}
             className="px-4 py-2 text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors disabled:opacity-50">
-            {generating ? '生成中…' : 'Excelで出力'}
+            {generating ? '生成中…' : bundleMode ? `Excelで出力（${targets.length}枚）` : 'Excelで出力'}
           </button>
         </>
       }
@@ -231,7 +261,13 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
 
         <section>
           <h3 className="text-sm font-semibold text-gray-700 mb-2">この内容で請求書を作成します</h3>
-          {kosekiRequests.length > 1 && (
+          {bundleMode && (
+            <div className="mb-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900">
+              <div className="font-bold">同じ{doc.municipality}への{targets.length}件をまとめて出します（1人1枚）</div>
+              <div className="text-amber-800 mt-0.5">{targets.map(q => (q.target_person ?? '').trim() || '対象者未設定').join('　／　')}</div>
+            </div>
+          )}
+          {kosekiRequests.length > 1 && !bundleMode && (
             <div className="mb-2">
               <label className={lab}>どの請求を出しますか</label>
               <select value={pick} onChange={e => setPick(Number(e.target.value))} className={sel}>
@@ -254,11 +290,25 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
               <ConfRow label="請求の種別" value={doc.requestTypes.join('・')} />
               <ConfRow label="使用目的" value={doc.purpose} />
               <ConfRow label="備考" value={doc.notes} />
+              {bundleMode && targets.length > 1 && (
+                <div className="px-3 py-1.5 text-[11.5px] text-gray-500 border-b border-gray-100 bg-gray-50">
+                  ほか {targets.map(q => (q.target_person ?? '').trim() || '対象者未設定').filter(n => n !== doc.targetName).join('・')} の分も、それぞれの請求カードの内容で同じ様式で出します。
+                </div>
+              )}
               <ConfRow label="同封小為替" value={doc.kogawase == null ? '' : `¥${doc.kogawase.toLocaleString('ja-JP')}`} />
               <ConfRow label="拠点" value={agentOfficeLabel} />
               <ConfRow label="請求者欄" value={preset.requesterLabel} />
               <ConfRow label="代理人欄" value={preset.agentLabel ?? '（表示なし）'} last />
             </div>
+          )}
+          {siblingsOfK.length > 0 && (
+            <label className="mt-2 flex items-start gap-2 text-[12.5px] text-gray-700 cursor-pointer">
+              <input type="checkbox" checked={bundleNote} onChange={e => setBundleNote(e.target.checked)} className="w-4 h-4 accent-brand-600 mt-0.5" />
+              <span>
+                同じ{doc.municipality}へ別の請求（{siblingsOfK.map(o => (o.target_person ?? '').trim() || '対象者未設定').join('・')}）を同封する
+                → 備考に「別請求と重複する内容については1通にしてください」を追記
+              </span>
+            </label>
           )}
           <p className="text-[12px] text-gray-500 mt-2">内容に問題なければ、Excelで出力ボタンを押下してください。</p>
         </section>

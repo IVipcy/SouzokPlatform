@@ -568,7 +568,13 @@ export const KOSEKI_RANGES = [
  * 候補は請求の種別（doc_types）で出し分ける。何を頼むかで書きぶりが決まっているため。
  * 種別が決まっていなければ全部出す。
  */
+/** 同じ役所へ別の人の請求を同封するときの備考の一言。請求書ウィンドウが自動で足す文と同じ */
+export const KOSEKI_BUNDLE_NOTE = '別請求と重複する内容については1通にしてください。'
+export const kosekiBundleNote = (others: string[]) =>
+  others.length > 0 ? `別請求（${others.join('・')}）と重複する内容については1通にしてください。` : KOSEKI_BUNDLE_NOTE
+
 export const KOSEKI_RANGE_DETAILS: Array<{ types: string[]; texts: string[] }> = [
+  { types: ['戸籍', '除籍', '原戸籍', '住民票', '除票', '戸籍の附票'], texts: [KOSEKI_BUNDLE_NOTE] },
   { types: ['戸籍の附票'], texts: ['{name}さまの附票が必要です。'] },
   { types: ['住民票', '除票'], texts: ['{name}さまの住民票が必要です。'] },
   {

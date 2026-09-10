@@ -19,7 +19,7 @@ type Props = {
   visibleTabs?: TabKey[]
   collapsedTabs?: TabKey[]
   highlightTabs?: TabKey[]
-  /** 完了した実施タブ（紐づくタスクが全件完了）。デフォルトで非表示、末尾「完了 (N) ▸」トグルで展開 */
+  /** 旧：完了した実施タブの折り畳み。自動で畳むのはやめたので受け取っても使わない（互換のため残置） */
   completedTabs?: TabKey[]
   /** info グループ（面談情報・契約残手続き等）をドロップダウンに畳むか。
    *  対応中以降は true（案件情報にまとめる）、それ以前は false（タブが少ないので展開）。 */
@@ -110,13 +110,10 @@ const DEFAULT_TABS: TabKey[] = [
   'assignees', 'ownerSales', 'contract', 'meeting', 'contractProc',
 ]
 
-export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTabs, highlightTabs, completedTabs, labelOverrides, groupInfoTabs = true, flatOrder = false }: Props) {
+export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTabs, highlightTabs, labelOverrides, groupInfoTabs = true, flatOrder = false }: Props) {
   const labelOf = (k: TabKey) => labelOverrides?.[k] ?? TAB_LABELS[k]
   const all = visibleTabs ?? DEFAULT_TABS
   const highlightSet = new Set(highlightTabs ?? [])
-  // 完了タブ集合。active になっているタブは（意図せず消えないよう）折り畳み対象から除外。
-  const completedSet = new Set((completedTabs ?? []).filter(t => t !== activeTab))
-  const [showCompleted, setShowCompleted] = useState(false)
   const counts: Record<string, number> = { taskCount }
 
   // 案件管理＋面談情報は親「案件基本情報」ドロップダウンに束ねる（2つ未満なら通常タブ）。
@@ -149,10 +146,9 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
   }
 
   const mainTabs = all.filter(t => TAB_GROUP[t] === 'main')
-  const practiceTabsAll = all.filter(t => TAB_GROUP[t] === 'practice')
-  // 完了タブは折り畳み。トグル展開時のみインラインで戻す。
-  const practiceCompletedCount = practiceTabsAll.filter(t => completedSet.has(t)).length
-  const practiceTabs = practiceTabsAll.filter(t => showCompleted || !completedSet.has(t))
+  // 実務タブはいつも全部出す。以前は「紐づくタスクが全件完了」で自動で畳んでいたが、
+  // 相続人調査のように、終わったように見えてまだ続く業務が消えてしまうのでやめた。
+  const practiceTabs = all.filter(t => TAB_GROUP[t] === 'practice')
   // 対応中以降（groupInfoTabs）は info を1つの「案件情報」に統合（案件基本情報も含めて重複させない）。
   // それ以前はドロップダウンにせず、info は個別タブ＋案件基本情報グループだけ別立てにする。
   const infoAll = all.filter(t => TAB_GROUP[t] === 'info')
@@ -186,27 +182,14 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
         </>
       )}
     </div>
-    {(practiceTabs.length > 0 || practiceCompletedCount > 0) && (
+    {practiceTabs.length > 0 && (
     <div className="flex items-center gap-0.5 border-b border-gray-200 overflow-x-auto bg-gray-50/70" style={{ scrollbarWidth: 'none' }}>
       {practiceTabs.map(key => (
         <Tab key={key} tabKey={key} label={labelOf(key)}
           isActive={activeTab === key}
           isHighlight={highlightSet.has(key)}
-          isMuted={completedSet.has(key)}
           onClick={() => onTabChange(key)} />
       ))}
-      {practiceCompletedCount > 0 && (
-        <button
-          type="button"
-          onClick={() => setShowCompleted(v => !v)}
-          className={`inline-flex items-center gap-1 px-2 py-1 my-1.5 rounded-full border transition-colors cursor-pointer ${showCompleted ? 'bg-gray-700 text-white border-gray-700 hover:bg-gray-800' : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200 hover:text-gray-800'}`}
-          title={showCompleted ? `完了タブを折り畳む (${practiceCompletedCount}件)` : `完了タブを表示 (${practiceCompletedCount}件)`}
-          aria-label={showCompleted ? '完了タブを折り畳む' : '完了タブを表示'}
-        >
-          <span className="text-[14px] leading-none font-bold">⋯</span>
-          <span className="text-[11px] font-mono font-bold">+{practiceCompletedCount}</span>
-        </button>
-      )}
     </div>
     )}
     </div>

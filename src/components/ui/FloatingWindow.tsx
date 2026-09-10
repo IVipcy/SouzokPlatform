@@ -7,7 +7,7 @@
 import { useRef, useState, useEffect, type ReactNode } from 'react'
 import { X, Minus, GripVertical } from 'lucide-react'
 
-export default function FloatingWindow({ isOpen, onClose, title, children, footer, width = 400, resizable = false, height = 460, fitContent = false }: {
+export default function FloatingWindow({ isOpen, onClose, title, children, footer, width = 400, resizable = false, height = 460, fitContent = false, tone = 'brand' }: {
   isOpen: boolean
   onClose: () => void
   title: string
@@ -21,6 +21,8 @@ export default function FloatingWindow({ isOpen, onClose, title, children, foote
   /** 中身が短いときは縮む（height は上限として使う）。
       中身の量が場面で大きく変わるウィンドウで、下に大きな空白が出るのを防ぐ。 */
   fitContent?: boolean
+  /** ヘッダーの色。amber＝「これを見て」と目を引かせたい窓（戸籍画像の参照など） */
+  tone?: 'brand' | 'amber'
 }) {
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
   const [size, setSize] = useState<{ w: number; h: number }>({ w: width, h: height })
@@ -97,16 +99,16 @@ export default function FloatingWindow({ isOpen, onClose, title, children, foote
     >
       <div
         onMouseDown={startDrag}
-        className="flex items-center gap-2 px-3 py-2 rounded-t-xl bg-gradient-to-b from-brand-50 to-brand-100 border-b border-brand-200 cursor-grab active:cursor-grabbing select-none"
+        className={`flex items-center gap-2 px-3 py-2 rounded-t-xl border-b cursor-grab active:cursor-grabbing select-none ${tone === 'amber' ? 'bg-gradient-to-b from-amber-50 to-amber-100 border-amber-300' : 'bg-gradient-to-b from-brand-50 to-brand-100 border-brand-200'}`}
       >
-        <GripVertical className="w-4 h-4 text-brand-400 flex-none" strokeWidth={2} />
-        <span className="text-[13.5px] font-bold text-brand-800 truncate">{title}</span>
+        <GripVertical className={`w-4 h-4 flex-none ${tone === 'amber' ? 'text-amber-500' : 'text-brand-400'}`} strokeWidth={2} />
+        <span className={`text-[13.5px] font-bold truncate ${tone === 'amber' ? 'text-amber-900' : 'text-brand-800'}`}>{title}</span>
         <span className="ml-auto flex items-center gap-1 flex-none">
-          <span className="hidden sm:inline text-[10.5px] text-brand-500 mr-1">ドラッグで移動</span>
-          <button type="button" onClick={() => setMinimized(m => !m)} className="w-6 h-6 rounded-md flex items-center justify-center text-brand-600 hover:bg-white/70" title={minimized ? '展開' : '最小化'}>
+          <span className={`hidden sm:inline text-[10.5px] mr-1 ${tone === 'amber' ? 'text-amber-600' : 'text-brand-500'}`}>ドラッグで移動</span>
+          <button type="button" onClick={() => setMinimized(m => !m)} className={`w-6 h-6 rounded-md flex items-center justify-center hover:bg-white/70 ${tone === 'amber' ? 'text-amber-700' : 'text-brand-600'}`} title={minimized ? '展開' : '最小化'}>
             <Minus className="w-3.5 h-3.5" strokeWidth={2.25} />
           </button>
-          <button type="button" onClick={onClose} className="w-6 h-6 rounded-md flex items-center justify-center text-brand-600 hover:bg-white/70" title="閉じる">
+          <button type="button" onClick={onClose} className={`w-6 h-6 rounded-md flex items-center justify-center hover:bg-white/70 ${tone === 'amber' ? 'text-amber-700' : 'text-brand-600'}`} title="閉じる">
             <X className="w-3.5 h-3.5" strokeWidth={2.25} />
           </button>
         </span>

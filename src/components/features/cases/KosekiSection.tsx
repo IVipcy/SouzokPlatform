@@ -40,6 +40,8 @@ import CheckRequestControl from './CheckRequestControl'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import AnnotatedImage from './AnnotatedImage'
 import KosekiImageViewer, { type ViewerImage } from './KosekiImageViewer'
+import KosekiImageFloat from './KosekiImageFloat'
+import { siblingRequestsOf } from '@/lib/kosekiSiblings'
 import ImageAnnotator from './ImageAnnotator'
 import { useKosekiImages } from '@/lib/useKosekiImages'
 import type { Anno } from '@/lib/imageAnnotations'
@@ -99,6 +101,7 @@ const kosekiTabTitle = (r: KosekiRequestRow) => {
   return `${head}（${KOSEKI_TAB_STATUS[kosekiTabStatus(r)].label}）`
 }
 const reqLabel = (r: KosekiRequestRow) => [r.request_to, r.target_person].filter(Boolean).join('・') || '新規請求'
+
 
 export default function KosekiSection({ caseId, caseData, requests: rawRequests, heirs = [], tasks = [], onRefresh }: {
   caseId: string
@@ -175,6 +178,10 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
   // 以前は画面の中だけで持っていて、F5で一覧（TOP）に戻されていた。
   const personParam = searchParams.get('person')
   const reqParam = searchParams.get('req')
+  // タスクから来たときの「参照する戸籍画像」（imgs=ID,ID）と「同じ役所の分とまとめて請求書」（bundle=1）
+  const imgsParam = searchParams.get('imgs')
+  const bundleParam = searchParams.get('bundle') === '1'
+  const highlightIds = new Set((imgsParam ?? '').split(',').map(v => v.trim()).filter(Boolean))
   const [sub, setSubState] = useState<string>(
     focusReq ? ((focusReq.target_person ?? '').trim() || '__unset__') : personParam || 'top')
   // URLの書き換えは window.location から読む（同じ処理の中で2回書くとき、searchParams は古いままのため）
@@ -186,7 +193,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
   }
   const setSub = (key: string) => {
     setSubState(key)
-    writeUrl({ person: key === 'top' ? null : key, req: null, focus: null })
+    writeUrl({ person: key === 'top' ? null : key, req: null, focus: null, imgs: null, bundle: null })
   }
   // 確認簿など別の画面で押した着✓・到着日をこの画面にも映す。
   // この画面に戻った瞬間（別タブ／別ウィンドウから戻る）と、開いている間は30秒ごとに取り直す。
@@ -211,7 +218,14 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
   const [addOpen, setAddOpen] = useState(false)
   // 戸籍請求書を出す行。1行＝依頼書1枚なので、その行だけを入れて出力画面を開く。
   // 戸籍請求書のモーダル。1行ぶん（表のアイコン）でも、その人の分まとめて（見出しのボタン）でも開く。
-  const [docRequests, setDocRequests] = useState<KosekiRequestRow[] | null>(null)
+  // ?bundle=1 で来たとき（タスク詳細の「まとめて請求書を作る」）は、着地と同時に同じ役所の分とまとめて開く。
+  const [docRequests, setDocRequests] = useState<KosekiRequestRow[] | null>(() => {
+    if (!bundleParam || !focusReq) return null
+    return [focusReq, ...siblingRequestsOf(rawRequests, focusReq)]
+  })
+  // 「この画像を見てください」の浮かせ窓。タスクから来たら参照画像で自動で開く。
+  const [floatIds, setFloatIds] = useState<string[] | null>(() => (highlightIds.size > 0 ? [...highlightIds] : null))
+  const [floatStart, setFloatStart] = useState<string | null>(null)
   const [memoByName, setMemoByName] = useState<Record<string, string>>({})  // 人ごとの進捗/結果メモ（相関図ホバー用）
   const deceasedName = caseData.deceased_name
 
@@ -501,6 +515,24 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
     showToast('関係戸籍の取得完了を記録し、管理担当へ通知しました', 'success')
   }
   const personRequests = requests.filter(r => personKey(r) === activePerson)
+
+  // 「前の請求の画像を横に出す」。同じ人の、この請求以外で届いた画像（無ければその人の全画像）。
+  const showImagesFor = (r: KosekiRequestRow) => {
+    const mine = imagesByName[(r.target_person ?? '').trim()] ?? []
+    const others = mine.filter(x => x.koseki_request_id !== r.id)
+    const list = (others.length > 0 ? others : mine).map(x => x.id)
+    if (list.length === 0) { showToast('この人の戸籍画像がまだありません（下の「画像を追加」から登録できます）', 'error'); return }
+    setFloatIds(list); setFloatStart(list[0])
+  }
+  // 片方に請求日を入れたとき、同じ役所への別請求にも同じ日を入れるか1回だけ聞く。
+  const applyDateToSiblings = async (r: KosekiRequestRow, v: string | null) => {
+    if (!v) return
+    const sibs = siblingRequestsOf(requests, r)
+    if (sibs.length === 0) return
+    const names = sibs.map(s => (s.target_person ?? '').trim() || '対象者未設定').join('・')
+    if (!confirm(`同じ${(r.request_to ?? '').trim()}への ${names} の請求も、同じ日（${v}）に請求しましたか？\n「OK」で同じ請求日を入れます。`)) return
+    for (const s of sibs) await saveMany(s.id, { request_date: v, ...(!s.request_done_by ? { request_done_by: memberId } : {}) })
+  }
   // 承認待ちの追加戸籍請求（案件全体）。戸籍請求タブ上部にパネルで出し、横スクロール無しで承認できる。
   const pendingApprovals = requests.filter(r => r.is_additional && !r.additional_approved_at)
 
@@ -760,6 +792,10 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                         targetInfo={targetInfoOf(cur)}
                         onSaveTargetInfo={(k, v) => saveTargetInfo(cur, k, v)}
                         onToggleRelationDone={on => toggleRelationDone(cur, on)}
+                        siblings={siblingRequestsOf(requests, cur)}
+                        onMakeDocWith={list => setDocRequests(list)}
+                        onShowImages={() => showImagesFor(cur)}
+                        onRequestDateSet={v => applyDateToSiblings(cur, v)}
                         onDelete={() => delRequest(cur)} onCopy={() => copyRequest(cur)} onMakeDoc={() => setDocRequests([cur])} />
                     )
                   })()}
@@ -768,7 +804,9 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
             </div>
             {/* この人の戸籍のスキャン画像。アップロード直後に書き込むか聞く。 */}
             <div className="bg-white p-3.5">
-              <KosekiImagePanel caseId={caseId} targetPerson={sub === '__unset__' ? '' : activePerson} requests={personRequests} title={`${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍の画像`} />
+              <KosekiImagePanel caseId={caseId} targetPerson={sub === '__unset__' ? '' : activePerson} requests={personRequests} title={`${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍の画像`}
+                highlightIds={highlightIds}
+                onOpenFloat={id => { setFloatIds(imagesByName[activePerson.trim()]?.map(r => r.id) ?? [id]); setFloatStart(id) }} />
             </div>
           </div>
         )}
@@ -784,6 +822,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
           tasks={tasks}
           heirs={heirs}
           kosekiRequests={docRequests}
+          allRequests={requests}
         />
       )}
 
@@ -796,6 +835,16 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
           onEdit={id => { setViewerId(null); setEditImageId(id) }}
         />
       )}
+      {/* 「この画像を見てください」の浮かせ窓。カードに入力しながら横に置いておける */}
+      {floatIds && floatIds.length > 0 && (() => {
+        const list = viewerImages.filter(v => floatIds.includes(v.id))
+        if (list.length === 0) return null
+        return (
+          <KosekiImageFloat images={list} startId={floatStart ?? floatIds[0]}
+            onClose={() => { setFloatIds(null); writeUrl({ imgs: null }) }}
+            onEdit={id => setEditImageId(id)} />
+        )
+      })()}
       {editImage && (
         <ImageAnnotator
           isOpen
@@ -906,8 +955,16 @@ function AddKosekiModal({ onClose, onSubmit }: {
 const KosekiFieldRow = PracticeRow
 const KosekiGroup = PracticeGroup
 
-function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField, saveMany, onDelete, onCopy, onMakeDoc, targetInfo, onSaveTargetInfo, onToggleRelationDone }: {
+function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField, saveMany, onDelete, onCopy, onMakeDoc, targetInfo, onSaveTargetInfo, onToggleRelationDone, siblings = [], onMakeDocWith, onShowImages, onRequestDateSet }: {
   r: KosekiRequestRow
+  /** 同じ役所への未請求（一緒に請求できるもの） */
+  siblings?: KosekiRequestRow[]
+  /** 複数の請求をまとめて請求書ウィンドウで開く */
+  onMakeDocWith?: (list: KosekiRequestRow[]) => void
+  /** 前の請求の画像を浮かせ窓で横に出す */
+  onShowImages?: () => void
+  /** 請求日を入れたあと（同じ役所の別請求にも同じ日を入れるか聞く） */
+  onRequestDateSet?: (v: string | null) => void
   meId: string | null
   personNames?: string[]
   caseData: CaseRow
@@ -1125,11 +1182,29 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
             </span>
           </>
         )}
+        {/* 同じ役所への未請求。一緒に封筒に入れられる */}
+        {siblings.length > 0 && (
+          <span className="inline-flex items-center gap-1 text-[12px] px-2 py-0.5 rounded-full border border-amber-300 bg-amber-50 text-amber-800" title="同じ役所への未請求。一緒に請求できます（タスクは別々のまま）">
+            📮 同じ{(r.request_to ?? '').trim()}への未請求：{siblings.map(s => `${(s.target_person ?? '').trim() || '対象者未設定'}${s.range_text ? `（${s.range_text}）` : ''}`).join('、')}
+          </span>
+        )}
         <span className="ml-auto flex items-center gap-2">
+          {onShowImages && (
+            <button type="button" onClick={onShowImages} title="前の請求で届いた戸籍の画像を横に出し、見ながら入力する"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-amber-800 bg-white border border-amber-300 hover:bg-amber-50">
+              👀 前の請求の画像を横に出す
+            </button>
+          )}
           {!isClient && !isShokumujo && (
             <button type="button" onClick={onMakeDoc}
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-white bg-brand-600 border border-brand-600 hover:bg-brand-700">
               <FileText className="w-3.5 h-3.5" />この内容で請求書を作る
+            </button>
+          )}
+          {!isClient && !isShokumujo && siblings.length > 0 && onMakeDocWith && (
+            <button type="button" onClick={() => onMakeDocWith([r, ...siblings])} title="同じ役所への未請求もまとめて請求書を作る（1人1枚・備考に重複1通の一言が入る）"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-amber-900 bg-amber-50 border border-amber-400 hover:bg-amber-100">
+              {siblings.map(s => (s.target_person ?? '').trim() || '対象者未設定').join('・')}の分も一緒に作る
             </button>
           )}
           <button type="button" onClick={onCopy} title="請求先・対象者・範囲・種別・理由を引き継いで、日付と費用が空の請求を作る"
@@ -1153,7 +1228,7 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
         closedNote={isClient ? '届いたら開いて、到着日を入れます' : '請求したら開いて、請求日を入れます'}>
         <KosekiFieldRow label="請求日">
           {isClient ? <span className="text-[12px] text-gray-400">依頼者取得</span>
-            : <DateCell value={r.request_date} onCommit={v => saveMany(r.id, { request_date: v || null, ...(v && !r.request_done_by ? { request_done_by: meId } : {}) })} />}
+            : <DateCell value={r.request_date} onCommit={async v => { await saveMany(r.id, { request_date: v || null, ...(v && !r.request_done_by ? { request_done_by: meId } : {}) }); onRequestDateSet?.(v || null) }} />}
         </KosekiFieldRow>
         <KosekiFieldRow label="発送チェック" sub="確認簿で確認">
           {isClient ? muted : r.request_date
@@ -1270,6 +1345,12 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
             <span className="text-[12px] text-brand-700">
               上の「＋ 請求を追加」で、この対象者の追加請求タブを作ってください（請求区分は「追加請求」）。
             </span>
+            {onShowImages && (
+              <button type="button" onClick={onShowImages}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-amber-800 bg-white border border-amber-300 hover:bg-amber-50">
+                👀 この請求の画像を横に出す
+              </button>
+            )}
           </KosekiFieldRow>
         )}
       </FoldGroup>

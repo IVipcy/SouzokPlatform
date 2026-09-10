@@ -19,17 +19,19 @@
 // 打ち込みやすさのため HTML の入力欄を重ねて出し、確定したら canvas 側で描く。
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Undo2, Trash2, Type, X, Move, Plus } from 'lucide-react'
+import { Undo2, Trash2, Type, X, Move, Plus, Square } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import {
   MARKER_COLORS, MARKER_BLUE_NOTE, MARKER_WIDTH, TEXT_BOX_W, TEXT_FONT, TEXT_COLOR,
   TEXT_BOX_MIN_W, TEXT_DEFAULT, TEXT_TARGET_LINE, fontOf, fontForWidth,
+  RECT_COLOR, RECT_MIN, RECT_USE,
   drawAnnotations, textBoxHeight, textFontPx, getMeasureCtx, newId,
-  type Anno, type PenAnno, type TextAnno,
+  type Anno, type PenAnno, type TextAnno, type RectAnno,
 } from '@/lib/imageAnnotations'
 
-type Tool = { kind: 'marker'; color: string } | { kind: 'text' } | { kind: 'erase' }
+// 道具。赤枠は「次に請求する箇所」を囲む専用（色は選ばせない。意味を1つに固定する）
+type Tool = { kind: 'marker'; color: string } | { kind: 'rect' } | { kind: 'text' } | { kind: 'erase' }
 
 function ToolBtn({ on, onClick, children, label }: { on: boolean; onClick: () => void; children: React.ReactNode; label: string }) {
   return (
@@ -67,6 +69,8 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
   const wrapRef = useRef<HTMLDivElement>(null)
   const imgRef = useRef<HTMLImageElement | null>(null)
   const drawingRef = useRef<PenAnno | null>(null)
+  // 赤枠をドラッグで描いている途中。始点を持ち、動かすたびに大きさを決め直す
+  const rectDraftRef = useRef<{ x0: number; y0: number; rect: RectAnno } | null>(null)
   const dragRef = useRef<{ id: string; mode: 'move' | 'resize' | 'leader'; dx: number; dy: number } | null>(null)
   // ドラッグ開始時の状態。ドラッグを終えた時点で1回だけ「戻す」履歴に積む。
   const dragSnapRef = useRef<Anno[] | null>(null)
@@ -103,7 +107,7 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, size.w, size.h)
     ctx.drawImage(img, 0, 0, size.w, size.h)
-    const live = drawingRef.current ? [...annos, drawingRef.current] : annos
+    const live: Anno[] = [...annos, ...(drawingRef.current ? [drawingRef.current] : []), ...(rectDraftRef.current ? [rectDraftRef.current.rect] : [])]
     // 編集中のテキストは HTML 側で出すので canvas では描かない
     drawAnnotations(ctx, live, size.w, size.h, { skipTextIds: editingId ? new Set([editingId]) : undefined })
   }, [annos, size, editingId])
@@ -126,6 +130,11 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
       if (a.type === 'text' && ctx) {
         const hh = textBoxHeight(ctx, a, size.w, size.h)
         if (p.x >= a.x && p.x <= a.x + a.w && p.y >= a.y && p.y <= a.y + hh) return a
+      }
+      if (a.type === 'rect') {
+        // 枠線の近く（内側・外側とも少し）を押したら当たり。中を押しても当たりにする（囲んだ字を読むだけの人は消す道具を選ばない）
+        const m = 0.01
+        if (p.x >= a.x - m && p.x <= a.x + a.w + m && p.y >= a.y - m && p.y <= a.y + a.h + m) return a
       }
       if (a.type === 'pen' || a.type === 'marker') {
         for (let k = 0; k < a.points.length; k += 2) {
@@ -155,6 +164,10 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
     // 何もない所を押したら選択を外す（つまみを消して線が書けるようにする）
     setSelectedId(null)
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    if (tool.kind === 'rect') {
+      rectDraftRef.current = { x0: p.x, y0: p.y, rect: { id: newId(), type: 'rect', color: RECT_COLOR, x: p.x, y: p.y, w: 0, h: 0 } }
+      return
+    }
     drawingRef.current = {
       id: newId(), type: 'marker', color: tool.color,
       width: MARKER_WIDTH,
@@ -163,13 +176,27 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
   }
   const onPointerMove = (e: React.PointerEvent) => {
     if (dragRef.current) return   // メモの移動・サイズ変更はつまみ側で処理する
-    if (!drawingRef.current) return
     const p = rel(e)
+    const rd = rectDraftRef.current
+    if (rd) {
+      const x = Math.max(0, Math.min(rd.x0, p.x)), y = Math.max(0, Math.min(rd.y0, p.y))
+      rd.rect = { ...rd.rect, x, y, w: Math.min(1, Math.max(rd.x0, p.x)) - x, h: Math.min(1, Math.max(rd.y0, p.y)) - y }
+      redraw()
+      return
+    }
+    if (!drawingRef.current) return
     drawingRef.current.points.push(p.x, p.y)
     redraw()
   }
   const onPointerUp = () => {
     if (dragRef.current) return
+    const rd = rectDraftRef.current
+    if (rd) {
+      rectDraftRef.current = null
+      if (rd.rect.w >= RECT_MIN && rd.rect.h >= RECT_MIN) { push([...annos, rd.rect]); setSelectedId(rd.rect.id) }
+      else redraw()
+      return
+    }
     const d = drawingRef.current
     drawingRef.current = null
     if (d && d.points.length >= 4) push([...annos, d])
@@ -202,7 +229,7 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
     return { x: (clientX - r.left) / r.width, y: (clientY - r.top) / r.height }
   }
   // つまみのドラッグ：押した要素にポインタを固定するので、画像の外に出ても追従する。
-  const startDrag = (e: React.PointerEvent, a: TextAnno, mode: 'move' | 'resize' | 'leader') => {
+  const startDrag = (e: React.PointerEvent, a: TextAnno | RectAnno, mode: 'move' | 'resize' | 'leader') => {
     e.stopPropagation()
     e.preventDefault()
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
@@ -217,7 +244,14 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
     e.stopPropagation()
     const p = relCanvas(e.clientX, e.clientY)
     setAnnos(prev => prev.map(a => {
-      if (a.id !== d.id || a.type !== 'text') return a
+      if (a.id !== d.id) return a
+      // 赤枠：移動と右下のつまみでの大きさ変更
+      if (a.type === 'rect') {
+        if (d.mode === 'move') return { ...a, x: Math.max(0, Math.min(1 - a.w, p.x - d.dx)), y: Math.max(0, Math.min(1 - a.h, p.y - d.dy)) }
+        if (d.mode === 'resize') return { ...a, w: Math.max(RECT_MIN, Math.min(1 - a.x, p.x - a.x)), h: Math.max(RECT_MIN, Math.min(1 - a.y, p.y - a.y)) }
+        return a
+      }
+      if (a.type !== 'text') return a
       if (d.mode === 'move') return { ...a, x: Math.max(0, Math.min(1 - a.w, p.x - d.dx)), y: Math.max(0, Math.min(1, p.y - d.dy)) }
       // 幅を変えると文字も同じ比率で変わる（文字サイズを別に指定させないため）
       if (d.mode === 'resize') {
@@ -264,6 +298,10 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
                 onClick={() => setTool({ kind: 'marker', color: c.css })} />
             ))}
             <span className="w-px h-5 bg-gray-200" />
+            <button type="button" onClick={() => setTool({ kind: 'rect' })} title={`赤枠：${RECT_USE}`}
+              className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[12px] font-semibold border transition ${tool.kind === 'rect' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-red-600 border-red-200 hover:border-red-400'}`}>
+              <Square className="w-3.5 h-3.5" strokeWidth={2.5} />赤枠
+            </button>
             <ToolBtn on={tool.kind === 'text'} onClick={() => setTool({ kind: 'text' })} label="テキスト枠"><Type className="w-3.5 h-3.5" />テキスト枠</ToolBtn>
             <ToolBtn on={tool.kind === 'erase'} onClick={() => setTool({ kind: 'erase' })} label="消す"><Trash2 className="w-3.5 h-3.5" />消す</ToolBtn>
             <button type="button" onClick={undo} disabled={history.length === 0}
@@ -272,6 +310,7 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
             </button>
             <span className="ml-auto text-[11px] text-gray-400">
               {tool.kind === 'text' ? 'クリックで枠を置く。置いたあとは ドラッグで移動／右下の■で大きさ／○で引き出し線'
+                : tool.kind === 'rect' ? 'ドラッグで囲む。置いたあとは ドラッグで移動／右下の■で大きさ'
                 : tool.kind === 'erase' ? '消したい線・枠をクリック'
                 : 'ドラッグで塗る'}
             </span>
@@ -286,6 +325,11 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
                 {c.key === 'blue' && <span className="text-gray-400">（{MARKER_BLUE_NOTE}）</span>}
               </span>
             ))}
+            <span className="inline-flex items-center gap-1">
+              <span className="w-3 h-3 rounded-sm border-2" style={{ borderColor: RECT_COLOR }} />
+              <span className="font-semibold text-gray-700">赤枠</span>
+              <span>{RECT_USE}</span>
+            </span>
           </div>
         </div>
 
@@ -303,6 +347,50 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
               className="block touch-none"
               style={{ cursor: tool.kind === 'erase' ? 'pointer' : tool.kind === 'text' ? 'text' : 'crosshair' }}
             />
+            {/* 赤枠：掴んで動かす透明な当たり＋右下のつまみ。描くのは canvas（テキスト箱と同じ分担） */}
+            {annos.filter((a): a is RectAnno => a.type === 'rect').map(a => {
+              const left = a.x * size.w, top = a.y * size.h, w = a.w * size.w, h = a.h * size.h
+              const isSelected = a.id === selectedId
+              return (
+                <div key={a.id} className="absolute" style={{ left, top, width: w, height: h }}>
+                  <div
+                    className={`absolute inset-0 ${tool.kind === 'erase' ? 'cursor-pointer' : 'cursor-move'} ${isSelected ? 'ring-2 ring-red-500/60' : ''}`}
+                    style={{ touchAction: 'none' }}
+                    onPointerDown={e => { if (tool.kind === 'erase') return; startDrag(e, a, 'move') }}
+                    onPointerMove={moveDrag}
+                    onPointerUp={endDrag}
+                    onPointerCancel={endDrag}
+                    title={`赤枠：${RECT_USE}。ドラッグで移動`}
+                  />
+                  {isSelected && (
+                    <>
+                      <div
+                        className="absolute flex items-center gap-0.5 bg-white border border-gray-200 rounded-md shadow-sm px-1 py-0.5"
+                        style={{ left: 0, top: -30, zIndex: 5 }}
+                        onMouseDown={e => e.preventDefault()}
+                        onPointerDown={e => e.stopPropagation()}
+                      >
+                        <Move className="w-3 h-3 text-gray-300" />
+                        <span className="px-1 text-[11px] text-red-600 font-semibold whitespace-nowrap">次に請求する箇所</span>
+                        <span className="w-px h-3.5 bg-gray-200 mx-0.5" />
+                        <button type="button" title="この赤枠を削除"
+                          onClick={() => { push(annos.filter(x => x.id !== a.id)); setSelectedId(null) }}
+                          className="px-1 text-gray-400 hover:text-red-500"><X className="w-3 h-3" /></button>
+                      </div>
+                      <div
+                        className="absolute w-3 h-3 bg-white border-2 rounded-sm cursor-nwse-resize"
+                        style={{ borderColor: a.color, left: w - 6, top: h - 6, touchAction: 'none', zIndex: 5 }}
+                        title="ドラッグで大きさを変える"
+                        onPointerDown={e => startDrag(e, a, 'resize')}
+                        onPointerMove={moveDrag}
+                        onPointerUp={endDrag}
+                        onPointerCancel={endDrag}
+                      />
+                    </>
+                  )}
+                </div>
+              )
+            })}
             {/* テキスト箱：編集中は入力欄、確定後は掴んで動かすための透明な当たり */}
             {annos.filter((a): a is TextAnno => a.type === 'text').map(a => {
               const left = a.x * size.w, top = a.y * size.h, w = a.w * size.w

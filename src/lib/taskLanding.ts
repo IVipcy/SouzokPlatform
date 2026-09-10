@@ -64,11 +64,21 @@ export function resolveTaskLanding(task: { source_rid: string | null; phase: str
   return { tab, label }
 }
 
-export function taskLandingUrl(caseId: string, taskId: string, l: TaskLanding): string {
+export function taskLandingUrl(caseId: string, taskId: string, l: TaskLanding, extra?: { imgs?: string[]; bundle?: boolean }): string {
   const p = new URLSearchParams()
   p.set('tab', l.tab)
   if (l.sub) p.set('sub', l.sub)
   if (l.focus) p.set('focus', l.focus)
   p.set('task', taskId)
+  // 参照する戸籍画像。着地した戸籍請求タブで「この画像を見てください」の窓を先に開く
+  if (extra?.imgs && extra.imgs.length > 0) p.set('imgs', extra.imgs.join(','))
+  // 同じ役所への別請求とまとめて請求書を作る（着地と同時に請求書ウィンドウを開く）
+  if (extra?.bundle) p.set('bundle', '1')
   return `/cases/${caseId}?${p.toString()}`
+}
+
+/** タスクに付けた「参照する戸籍画像」のID（ext_data.ref_image_ids）。次の担当が見るべき画像 */
+export function taskRefImageIds(task: { ext_data: Record<string, unknown> | null }): string[] {
+  const v = (task.ext_data ?? {}).ref_image_ids
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
 }

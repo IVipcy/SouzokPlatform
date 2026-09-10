@@ -26,6 +26,7 @@ import { useCurrentMember } from '@/lib/useCurrentMember'
 import TaskHourenSouModal from '@/components/features/tasks/TaskHourenSouModal'
 import { notifyTasksReady, type ReadyTaskLite } from '@/lib/taskReadyNotify'
 import { loadNextCandidates, type NextCandidate } from '@/lib/nextTaskCandidates'
+import { KosekiImagePicker } from '@/components/features/cases/KosekiImagePick'
 import type { TaskRow } from '@/types'
 
 // 着手OKの ext_data を作る。
@@ -67,6 +68,23 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
   // 以前はここが数えられておらず、相談しても完了ボタンが押せないままだった。
   const [hourenSouOpen, setHourenSouOpen] = useState(false)
   const [consulted, setConsulted] = useState(false)
+
+  // 次のタスクに付ける「参照する戸籍画像」。null＝既定（今読んだ請求の画像）のまま。
+  // 戸籍読込（koseki-read:{請求ID}）の完了なら、その請求で届いた画像が既定でチェックされる。
+  const readKosekiId = (task.source_rid ?? '').match(/^koseki-read:(.+)$/)?.[1] ?? null
+  const isKosekiGyomu = (task.phase ?? '').includes('戸籍') || !!readKosekiId
+  const [refImages, setRefImages] = useState<string[] | null>(null)
+  const [defaultRefIds, setDefaultRefIds] = useState<string[]>([])
+  useEffect(() => {
+    if (!readKosekiId) return
+    let alive = true
+    ;(async () => {
+      const { data } = await createClient().from('koseki_images').select('id').eq('koseki_request_id', readKosekiId)
+      if (alive) setDefaultRefIds(((data ?? []) as Array<{ id: string }>).map(r => r.id))
+    })()
+    return () => { alive = false }
+  }, [readKosekiId])
+  const refImageIds = refImages ?? defaultRefIds
 
   useEffect(() => {
     let alive = true
@@ -118,7 +136,8 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
         status: '着手前',
         priority: '通常',
         source_rid: c.rid,
-        ext_data: extReady({}, task.id, c.why),
+        // 参照する戸籍画像（次の担当が見るべき画像）も一緒に持たせる
+        ext_data: extReady(refImageIds.length > 0 ? { ref_image_ids: refImageIds } : {}, task.id, c.why),
         sort_order: 95 + i,
       }))
       const { data: created, error: ce } = await supabase.from('tasks').insert(rows).select('id, title, case_id')
@@ -133,7 +152,7 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
     //      事務管理 → task_kind='case'（業務にひもづく通常タスク）
     //      管理担当/受注担当 → task_kind='system' で、その担当へ割当・通知
     if (newTitle.trim()) {
-      const newExt = { ...extReady({}, task.id), ...(newTask.outing ? { outing: true } : {}) }
+      const newExt = { ...extReady({}, task.id), ...(newTask.outing ? { outing: true } : {}), ...(refImageIds.length > 0 ? { ref_image_ids: refImageIds } : {}) }
       const newRid = await resolveTargetRid(task.case_id, newTarget)
       const isAssistant = newTask.roleKind === 'assistant'
       const gyomu = newTask.gyomu || task.phase || 'その他'
@@ -321,6 +340,13 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
                 </div>
               )}
             </div>
+
+            {/* 次の担当に見せる戸籍画像。戸籍の作業のときだけ。作るタスク全部に同じ画像が付く */}
+            {isKosekiGyomu && (picked.length > 0 || newTitle.trim()) && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50/40 px-2.5 py-2.5">
+                <KosekiImagePicker caseId={task.case_id} selected={refImages} onChange={setRefImages} defaultRequestId={readKosekiId} />
+              </div>
+            )}
 
             {/* 何も作らないと言い切る。押すと上の選択を全部外す。 */}
             <label className={`${optionCls('gray', noNext)} cursor-pointer`}>
