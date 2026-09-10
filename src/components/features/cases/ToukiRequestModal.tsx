@@ -6,7 +6,7 @@
 // 出すと touki_requests に1行入り、相続登記チーム全員に通知。
 
 import { useEffect, useState } from 'react'
-import Modal from '@/components/ui/Modal'
+import FloatingWindow from '@/components/ui/FloatingWindow'
 import Button from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -67,7 +67,11 @@ export default function ToukiRequestModal({ isOpen, onClose, caseId, cases, prop
 
   const offices = [...new Set(props.map(p => (p.registration_office ?? '').trim()).filter(Boolean))]
   const officeProps = office ? props.filter(p => (p.registration_office ?? '').trim() === office) : props
-  const propLabel = (p: RealEstatePropertyRow) => [p.address, p.property_type && ['建物', 'マンション', '区分建物'].some(k => (p.property_type ?? '').includes(k)) ? (p.kaoku_bango ? `家屋番号 ${p.kaoku_bango}` : '') : p.lot_number, p.property_type ? `（${p.property_type}）` : ''].filter(Boolean).join(' ')
+  const propLabel = (p: RealEstatePropertyRow) => {
+    const isBldg = ['建物', 'マンション', '区分建物'].some(k => (p.property_type ?? '').includes(k))
+    const s = [p.address, isBldg ? (p.kaoku_bango ? `家屋番号 ${p.kaoku_bango}` : '') : p.lot_number, p.property_type ? `（${p.property_type}）` : ''].filter(Boolean).join(' ')
+    return s || '所在未入力の物件'
+  }
 
   const submit = async () => {
     const cid = caseId ?? pickedCase
@@ -92,7 +96,8 @@ export default function ToukiRequestModal({ isOpen, onClose, caseId, cases, prop
   const lab = 'block text-[12px] font-semibold text-gray-500 mb-1'
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={parent ? '直して再依頼する' : '登記部門へ依頼を出す'} maxWidth="max-w-lg"
+    // 暗幕なしのフローティングウィンドウ（報連相・タスク追加と同じ）。相続登記タブを見ながら書ける
+    <FloatingWindow isOpen={isOpen} onClose={onClose} title={parent ? '直して再依頼する' : '登記部門へ依頼を出す'} width={560} height={520} resizable fitContent
       footer={<>
         <Button variant="secondary" onClick={onClose} disabled={saving}>キャンセル</Button>
         <Button variant="primary" onClick={submit} loading={saving} disabled={!(caseId ?? pickedCase)}>{parent ? '再依頼する' : '依頼する'}</Button>
@@ -156,6 +161,6 @@ export default function ToukiRequestModal({ isOpen, onClose, caseId, cases, prop
         </div>
         <p className="text-[11.5px] text-gray-400">相続登記チーム全員に通知します。依頼中のまま1営業日で要確認、3営業日で要注意になります。</p>
       </div>
-    </Modal>
+    </FloatingWindow>
   )
 }

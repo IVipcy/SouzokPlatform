@@ -3,9 +3,8 @@
 // 案件の登記依頼を読む（相続登記タブ）。依頼者・登記部門の担当・回答者の名前を join。
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { TOUKI_REQUEST_SELECT } from '@/lib/toukiRequests'
 import type { ToukiRequestRow } from '@/types'
-
-export const TOUKI_REQUEST_SELECT = '*, cases(id, case_number, deal_name), requester:members!touki_requests_requester_id_fkey(id, name), assignee:members!touki_requests_assignee_id_fkey(id, name), responder:members!touki_requests_responded_by_fkey(id, name)'
 
 export function useToukiRequests(caseId: string | null) {
   const [rows, setRows] = useState<ToukiRequestRow[]>([])

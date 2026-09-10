@@ -5,7 +5,7 @@ import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import ToukiTeamTabs from '@/components/features/dashboard/ToukiTeamTabs'
-import { TOUKI_REQUEST_SELECT } from '@/lib/useToukiRequests'
+import { TOUKI_REQUEST_SELECT } from '@/lib/toukiRequests'
 import type { TaskRow, ToukiRequestRow } from '@/types'
 
 // 相続登記チーム 専用ダッシュボード。

@@ -24,7 +24,7 @@ import MyTaskCreateButton from '@/components/features/tasks/MyTaskCreateButton'
 import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
 import CaseReportInbox from '@/components/features/my/CaseReportInbox'
 import MyToukiRequestsTab from '@/components/features/my/MyToukiRequestsTab'
-import { TOUKI_REQUEST_SELECT } from '@/lib/useToukiRequests'
+import { TOUKI_REQUEST_SELECT } from '@/lib/toukiRequests'
 import { isOpenToukiRequest } from '@/lib/toukiRequests'
 import {
   computeSalesMetrics,

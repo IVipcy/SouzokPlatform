@@ -10,6 +10,9 @@ import { bizDaysOverdue } from '@/lib/overdue'
 import type { ToukiRequestRow, ToukiRequestType, ToukiRequestStatus, RealEstatePropertyRow } from '@/types'
 
 // 依頼として出せる種別。「謄本・製本願い」は出さない（権利書の製本は相続登記チームのタスクで回す。過去の行の表示だけ残す）
+/** 一覧・詳細で使う select（依頼者・登記部門の担当・回答者・案件を join）。サーバー／クライアント両方から使う */
+export const TOUKI_REQUEST_SELECT = '*, cases(id, case_number, deal_name), requester:members!touki_requests_requester_id_fkey(id, name), assignee:members!touki_requests_assignee_id_fkey(id, name), responder:members!touki_requests_responded_by_fkey(id, name)'
+
 export const TOUKI_REQUEST_TYPES: ToukiRequestType[] = ['作成願い', 'チェック願い', '申請願い', '申請セットチェック願い']
 
 /** 種別の一言（依頼モーダル・キューの説明） */
