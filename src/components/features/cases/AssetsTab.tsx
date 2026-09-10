@@ -17,9 +17,8 @@ import FinancialSection from './FinancialSection'
 import RealEstateSection from './RealEstateSection'
 import InventoryTab from './InventoryTab'
 import OtherAssetsTable from './OtherAssetsTable'
-import ProgressSummary from './ProgressSummary'
 import TabHeader from './TabHeader'
-import { TabContextChips, TabContextPanel, type TabContextTarget } from './TabContextPanel'
+import { TabContextChips, TabContextPanel, ProgressChip, type TabContextTarget } from './TabContextPanel'
 import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow, FinancialJasdecResultRow, ContractDocumentRow, RealEstateAcquisitionRow, TaskRow, AssetInventoryRow, CaseOtherAssetRow, HeirRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
@@ -304,8 +303,8 @@ export default function AssetsTab({ caseData, properties, financialAssets, finan
           )}
         </div>
         <div className={showInsurance ? 'space-y-3' : 'hidden'}>
-          {orderSheetMode && <SectionHeading title="生命保険" className="mb-2.5 pb-1.5 border-b border-gray-200" />}
-          {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="asset_insurance" title="進捗/結果（生命保険）" />}
+          <SectionHeading title="生命保険" className="mb-2.5 pb-1.5 border-b border-gray-200"
+            right={orderSheetMode ? undefined : <ProgressChip caseId={caseData.id} scopeKey="asset_insurance" title="生命保険" />} />
           <FieldGrid>
             <InlineEdit label="保険会社名" value={caseData.life_insurance_company} onSave={v => save('life_insurance_company', v)} />
             <InlineCheckbox label="生命保険協会照会" value={caseData.life_insurance_inquiry} onSave={v => save('life_insurance_inquiry', v)} />

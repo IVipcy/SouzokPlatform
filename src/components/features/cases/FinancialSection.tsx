@@ -22,7 +22,7 @@ import { LeftRail } from './LeftRail'
 import { PracticeRow } from './PracticeCard'
 import { SubTabs } from '@/components/ui/SubTabs'
 import { SectionHeading } from '@/components/ui/InlineFields'
-import ProgressSummary from './ProgressSummary'
+import { ProgressChip } from './TabContextPanel'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { TxtCell, SelCell, DateCell, MoneyCell } from './PracticeTableCells'
@@ -555,15 +555,15 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
   ]
   return (
     <div className="space-y-3.5">
-      <ProgressSummary caseId={caseId} scopeKey={`${scopePrefix}_inst_${inst.id}`} title={`進捗/結果（${inst.name}）`} collapsible />
       <div className="bg-white">
-        {/* 銀行名の見出しは置かない。どの銀行かは左レール（選択中）と進捗タイトルで分かる。
-            名前・種別の修正は手続きタブ「この銀行の前提」の先頭行。状態は右の「次の対応」が言う */}
+        {/* 銀行名の見出しは置かない。どの銀行かは左レール（選択中）で分かる。
+            名前・種別の修正は手続きタブ「基本情報」の先頭行。状態は右の「次の対応」が言う。進捗/結果は右のチップ→パネル */}
         <div className="flex items-center justify-between gap-4 px-3.5 py-2.5 border-b border-gray-200">
           <SubTabs tabs={tabs} active={tab} onChange={k => setTab(k as typeof tab)} />
           {/* 次の対応は文字だけ。押す動線は④「請求する」の操作バーに一本化 */}
           <div className="min-w-0 flex items-center justify-end gap-2 text-[13px] text-gray-500">
-            <span>次の対応</span>
+            <ProgressChip caseId={caseId} scopeKey={`${scopePrefix}_inst_${inst.id}`} title={inst.name} />
+            <span className="ml-2">次の対応</span>
             <span className="text-[14px] font-semibold text-gray-800 truncate">{ev.next}</span>
             {ev.nextDeadline && <span className="text-[13px] text-amber-700">期限 {ev.nextDeadline.slice(5).replace('-', '/')}</span>}
             {ev.parallelNext && <span className="text-[12px] text-gray-500 truncate">並行：{ev.parallelNext}</span>}
@@ -995,11 +995,13 @@ function JasdecPage({ inst: i, ev, rows, institutions, caseId, scopePrefix, toda
   const linked = rows.filter(r => !!r.institution_id).length
   return (
     <div className="space-y-3.5">
-      <ProgressSummary caseId={caseId} scopeKey={`${scopePrefix}_inst_${i.id}`} title="進捗/結果（ほふり照会）" collapsible />
       <div className="bg-white">
         <div className="flex items-center justify-between gap-4 px-3.5 py-2.5 border-b border-gray-200">
           <span className="text-[14px] font-bold text-gray-800">ほふり照会<span className="ml-2 text-[12px] font-normal text-gray-500">証券保管振替機構への登録済加入者情報の開示請求</span></span>
-          <div className="min-w-0 text-right text-[13px] text-gray-500 truncate">次の対応<span className="ml-2 text-[14px] font-semibold text-gray-800">{ev.next}</span></div>
+          <div className="min-w-0 flex items-center justify-end gap-2 text-[13px] text-gray-500">
+            <ProgressChip caseId={caseId} scopeKey={`${scopePrefix}_inst_${i.id}`} title="ほふり照会" />
+            <span className="ml-2 truncate">次の対応<span className="ml-2 text-[14px] font-semibold text-gray-800">{ev.next}</span></span>
+          </div>
         </div>
         <div className="p-3.5 space-y-1">
           <PhaseHeading no={1} title="ほふり照会" sub="どこに株があるか分からないときの入口。保有先が判明していれば「不要」" />

@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import { REGISTRATION_TYPES } from '@/lib/constants'
-import ProgressSummary from './ProgressSummary'
+import { ProgressChip } from './TabContextPanel'
 import { LeftRail } from './LeftRail'
 import { DateCell, MoneyCell } from './PracticeTableCells'
 import { municipalityOf } from './RealEstateSection'
@@ -58,9 +58,9 @@ export default function RegistrationSection({ caseId, properties, heirs = [], on
       <div className="flex-1 min-w-0">
         {sub === 'top' ? (
           <div className="space-y-3.5">
-            <ProgressSummary caseId={caseId} scopeKey="registration" title="進捗/結果（相続登記 全体）" />
             <div>
-              <SectionHeading title="相続登記の状況" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <SectionHeading title="相続登記の状況" className="mb-2.5 pb-1.5 border-b border-gray-200"
+                right={<ProgressChip caseId={caseId} scopeKey="registration" title="相続登記 全体" />} />
               <div className="overflow-x-auto">
                 <table className="w-full text-[12px] border-collapse" style={{ minWidth: 760 }}>
                   <thead>
@@ -101,12 +101,12 @@ export default function RegistrationSection({ caseId, properties, heirs = [], on
           </div>
         ) : (
           <div className="space-y-3.5">
-            <ProgressSummary caseId={caseId} scopeKey={`registration_${activeMuni}`} title={`進捗/結果（${sub === '__unset__' ? '市区町村 未設定' : activeMuni}）`} />
             {muniProps(activeMuni).length === 0 ? (
               <div className="rounded-md border border-gray-200 px-4 py-8 text-center text-[12px] text-gray-400">この市区町村の物件がありません。</div>
             ) : (
               <div className="bg-white border border-gray-200 rounded-lg p-3.5">
-                <SectionHeading title="物件ごとの登記（1物件=1行）／全項目を直接編集（横スクロール）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+                <SectionHeading title={`${sub === '__unset__' ? '市区町村 未設定' : activeMuni}の登記（1物件=1行）`} hint="横スクロールで全項目を直接編集できます。" className="mb-2.5 pb-1.5 border-b border-gray-200"
+                  right={<ProgressChip caseId={caseId} scopeKey={`registration_${activeMuni}`} title={sub === '__unset__' ? '市区町村 未設定' : activeMuni} />} />
                 <div className="overflow-x-auto">
                   <table className="text-[12px] border-collapse" style={{ minWidth: 1780, width: 'max-content' }}>
                     <thead>

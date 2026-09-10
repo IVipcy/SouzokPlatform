@@ -9,7 +9,7 @@ import { Lock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { SectionHeading } from '@/components/ui/InlineFields'
-import ProgressSummary from './ProgressSummary'
+import { ProgressChip } from './TabContextPanel'
 import { LeftRail } from './LeftRail'
 import type { FinancialAssetRow, FinancialInstitutionRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
@@ -64,9 +64,9 @@ export default function CancellationSection({ caseId, financialAssets, instituti
       <div className="flex-1 min-w-0">
         {sub === 'top' ? (
           <div className="space-y-3.5">
-            <ProgressSummary caseId={caseId} scopeKey="cancellation" title="進捗/結果（解約 全体）" />
             <div>
-              <SectionHeading title="解約の状況" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+              <SectionHeading title="解約の状況" className="mb-2.5 pb-1.5 border-b border-gray-200"
+                right={<ProgressChip caseId={caseId} scopeKey="cancellation" title="解約 全体" />} />
               <div className="overflow-x-auto">
                 <table className="w-full text-[12px] border-collapse" style={{ minWidth: 680 }}>
                   <thead>
@@ -99,12 +99,12 @@ export default function CancellationSection({ caseId, financialAssets, instituti
           </div>
         ) : (
           <div className="space-y-3.5">
-            <ProgressSummary caseId={caseId} scopeKey={`cancellation_${activeInst}`} title={`進捗/結果（${sub === '__unset__' ? '機関名 未設定' : activeInst}）`} />
             {instRows(activeInst).length === 0 ? (
               <div className="rounded-md border border-gray-200 px-4 py-8 text-center text-[12px] text-gray-400">この金融機関の口座がありません。</div>
             ) : (
               <div className="bg-white p-3.5">
-                <SectionHeading title="解約手続（口座ごと／横スクロールで全項目）" className="mb-2.5 pb-1.5 border-b border-gray-200" />
+                <SectionHeading title={`${sub === '__unset__' ? '機関名 未設定' : activeInst}の解約手続（口座ごと）`} hint="横スクロールで全項目を直接編集できます。" className="mb-2.5 pb-1.5 border-b border-gray-200"
+                  right={<ProgressChip caseId={caseId} scopeKey={`cancellation_${activeInst}`} title={sub === '__unset__' ? '機関名 未設定' : activeInst} />} />
                 <div className="overflow-x-auto">
                   <table className="w-full text-[12px] border-collapse" style={{ minWidth: 840 }}>
                     <thead>

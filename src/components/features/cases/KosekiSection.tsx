@@ -27,7 +27,7 @@ import {
 
 // 請求区分の説明（列見出しの「?」）。定義は constants.ts の1か所。
 const KIND_HINT = KOSEKI_REQUEST_KINDS.map(k => `${k}：${REQUEST_KIND_HELP[k]}`).join('\n')
-import ProgressSummary from './ProgressSummary'
+import { ProgressChip } from './TabContextPanel'
 import KosekiImagePanel from './KosekiImagePanel'
 import { LeftRail } from './LeftRail'
 import { PracticeGroup, PracticeRow, PracticeFoldGroup } from './PracticeCard'
@@ -604,9 +604,9 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
       <div className="flex-1 min-w-0">
         {sub === 'top' ? (
           <div className="space-y-3.5">
-            <ProgressSummary caseId={caseId} scopeKey="koseki" title="進捗/結果（戸籍調査 全体）" />
             <div>
-              <SectionHeading title="戸籍の取得状況" className="mb-1.5 pb-1.5 border-b border-gray-200" />
+              <SectionHeading title="戸籍の取得状況" className="mb-1.5 pb-1.5 border-b border-gray-200"
+                right={<ProgressChip caseId={caseId} scopeKey="koseki" title="戸籍調査 全体" />} />
               <PersonRoleLegend className="mb-2" />
               <div className="overflow-x-auto">
                 {/* 何を・どこへ頼んで、どうなったかを1行で追えるようにする。
@@ -729,12 +729,12 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
           </div>
         ) : (
           <div className="space-y-3.5">
-            <ProgressSummary caseId={caseId} scopeKey={`koseki_person_${activePerson || 'unset'}`} title={`進捗/結果（${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍）`}
-              onSaved={v => setMemoByName(prev => ({ ...prev, [activePerson.trim()]: v.body }))} />
             <div className="bg-white p-3.5">
               <SectionHeading title={`${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍（1タブ=1請求）`}
-                hint="上のタブが1回の請求です。転籍を遡るときは「＋ 請求を追加」でタブを足してください（承認は要りません）。取得区分が「依頼者」の請求は、請求日・費用・チェックが「依頼者負担」になり入力できません。追加戸籍請求（要承認）は、管理担当が承認したあとに編集できます。"
-                className="mb-2.5 pb-1.5 border-b border-gray-200" />
+                hint="上のタブが1回の請求です。転籍を遡るときは「＋」でタブを足してください（承認は要りません）。取得区分が「依頼者」の請求は、請求日・費用・チェックが「依頼者負担」になり入力できません。追加戸籍請求（要承認）は、管理担当が承認したあとに編集できます。"
+                className="mb-2.5 pb-1.5 border-b border-gray-200"
+                right={<ProgressChip caseId={caseId} scopeKey={`koseki_person_${activePerson || 'unset'}`} title={`${sub === '__unset__' ? '対象者 未設定' : activePerson}の戸籍`}
+                  onSaved={v => setMemoByName(prev => ({ ...prev, [activePerson.trim()]: v.body }))} />} />
               {personRequests.length === 0 ? (
                 <div className="px-3 py-6 text-center text-[12px] text-gray-400">
                   この対象者の戸籍請求がありません。

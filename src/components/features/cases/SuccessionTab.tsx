@@ -14,10 +14,7 @@ import { SubTabs } from '@/components/ui/SubTabs'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { Section } from '@/components/ui/InlineFields'
-import TabHeader from './TabHeader'
-import TabTasksSection from './TabTasksSection'
-import { WorkContentField } from './WorkContentField'
-import ProgressSummary from './ProgressSummary'
+import { PracticeTabHeader, ProgressChip } from './TabContextPanel'
 import { MoneyInput } from './FinancialAssetsTable'
 import { isNegativeClass } from '@/lib/constants'
 import type { CaseRow, HeirRow, AssetInventoryRow, SettlementIncomeItemRow, SettlementExpenseItemRow, InstructionItemRow, TaskRow } from '@/types'
@@ -181,11 +178,9 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
 
   return (
     <div className="space-y-3.5">
-      <TabHeader title="遺産承継" description="精算書（財産管理口座の預かり金 − 費用 ＝ 残り）と指図書（相続人への振込）をここで作ります。" />
-      <div className="mb-3.5"><TabTasksSection gyomus={['精算書作成', '指図書作成']} tasks={tasks} onRefresh={onRefresh} /></div>
-      <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-3">
-        <WorkContentField caseData={caseData} gyomu="succession" patchCase={async p => { await supabase.from('cases').update(p).eq('id', caseData.id) }} label="作業内容（フリー・オーダーシートと共有）" collapsible />
-      </div>
+      <PracticeTabHeader title="遺産承継" description="精算書（財産管理口座の預かり金 − 費用 ＝ 残り）と指図書（相続人への振込）をここで作ります。"
+        caseData={caseData} gyomu="succession" gyomus={['精算書作成', '指図書作成']} tasks={tasks}
+        patchCase={async p => { await supabase.from('cases').update(p).eq('id', caseData.id) }} onRefresh={onRefresh} />
       <SubTabs tabs={[{ key: 'settlement', label: '精算書作成' }, { key: 'instruction', label: '指図書作成' }]} active={sub} onChange={k => setSub(k as 'settlement' | 'instruction')} />
 
       {/* 精算書 */}
@@ -279,9 +274,9 @@ export default function SuccessionTab({ caseData, heirs = [], assetInventory = [
 
       {/* 指図書 */}
       <div className={sub === 'instruction' ? 'space-y-3.5' : 'hidden'}>
-        <ProgressSummary caseId={caseData.id} scopeKey="succession_instruction" title="進捗/結果（指図書）" />
         <Section title="指図書（相続人への振込）">
           <div className="flex items-center gap-2 mb-2">
+            <ProgressChip caseId={caseData.id} scopeKey="succession_instruction" title="指図書" />
             <button type="button" onClick={importHeirs} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold text-brand-700 bg-white border border-brand-300 rounded-md hover:bg-brand-50"><DownloadCloud className="w-3.5 h-3.5" /> 相続人一覧から取込</button>
           </div>
           <div className="overflow-x-auto">

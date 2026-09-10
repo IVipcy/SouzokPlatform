@@ -17,10 +17,7 @@ import {
 } from '@/lib/constants'
 import { InlineCheckbox, InlineSelect, InlineEdit as SharedInlineEdit, InlineDate, InlineTextarea, Section, FieldGrid } from '@/components/ui/InlineFields'
 import { SubTabs } from '@/components/ui/SubTabs'
-import TabHeader from './TabHeader'
-import TabTasksSection from './TabTasksSection'
-import { WorkContentField } from './WorkContentField'
-import ProgressSummary from './ProgressSummary'
+import { PracticeTabHeader, ProgressChip } from './TabContextPanel'
 
 type Props = {
   caseData: CaseRow
@@ -72,20 +69,13 @@ export default function DivisionTab({ caseData, divisionDetails, heirs, assetInv
   return (
     <div className="space-y-3.5">
       {!orderSheetMode && (
-        <TabHeader
+        <PracticeTabHeader
           title={mode === 'will' ? '遺言' : '遺産分割'}
           description={mode === 'will' ? '遺言書の有無・内容確認と関連書類の管理' : '分割方針・協議書の作成と相続人への送付・受領管理'}
+          caseData={caseData} gyomu={mode} gyomus={mode === 'will' ? ['遺言作成'] : ['協議書', '目録']} tasks={tasks} patchCase={patchCase} onRefresh={onRefresh}
+          extraRight={mode === 'division' ? <ProgressChip caseId={caseData.id} scopeKey="division" title="遺産分割" /> : undefined}
         />
       )}
-      {!orderSheetMode && (
-        <TabTasksSection gyomus={mode === 'will' ? ['遺言作成'] : ['協議書', '目録']} tasks={tasks} onRefresh={onRefresh} />
-      )}
-      {!orderSheetMode && (
-        <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-3">
-          <WorkContentField caseData={caseData} gyomu={mode} patchCase={patchCase} label="作業内容（フリー・オーダーシートと共有）" collapsible />
-        </div>
-      )}
-      {mode === 'division' && !orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey="division" title="進捗/結果（遺産分割）" />}
       {mode === 'division' && (() => {
         // 郵送管理が要るのは「OCから各相続人へ」のときだけ（オーダーシートでは非表示）。
         // 以前は署名方法＝一斉郵送も条件にしていたが、署名方法の欄は廃止した。

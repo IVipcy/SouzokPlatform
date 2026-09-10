@@ -836,13 +836,13 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <ContractProcTab caseId={caseState.id} contractDocuments={contractDocuments} documentReceipts={documentReceipts} onRefresh={handleSaved} caseData={caseState} patchCase={patchCase} />
       )}
       {effectiveTab === 'letter' && (
-        <FreeWorkTab caseData={caseState} gyomu="letter" title="手紙" patchCase={patchCase} />
+        <FreeWorkTab caseData={caseState} gyomu="letter" title="手紙" patchCase={patchCase} tasks={tasks} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'execution' && (
-        <FreeWorkTab caseData={caseState} gyomu="execution" title="執行通知" patchCase={patchCase} />
+        <FreeWorkTab caseData={caseState} gyomu="execution" title="執行通知" patchCase={patchCase} tasks={tasks} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'contractCreate' && (
-        <FreeWorkTab caseData={caseState} gyomu="contractCreate" title="契約書作成" description="契約書を作る作業です（残手続きとは別。項目は今後増やします）。" patchCase={patchCase} />
+        <FreeWorkTab caseData={caseState} gyomu="contractCreate" title="契約書作成" description="契約書を作る作業です（残手続きとは別。項目は今後増やします）。" patchCase={patchCase} tasks={tasks} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'meeting' && (
         <MeetingInfoTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} onRefresh={handleSaved} patchCase={patchCaseFromMeeting} referrals={caseReferrals ?? []} tasks={tasks} contractDocuments={contractDocuments} contractProcDone={contractProcDone} />

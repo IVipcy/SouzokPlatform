@@ -6,9 +6,8 @@
 
 import { useState, useEffect } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
-import type { CaseRow } from '@/types'
-import TabHeader from './TabHeader'
-import ProgressSummary from './ProgressSummary'
+import type { CaseRow, TaskRow } from '@/types'
+import { PracticeTabHeader, ProgressChip } from './TabContextPanel'
 
 // セクション（gyomu）別の作業内容・関連情報の記入例プレースホルダー。
 // キーは OrderSheet の gate(TabKey) または title（gate が無いセクション）。
@@ -99,20 +98,26 @@ export function WorkContentField({ caseData, gyomu, patchCase, label = '作業�
   )
 }
 
-export default function FreeWorkTab({ caseData, gyomu, title, description, patchCase }: {
+export default function FreeWorkTab({ caseData, gyomu, title, description, patchCase, tasks = [], gyomus, onRefresh }: {
   caseData: CaseRow
   gyomu: string
   title: string
   description?: string
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
+  tasks?: TaskRow[]
+  /** task.phase の業務名（手紙／執行通知 など）。省略時は title */
+  gyomus?: string[]
+  onRefresh?: () => void
 }) {
+  // 専用の管理項目が無い業務なので、作業内容の欄が本題。進捗/結果と関連タスクは他の実務タブと同じく右のチップ
   return (
     <div className="space-y-3.5">
-      <TabHeader title={title} description={description ?? 'この業務は作業内容＋進捗/結果で管理します（詳細な管理項目は今後追加予定）'} />
+      <PracticeTabHeader title={title} description={description ?? 'この業務は作業内容＋進捗/結果で管理します（詳細な管理項目は今後追加予定）'}
+        caseData={caseData} gyomu={gyomu} gyomus={gyomus ?? [title]} tasks={tasks} patchCase={patchCase} onRefresh={onRefresh}
+        extraRight={<ProgressChip caseId={caseData.id} scopeKey={`work_${gyomu}`} title={title} />} />
       <div className="rounded-lg border border-gray-200 bg-white px-4 py-3.5">
         <WorkContentField caseData={caseData} gyomu={gyomu} patchCase={patchCase} label="作業内容（オーダーシートと共有）" large />
       </div>
-      <ProgressSummary caseId={caseData.id} scopeKey={`work_${gyomu}`} title={`進捗/結果（${title}）`} />
     </div>
   )
 }

@@ -4,9 +4,7 @@
 // 戸籍が揃ったら法務局に申出→認証付き一覧図を取得。銀行・法務局へ戸籍束の代わりに提出するため必要枚数を管理。
 // 業務＝法定相続情報取得（管理担当タスク）。上部に作業内容フリー欄＋関連タスク。
 import { Section, FieldGrid, InlineEdit, InlineDate, InlineNumber, InlineTextarea } from '@/components/ui/InlineFields'
-import TabHeader from './TabHeader'
-import { WorkContentField } from './WorkContentField'
-import TabTasksSection from './TabTasksSection'
+import { PracticeTabHeader } from './TabContextPanel'
 import type { CaseRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
@@ -26,19 +24,8 @@ export default function LegalInfoTab({ caseData, patchCase, tasks = [], document
 
   return (
     <div>
-      <TabHeader title="法定相続情報一覧図" description="戸籍が揃ったら法務局へ申出し、認証付きの一覧図を取得します（管理担当の業務）。" />
-
-      <div className="mb-3.5 rounded-lg border border-gray-200 bg-white px-3.5 py-3">
-        <WorkContentField caseData={caseData} gyomu="法定相続情報取得" patchCase={patchCase} label="作業内容（フリー）" collapsible />
-      </div>
-
-      <div className="mb-3.5">
-        <TabTasksSection
-          onRefresh={onRefresh}
-          gyomus={['法定相続情報取得']}
-          tasks={tasks}
-        />
-      </div>
+      <PracticeTabHeader title="法定相続情報一覧図" description="戸籍が揃ったら法務局へ申出し、認証付きの一覧図を取得します（管理担当の業務）。"
+        caseData={caseData} gyomu="法定相続情報取得" gyomus={['法定相続情報取得']} tasks={tasks} patchCase={patchCase} onRefresh={onRefresh} />
 
       <Section title="法定相続情報一覧図">
         <p className="text-[11.5px] text-gray-400 mb-2.5">戸籍が揃ったら法務局に申出→認証付きの一覧図を取得。各銀行・法務局に戸籍の束の代わりに提出するので、必要な数だけ発行してもらう（枚数を管理）。</p>

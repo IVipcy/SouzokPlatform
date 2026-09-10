@@ -15,9 +15,7 @@ import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import PostalLookupButton from '@/components/ui/PostalLookupButton'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import HeirValidationBanner from './HeirValidationBanner'
-import TabHeader from './TabHeader'
-import { WorkContentField } from './WorkContentField'
-import TabTasksSection from './TabTasksSection'
+import { PracticeTabHeader } from './TabContextPanel'
 import { SubTabs } from '@/components/ui/SubTabs'
 import KosekiSection from './KosekiSection'
 import KosekiPlanTable from './KosekiPlanTable'
@@ -400,20 +398,9 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
 
   return (
     <div>
-      {!orderSheetMode && <TabHeader title="相続人調査" description="被相続人・相続人を確定し、戸籍の請求を進めます。" />}
       {!orderSheetMode && (
-        <div className="mb-3.5 rounded-lg border border-gray-200 bg-white px-3.5 py-3">
-          <WorkContentField caseData={caseData} gyomu="deceased" patchCase={patchCase} label="作業内容（フリー・オーダーシートと共有）" collapsible />
-        </div>
-      )}
-      {!orderSheetMode && (
-        <div className="mb-3.5">
-          <TabTasksSection
-            onRefresh={onRefresh}
-            gyomus={['戸籍', '相関図']}
-            tasks={tasks}
-          />
-        </div>
+        <PracticeTabHeader title="相続人調査" description="被相続人・相続人を確定し、戸籍の請求を進めます。"
+          caseData={caseData} gyomu="deceased" gyomus={['戸籍', '相関図']} tasks={tasks} patchCase={patchCase} onRefresh={onRefresh} />
       )}
 
       {/* 子タブ（相続人 / 戸籍請求）。オーダーシートではサブタブを廃止し、相続人→戸籍を縦積み表示。 */}

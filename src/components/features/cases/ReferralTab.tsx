@@ -9,10 +9,7 @@ import {
   Section, SectionHeading, FieldGrid, FieldRow, InlineSelect, InlineEdit, InlineDate, InlineCurrency, InlineTextarea,
 } from '@/components/ui/InlineFields'
 import { REFERRAL_PARTNER_TYPES, REFERRAL_BILLING_STATUSES, REAL_ESTATE_REGISTRATION_OPTIONS, TAX_FILING_OPTIONS, REAL_ESTATE_APPRAISAL_RANKS, TAX_ADVISOR_REFERRAL_REASONS, OTHER_REFERRAL_PARTNERS, TAX_ADVISOR_COMPANIES } from '@/lib/constants'
-import TabHeader from './TabHeader'
-import TabTasksSection from './TabTasksSection'
-import { WorkContentField } from './WorkContentField'
-import ProgressSummary from './ProgressSummary'
+import { PracticeTabHeader, ProgressChip } from './TabContextPanel'
 import SelectOrTextField from './SelectOrTextField'
 
 type Props = {
@@ -134,8 +131,9 @@ export default function ReferralTab({ caseData, referrals, onRefresh, tasks = []
   // 1業者ぶんの入力欄。オーダーシートは全業者を縦積み、案件詳細はサブタブで1業者ずつ表示。
   const renderPartnerBody = (row: CaseReferralRow) => (
     <div className="space-y-3">
-      {!orderSheetMode && <ProgressSummary caseId={caseData.id} scopeKey={`referral_${row.partner_type}`} title={`進捗/結果（${row.partner_type}）`} />}
-      <div className="flex justify-end mb-1">
+      {/* 進捗/結果は右のチップ→パネル（ページの中にメモ欄は置かない） */}
+      <div className="flex items-center justify-end gap-3 mb-1">
+        {!orderSheetMode && <ProgressChip caseId={caseData.id} scopeKey={`referral_${row.partner_type}`} title={row.partner_type} />}
         <button
           type="button"
           onClick={() => deletePartner(row)}
@@ -222,12 +220,10 @@ export default function ReferralTab({ caseData, referrals, onRefresh, tasks = []
 
   return (
     <div className="space-y-3.5">
-      {!orderSheetMode && <TabHeader title="他事業者紹介" description="税理士・弁護士・不動産・遺品整理など、外部へ紹介した先と依頼内容をここに書きます。" />}
-      {!orderSheetMode && <div className="mb-3.5"><TabTasksSection gyomus={['他事業者紹介']} tasks={tasks} onRefresh={onRefresh} /></div>}
       {!orderSheetMode && (
-        <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-3">
-          <WorkContentField caseData={caseData} gyomu="referral" patchCase={async p => { await supabase.from('cases').update(p).eq('id', caseData.id); onRefresh?.() }} label="作業内容（フリー・オーダーシートと共有）" collapsible />
-        </div>
+        <PracticeTabHeader title="他事業者紹介" description="税理士・弁護士・不動産・遺品整理など、外部へ紹介した先と依頼内容をここに書きます。"
+          caseData={caseData} gyomu="referral" gyomus={['他事業者紹介']} tasks={tasks}
+          patchCase={async p => { await supabase.from('cases').update(p).eq('id', caseData.id); onRefresh?.() }} onRefresh={onRefresh} />
       )}
       <Section title="紹介業者">
         {/* サブタブ：登録済み業者＋追加 */}

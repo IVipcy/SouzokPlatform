@@ -14,7 +14,7 @@ import { LeftRail } from './LeftRail'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
-import ProgressSummary from './ProgressSummary'
+import { ProgressChip } from './TabContextPanel'
 import { taxableValue, registrationTax, isLandProperty, isBuildingProperty } from '@/lib/registrationTax'
 import { shareText } from '@/lib/constants'
 import RealEstateTable from './RealEstateTable'
@@ -428,14 +428,14 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
         if (sub !== t.key) return null
         return (
           <div key={t.key} className="space-y-4">
-            <ProgressSummary caseId={caseId} scopeKey={`asset_re_${muniKey || 'unset'}`} title={`進捗/結果（${t.label}）`} />
             {/* 請求（1タブ＝1請求）。戸籍の対象者ページと同じ並び＝進捗/結果 → 請求のカード → 読んで分かったもの（物件）。
                 役所への請求（名寄帳・評価証明）と法務局への請求（登記情報など）は請求先が違うだけなので、タブは1本で並び順で分ける。
                 管轄法務局は法務局カードの「請求先」に入る（以前は表の上に別の入力行があった）。 */}
             <div ref={isFocusCard('muni') ? focusCardRef : undefined} className={`bg-white p-3.5${flashCls('muni')}`}>
               <SectionHeading title={`${t.label}の請求（1タブ=1請求）`}
                 hint={`上のタブが1回の請求です。進め方は ①役所へ請求（名寄帳・評価証明）→ ②届いたら Step4 読込結果の「判明した物件」に物件を登録（家屋番号・近傍宅地価格の要否もここ）→ ③必要なら評価証明を取り直す（役所へ）／法務局へ請求（登記情報・公図など。ホームページから申請）→ ④評価額を確定 の順。同じ宛先へまとめて頼んだ資料は1つのタブに入ります。役所への申請書はカードの「この内容で申請書を作る」から出せます。`}
-                className="mb-2.5 pb-1.5 border-b border-gray-200" />
+                className="mb-2.5 pb-1.5 border-b border-gray-200"
+                right={<ProgressChip caseId={caseId} scopeKey={`asset_re_${muniKey || 'unset'}`} title={t.label} />} />
               <RealEstateAcquisitionsTable layout="cards" caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="all" municipalityFilter={muniKey} additionsNeedApproval={additionsNeedApproval} onAdditionalPending={() => notifyManagersAdditional('不動産の追加請求の承認依頼', `${muniKey}で取得資料が追加されました。承認するとタスクを生成します。`)} onAfterAddRow={() => promptIfMissing(muniKey, 'muni')}
                 onMakeDoc={caseData ? r => setDocAcq(r) : undefined}
                 houmuOffice={houmuOfMuni(muniKey)}

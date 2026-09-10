@@ -8,9 +8,7 @@ import { showToast } from '@/components/ui/Toast'
 import { REGISTRATION_TYPES, REGISTRATION_STATUSES } from '@/lib/constants'
 import { Section } from '@/components/ui/InlineFields'
 import ContractReceivedDocs from './ContractReceivedDocs'
-import TabHeader from './TabHeader'
-import TabTasksSection from './TabTasksSection'
-import { WorkContentField } from './WorkContentField'
+import { PracticeTabHeader } from './TabContextPanel'
 import RegistrationSection from './RegistrationSection'
 import type { CaseRow, RealEstatePropertyRow, ContractDocumentRow, HeirRow, TaskRow } from '@/types'
 
@@ -59,11 +57,8 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
   if (!orderSheetMode) {
     return (
       <div className="space-y-3.5">
-        <TabHeader title="相続登記" description="物件ごとに、登記の種類・管轄の法務局・申請日・登録免許税を記録します。" />
-        <TabTasksSection gyomus={['登記']} tasks={tasks} onRefresh={onRefresh} />
-        <div className="rounded-lg border border-gray-200 bg-white px-3.5 py-3">
-          <WorkContentField caseData={caseData} gyomu="registration" patchCase={patchCase} label="作業内容（フリー・オーダーシートと共有）" collapsible />
-        </div>
+        <PracticeTabHeader title="相続登記" description="物件ごとに、登記の種類・管轄の法務局・申請日・登録免許税を記録します。"
+          caseData={caseData} gyomu="registration" gyomus={['登記']} tasks={tasks} patchCase={patchCase} onRefresh={onRefresh} />
         <RegistrationSection caseId={caseData.id} properties={properties} heirs={heirs} onRefresh={onRefresh} />
         <ContractReceivedDocs documents={contractDocuments} category="登記" title="契約時にお客様から受領した登記関係書類" />
       </div>
