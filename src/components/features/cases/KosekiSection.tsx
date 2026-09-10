@@ -3,9 +3,9 @@
 // 戸籍請求（実務）：TOP（進捗サマリー＋取得状況表＋相続相関図）＋左レール（請求単位タブ）。
 // 各請求はカード形式。費用（予算/返金/確定）＋ダブルチェック（自分以外）。追加請求は管理担当の承認ゲート。
 
-import { useState, useEffect, useRef, type ReactNode } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Plus, Lock, ShieldCheck, Trash2, Copy, FileText, ChevronRight, ChevronDown } from 'lucide-react'
+import { Plus, Lock, ShieldCheck, Trash2, Copy, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useIsManager } from '@/components/providers/AuthProvider'
@@ -30,7 +30,7 @@ const KIND_HINT = KOSEKI_REQUEST_KINDS.map(k => `${k}：${REQUEST_KIND_HELP[k]}`
 import ProgressSummary from './ProgressSummary'
 import KosekiImagePanel from './KosekiImagePanel'
 import { LeftRail } from './LeftRail'
-import { PracticeGroup, PracticeRow } from './PracticeCard'
+import { PracticeGroup, PracticeRow, PracticeFoldGroup } from './PracticeCard'
 import { TxtCell, SelCell, MultiCell, DateCell, MoneyCell, TemplateTextField } from './PracticeTableCells'
 import SelectOrTextField from './SelectOrTextField'
 import KosekiRequestDocumentModal from './KosekiRequestDocumentModal'
@@ -1358,38 +1358,5 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
   )
 }
 
-// 畳める Step。閉じているときは薄い見出しだけ（何を入れる欄かの一言つき）。
-// autoOpen＝進み具合から開くべきか（請求日・到着日が入った等）。手で開閉したらそちらを優先。
-// カードは請求ごとに key で作り直すので、開閉の状態も請求ごとに戻る。
-function FoldGroup({ no, title, sub, autoOpen, closedNote, children }: {
-  no: string
-  title: string
-  sub?: string
-  autoOpen: boolean
-  closedNote: string
-  children: ReactNode
-}) {
-  const [manual, setManual] = useState<boolean | null>(null)
-  const open = manual ?? autoOpen
-  if (!open) {
-    return (
-      <button type="button" onClick={() => setManual(true)}
-        className="w-full flex items-center gap-2.5 px-3 pt-3.5 pb-1.5 min-h-[44px] bg-white border-b border-slate-200 text-left hover:bg-slate-50">
-        <span className="text-[14px] font-bold text-gray-400">{no}</span>
-        <span className="text-[14px] font-bold text-gray-400">{title}</span>
-        {sub && <span className="text-[12px] text-gray-400 ml-1 truncate">{sub}</span>}
-        <span className="ml-auto inline-flex items-center gap-1 text-[12px] text-gray-500 flex-none">{closedNote}<ChevronRight className="w-3.5 h-3.5" /></span>
-      </button>
-    )
-  }
-  return (
-    <PracticeGroup no={no} title={title} sub={sub}
-      right={
-        <button type="button" onClick={() => setManual(false)} className="inline-flex items-center gap-1 text-[12px] text-gray-500 hover:text-gray-800">
-          閉じる<ChevronDown className="w-3.5 h-3.5" />
-        </button>
-      }>
-      {children}
-    </PracticeGroup>
-  )
-}
+// 畳める Step は PracticeCard の PracticeFoldGroup（戸籍・不動産で共用）
+const FoldGroup = PracticeFoldGroup

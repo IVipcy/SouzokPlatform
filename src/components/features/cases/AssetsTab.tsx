@@ -258,6 +258,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, finan
               focusIsRead={focusIsRead}
               addressSuggestions={addrSuggestions}
               deceasedLastAddress={caseData.deceased_address}
+              caseData={caseData}
             />
           )}
         </div>
