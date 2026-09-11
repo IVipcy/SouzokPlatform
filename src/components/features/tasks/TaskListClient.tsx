@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, User, X, CheckCircle2, Trash2, ListChecks, Compass, HelpCircle, ChevronDown, ChevronRight, ChevronsUpDown, SlidersHorizontal } from 'lucide-react'
+import { Search, User, X, CheckCircle2, Trash2, ListChecks, Compass, HelpCircle, ChevronDown, ChevronsUpDown, SlidersHorizontal } from 'lucide-react'
 import { HELP_TYPE_LABEL, type HelpType } from '@/lib/managerReviewTask'
 import PageHeader from '@/components/ui/PageHeader'
 import HelpHint from '@/components/ui/HelpHint'
@@ -996,8 +996,8 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onDelete, onSe
         })()}
       </td>
 
-      {/* 作業内容。長いものはセル内で縦スクロールさせ、行の高さは全行そろえる。 */}
-      <td className="px-3.5 py-2.5 align-top">
+      {/* 作業内容。長いものはセル内で縦スクロールさせ、行の高さは全行そろえる（上揃いは表全体の型）。 */}
+      <td className="px-3.5 py-2.5">
         {task.procedure_text?.trim() ? (
           <div className="max-h-[58px] overflow-y-auto whitespace-pre-wrap leading-relaxed text-[12px] text-gray-600 pr-1.5">
             {task.procedure_text}
@@ -1005,9 +1005,9 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onDelete, onSe
         ) : <span className="text-[12px] text-gray-300">—</span>}
       </td>
 
-      {/* 右端：先に画面があることを示す「›」（行に乗せると青）＋削除（ホバー時だけ） */}
+      {/* 右端：削除（行に乗せたときだけ）。行はどこを押しても詳細に飛ぶので「›」は置かない */}
       <td className="px-2 py-2.5">
-        <div className="flex items-center justify-end gap-1">
+        <div className="flex items-center justify-end">
           <button
             onClick={() => onDelete(task)}
             className="w-6 h-6 rounded flex items-center justify-center text-gray-300 hover:bg-red-50 hover:text-red-500 transition opacity-0 group-hover:opacity-100"
@@ -1015,7 +1015,6 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onDelete, onSe
           >
             <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
           </button>
-          <ChevronRight className="w-4 h-4 flex-none text-gray-300 group-hover:text-brand-600" strokeWidth={2.25} />
         </div>
       </td>
     </tr>
