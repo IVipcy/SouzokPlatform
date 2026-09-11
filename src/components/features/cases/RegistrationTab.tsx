@@ -24,6 +24,8 @@ type Props = {
   tasks?: TaskRow[]
   /** オーダーシート埋め込み時は TabHeader を出さない */
   orderSheetMode?: boolean
+  /** タスク詳細からの着地：法務局名（source_rid reg:{法務局}）。その法務局のページを開く */
+  focus?: string | null
 }
 
 /**
@@ -33,7 +35,7 @@ type Props = {
  * 登記情報等の取得進捗は財産調査タブの不動産側で管理する。
  * 不動産の追加・削除は財産調査タブで行う。
  */
-export default function RegistrationTab({ caseData, properties, onRefresh, patchCase, contractDocuments = [], tasks = [], orderSheetMode = false }: Props) {
+export default function RegistrationTab({ caseData, properties, onRefresh, patchCase, contractDocuments = [], tasks = [], orderSheetMode = false, focus = null }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<RealEstatePropertyRow[]>(properties)
   useEffect(() => { setRows(properties) }, [properties])
@@ -69,7 +71,7 @@ export default function RegistrationTab({ caseData, properties, onRefresh, patch
               登記依頼<span className={`px-1.5 text-[11.5px] font-bold ${openTouki > 0 ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>{openTouki}</span><span className="font-normal text-gray-400">対応待ち</span>
             </span>
           } />
-        <RegistrationSection caseId={caseData.id} properties={properties} heirs={heirs} requests={toukiRequests} onRefresh={onRefresh} onRefreshRequests={() => void reloadTouki()} />
+        <RegistrationSection caseId={caseData.id} properties={properties} heirs={heirs} requests={toukiRequests} focus={focus} onRefresh={onRefresh} onRefreshRequests={() => void reloadTouki()} />
         <ContractReceivedDocs documents={contractDocuments} category="登記" title="契約時にお客様から受領した登記関係書類" />
       </div>
     )

@@ -875,7 +875,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <DivisionTab caseData={caseState} divisionDetails={divisionDetails} heirs={heirs} onRefresh={handleSaved} patchCase={patchCase} tasks={tasks} mode="will" />
       )}
       {effectiveTab === 'registration' && (
-        <RegistrationTab caseData={caseState} properties={properties} onRefresh={handleSaved} patchCase={patchCase} contractDocuments={contractDocuments} tasks={tasks} />
+        <RegistrationTab caseData={caseState} properties={properties} onRefresh={handleSaved} patchCase={patchCase} contractDocuments={contractDocuments} tasks={tasks} focus={searchParams.get('focus')} />
       )}
       {effectiveTab === 'cancellation' && (
         <CancellationTab caseId={caseState.id} caseData={caseState} financialAssets={financialAssets} financialInstitutions={financialInstitutions} onRefresh={handleSaved} receipts={documentReceipts} tasks={tasks} />

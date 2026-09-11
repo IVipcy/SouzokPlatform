@@ -94,9 +94,16 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
       // 登記識別情報通知の確認を完了するとき＝権利書の製本へ（相続登記チームのタスク）。
       // 製本は依頼ではなくタスクで回す（チームのダッシュボード「タスク」タブに出る）。
       const isIdNotice = /識別情報|登記完了/.test(task.title ?? '')
-      const seihon: NextCandidate[] = isIdNotice
-        ? [{ rid: `touki-seihon:${task.case_id}`, title: '権利書の製本', gyomu: '登記', why: '登記識別情報通知が届いた', taskKind: 'touki_team' }]
-        : []
+      let seihon: NextCandidate[] = []
+      if (isIdNotice) {
+        // 法務局を持たせる（タスク詳細から相続登記タブのその法務局のページに着地する）。案件の法務局が1つならそれ、複数なら法務局ごとに候補
+        const { data: ps } = await createClient().from('real_estate_properties').select('registration_office').eq('case_id', task.case_id)
+        const offices = [...new Set(((ps ?? []) as Array<{ registration_office: string | null }>).map(p => (p.registration_office ?? '').trim()).filter(Boolean))]
+        seihon = offices.length === 0
+          ? [{ rid: `touki-seihon:${task.case_id}`, title: '権利書の製本', gyomu: '登記', why: '登記識別情報通知が届いた', taskKind: 'touki_team' }]
+          : offices.map(o => ({ rid: `reg:${o}`, title: offices.length > 1 ? `権利書の製本（${o}）` : '権利書の製本', gyomu: '登記', why: `登記識別情報通知が届いた（${o}）`, taskKind: 'touki_team' as const }))
+      }
+      if (!alive) return
       setCands([...seihon.map(c => ({ ...c, on: true })), ...list.map(c => ({ ...c, on: false }))])
       setLoading(false)
     })()

@@ -28,17 +28,22 @@ const UNSET = '__unset__'
 /** 物件の管轄法務局（空なら未設定） */
 export const officeOf = (p: RealEstatePropertyRow) => (p.registration_office ?? '').trim()
 
-export default function RegistrationSection({ caseId, properties, heirs = [], requests = [], onRefresh, onRefreshRequests }: {
+export default function RegistrationSection({ caseId, properties, heirs = [], requests = [], focus = null, onRefresh, onRefreshRequests }: {
   caseId: string
   properties: RealEstatePropertyRow[]
   heirs?: HeirRow[]
   /** この案件の登記依頼 */
   requests?: ToukiRequestRow[]
+  /** タスク詳細からの着地：法務局名。あればその法務局のページを最初に開く */
+  focus?: string | null
   onRefresh?: () => void
   onRefreshRequests?: () => void
 }) {
   const supabase = createClient()
-  const [sub, setSub] = useState('top')
+  const [sub, setSub] = useState(() => {
+    const f = (focus ?? '').trim()
+    return f && properties.some(p => (p.registration_office ?? '').trim() === f) ? f : 'top'
+  })
   const [reqModal, setReqModal] = useState<{ type?: ToukiRequestType; parent?: ToukiRequestRow | null } | null>(null)
   const [showDone, setShowDone] = useState(false)
   const todayStr = new Date().toLocaleDateString('sv-SE')

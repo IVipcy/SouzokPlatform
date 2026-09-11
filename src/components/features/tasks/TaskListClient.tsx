@@ -47,7 +47,7 @@ type Props = {
   /** 受信簿（着手OK＝書類受領の判定に使う・1タスク1行に展開済み） */
   receipts?: ReadinessReceipt[]
   /** 担当区分スコープ。'assistant'=事務管理タスク一覧（既定）/ 'manager'=管理担当タスク一覧 */
-  roleScope?: 'assistant' | 'manager'
+  roleScope?: 'assistant' | 'manager' | 'touki'
   /** 金融凍結が未確認の口座を持つ案件ID（金融タスク着手不可） */
   financeBlockedCaseIds?: string[]
   /** 案件ID→金融資産（機関名・凍結確認）。解約タスクは機関単位で凍結ゲートを判定する。 */
@@ -98,7 +98,10 @@ export type SortKey = 'default' | 'remain' | 'priority'
 //   roleScope='manager'   … 管理担当タスク一覧（work_role='manager' のみ）
 //   roleScope='assistant' … 事務管理タスク一覧（manager 以外。未分類・旧データもこちら）
 // 事務管理ダッシュボードの工程別タブでも同じ判定を使うため、外に出して共有する。
-export function isTaskInRoleScope(t: TaskRow, roleScope: 'assistant' | 'manager') {
+export function isTaskInRoleScope(t: TaskRow, roleScope: 'assistant' | 'manager' | 'touki' | 'touki') {
+  // 相続登記チームのタスク（task_kind='touki_team'）はチームのダッシュボードにだけ出す
+  if (t.task_kind === 'touki_team') return roleScope === 'touki'
+  if (roleScope === 'touki') return false
   // 管理担当ヘルプ（systemタスク・ext_data.manager_review）は管理担当一覧に表示する
   const isManagerHelp = t.task_kind === 'system' && !!(t.ext_data as Record<string, unknown> | null)?.manager_review
   if (isManagerHelp) return roleScope === 'manager'
@@ -497,7 +500,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         ) : (
         <PageHeader
           eyebrow="Tasks"
-          title={roleScope === 'manager' ? '管理担当タスク一覧' : '事務管理タスク一覧'}
+          title={roleScope === 'manager' ? '管理担当タスク一覧' : roleScope === 'touki' ? '相続登記チームのタスク' : '事務管理タスク一覧'}
           icon={roleScope === 'manager' ? Compass : ListChecks}
           description={roleScope === 'manager' ? '管理担当が行う作業タスクを管理' : '事務管理担当のタスクを管理'}
           right={
@@ -556,8 +559,8 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           </div>
         </div>
 
-        {/* 業務タブ（実務タブ・実施業務と同じ名前で分ける）。左の点＝そのタブでいちばん重いタスク。 */}
-        <div className="flex items-center gap-0.5 flex-wrap mt-2.5 border-b border-gray-200 -mb-3">
+        {/* 業務タブ（実務タブ・実施業務と同じ名前で分ける）。左の点＝そのタブでいちばん重いタスク。相続登記チームは登記だけなので出さない */}
+        {roleScope !== 'touki' && <div className="flex items-center gap-0.5 flex-wrap mt-2.5 border-b border-gray-200 -mb-3">
           {[
             { key: 'all', label: 'すべて' },
             ...(mailTaskIds ? [{ key: MAIL_TAB, label: '郵便' }] : []),
@@ -588,7 +591,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
           <span className="ml-1.5 self-center">
             <HelpHint title="この数字と色の見かた"><TaskTabHelp /></HelpHint>
           </span>
-        </div>
+        </div>}
       </div>
 
       <>
@@ -683,7 +686,7 @@ function ListView({
   selectedIds: Set<string>
   onToggleSelect: (taskId: string) => void
   onToggleSelectAll: (visibleIds: string[]) => void
-  roleScope: 'assistant' | 'manager'
+  roleScope: 'assistant' | 'manager' | 'touki'
   sortKey: SortKey
   sortDir: 'asc' | 'desc'
   onSort: (key: SortKey) => void
@@ -818,7 +821,7 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onDelete, onSe
   freezeAssets: Array<{ institution_name?: string | null; freeze_confirmed?: boolean | null }>
   selected: boolean
   onToggleSelect: () => void
-  roleScope: 'assistant' | 'manager'
+  roleScope: 'assistant' | 'manager' | 'touki'
   caseScope: boolean
 }) {
   const status = normalizeStatus(task.status)

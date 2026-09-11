@@ -17,10 +17,10 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 /** 対象欄を出す業務。ここに無い業務では何も出さない。 */
-export const TARGET_GYOMU = ['戸籍', '不動産', '金融資産', '解約'] as const
+export const TARGET_GYOMU = ['戸籍', '不動産', '金融資産', '解約', '登記'] as const
 
 /** 業務名から source_rid の接頭辞を引く（戸籍は行を作るのでここには入れない） */
-const PREFIX: Record<string, string> = { '不動産': 're-muni', '金融資産': 'fin', '解約': 'cancel' }
+const PREFIX: Record<string, string> = { '不動産': 're-muni', '金融資産': 'fin', '解約': 'cancel', '登記': 'reg' }
 
 export type TaskTarget =
   | { kind: 'none' }
@@ -86,6 +86,13 @@ export default function TaskTargetPicker({ caseId, gyomu, value, onChange, compa
         const dn = (cs.data as { deceased_name: string | null } | null)?.deceased_name?.trim()
         const hn = ((hs.data ?? []) as Array<{ name: string }>).map(h => h.name.trim()).filter(Boolean)
         setPeople([...new Set([dn, ...hn].filter((v): v is string => !!v))])
+        return
+      }
+      if (gyomu === '登記') {
+        // 登記＝法務局（物件の管轄法務局）。タスク詳細から相続登記タブのその法務局のページに着地する
+        const { data } = await supabase.from('real_estate_properties').select('registration_office').eq('case_id', caseId)
+        if (!alive) return
+        setNames([...new Set(((data ?? []) as Array<{ registration_office: string | null }>).map(p => (p.registration_office ?? '').trim()).filter(Boolean))])
         return
       }
       if (gyomu === '不動産') {

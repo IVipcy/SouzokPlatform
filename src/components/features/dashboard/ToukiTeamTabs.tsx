@@ -5,16 +5,22 @@
 //   タスク … チーム内で振る作業（製本など）。依頼とは役割が違うので残す
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import TouKiTeamDashboardClient from './TouKiTeamDashboardClient'
+import TaskListClient from '@/components/features/tasks/TaskListClient'
 import ToukiRequestsTable from '@/components/features/cases/ToukiRequestsTable'
 import { TOUKI_REQUEST_TYPES, isOpenToukiRequest, toukiSeverity } from '@/lib/toukiRequests'
 import type { TaskRow, ToukiRequestRow } from '@/types'
+import type { loadTaskListData } from '@/lib/loadTaskListData'
+
+type TaskData = Awaited<ReturnType<typeof loadTaskListData>>
 
 type Filter = 'open' | 'doing' | 'done' | 'mine'
 
-export default function ToukiTeamTabs({ requests, tasks, currentMemberId, todayStr }: {
+export default function ToukiTeamTabs({ requests, tasks, taskData, currentMemberId, todayStr }: {
   requests: ToukiRequestRow[]
+  /** 相続登記チームのタスク（task_kind='touki_team'）。件数用 */
   tasks: TaskRow[]
+  /** 事務管理のタスク一覧と同じ部品に渡すデータ（全タスク・案件・メンバー…）。担当区分の絞り込みで登記チームだけになる */
+  taskData: TaskData
   currentMemberId: string
   todayStr: string
 }) {
@@ -48,7 +54,10 @@ export default function ToukiTeamTabs({ requests, tasks, currentMemberId, todayS
         {tabBtn('tasks', 'タスク', activeTasks)}
       </div>
       {tab === 'tasks' ? (
-        <TouKiTeamDashboardClient tasks={tasks} currentMemberId={currentMemberId} />
+        // 事務管理のタスク一覧と同じ見た目・操作（行を押すとタスク詳細、着手はそこで）。担当区分＝相続登記チーム
+        <TaskListClient embedded roleScope="touki"
+          tasks={taskData.tasks} caseMap={taskData.caseMap} allMembers={taskData.allMembers} currentMemberId={currentMemberId}
+          receipts={taskData.receipts} financeBlockedCaseIds={taskData.financeBlockedCaseIds} freezeAssetsByCase={taskData.freezeAssetsByCase} />
       ) : (
         <div className="space-y-3.5">
           {/* 種別ごとの未処理件数。3営業日超があれば琥珀 */}
