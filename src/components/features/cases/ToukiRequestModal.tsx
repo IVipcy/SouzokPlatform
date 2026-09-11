@@ -17,7 +17,7 @@ import type { RealEstatePropertyRow, ToukiRequestRow, ToukiRequestType } from '@
 
 type CaseLite = { id: string; case_number: string; deal_name: string }
 
-export default function ToukiRequestModal({ isOpen, onClose, caseId, cases, properties, defaultOffice, parent, onSaved }: {
+export default function ToukiRequestModal({ isOpen, onClose, caseId, cases, properties, defaultOffice, defaultType, parent, onSaved }: {
   isOpen: boolean
   onClose: () => void
   /** 案件が決まっているとき */
@@ -27,6 +27,8 @@ export default function ToukiRequestModal({ isOpen, onClose, caseId, cases, prop
   /** 案件の物件（法務局・登記の種類・対象物件の候補）。caseId が無いときは案件を選んだあとに読む */
   properties?: RealEstatePropertyRow[]
   defaultOffice?: string | null
+  /** 操作バーのボタンから開いたときの種別（再依頼が無いとき） */
+  defaultType?: ToukiRequestType | null
   /** 再依頼のとき：元の依頼（種別・法務局・物件を引き継ぐ） */
   parent?: ToukiRequestRow | null
   onSaved?: () => void
@@ -35,7 +37,7 @@ export default function ToukiRequestModal({ isOpen, onClose, caseId, cases, prop
   const memberId = useCurrentMember(null)
   const [pickedCase, setPickedCase] = useState<string>(caseId ?? '')
   const [props, setProps] = useState<RealEstatePropertyRow[]>(properties ?? [])
-  const [type, setType] = useState<ToukiRequestType>(parent?.request_type ?? '作成願い')
+  const [type, setType] = useState<ToukiRequestType>(parent?.request_type ?? defaultType ?? '作成願い')
   const [office, setOffice] = useState(parent?.office ?? defaultOffice ?? '')
   const [regType, setRegType] = useState(parent?.registration_type ?? '相続')
   // 物件の既定：元の依頼があればそれ、無ければこの法務局の物件全部。

@@ -2,11 +2,13 @@
 
 // 相続登記（実務）：法務局単位の左レール。申請の単位が法務局なので、市区町村ではなく法務局で束ねる。
 //   一覧（TOP） … 法務局ごとの「今どこか」＋物件別の登記状況（登録免許税の集計）
-//   法務局ページ … 工程図（今どこか・根拠）→ 操作バー（次の依頼）→ 登記部門への依頼 → 物件ごとの登記の状況
+//   法務局ページ … 工程図（今どこか・根拠）→ 操作バー（今やること＋押すボタン）→ 登記部門への依頼 → 物件ごとの登記の状況
+//   法務局が未設定の物件しか無いときは、先に「財産調査タブで管轄法務局を入れる」案内を出す
 // 申請書・委任状は別システム（相続の力）で作る。ここは依頼のやりとりと結果、業務の状態の記録。
 // 物件は財産調査(real_estate_properties)を共有。登録免許税は 評価額×持分×0.4% の概算を出し、納付額を入れたらそちらを優先。
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -20,7 +22,7 @@ import ProcedureStepper from './ProcedureStepper'
 import ToukiRequestsTable from './ToukiRequestsTable'
 import ToukiRequestModal from './ToukiRequestModal'
 import { registrationTax } from '@/lib/registrationTax'
-import { toukiStages, toukiNextRequest, isOpenToukiRequest } from '@/lib/toukiRequests'
+import { toukiStages, toukiGuide, isOpenToukiRequest } from '@/lib/toukiRequests'
 import type { RealEstatePropertyRow, HeirRow, ToukiRequestRow, ToukiRequestType } from '@/types'
 
 const collator = new Intl.Collator('ja')
@@ -40,6 +42,7 @@ export default function RegistrationSection({ caseId, properties, heirs = [], re
   onRefreshRequests?: () => void
 }) {
   const supabase = createClient()
+  const router = useRouter()
   const [sub, setSub] = useState(() => {
     const f = (focus ?? '').trim()
     return f && properties.some(p => (p.registration_office ?? '').trim() === f) ? f : 'top'
@@ -81,6 +84,15 @@ export default function RegistrationSection({ caseId, properties, heirs = [], re
 
   const openModal = (type?: ToukiRequestType, parent?: ToukiRequestRow) => setReqModal({ type, parent: parent ?? null })
 
+  // 法務局が入っていない物件があるときの入口の案内。依頼は法務局単位なので、先に不動産タブで入れてもらう
+  const unsetNotice = (
+    <div className="flex items-center gap-3 px-3.5 py-2.5 bg-amber-50 border-l-[3px] border-amber-400 text-[13px] text-amber-900">
+      <span className="flex-1 leading-snug">まず <b>財産調査タブの不動産</b> で、物件に管轄法務局を入れてください。入れると左のレールに法務局が並び、法務局ごとに進められます。</span>
+      <button type="button" onClick={() => router.push('?tab=assets')} className="flex-none px-2.5 py-1 rounded-md text-[12px] font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50">財産調査タブを開く</button>
+    </div>
+  )
+  const FLOW_HINT = '進め方（法務局ごと）\n① 申請書・委任状を用意する：登記部門に作ってもらう（作成願い）か、自分で相続の力で作る\n② チェックを依頼する（チェック願い）。修正ありで戻ったら直して再依頼\n③ お客様へ郵送 → 返送 → 本人確認\n④ 申請を依頼する（申請願い）。登記部門が申請したら物件の表に申請日・受付番号を入れる\n⑤ 登記が完了したら完了日を入れる。識別情報通知は受信簿で受け、確認タスクの完了で「権利書の製本」を相続登記チームへ\n⑥ 権利証を納品したら納品日を入れる\n今どこかは、依頼の結果と物件の日付から自動で決めます。操作バーに「今やること」と押すボタンが出ます。'
+
   return (
     <div className="flex gap-3 items-start">
       {offices.length > 0 && <datalist id={officeListId}>{offices.map(o => <option key={o} value={o} />)}</datalist>}
@@ -88,9 +100,10 @@ export default function RegistrationSection({ caseId, properties, heirs = [], re
       <div className="flex-1 min-w-0">
         {sub === 'top' ? (
           <div className="space-y-3.5">
+            {hasUnset && unsetNotice}
             {/* 法務局ごとの今どこか */}
             <div className="bg-white p-3.5">
-              <SectionHeading title="法務局ごとの進み具合" hint="申請の単位は法務局です。段は 申請書作成 → チェック → 署名・本人確認 → 申請 → 完了・製本 → 納品。今どこかは、依頼の結果と物件の申請日・完了日・納品日から自動で決めます。" className="mb-2.5 pb-1.5 border-b border-gray-200"
+              <SectionHeading title="法務局ごとの進み具合" hint={FLOW_HINT} className="mb-2.5 pb-1.5 border-b border-gray-200"
                 right={<ProgressChip caseId={caseId} scopeKey="registration" title="相続登記 全体" />} />
               {offices.length === 0 && !hasUnset ? (
                 <p className="px-3 py-5 text-center text-[12.5px] text-gray-400">財産調査タブで物件に管轄法務局を入れると、ここに法務局ごとの進み具合が出ます。</p>
@@ -166,39 +179,32 @@ export default function RegistrationSection({ caseId, properties, heirs = [], re
           const oProps = propsOf(activeOffice)
           const oReqs = reqsOf(activeOffice)
           const st = toukiStages(oReqs, oProps)
-          const next = toukiNextRequest(st.stage, oReqs)
-          const open = oReqs.filter(isOpenToukiRequest)
-          const bounced = oReqs.find(r => r.status === '修正あり' && !oReqs.some(x => x.parent_id === r.id))
+          const guide = toukiGuide(st.stage, oReqs, todayStr)
           return (
             <div className="space-y-3.5">
-              {/* 工程図：今どこか＋根拠。手で選ぶ欄は無し */}
-              <div className="bg-white p-3.5">
-                <SectionHeading title={`${label}の進み具合`} hint="段は 申請書作成 → チェック → 署名・本人確認 → 申請 → 完了・製本 → 納品。今どこかは、この法務局の依頼の結果と、下の物件の申請日・完了日・納品日から自動で決めます。製本は登記依頼ではなく相続登記チームのタスク（識別情報通知の確認タスクの完了で作る）。" className="mb-2.5 pb-1.5 border-b border-gray-200"
-                  right={<ProgressChip caseId={caseId} scopeKey={`registration_${activeOffice || 'unset'}`} title={label} />} />
-                <ProcedureStepper nodes={st.nodes} parallel={st.parallel} parallelTone="red" />
-                {/* 操作バー：いまの段でやること＋次の依頼ボタンを1本だけ */}
-                <PracticeActionBar
-                  title={open.length > 0 ? `登記部門が対応中：${open.map(r => r.request_type).join('・')}`
-                    : bounced ? `${bounced.request_type}が修正ありで戻っています`
-                    : st.stage >= 7 ? '納品まで完了しました'
-                    : next ? next.label.replace(/を依頼$|依頼$/, '').replace(/^登記部門へ/, '') + 'の段です' : st.stage === 4 ? '申請の段です' : st.stage === 5 ? '完了・製本の段です' : st.stage === 6 ? '納品の段です' : '進めてください'}
-                  note={open.length > 0 ? '結果が返ると通知が届きます（修正あり／完了）'
-                    : bounced ? (bounced.result_comment ?? '')
-                    : st.stage >= 7 ? ''
-                    : next ? next.note
-                    : st.stage === 4 ? '相続の力で申請したら、下の物件に申請日・受付番号を入れてください。完了したら完了日を'
-                    : st.stage === 5 ? '登記識別情報通知が届いたら受信簿で受け、確認タスクの完了で「権利書の製本」を相続登記チームへ（チームのタスクタブに出ます）'
-                    : st.stage === 6 ? '製本した権利証をお客様へ納品したら、下の物件に納品日を' : ''}>
-                  {/* 依頼のボタンはここ1か所。次の段の依頼を主ボタンで。段に依頼が無いとき（申請中・製本・納品）は従ボタンで任意の依頼 */}
-                  {next && !open.length && <button type="button" onClick={() => openModal(next.type, bounced ?? undefined)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-white bg-brand-600 border border-brand-600 hover:bg-brand-700">{next.label}</button>}
-                  {!next && !open.length && st.stage < 7 && <button type="button" onClick={() => openModal()} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"><Plus className="w-3.5 h-3.5" />依頼を出す</button>}
-                </PracticeActionBar>
-              </div>
+              {sub === UNSET ? unsetNotice : (
+                <div className="bg-white p-3.5">
+                  {/* 工程図：今どこか＋根拠。手で選ぶ欄は無し */}
+                  <SectionHeading title={`${label}の進み具合`} hint={FLOW_HINT} className="mb-2.5 pb-1.5 border-b border-gray-200"
+                    right={<ProgressChip caseId={caseId} scopeKey={`registration_${activeOffice || 'unset'}`} title={label} />} />
+                  <ProcedureStepper nodes={st.nodes} parallel={st.parallel} parallelTone="red" />
+                  {/* 操作バー：今やることを1文で。依頼する段はボタン（選べるときは2つ）、日付を入れる段は文だけ */}
+                  <PracticeActionBar tone={guide.tone} kicker={guide.kicker} title={guide.title} note={guide.note || undefined}>
+                    {guide.actions.map(a => (
+                      <button key={a.label} type="button" onClick={() => openModal(a.type, a.parent)}
+                        className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-semibold border ${a.primary ? 'text-white bg-brand-600 border-brand-600 hover:bg-brand-700' : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'}`}>{a.label}</button>
+                    ))}
+                  </PracticeActionBar>
+                </div>
+              )}
 
               {/* 登記部門への依頼 */}
               <div className="bg-white p-3.5">
                 <SectionHeading title="登記部門への依頼" hint="依頼は 依頼中 → 対応中（登記部門の誰かが対応）→ 完了／修正あり。修正ありなら直して同じ種別で再依頼します。依頼中のまま1営業日で要確認、3営業日で要注意。" className="mb-2.5 pb-1.5 border-b border-gray-200"
-                  right={<button type="button" onClick={() => setShowDone(v => !v)} className="px-2.5 py-1 rounded-md text-[12px] font-semibold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50">{showDone ? '完了を隠す' : '完了も表示'}</button>} />
+                  right={<span className="flex items-center gap-1.5">
+                    <button type="button" onClick={() => setShowDone(v => !v)} className="px-2.5 py-1 rounded-md text-[12px] font-semibold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50">{showDone ? '完了を隠す' : '完了も表示'}</button>
+                    <button type="button" onClick={() => openModal()} title="操作バーの段に関係なく、任意の種別で依頼を出す" className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50"><Plus className="w-3.5 h-3.5" />別の依頼を出す</button>
+                  </span>} />
                 <ToukiRequestsTable rows={oReqs} mode="case" todayStr={todayStr} showDone={showDone} propertyLabel={propLabel}
                   onChanged={onRefreshRequests} onRerequest={r => openModal(r.request_type, r)} />
               </div>
@@ -260,7 +266,7 @@ export default function RegistrationSection({ caseId, properties, heirs = [], re
       {reqModal && (
         <ToukiRequestModal isOpen onClose={() => setReqModal(null)} caseId={caseId} properties={properties}
           defaultOffice={sub === 'top' || sub === UNSET ? (offices[0] ?? '') : activeOffice}
-          parent={reqModal.parent ?? null} onSaved={onRefreshRequests} />
+          defaultType={reqModal.type ?? null} parent={reqModal.parent ?? null} onSaved={onRefreshRequests} />
       )}
     </div>
   )

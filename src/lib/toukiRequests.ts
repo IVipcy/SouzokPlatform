@@ -61,7 +61,7 @@ const who = (r: ToukiRequestRow | undefined) => (r?.assignee?.name ? `（${r.ass
 const reqSub = (r: ToukiRequestRow | undefined, name: string) => {
   if (!r) return ''
   if (r.status === '完了') return `${name} 完了 ${md(r.responded_at)}`
-  if (r.status === '修正あり') return `${name} 修正あり ${md(r.responded_at)} → 再依頼へ`
+  if (r.status === '修正あり') return `${name} 修正あり ${md(r.responded_at)} → 直して再依頼`
   return `${name} ${r.status}${who(r)}`
 }
 
@@ -89,11 +89,11 @@ export function toukiStages(requests: ToukiRequestRow[], props: RealEstateProper
   const deliveredDone = n > 0 && delivered.length === n
 
   const nodes: ToukiStageNode[] = [
-    { label: '申請書作成', sub: make ? reqSub(make, '作成願い') : (makeDone ? '管理担当で作成' : '作成願い／管理担当で作成'), state: 'future' },
-    { label: 'チェック', sub: check ? reqSub(check, 'チェック願い') : 'チェック願い', state: 'future' },
-    { label: '署名・本人確認', sub: checkDone && !applyRequested ? '郵送→返送→本人確認' : (applyRequested ? '済' : '郵送→返送→本人確認'), state: 'future' },
-    { label: '申請', sub: appliedDone ? `申請日 ${md(applied[0].registration_apply_date)}` : apply ? reqSub(setCheck ?? apply, setCheck ? '申請セットチェック願い' : '申請願い') : `申請願い→申請日${n > 0 && applied.length > 0 ? `（${applied.length}/${n}）` : ''}`, state: 'future' },
-    { label: '完了・製本', sub: completedDone ? `完了 ${md(completed[0].registration_complete_date)}` : copy ? reqSub(copy, '謄本・製本願い') : `完了日${n > 0 && completed.length > 0 ? `（${completed.length}/${n}）` : ''}・識別情報通知→製本`, state: 'future' },
+    { label: '申請書作成', sub: make ? reqSub(make, '作成願い') : (makeDone ? '自分で作った' : '登記部門に作ってもらう／自分で作る'), state: 'future' },
+    { label: 'チェック', sub: check ? reqSub(check, 'チェック願い') : 'チェックを依頼', state: 'future' },
+    { label: '署名・本人確認', sub: applyRequested ? '済' : '郵送 → 返送 → 本人確認', state: 'future' },
+    { label: '申請', sub: appliedDone ? `申請日 ${md(applied[0].registration_apply_date)}` : apply ? reqSub(setCheck ?? apply, setCheck ? '申請セットチェック願い' : '申請願い') : `申請を依頼 → 申請日${n > 0 && applied.length > 0 ? `（${applied.length}/${n}）` : ''}`, state: 'future' },
+    { label: '完了・製本', sub: completedDone ? `完了 ${md(completed[0].registration_complete_date)}` : copy ? reqSub(copy, '謄本・製本願い') : `完了日${n > 0 && completed.length > 0 ? `（${completed.length}/${n}）` : ''} → 識別情報通知 → 製本`, state: 'future' },
     { label: '納品', sub: deliveredDone ? `納品 ${md(delivered[0].registration_delivery_date)}` : `納品日${n > 0 && delivered.length > 0 ? `（${delivered.length}/${n}）` : ''}`, state: 'future' },
   ]
   const doneFlags = [makeDone, checkDone, checkDone && applyRequested, appliedDone, completedDone, deliveredDone]
@@ -113,19 +113,70 @@ export function toukiStages(requests: ToukiRequestRow[], props: RealEstateProper
   return { stage, nodes, parallel }
 }
 
-/** 今の段で次に出す依頼（操作バーのボタン）。null＝依頼ではなく物件の日付を入れる段 */
-export function toukiNextRequest(stage: number, requests: ToukiRequestRow[]): { type: ToukiRequestType; label: string; note: string } | null {
-  const open = requests.filter(isOpenToukiRequest)
-  if (open.length > 0) return null   // 登記部門のボール
-  const bounced = requests.filter(r => r.status === '修正あり' && !requests.some(x => x.parent_id === r.id))
-  if (bounced.length > 0) return { type: bounced[0].request_type, label: '直して再依頼', note: `${bounced[0].request_type}が修正ありで戻っています。直したら同じ種別で再依頼してください` }
+/**
+ * 操作バーの案内（法務局ページ）。「今やること」を1文で言い、押すボタンを並べる。
+ *   wait … 登記部門のボールにある（ボタン無し）
+ *   ng   … 修正ありで戻っている（直して再依頼）
+ *   now  … 管理担当のボール。依頼する段はボタン、日付を入れる段は文だけ
+ *   ok   … 納品まで完了
+ */
+export type ToukiGuideAction = { type: ToukiRequestType; label: string; primary: boolean; parent?: ToukiRequestRow }
+export type ToukiGuide = { tone: 'now' | 'wait' | 'ng' | 'ok'; kicker: string; title: string; note: string; actions: ToukiGuideAction[] }
+
+const WORKING: Record<ToukiRequestType, string> = {
+  '作成願い': '申請書・委任状を作っています',
+  'チェック願い': '申請書・委任状をチェックしています',
+  '申請願い': '申請セットを作って申請しています',
+  '申請セットチェック願い': '申請セットをチェックしています',
+  '謄本・製本願い': '謄本の請求と製本をしています',
+}
+const REDO_LABEL: Record<ToukiRequestType, string> = {
+  '作成願い': '直したので再度 作成を依頼',
+  'チェック願い': '直したので再度チェックを依頼',
+  '申請願い': '直したので再度 申請を依頼',
+  '申請セットチェック願い': '直したので再度チェックを依頼',
+  '謄本・製本願い': '直したので再依頼',
+}
+const NOW = '今やること'
+
+export function toukiGuide(stage: number, requests: ToukiRequestRow[], todayStr: string): ToukiGuide {
+  const byNewest = (a: ToukiRequestRow, b: ToukiRequestRow) => b.requested_at.localeCompare(a.requested_at)
+  const open = requests.filter(isOpenToukiRequest).sort(byNewest)
+  if (open.length > 0) {
+    const r = open[0]
+    const days = toukiOverdueDays(r, todayStr)
+    const whoTxt = r.status === '対応中' && r.assignee?.name ? `担当 ${r.assignee.name}` : 'まだ担当が付いていません'
+    return { tone: 'wait', kicker: '待ち', title: `登記部門が${WORKING[r.request_type]}（${whoTxt}・依頼から${days}営業日）`, note: 'できあがると通知が届きます。急ぐときは登記部門に声をかけてください', actions: [] }
+  }
+  const bounced = requests.filter(r => r.status === '修正あり' && !requests.some(x => x.parent_id === r.id)).sort(byNewest)[0]
+  if (bounced) {
+    const by = [bounced.responder?.name, md(bounced.responded_at)].filter(Boolean).join(' ')
+    return {
+      tone: 'ng', kicker: '直す',
+      title: `登記部門から「修正あり」で戻っています（${bounced.request_type}）`,
+      note: [bounced.result_comment, by ? `— ${by}` : ''].filter(Boolean).join(' '),
+      actions: [{ type: bounced.request_type, label: REDO_LABEL[bounced.request_type], primary: true, parent: bounced }],
+    }
+  }
   switch (stage) {
-    case 1: return { type: '作成願い', label: '登記部門へ作成を依頼', note: '申請書・委任状を登記部門に作ってもらう。自分で作るなら次のチェック願いへ' }
-    case 2: return { type: 'チェック願い', label: 'チェックを依頼', note: '相続の力に保存した申請書・委任状のチェックを頼む' }
-    case 3: return { type: '申請願い', label: '申請を依頼', note: 'お客様へ郵送→返送→本人確認が済んだら、申請セットの作成と申請を頼む' }
-    case 4: return null
-    case 5: return null   // 製本は依頼ではなくタスク（識別情報通知の確認タスクの完了で「権利書の製本」を相続登記チームへ）
-    default: return null
+    case 1: return {
+      tone: 'now', kicker: NOW, title: '申請書・委任状をどう用意するか決めてください',
+      note: '申請書は相続の力で作ります。登記部門に作ってもらうか、自分で作ってチェックだけ頼むかを選びます',
+      actions: [{ type: '作成願い', label: '登記部門に作ってもらう', primary: true }, { type: 'チェック願い', label: '自分で作った → チェックを依頼', primary: false }],
+    }
+    case 2: return {
+      tone: 'now', kicker: NOW, title: '相続の力に保存した申請書・委任状のチェックを、登記部門に頼んでください', note: '',
+      actions: [{ type: 'チェック願い', label: 'チェックを依頼', primary: true }],
+    }
+    case 3: return {
+      tone: 'now', kicker: NOW, title: 'お客様へ申請書・委任状を郵送し、返送を受け取り、本人確認をしてください',
+      note: '済んだら、申請セットの作成と申請を登記部門に頼みます',
+      actions: [{ type: '申請願い', label: '本人確認まで済んだ → 申請を依頼', primary: true }],
+    }
+    case 4: return { tone: 'now', kicker: NOW, title: '下の物件の表に、申請日と受付番号を入れてください', note: '物件が複数なら全部に入れると次の段へ。登記が完了したら完了日を', actions: [] }
+    case 5: return { tone: 'now', kicker: NOW, title: '登記が完了したら、下の物件の表に完了日を入れてください', note: '識別情報通知が届いたら受信簿で受け、確認タスクの完了で「権利書の製本」を相続登記チームへ', actions: [] }
+    case 6: return { tone: 'now', kicker: NOW, title: '権利証をお客様に納品したら、下の物件の表に納品日を入れてください', note: '', actions: [] }
+    default: return { tone: 'ok', kicker: '完了', title: '納品まで完了しています', note: '', actions: [] }
   }
 }
 
@@ -152,11 +203,11 @@ export async function notifyToukiRequester(supabase: SupabaseClient, r: ToukiReq
   const cc = c as { case_number: string | null; deal_name: string | null } | null
   const label = `${cc?.case_number ?? ''} ${cc?.deal_name ?? ''}`.trim()
   const next = result === '完了'
-    ? (r.request_type === '作成願い' ? '次はチェック願いを出してください。'
-      : r.request_type === 'チェック願い' ? '次はお客様へ郵送→返送→本人確認。済んだら申請願いを出してください。'
+    ? (r.request_type === '作成願い' ? '次は相続登記タブで「チェックを依頼」を押してください。'
+      : r.request_type === 'チェック願い' ? '次はお客様へ郵送→返送→本人確認。済んだら相続登記タブで「申請を依頼」を押してください。'
       : r.request_type === '申請願い' || r.request_type === '申請セットチェック願い' ? '申請日・受付番号を相続登記タブの物件に入れてください。登記識別情報通知が届いたら受信簿で受け、確認タスクの完了で「権利書の製本」を相続登記チームへ。'
       : '納品したら納品日を相続登記タブの物件に入れてください。')
-    : result === '修正あり' ? '直して同じ種別で再依頼してください。' : ''
+    : result === '修正あり' ? '直したら相続登記タブの「直したので再度…を依頼」を押してください。' : ''
   await supabase.from('notifications').insert({
     member_id: r.requester_id, type: 'touki_request_result', case_id: r.case_id,
     title: `登記依頼 ${result}：${r.request_type}（${r.office || '法務局未設定'}）`,

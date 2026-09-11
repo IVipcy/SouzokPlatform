@@ -91,10 +91,33 @@ export function PracticeFoldGroup({ no, title, autoOpen, closedNote = '開く', 
 }
 
 /** 操作バー。「ここまでで請求できます」と、この請求への操作を1か所に集める（戸籍・不動産・金融で同じ型） */
-export function PracticeActionBar({ title, note, children }: { title: ReactNode; note?: ReactNode; children?: ReactNode }) {
+export function PracticeActionBar({ title, note, kicker, tone = 'brand', children }: {
+  title: ReactNode
+  note?: ReactNode
+  /** 左端の小さな札（「今やること」「待ち」など）。あると見出しと注記を2段に重ねる */
+  kicker?: string
+  /** brand=これまでどおり。now=青（自分の番）／wait=白（相手の番）／ng=赤（直す）／ok=緑（完了） */
+  tone?: 'brand' | 'now' | 'wait' | 'ng' | 'ok'
+  children?: ReactNode
+}) {
+  const box = { brand: 'bg-slate-50 border-slate-200', now: 'bg-brand-50 border-brand-200', wait: 'bg-white border-slate-200', ng: 'bg-red-50 border-red-200', ok: 'bg-emerald-50 border-emerald-200' }[tone]
+  const pill = { brand: 'text-brand-700 bg-brand-100', now: 'text-brand-700 bg-brand-100', wait: 'text-gray-600 bg-gray-100', ng: 'text-red-700 bg-red-100', ok: 'text-emerald-700 bg-emerald-100' }[tone]
+  const titleCls = tone === 'brand' ? 'text-brand-700' : 'text-gray-800'
+  if (kicker) {
+    return (
+      <div className={`mt-2.5 flex items-center gap-3 px-3 py-2 border ${box}`}>
+        <span className={`flex-none px-2 py-0.5 rounded-full text-[11px] font-bold ${pill}`}>{kicker}</span>
+        <span className="flex-1 min-w-0 leading-snug">
+          <span className={`block text-[13px] font-bold ${titleCls}`}>{title}</span>
+          {note && <span className="block mt-0.5 text-[12px] text-gray-500">{note}</span>}
+        </span>
+        {children && <span className="flex-none flex items-center gap-2">{children}</span>}
+      </div>
+    )
+  }
   return (
-    <div className="mt-2.5 flex items-center gap-2 flex-wrap px-3 py-2 bg-slate-50 border border-slate-200">
-      <span className="text-[13px] font-bold text-brand-700">{title}</span>
+    <div className={`mt-2.5 flex items-center gap-2 flex-wrap px-3 py-2 border ${box}`}>
+      <span className={`text-[13px] font-bold ${titleCls}`}>{title}</span>
       {note && <span className="text-[12px] text-gray-500">{note}</span>}
       {children && <span className="ml-auto flex items-center gap-2">{children}</span>}
     </div>
