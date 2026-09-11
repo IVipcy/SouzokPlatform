@@ -526,6 +526,12 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     }
     return open.filter(t => t.task_kind === 'case' && getStartSignal(t, rr).ready).length
   })()
+  // タブの数字に乗せたときの説明。数字だけだと「事務管理タスク 27」の総数と混ざるため
+  const tabTaskCountTitle = isSalesViewer
+    ? `いま手をつけられるタスク ${tabTaskCount}件（その他タスクの未完了）`
+    : isManagerViewer
+      ? `いま手をつけられるタスク ${tabTaskCount}件（業務タスクの着手OK＋その他タスクの未完了）`
+      : `いま着手できるタスク ${tabTaskCount}件（事務管理タスクの着手OK）`
 
   // 隠している管理担当タブの数（トグルの表示判定・件数表示に使う）
   const hiddenManagerTabCount = isAssistantViewer
@@ -654,6 +660,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           activeTab={effectiveTab}
           onTabChange={setActiveTab}
           taskCount={tabTaskCount}
+          taskCountTitle={tabTaskCountTitle}
           visibleTabs={tabVis.visible}
           collapsedTabs={tabVis.collapsed}
           highlightTabs={navHighlightTabs}

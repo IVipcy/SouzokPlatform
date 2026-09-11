@@ -16,6 +16,8 @@ type Props = {
   activeTab: TabKey
   onTabChange: (tab: TabKey) => void
   taskCount: number
+  /** タスクタブの数字に乗せたときの説明（何を数えているか。見る人の役割で変わる） */
+  taskCountTitle?: string
   visibleTabs?: TabKey[]
   collapsedTabs?: TabKey[]
   highlightTabs?: TabKey[]
@@ -110,11 +112,12 @@ const DEFAULT_TABS: TabKey[] = [
   'assignees', 'ownerSales', 'contract', 'meeting', 'contractProc',
 ]
 
-export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTabs, highlightTabs, labelOverrides, groupInfoTabs = true, flatOrder = false }: Props) {
+export default function CaseTabs({ activeTab, onTabChange, taskCount, taskCountTitle, visibleTabs, highlightTabs, labelOverrides, groupInfoTabs = true, flatOrder = false }: Props) {
   const labelOf = (k: TabKey) => labelOverrides?.[k] ?? TAB_LABELS[k]
   const all = visibleTabs ?? DEFAULT_TABS
   const highlightSet = new Set(highlightTabs ?? [])
   const counts: Record<string, number> = { taskCount }
+  const countTitles: Record<string, string | undefined> = { taskCount: taskCountTitle }
 
   // 案件管理＋面談情報は親「案件基本情報」ドロップダウンに束ねる（2つ未満なら通常タブ）。
   const basicInfoTabs = all.filter(t => BASIC_INFO_TABS.includes(t))
@@ -138,6 +141,7 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
             isActive={activeTab === key}
             isHighlight={highlightSet.has(key)}
             count={COUNT_KEY[key] ? counts[COUNT_KEY[key]!] : undefined}
+            countTitle={COUNT_KEY[key] ? countTitles[COUNT_KEY[key]!] : undefined}
             onClick={() => onTabChange(key)} />
         ))}
         {renderBasicInfo()}
@@ -164,6 +168,7 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
           isActive={activeTab === key}
           isHighlight={highlightSet.has(key)}
           count={COUNT_KEY[key] ? counts[COUNT_KEY[key]!] : undefined}
+          countTitle={COUNT_KEY[key] ? countTitles[COUNT_KEY[key]!] : undefined}
           onClick={() => onTabChange(key)} />
       ))}
       {groupInfoTabs ? (
@@ -202,13 +207,15 @@ export default function CaseTabs({ activeTab, onTabChange, taskCount, visibleTab
 //   アクティブ = 青文字＋青の下線
 //   ナビ強調   = ● を付ける（data-nav-tab で案内線と連動）
 //   orderSheet = 金の★（大事なタブ・選択状態に関わらず★は金）／will = 筆
-function Tab({ tabKey, isActive, isHighlight, isMuted, count, label, onClick }: {
+function Tab({ tabKey, isActive, isHighlight, isMuted, count, countTitle, label, onClick }: {
   tabKey: TabKey
   isActive: boolean
   isHighlight: boolean
   /** 完了タブを展開表示中の見た目（灰色＋✓） */
   isMuted?: boolean
   count?: number
+  /** 数字に乗せたときの説明 */
+  countTitle?: string
   /** 表示名の差し替え（受注前は「オーダーシート」を「面談シート」として出す等） */
   label?: string
   onClick: () => void
@@ -235,7 +242,7 @@ function Tab({ tabKey, isActive, isHighlight, isMuted, count, label, onClick }: 
         : <Icon className="w-[17px] h-[17px]" strokeWidth={isActive ? 2.25 : 1.9} />}
       <span className={isStar && !isActive ? 'font-medium text-gray-800' : undefined}>{label ?? TAB_LABELS[tabKey]}</span>
       {count !== undefined && (
-        <span className={`text-[10.5px] font-mono px-1.5 py-0.5 rounded ${isActive ? 'bg-brand-50 text-brand-600' : 'bg-gray-100 text-gray-400'}`}>{count}</span>
+        <span title={countTitle} className={`text-[10.5px] font-mono px-1.5 py-0.5 rounded ${countTitle ? 'cursor-help' : ''} ${isActive ? 'bg-brand-50 text-brand-600' : 'bg-gray-100 text-gray-400'}`}>{count}</span>
       )}
       {isMuted && <Check className="w-3 h-3 text-emerald-500" strokeWidth={2.5} />}
       {isHighlight && <span className="font-bold text-[10px] leading-none text-brand-600">●</span>}
