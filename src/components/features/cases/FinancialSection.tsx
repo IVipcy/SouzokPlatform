@@ -20,6 +20,7 @@ import { showToast } from '@/components/ui/Toast'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { LeftRail } from './LeftRail'
 import { PracticeRow } from './PracticeCard'
+import StepperBar, { type StepperNode } from './ProcedureStepper'
 import { SubTabs } from '@/components/ui/SubTabs'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import { ProgressChip } from './TabContextPanel'
@@ -993,6 +994,28 @@ function JasdecPage({ inst: i, ev, rows, institutions, caseId, scopePrefix, toda
   const notNeeded = i.jasdec_company_known === '調査不要'
   const grid4 = 'grid grid-cols-[minmax(0,1fr)] sm:grid-cols-[9.5rem_minmax(0,1fr)_9.5rem_minmax(0,1fr)]'
   const linked = rows.filter(r => !!r.institution_id).length
+  // 工程図：要否 → 照会 → 到着・開示結果 → 調査先に追加。入っている値から今どこか
+  const stepper = (() => {
+    const decided = !!i.jasdec_company_known
+    const requested = !!i.jasdec_request_date
+    const arrived = !!i.jasdec_arrival_date && rows.length > 0
+    const added = rows.length > 0 && linked === rows.length
+    const nodes: StepperNode[] = notNeeded
+      ? [{ label: '要否', sub: '不要（保有先が判明）', state: 'done' }, { label: '照会', sub: '—', state: 'done' }, { label: '到着・開示結果', sub: '—', state: 'done' }, { label: '調査先に追加', sub: '—', state: 'done' }]
+      : [
+        { label: '要否', sub: decided ? '照会する' : '要否を決める', state: 'future' },
+        { label: '照会', sub: requested ? `請求日 ${md(i.jasdec_request_date)}` : '開示請求日を入れる', state: 'future' },
+        { label: '到着・開示結果', sub: i.jasdec_arrival_date ? `到着 ${md(i.jasdec_arrival_date)}${rows.length > 0 ? `・${rows.length}機関` : '・機関を登録'}` : '結果の到着待ち', state: 'future' },
+        { label: '調査先に追加', sub: rows.length > 0 ? `${linked}／${rows.length}` : '判明した機関を左レールへ', state: 'future' },
+      ]
+    if (!notNeeded) {
+      const flags = [decided, requested, arrived, added]
+      let stage = flags.findIndex(f => !f) + 1
+      if (stage === 0) stage = 5
+      nodes.forEach((n, k) => { n.state = k + 1 < stage ? 'done' : k + 1 === stage ? 'now' : 'future' })
+    }
+    return nodes
+  })()
   return (
     <div className="space-y-3.5">
       <div className="bg-white">
@@ -1003,6 +1026,7 @@ function JasdecPage({ inst: i, ev, rows, institutions, caseId, scopePrefix, toda
             <span className="ml-2 truncate">次の対応<span className="ml-2 text-[14px] font-semibold text-gray-800">{ev.next}</span></span>
           </div>
         </div>
+        <div className="px-3.5 pt-3 border-b border-gray-100"><StepperBar nodes={stepper} /></div>
         <div className="p-3.5 space-y-1">
           <PhaseHeading no={1} title="ほふり照会" sub="どこに株があるか分からないときの入口。保有先が判明していれば「不要」" />
           <div className={grid4}>

@@ -20,6 +20,7 @@ import { shareText } from '@/lib/constants'
 import RealEstateTable from './RealEstateTable'
 import RealEstateAcquisitionsTable from './RealEstateAcquisitionsTable'
 import FixedAssetRequestDocumentModal from './FixedAssetRequestDocumentModal'
+import ProcedureStepper, { type StepperNode } from './ProcedureStepper'
 import type { RealEstatePropertyRow, RealEstateAcquisitionRow, TaskRow, ContractDocumentRow, CaseRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 
@@ -275,6 +276,53 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
   const lastMuni = municipalityOf({ municipality: null, address: lastAddress })
   const suggestLastMuni = !!lastMuni && !munis.includes(lastMuni)
 
+  // 市区町村ページの工程図（丸と線）。預金と同じ見た目。入っている値から今どこかを決める。
+  //   役所へ請求 → 到着・読込 → 物件を確定 → 法務局へ請求 → 到着・読込 → 評価額 確定
+  const muniStepper = (muniKey: string) => {
+    const mdd = (d: string | null | undefined) => (d ? d.slice(5, 10).replace('-', '/') : '')
+    const props = properties.filter(p => municipalityOf(p) === muniKey)
+    const propIds = new Set(props.map(p => p.id))
+    const itemsOf = (a: RealEstateAcquisitionRow) => (a.item_types && a.item_types.length > 0 ? a.item_types : a.item_type ? [a.item_type] : [])
+    const scopeOf = (a: RealEstateAcquisitionRow): 'municipality' | 'property' | null => {
+      if (a.scope) return a.scope
+      const meta = ACQUISITION_ITEMS.find(i => i.key === a.item_type)
+      return meta ? (meta.target === '物件' ? 'property' : 'municipality') : null
+    }
+    const mine = acquisitions.filter(a => (a.target_municipality ?? '').trim() === muniKey || (a.target_property_id != null && propIds.has(a.target_property_id)))
+    const muniRows = mine.filter(a => scopeOf(a) === 'municipality')
+    const propRows = mine.filter(a => scopeOf(a) === 'property' && !itemsOf(a).every(x => ACQUISITION_ITEMS.find(i => i.key === x)?.method === '参照'))
+    const own = (a: RealEstateAcquisitionRow) => (a.acquirer ?? '自社') !== '依頼者' && (a.acquirer ?? '') !== '依頼者取得'
+    const muniReq = muniRows.filter(own).filter(a => !!a.request_date)
+    const muniArr = muniRows.filter(a => !!a.arrival_date)
+    const muniRead = muniRows.filter(a => !!a.read_status)
+    const propReq = propRows.filter(own).filter(a => !!a.request_date)
+    const propArr = propRows.filter(a => !!a.arrival_date)
+    const propRead = propRows.filter(a => !!a.read_status)
+    const valued = props.filter(p => p.appraisal_value != null)
+    const d1 = muniReq.length > 0 || muniRows.some(a => !own(a) && !!a.arrival_date)
+    const d2 = muniRows.length > 0 && muniRead.length === muniRows.length
+    const d3 = d2 && props.length > 0
+    const d4 = propReq.length > 0 || propRows.some(a => !own(a) && !!a.arrival_date)
+    const d5 = propRows.length > 0 && propRead.length === propRows.length
+    const d6 = props.length > 0 && valued.length === props.length
+    const nodes: StepperNode[] = [
+      { label: '役所へ請求', sub: muniReq.length > 0 ? `${[...new Set(muniReq.flatMap(itemsOf))].join('・') || '名寄帳・評価証明'} ${mdd(muniReq[0].request_date)}` : '名寄帳・評価証明', state: 'future' },
+      { label: '到着・読込', sub: muniArr.length > 0 ? `到着 ${mdd(muniArr[0].arrival_date)}${d2 ? '・読込済' : `・読込 ${muniRead.length}/${muniRows.length}`}` : '到着待ち', state: 'future' },
+      { label: '物件を確定', sub: props.length > 0 ? `判明した物件 ${props.length}件` : 'Step4 の判明した物件に登録', state: 'future' },
+      { label: '法務局へ請求', sub: propReq.length > 0 ? `${[...new Set(propReq.flatMap(itemsOf))].join('・')} ${mdd(propReq[0].request_date)}` : '登記情報・公図など', state: 'future' },
+      { label: '到着・読込', sub: propArr.length > 0 ? `到着 ${mdd(propArr[0].arrival_date)}${d5 ? '・読込済' : `・読込 ${propRead.length}/${propRows.length}`}` : propRows.length > 0 ? '到着待ち' : '', state: 'future' },
+      { label: '評価額 確定', sub: props.length > 0 ? `${valued.length}/${props.length}件` : '', state: 'future' },
+    ]
+    const flags = [d1, d2, d3, d4, d5, d6]
+    let stage = flags.findIndex(f => !f) + 1
+    if (stage === 0) stage = 7
+    nodes.forEach((n, i) => { n.state = i + 1 < stage ? 'done' : i + 1 === stage ? 'now' : 'future' })
+    const short = mine.filter(a => a.read_status === '一部不足')
+    if (short.length > 0) { const idx = scopeOf(short[0]) === 'property' ? 4 : 1; nodes[idx].state = 'warn' }
+    const parallel = short.length > 0 ? `一部不足 ${short.length}件（${[...new Set(short.flatMap(itemsOf))].join('・')}）→ 追加請求へ` : null
+    return { nodes, parallel }
+  }
+
   // グループ一括削除：その市区町村の物件と、それに紐づく取得資料をまとめて削除
   const deleteMunicipality = async (key: string) => {
     const muniKey = key === '__unset__' ? '' : key
@@ -431,11 +479,16 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
             {/* 請求（1タブ＝1請求）。戸籍の対象者ページと同じ並び＝進捗/結果 → 請求のカード → 読んで分かったもの（物件）。
                 役所への請求（名寄帳・評価証明）と法務局への請求（登記情報など）は請求先が違うだけなので、タブは1本で並び順で分ける。
                 管轄法務局は法務局カードの「請求先」に入る（以前は表の上に別の入力行があった）。 */}
+            {/* 工程図：今どこか（役所→到着→物件→法務局→到着→評価額）。入っている値から自動判定 */}
+            <div className="bg-white p-3.5">
+              <SectionHeading title={`${t.label}の進み具合`} hint="段は 役所へ請求（名寄帳・評価証明）→ 到着・読込 → 物件を確定 → 法務局へ請求（登記情報・公図など）→ 到着・読込 → 評価額 確定。今どこかは、請求日・到着日・読込結果・判明した物件・評価額から自動で決めます。" className="mb-2.5 pb-1.5 border-b border-gray-200"
+                right={<ProgressChip caseId={caseId} scopeKey={`asset_re_${muniKey || 'unset'}`} title={t.label} />} />
+              {(() => { const st = muniStepper(muniKey); return <ProcedureStepper nodes={st.nodes} parallel={st.parallel} parallelTone="red" /> })()}
+            </div>
             <div ref={isFocusCard('muni') ? focusCardRef : undefined} className={`bg-white p-3.5${flashCls('muni')}`}>
               <SectionHeading title={`${t.label}の請求（1タブ=1請求）`}
                 hint={`上のタブが1回の請求です。進め方は ①役所へ請求（名寄帳・評価証明）→ ②届いたら Step4 読込結果の「判明した物件」に物件を登録（家屋番号・近傍宅地価格の要否もここ）→ ③必要なら評価証明を取り直す（役所へ）／法務局へ請求（登記情報・公図など。ホームページから申請）→ ④評価額を確定 の順。同じ宛先へまとめて頼んだ資料は1つのタブに入ります。役所への申請書はカードの「この内容で申請書を作る」から出せます。`}
-                className="mb-2.5 pb-1.5 border-b border-gray-200"
-                right={<ProgressChip caseId={caseId} scopeKey={`asset_re_${muniKey || 'unset'}`} title={t.label} />} />
+                className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <RealEstateAcquisitionsTable layout="cards" caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="all" municipalityFilter={muniKey} additionsNeedApproval={additionsNeedApproval} onAdditionalPending={() => notifyManagersAdditional('不動産の追加請求の承認依頼', `${muniKey}で取得資料が追加されました。承認するとタスクを生成します。`)} onAfterAddRow={() => promptIfMissing(muniKey, 'muni')}
                 onMakeDoc={caseData ? r => setDocAcq(r) : undefined}
                 houmuOffice={houmuOfMuni(muniKey)}

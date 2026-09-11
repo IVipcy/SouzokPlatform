@@ -7,6 +7,7 @@ import { caseReportSeverity } from '@/lib/caseReports'
 import { PREPAY_THANKS_TITLE, prepayThanksSeverity } from '@/lib/prepayThanks'
 import { overdueSeverity, bizDaysOverdue } from '@/lib/overdue'
 import { CONTRACT_PENDING_STATUSES, PROGRESS_REPORT_STATE_URGENT } from '@/lib/constants'
+import { toukiSeverity, toukiOverdueDays } from '@/lib/toukiRequests'
 
 function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -187,6 +188,35 @@ export async function GET() {
       body: urgent ? '至急の案件報告が届いています' : days != null && sev === 'mid' ? `案件報告が届いてから${days}営業日たっています` : '案件報告が届いています',
       href: '/my?tab=reviews',
     })
+  }
+
+  // 登記依頼（管理担当 → 相続登記チーム）が止まっている：依頼中のまま1営業日で要確認・3営業日で要注意。
+  //   依頼者（管理担当）には「返ってこない」、相続登記チームのメンバーには「未対応」として出す。
+  {
+    const [{ data: meRow }, { data: toukiRaw }] = await Promise.all([
+      supabase.from('members').select('is_touki_team').eq('id', memberId).maybeSingle(),
+      supabase.from('touki_requests').select('id, case_id, request_type, office, status, requested_at, requester_id, assignee_id, cases(case_number, deal_name)').in('status', ['依頼中', '対応中']),
+    ])
+    const isToukiTeam = !!(meRow as { is_touki_team?: boolean } | null)?.is_touki_team
+    type TR = { id: string; case_id: string; request_type: string; office: string | null; status: '依頼中' | '対応中'; requested_at: string; requester_id: string | null; assignee_id: string | null; cases: { case_number: string; deal_name: string } | null }
+    for (const r of ((toukiRaw ?? []) as unknown as TR[])) {
+      const sev = toukiSeverity(r, todayStr)
+      if (!sev) continue
+      const severity = sev === 'chui' ? 'high' : 'mid'
+      const days = toukiOverdueDays(r, todayStr)
+      const name = r.cases ? `${r.cases.case_number} ${r.cases.deal_name}` : '登記依頼'
+      const what = `${r.request_type}（${r.office || '法務局未設定'}）`
+      if (r.requester_id === memberId) {
+        push({ id: `touki-req-${r.id}`, severity, category: '登記依頼 返答待ち', title: name,
+          body: `${what}を出してから${days}営業日たっています（${r.status}）。相続登記チームに声をかけてください`,
+          href: `/cases/${r.case_id}?tab=registration${r.office ? `&focus=${encodeURIComponent(r.office)}` : ''}` })
+      }
+      if (isToukiTeam && (r.status === '依頼中' || r.assignee_id === memberId)) {
+        push({ id: `touki-team-${r.id}`, severity, category: r.status === '依頼中' ? '登記依頼 未対応' : '登記依頼 対応中のまま', title: name,
+          body: `${what}が届いてから${days}営業日たっています。ダッシュボードの「依頼」タブで対応してください`,
+          href: '/dashboard/touki-team' })
+      }
+    }
   }
 
   alerts.sort((a, b) => ALERT_SEVERITY_ORDER[a.severity] - ALERT_SEVERITY_ORDER[b.severity])

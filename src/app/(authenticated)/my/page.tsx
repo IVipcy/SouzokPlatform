@@ -25,7 +25,7 @@ import ProgressKpis from '@/components/features/dashboard/ProgressKpis'
 import CaseReportInbox from '@/components/features/my/CaseReportInbox'
 import MyToukiRequestsTab from '@/components/features/my/MyToukiRequestsTab'
 import { TOUKI_REQUEST_SELECT } from '@/lib/toukiRequests'
-import { isOpenToukiRequest } from '@/lib/toukiRequests'
+import { isOpenToukiRequest, toukiSeverity, toukiOverdueDays } from '@/lib/toukiRequests'
 import {
   computeSalesMetrics,
   computeSalesMetricsForDay,
@@ -673,7 +673,27 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
     todayStr,
   )
 
+  // 登記依頼が止まっている（自分が出したもの）→ 要確認／要注意バナー
+  const toukiBannerAlerts = await (async () => {
+    if (!isManager) return []
+    const { data } = await supabase.from('touki_requests').select('id, case_id, request_type, office, status, requested_at, cases(case_number, deal_name)')
+      .eq('requester_id', memberId).in('status', ['依頼中', '対応中'])
+    type TR = { id: string; case_id: string; request_type: string; office: string | null; status: '依頼中' | '対応中'; requested_at: string; cases: { case_number: string; deal_name: string } | null }
+    return ((data ?? []) as unknown as TR[]).flatMap(r => {
+      const sev = toukiSeverity(r, todayStr)
+      if (!sev) return []
+      return [{
+        caseId: r.case_id, caseNumber: r.cases?.case_number ?? '', dealName: r.cases?.deal_name ?? '',
+        category: '登記依頼 返答待ち', severity: sev,
+        since: r.requested_at.slice(0, 10), days: toukiOverdueDays(r, todayStr),
+        reason: `${r.request_type}（${r.office || '法務局未設定'}）を出してから返ってきていません（${r.status}）`,
+        href: `/cases/${r.case_id}?tab=registration${r.office ? `&focus=${encodeURIComponent(r.office)}` : ''}`,
+      }]
+    })
+  })()
+
   const bannerCaseAlerts = [
+    ...toukiBannerAlerts,
     // 案件アラート。案件の色（進捗管理ボードのフラグ）とまったく同じ判定・同じ材料を使う。
     // 判定は alertRules.ts、材料の取得は caseAlertContext.ts。ここで別に組み立てない。
     ...myCases.flatMap(c => (caseAlertHits.get(c.id) ?? []).flatMap(h => {

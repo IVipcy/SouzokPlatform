@@ -42,6 +42,7 @@ import AnnotatedImage from './AnnotatedImage'
 import KosekiImageViewer, { type ViewerImage } from './KosekiImageViewer'
 import KosekiImageFloat from './KosekiImageFloat'
 import { siblingRequestsOf } from '@/lib/kosekiSiblings'
+import ProcedureStepper, { type StepperNode } from './ProcedureStepper'
 import { RequestTabStrip } from './RequestTabStrip'
 import ImageAnnotator from './ImageAnnotator'
 import { useKosekiImages } from '@/lib/useKosekiImages'
@@ -1010,8 +1011,37 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
   const mistaken = isMistakenRequest(r.request_kind)  // 誤請求＝自社の経費
   const muted = <span className="text-[12px] text-gray-400">—</span>
 
+  // 工程図（丸と線）。預金の手続きタブと同じ見た目。今どこかは入っている値から決める（手で選ぶ欄は無い）。
+  //   請求準備 → 請求 → 到着 → 読込 →（被相続人・依頼者だけ）関係戸籍
+  const stepper = (() => {
+    const mdd = (d: string | null | undefined) => (d ? d.slice(5, 10).replace('-', '/') : '')
+    const dest = (r.request_to ?? '').trim()
+    const types = (r.doc_types ?? '').split('・').map(v => v.trim()).filter(Boolean).join('・')
+    const prepared = !!dest && !!types
+    const requested = isClient ? !!r.arrival_date : !!r.request_date
+    const arrived = !!r.arrival_date
+    const read = !!r.read_status
+    const relTarget = isDeceasedTarget || isClientTarget
+    const rel = !!r.relation_koseki_done
+    const nodes: StepperNode[] = [
+      { label: '請求準備', sub: prepared ? `${dest}・${types}` : '請求先・種別を入れる', state: 'future' },
+      { label: '請求', sub: isClient ? '依頼者が取得' : r.request_date ? `請求日 ${mdd(r.request_date)}${r.request_check_at ? '・発送✓' : r.request_check_requested_at ? '・発送チェック待ち' : ''}` : '請求書を出して請求日を', state: 'future' },
+      { label: '到着', sub: arrived ? `到着 ${mdd(r.arrival_date)}${r.receipt_check_at ? '・到着✓' : r.receipt_check_requested_at ? '・到着チェック待ち' : ''}` : '受信簿で受ける', state: 'future' },
+      { label: '読込', sub: read ? (r.read_status ?? '') : '取得の結果・内容を入れる', state: 'future' },
+      ...(relTarget ? [{ label: '関係戸籍', sub: rel ? '揃った' : '被相続人とのつながりが最後まで', state: 'future' as const }] : []),
+    ]
+    const flags = [prepared, requested, arrived, read, ...(relTarget ? [rel] : [])]
+    let stage = flags.findIndex(f => !f) + 1
+    if (stage === 0) stage = nodes.length + 1
+    nodes.forEach((n, i) => { n.state = i + 1 < stage ? 'done' : i + 1 === stage ? 'now' : 'future' })
+    if (r.read_status === '一部不足') { nodes[3].state = 'warn'; nodes[3].sub = '一部不足 → 追加請求へ' }
+    const parallel = siblings.length > 0 ? `同じ${dest}の未請求 ${siblings.length}件（${siblings.map(x => (x.target_person ?? '').trim() || '対象者未設定').join('・')}）` : null
+    return { nodes, parallel }
+  })()
+
   return (
     <div className={`space-y-2.5 ${mistaken ? 'ring-1 ring-red-200 rounded-lg p-2 bg-red-50/30' : ''}`}>
+      <ProcedureStepper nodes={stepper.nodes} parallel={stepper.parallel} parallelTone="amber" />
       <KosekiGroup no="Step1" title="誰が・何のために">
         <KosekiFieldRow label="取得区分">
           <SelCell value={r.acquirer} options={ACQUIRERS} onChange={v => saveField(r.id, 'acquirer', v)} />
