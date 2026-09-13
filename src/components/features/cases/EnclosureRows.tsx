@@ -17,7 +17,7 @@ import { matchStockForRequired, requiredEnclosuresFor, type RequiredEnclosure, t
 import type { RequestEnclosureRow } from '@/types'
 
 const digits = (s: string) => s.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[^0-9]/g, '')
-const qtyCls = 'input-flat w-14 px-2 py-1 text-[14px] text-right text-gray-800 outline-none disabled:text-gray-300 disabled:cursor-not-allowed'
+const qtyCls = 'input-flat w-12 px-2 py-0.5 text-[14px] text-right text-gray-800 outline-none disabled:text-gray-300 disabled:cursor-not-allowed'
 
 export default function EnclosureRows({ caseId, refKind, refId, refLabel, stock, enclosures, onChanged, disabled = false, deceasedName = null, shokumujo = false }: {
   caseId: string
@@ -124,63 +124,57 @@ export default function EnclosureRows({ caseId, refKind, refId, refLabel, stock,
 
   return (
     <div className="w-full">
-      <table className="border-collapse text-[13px]" style={{ minWidth: 560 }}>
-        <thead>
-          <tr className="text-[12px] text-gray-500">
-            <th className="text-left font-medium pb-1 pr-3">資料</th>
-            <th className="text-right font-medium pb-1 pr-3 w-16">手元</th>
-            <th className="text-left font-medium pb-1 pr-3 w-28">今回入れる数</th>
-            <th className="text-left font-medium pb-1" />
-          </tr>
-        </thead>
-        <tbody>
-          {items.map(item => {
-            const rows = rowsFor(item)
-            const cur = mine.filter(e => e.doc_name === item.name)
-            const qty = cur.reduce((s, e) => s + e.quantity, 0)
-            const onHand = rows.reduce((s, r) => s + r.onHand, 0)
-            const locked = cur.some(e => e.returned_qty > 0)
-            const canType = !disabled && !locked && (item.copy || onHand + qty > 0)
-            const note = locked ? `返却あり（${cur.reduce((s, e) => s + e.returned_qty, 0)} 通 戻り）`
-              : item.copy ? '写しは数えない'
-              : onHand + qty === 0 ? `手元にありません${item.note ? `・${item.note}` : ''}`
-              : [qty > 0 ? `手元 ${onHand + qty} → ${onHand}` : '', outsNote(rows), item.note ?? ''].filter(Boolean).join('・')
-            return (
-              <tr key={item.key} className="border-t border-gray-100">
-                <td className={`py-1.5 pr-3 ${onHand + qty === 0 && !item.copy ? 'text-gray-400' : 'text-gray-800'}`}>{item.name}</td>
-                <td className={`py-1.5 pr-3 text-right tabular-nums ${item.copy ? 'text-gray-300' : onHand > 0 ? 'text-emerald-700 font-semibold' : 'text-red-600 font-semibold'}`}>{item.copy ? '—' : onHand}</td>
-                <td className="py-1.5 pr-3">
-                  <span className="inline-flex items-center gap-1">
-                    <input type="text" inputMode="numeric" key={`q-${item.key}-${qty}`} defaultValue={String(qty)} disabled={!canType}
-                      onBlur={e => { const n = Number(digits(e.target.value)); if (n !== qty) void setRequiredQty(item, n) }}
-                      className={qtyCls} />
-                    <span className="text-[12px] text-gray-500">通</span>
-                  </span>
-                </td>
-                <td className="py-1.5 text-[11.5px] text-gray-500">{note}</td>
-              </tr>
-            )
-          })}
-          {extras.map(e => {
-            const s = stock.find(x => x.key === e.stock_key)
-            return (
-              <tr key={e.id} className="border-t border-gray-100">
-                <td className="py-1.5 pr-3 text-gray-800">{e.doc_name}</td>
-                <td className={`py-1.5 pr-3 text-right tabular-nums ${s?.copy ? 'text-gray-300' : (s?.onHand ?? 0) > 0 ? 'text-emerald-700 font-semibold' : 'text-red-600 font-semibold'}`}>{s ? (s.copy ? '—' : s.onHand) : '—'}</td>
-                <td className="py-1.5 pr-3">
-                  <span className="inline-flex items-center gap-1">
-                    <input type="text" inputMode="numeric" key={`x-${e.id}-${e.quantity}`} defaultValue={String(e.quantity)} disabled={disabled || e.returned_qty > 0}
-                      onBlur={ev => { const n = Number(digits(ev.target.value)); if (n !== e.quantity) void setExtraQty(e, n) }} className={qtyCls} />
-                    <span className="text-[12px] text-gray-500">通</span>
-                    {!disabled && <button type="button" onClick={() => void deleteRows([e.id]).then(ok => { if (ok) onChanged() })} title="外す" className="ml-1 text-gray-300 hover:text-red-500"><X className="w-3.5 h-3.5" /></button>}
-                  </span>
-                </td>
-                <td className="py-1.5 text-[11.5px] text-gray-500">{s ? (s.copy ? '写しは数えない' : `手元 ${s.onHand + e.quantity} → ${s.onHand}`) : '原本の行に結んでいない'}</td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+      {/* 表の型は使わない（全体の thead 塗りが効いて重くなる）。項目名の面の中に置く軽い行にする */}
+      <div className="w-full max-w-[820px] text-[13px]">
+        <div className="grid grid-cols-[minmax(0,1fr)_3.5rem_6.5rem_minmax(0,1.3fr)] gap-x-3 items-center pb-1 text-[11.5px] text-gray-400">
+          <span>資料</span><span className="text-right">手元</span><span>今回入れる数</span><span />
+        </div>
+        {items.map(item => {
+          const rows = rowsFor(item)
+          const cur = mine.filter(e => e.doc_name === item.name)
+          const qty = cur.reduce((s, e) => s + e.quantity, 0)
+          const onHand = rows.reduce((s, r) => s + r.onHand, 0)
+          const avail = onHand + qty     // この請求で使える数（既に入れた分は戻して数える）
+          const locked = cur.some(e => e.returned_qty > 0)
+          const canType = !disabled && !locked && (item.copy || avail > 0)
+          const note = locked ? `返却あり（${cur.reduce((s, e) => s + e.returned_qty, 0)} 通 戻り）`
+            : item.copy ? '写しは数えない'
+            : avail === 0 ? `手元にありません${item.note ? `・${item.note}` : ''}`
+            : [qty > 0 ? `入れたあと残り ${onHand}` : '', outsNote(rows), item.note ?? ''].filter(Boolean).join('・')
+          return (
+            <div key={item.key} className="grid grid-cols-[minmax(0,1fr)_3.5rem_6.5rem_minmax(0,1.3fr)] gap-x-3 items-center py-1 border-t border-gray-100">
+              <span className={`truncate ${avail === 0 && !item.copy ? 'text-gray-400' : 'text-gray-800'}`}>{item.name}</span>
+              <span className={`text-right tabular-nums ${item.copy ? 'text-gray-300' : avail > 0 ? 'text-gray-800' : 'text-red-600'}`}>{item.copy ? '—' : avail}</span>
+              <span className="inline-flex items-center gap-1">
+                <input type="text" inputMode="numeric" key={`q-${item.key}-${qty}`} defaultValue={String(qty)} disabled={!canType}
+                  onBlur={e => { const n = Number(digits(e.target.value)); if (n !== qty) void setRequiredQty(item, n) }}
+                  className={qtyCls} />
+                <span className="text-[12px] text-gray-500">通</span>
+              </span>
+              <span className="text-[11.5px] text-gray-500 truncate" title={note}>{note}</span>
+            </div>
+          )
+        })}
+        {extras.map(e => {
+          const s = stock.find(x => x.key === e.stock_key)
+          const avail = s ? (s.copy ? null : s.onHand + e.quantity) : null
+          return (
+            <div key={e.id} className="grid grid-cols-[minmax(0,1fr)_3.5rem_6.5rem_minmax(0,1.3fr)] gap-x-3 items-center py-1 border-t border-gray-100">
+              <span className="truncate text-gray-800">{e.doc_name}</span>
+              <span className={`text-right tabular-nums ${avail == null ? 'text-gray-300' : avail > 0 ? 'text-gray-800' : 'text-red-600'}`}>{avail == null ? '—' : avail}</span>
+              <span className="inline-flex items-center gap-1">
+                <input type="text" inputMode="numeric" key={`x-${e.id}-${e.quantity}`} defaultValue={String(e.quantity)} disabled={disabled || e.returned_qty > 0}
+                  onBlur={ev => { const n = Number(digits(ev.target.value)); if (n !== e.quantity) void setExtraQty(e, n) }} className={qtyCls} />
+                <span className="text-[12px] text-gray-500">通</span>
+              </span>
+              <span className="inline-flex items-center gap-2 text-[11.5px] text-gray-500 min-w-0">
+                <span className="truncate">{s ? (s.copy ? '写しは数えない' : `入れたあと残り ${s.onHand}`) : '原本の行に結んでいない'}</span>
+                {!disabled && <button type="button" onClick={() => void deleteRows([e.id]).then(ok => { if (ok) onChanged() })} title="外す" className="text-gray-300 hover:text-red-500 flex-none"><X className="w-3.5 h-3.5" /></button>}
+              </span>
+            </div>
+          )
+        })}
+      </div>
       {!disabled && (
         <div className="relative mt-1.5">
           <button type="button" onClick={() => setMoreOpen(v => !v)} className="inline-flex items-center gap-1 px-2 py-0.5 text-[12px] text-gray-500 border border-dashed border-gray-300 hover:border-brand-400 hover:text-brand-700"><Plus className="w-3 h-3" />ほかの資料を手元から足す</button>
