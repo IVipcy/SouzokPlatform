@@ -73,7 +73,7 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
   const isManager = globalManager || canOperateReceipts
   const [, startTransition] = useTransition()
   const [linkingItem, setLinkingItem] = useState<ReceiptItemRow | null>(null)
-  // 到着物タブの2面：受信簿（届いたもの）／原本の出入り（手元にある原本と出先）
+  // 到着物タブの2面：到着物（受信簿）／原本管理（手元にある原本と出先）
   const [recTab, setRecTab] = useState<'receipts' | 'originals'>('receipts')
 
   // 契約時受領書類の区分（id → category）。紐づけ不要の自動判定に使う。
@@ -199,11 +199,11 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
   // 到着物一覧（受信簿）タブ
   return (
     <div className="space-y-3.5">
-      <TabHeader title="到着物・原本の出入り" description="受信簿に登録された到着物と、手元にある原本がいまどこに出ているか（請求に同梱して出払い中／戻った／納品した）を見ます。" />
-      <SubTabs tabs={[{ key: 'receipts', label: '受信簿（届いたもの）', count: rows.length }, { key: 'originals', label: '原本の出入り（手元にある原本と出先）' }]} active={recTab} onChange={k => setRecTab(k as 'receipts' | 'originals')} />
+      <TabHeader title="到着物と原本管理" description="受信簿に登録された到着物と、手元にある原本がいまどこに出ているか（請求に同梱して出払い中／戻った／納品した）を見ます。" />
+      <SubTabs tabs={[{ key: 'receipts', label: '到着物（受信簿）', count: rows.length }, { key: 'originals', label: '原本管理' }]} active={recTab} onChange={k => setRecTab(k as 'receipts' | 'originals')} />
 
       {recTab === 'originals' ? (
-        <Section title="原本の出入り（手元にある原本と出先）">
+        <Section title="原本管理（手元にある原本と、いまどこに出ているか）">
           <OriginalStockTable caseId={caseData.id} canEdit={isManager} />
         </Section>
       ) : (

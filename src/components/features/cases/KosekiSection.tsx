@@ -1212,7 +1212,7 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
             <KosekiFieldRow label="同封する小為替" hint="戸籍請求書の「同封小為替」欄に入ります。封筒に入れる小為替の額です。">
               <MoneyCell value={r.cost_budget} onCommit={v => saveField(r.id, 'cost_budget', v === '' ? null : Number(v))} />
             </KosekiFieldRow>
-            <KosekiFieldRow label="同梱する資料" full hint="小為替と一緒に封筒に入れるもの。この請求で要る資料が並び、行ごとに手元の数（到着物タブの原本の出入りと同じ）と今回入れる数を出します。入れられるのは手元の数まで。原本は入れた分だけ「出払い中」になり、戻ってきたら受信簿で「原本の返却」として登録します（写しは数えません）。">
+            <KosekiFieldRow label="同梱する資料" full hint="小為替と一緒に封筒に入れるもの。この請求で要る資料が並び、行ごとに手元の数（到着物と原本管理タブの原本管理と同じ）と今回入れる数を出します。入れられるのは手元の数まで。原本は入れた分だけ「出払い中」になり、戻ってきたら受信簿で「原本の返却」として登録します（写しは数えません）。">
               <EnclosureRows caseId={caseData.id} refKind="koseki" refId={r.id} deceasedName={caseData.deceased_name} shokumujo={isShokumujo}
                 refLabel={`${(r.request_to ?? '').trim() || '請求先未定'} 戸籍請求（${targetName || '対象者未設定'}）`}
                 stock={stock} enclosures={enclosures} onChanged={() => onEnclosuresChanged?.()} />
