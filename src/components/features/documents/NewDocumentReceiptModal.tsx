@@ -358,7 +358,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
 
     setSaving(false)
     showToast(
-      `${editReceipt ? '開封して再登録しました' : '到着物の受信を登録しました'}。この後 W-Check（受信確定）→ 対応 まで進めてください`,
+      `${editReceipt ? '開封して再登録しました' : '到着物の受信を登録しました'}。この後、受信簿の「対応」でタスクに結んでください`,
       'success',
     )
     onSaved()
@@ -389,14 +389,12 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
       }
     >
       <div className="space-y-4">
-        {/* 登録して終わりではない。受信簿の列（W-Check→対応）まで進めないと案件は動かない。 */}
+        {/* 登録して終わりではない。受信簿の「対応」でタスクに結ぶまで案件は動かない。 */}
         <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
           <ListChecks className="w-4 h-4 text-gray-400 flex-none mt-0.5" strokeWidth={2} />
           <p className="text-[12px] text-gray-600 leading-relaxed">
-            登録したあと、受信簿の
-            <b className="text-gray-800">W-Check（別の人が中身を確認）</b>と
-            <b className="text-gray-800">対応（タスクに結ぶ）</b>まで進めると処理完了です。
-            登録しただけでは案件は動きません。
+            登録したあと、受信簿の<b className="text-gray-800">「対応」でタスクに結ぶ</b>と処理完了です。
+            登録しただけでは案件は動きません。登録者は自動で記録されます。
           </p>
         </div>
         {error && (
@@ -468,7 +466,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
         {!editReceipt ? (
           <label className="flex items-start gap-2 rounded-lg border border-gray-200 bg-gray-50/60 px-3 py-2.5 cursor-pointer">
             <input type="checkbox" checked={parcelMode} onChange={e => setParcelMode(e.target.checked)} className="w-4 h-4 mt-0.5 accent-brand-600" />
-            <span className="text-[12.5px] text-gray-700 leading-relaxed"><strong>受注/管理宛の郵送物一式（中身は本人が開封）</strong><br /><span className="text-[11px] text-gray-400">中身を開けず封筒1通として仮登録し、受注/管理担当に「到着物あり」を通知します。W-Check・中身の入力は不要。</span></span>
+            <span className="text-[12.5px] text-gray-700 leading-relaxed"><strong>受注/管理宛の郵送物一式（中身は本人が開封）</strong><br /><span className="text-[11px] text-gray-400">中身を開けず封筒1通として仮登録し、受注/管理担当に「到着物あり」を通知します。中身の入力は不要。</span></span>
           </label>
         ) : (
           <div className="text-[12px] text-brand-700 bg-brand-50 border border-brand-200 rounded-lg px-3 py-2">開封して中身を再登録します。下で受信待ちに紐付けて登録すると、この郵送物一式は開封済になります。</div>
@@ -696,7 +694,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
         </div>
 
         <p className="text-[11px] text-gray-400 leading-relaxed">
-          到着物は案件の「到着物」タブに保存されます。受信待ちに紐づけると、登録後の <span className="font-semibold text-gray-500">W-Check（受信確定）</span> で各タブの受領日へ自動反映されます（タスク不要ならW-Checkだけで完了）。
+          到着物は案件の「到着物」タブに保存されます。受信待ちに紐づけると、登録した時点で各タブの受領日・到着日へ自動反映されます。
         </p>
       </div>
     </Modal>
