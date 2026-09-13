@@ -33,12 +33,14 @@ export const StatusChip = ({ s }: { s: string }) => (
   <span className={`inline-block text-[10.5px] px-2 py-[1px] rounded-full font-semibold ${STATUS_CLS[s] ?? 'text-gray-500 border border-gray-200'}`}>{s}</span>
 )
 
-export default function FinancialArrivalModal({ isOpen, onClose, request, items, accounts, onSaved, institutionName = '' }: {
+export default function FinancialArrivalModal({ isOpen, onClose, request, items, accounts, onSaved, institutionName = '', deceasedName = null }: {
   isOpen: boolean
   onClose: () => void
   request: FinancialRequestRow
   /** 調査先の名前（同梱する資料の「出先」に出す） */
   institutionName?: string
+  /** 被相続人の名前（同梱する資料で戸籍を被相続人／相続人に分ける） */
+  deceasedName?: string | null
   items: FinancialRequestItemRow[]
   accounts: FinancialAssetRow[]
   onSaved: () => void
@@ -101,8 +103,8 @@ export default function FinancialArrivalModal({ isOpen, onClose, request, items,
         </div>
         {/* 同梱する資料：手元にある資料を押して通数を入れる。原本は出払い中になり、受信簿の「原本の返却」で戻る */}
         <div className="rounded-md border border-gray-200 px-3 py-2">
-          <div className="text-[11.5px] font-semibold text-gray-600 mb-1.5">同梱する資料 <span className="font-normal text-gray-400">押すと1通入ります。原本は出払い中になり、戻ってきたら受信簿で「原本の返却」を登録します</span></div>
-          <EnclosureRows caseId={request.case_id} refKind="fin" refId={request.id} refLabel={`${institutionName || '調査先'} への請求${request.request_date ? `（${request.request_date.slice(5).replace('-', '/')}）` : ''}`}
+          <div className="text-[11.5px] font-semibold text-gray-600 mb-1.5">同梱する資料 <span className="font-normal text-gray-400">行ごとに手元の数と今回入れる数。入れられるのは手元の数まで。原本は出払い中になり、戻ってきたら受信簿で「原本の返却」を登録します</span></div>
+          <EnclosureRows caseId={request.case_id} refKind="fin" refId={request.id} deceasedName={deceasedName} refLabel={`${institutionName || '調査先'} への請求${request.request_date ? `（${request.request_date.slice(5).replace('-', '/')}）` : ''}`}
             stock={originals.stock} enclosures={originals.enclosures} onChanged={originals.reload} />
         </div>
         {/* 原本を出した請求だけ、返却の欄。入れると所在から消える */}

@@ -491,6 +491,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
                 className="mb-2.5 pb-1.5 border-b border-gray-200" />
               <RealEstateAcquisitionsTable layout="cards" caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="all" municipalityFilter={muniKey} additionsNeedApproval={additionsNeedApproval} onAdditionalPending={() => notifyManagersAdditional('不動産の追加請求の承認依頼', `${muniKey}で取得資料が追加されました。承認するとタスクを生成します。`)} onAfterAddRow={() => promptIfMissing(muniKey, 'muni')}
                 onMakeDoc={caseData ? r => setDocAcq(r) : undefined}
+                deceasedName={caseData?.deceased_name ?? null}
                 houmuOffice={houmuOfMuni(muniKey)}
                 onSaveHoumuOffice={v => void setHoumuOfMuni(muniKey, v)}
                 renderProperties={() => (

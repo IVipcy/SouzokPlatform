@@ -12,13 +12,6 @@ import type { ContractDocumentRow, RequestEnclosureRow, OriginalDocOverrideRow }
 export const ENCLOSURE_FORMS = ['原本', '写し', 'その他'] as const
 export type EnclosureForm = typeof ENCLOSURE_FORMS[number]
 
-/** 同梱で選ぶときの並び：印鑑登録証明書 → 委任状 → 本人確認書類 → そのほか（受領した順） */
-const PICK_ORDER = ['印鑑', '委任状', '本人確認']
-export function sortStockForPick<T extends { name: string }>(rows: T[]): T[] {
-  const rank = (n: string) => { const i = PICK_ORDER.findIndex(k => n.includes(k)); return i < 0 ? PICK_ORDER.length : i }
-  return [...rows].sort((a, b) => rank(a.name) - rank(b.name))
-}
-
 // ── 原本の行 ──
 export type StockOut = { label: string; qty: number; since: string | null; enclosureId?: string; finRequestId?: string }
 export type StockRow = {
@@ -125,6 +118,70 @@ export function buildOriginalStock(input: {
   }
   for (const r of rows) r.onHand = Math.max(0, r.received - r.outstanding - r.delivered)
   return rows
+}
+
+
+// ── 請求の種類ごとに「決まって要る同梱資料」 ──
+// 請求カードの同梱する資料は、この一覧を縦に並べ、行ごとに手元の数と今回入れる数を出す。
+// 手元の数は原本の出入りの行を名前で拾う（match）。一覧を直せば全カードに効く。
+export type RequiredEnclosure = {
+  key: 'poa' | 'idcopy' | 'seal' | 'koseki_any' | 'koseki_deceased' | 'koseki_heir' | 'legal_info'
+  name: string                 // 表示名（enclosure.doc_name にもこの名前が入る）
+  copy?: boolean               // 写し＝数えない
+  note?: string
+  onlyWhen?: 'not_shokumujo'   // 職務上請求のときは出さない（委任状）
+}
+export const REQUIRED_ENCLOSURES: Record<'koseki' | 're' | 'fin' | 'cancel', RequiredEnclosure[]> = {
+  koseki: [
+    { key: 'poa', name: '委任状', onlyWhen: 'not_shokumujo' },
+    { key: 'idcopy', name: '本人確認書類の写し', copy: true },
+    { key: 'seal', name: '印鑑登録証明書', note: '役所が求めるとき' },
+    { key: 'koseki_any', name: '被相続人との関係がわかる戸籍', note: '相続人の請求のとき' },
+  ],
+  re: [
+    { key: 'poa', name: '委任状' },
+    { key: 'idcopy', name: '本人確認書類の写し', copy: true },
+    { key: 'koseki_deceased', name: '被相続人の除籍謄本', note: '死亡の記載があるもの' },
+    { key: 'koseki_heir', name: '相続人の戸籍謄本' },
+  ],
+  fin: [
+    { key: 'seal', name: '印鑑登録証明書' },
+    { key: 'poa', name: '委任状' },
+    { key: 'idcopy', name: '本人確認書類の写し', copy: true },
+    { key: 'koseki_deceased', name: '被相続人の戸籍（除籍）' },
+    { key: 'koseki_heir', name: '相続人の戸籍' },
+    { key: 'legal_info', name: '法定相続情報一覧図' },
+  ],
+  cancel: [
+    { key: 'seal', name: '印鑑登録証明書' },
+    { key: 'poa', name: '委任状' },
+    { key: 'idcopy', name: '本人確認書類の写し', copy: true },
+    { key: 'koseki_deceased', name: '被相続人の戸籍（除籍）' },
+    { key: 'koseki_heir', name: '相続人の戸籍' },
+    { key: 'legal_info', name: '法定相続情報一覧図' },
+  ],
+}
+const KOSEKI_RE = /戸籍|除籍|原戸籍/
+const NOT_KOSEKI_RE = /附票|住民票|除票/
+/** 原本の行が、この要る資料に当たるか（名前で拾う。戸籍は被相続人の名前で被相続人／相続人を分ける） */
+export function matchStockForRequired(item: RequiredEnclosure, s: Pick<StockRow, 'name' | 'copy'>, ctx: { deceasedName?: string | null }): boolean {
+  if (!!item.copy !== s.copy) return false
+  const n = s.name
+  const dn = (ctx.deceasedName ?? '').trim()
+  const isKoseki = KOSEKI_RE.test(n) && !NOT_KOSEKI_RE.test(n)
+  switch (item.key) {
+    case 'poa': return n.includes('委任状')
+    case 'idcopy': return n.includes('本人確認')
+    case 'seal': return n.includes('印鑑')
+    case 'koseki_any': return isKoseki
+    case 'koseki_deceased': return isKoseki && !!dn && n.includes(dn)
+    case 'koseki_heir': return isKoseki && !(!!dn && n.includes(dn))
+    case 'legal_info': return n.includes('法定相続情報')
+    default: return false
+  }
+}
+export function requiredEnclosuresFor(kind: 'koseki' | 're' | 'fin' | 'cancel', ctx: { shokumujo?: boolean }): RequiredEnclosure[] {
+  return REQUIRED_ENCLOSURES[kind].filter(i => !(i.onlyWhen === 'not_shokumujo' && ctx.shokumujo))
 }
 
 /** 受信簿の「原本の返却」で選べるもの＝出払い中の同梱と、金融の請求に出した印鑑証明 */

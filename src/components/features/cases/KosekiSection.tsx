@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Plus, Lock, ShieldCheck, Trash2, Copy, FileText } from 'lucide-react'
+import { Plus, Lock, ShieldCheck, Trash2, Copy, FileText, Images } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useIsManager } from '@/components/providers/AuthProvider'
@@ -1054,6 +1054,25 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
 
   return (
     <div className={`space-y-2.5 ${mistaken ? 'ring-1 ring-red-200 rounded-lg p-2 bg-red-50/30' : ''}`}>
+      {/* カードの頭：この請求の名前と、この請求そのものへの操作（前の戸籍を見る・再請求・削除）。
+          入力を始める前に目に入る場所に置く。操作バーには「請求書を作る」だけを残す */}
+      <div className="flex items-center gap-2 flex-wrap px-1">
+        <span className="text-[14px] font-bold text-gray-900">{(r.request_to ?? '').trim() || '請求先未定'} への請求</span>
+        <span className="text-[12px] text-gray-500">{[targetName || '対象者未設定', (r.range_text ?? '').trim()].filter(Boolean).join('・')}</span>
+        <span className="ml-auto flex items-center gap-1.5">
+          {onShowImages && (
+            <button type="button" onClick={onShowImages} title="前に届いた戸籍のスキャン画像を浮かせ窓で横に出し、見ながら本籍・筆頭者を入れる"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50">
+              <Images className="w-3.5 h-3.5" />前に届いた戸籍を横に見る
+            </button>
+          )}
+          <button type="button" onClick={onCopy} title="請求先・対象者・範囲・種別・理由を引き継いで、日付と費用が空の請求を作る"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50">
+            <Copy className="w-3.5 h-3.5" />同じ内容で再請求
+          </button>
+          <button type="button" onClick={onDelete} title="この請求を削除" className="text-gray-300 hover:text-red-500 px-1"><Trash2 className="w-4 h-4" /></button>
+        </span>
+      </div>
       <ProcedureStepper nodes={stepper.nodes} parallel={stepper.parallel} parallelTone="amber" />
       <KosekiGroup no="Step1" title="誰が・何のために">
         <KosekiFieldRow label="取得区分">
@@ -1193,8 +1212,8 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
             <KosekiFieldRow label="同封する小為替" hint="戸籍請求書の「同封小為替」欄に入ります。封筒に入れる小為替の額です。">
               <MoneyCell value={r.cost_budget} onCommit={v => saveField(r.id, 'cost_budget', v === '' ? null : Number(v))} />
             </KosekiFieldRow>
-            <KosekiFieldRow label="同梱する資料" full hint="小為替と一緒に封筒に入れるもの。手元にある資料（契約時に受領したもの・届いたもの）を押すと1通で入り、通数はその場で直せます。原本は押した分だけ「出払い中」になり、到着物タブの手元の数が減ります（写しは数えません）。戻ってきたら受信簿で「原本の返却」として登録します。">
-              <EnclosureRows caseId={caseData.id} refKind="koseki" refId={r.id}
+            <KosekiFieldRow label="同梱する資料" full hint="小為替と一緒に封筒に入れるもの。この請求で要る資料が並び、行ごとに手元の数（到着物タブの原本の出入りと同じ）と今回入れる数を出します。入れられるのは手元の数まで。原本は入れた分だけ「出払い中」になり、戻ってきたら受信簿で「原本の返却」として登録します（写しは数えません）。">
+              <EnclosureRows caseId={caseData.id} refKind="koseki" refId={r.id} deceasedName={caseData.deceased_name} shokumujo={isShokumujo}
                 refLabel={`${(r.request_to ?? '').trim() || '請求先未定'} 戸籍請求（${targetName || '対象者未設定'}）`}
                 stock={stock} enclosures={enclosures} onChanged={() => onEnclosuresChanged?.()} />
             </KosekiFieldRow>
@@ -1224,12 +1243,6 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
           </span>
         )}
         <span className="ml-auto flex items-center gap-2">
-          {onShowImages && (
-            <button type="button" onClick={onShowImages} title="前の請求で届いた戸籍の画像を横に出し、見ながら入力する"
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-amber-800 bg-white border border-amber-300 hover:bg-amber-50">
-              👀 前の請求の画像を横に出す
-            </button>
-          )}
           {!isClient && !isShokumujo && (
             <button type="button" onClick={onMakeDoc}
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-white bg-brand-600 border border-brand-600 hover:bg-brand-700">
@@ -1242,11 +1255,6 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
               {siblings.map(s => (s.target_person ?? '').trim() || '対象者未設定').join('・')}の分も一緒に作る
             </button>
           )}
-          <button type="button" onClick={onCopy} title="請求先・対象者・範囲・種別・理由を引き継いで、日付と費用が空の請求を作る"
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50">
-            <Copy className="w-3.5 h-3.5" />同じ内容で再請求
-          </button>
-          <button type="button" onClick={onDelete} title="この請求を削除" className="text-gray-300 hover:text-red-500 px-1"><Trash2 className="w-4 h-4" /></button>
         </span>
       </div>
 
