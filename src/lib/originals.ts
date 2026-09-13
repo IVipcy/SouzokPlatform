@@ -29,6 +29,8 @@ export type StockRow = {
   auto: boolean
   /** 写し（本人確認書類の写しなど）。同梱で選べるが数えない。原本の出入りの表には出さない */
   copy: boolean
+  /** 行のもと：contract=契約時に受領／receipt=受信簿で届いた／manual=手で足した／seal=金融の印鑑証明の仮行 */
+  origin: 'contract' | 'receipt' | 'manual' | 'seal'
 }
 
 export type StockReceiptItem = {
@@ -72,7 +74,7 @@ export function buildOriginalStock(input: {
   const rows: StockRow[] = []
   const push = (key: string, name: string, person: string | null, source: string, received: number, auto: boolean) => {
     const ov = ovByKey.get(key) ?? null
-    rows.push({ key, name, person, source, received: ov?.received_qty ?? received, outstanding: 0, delivered: ov?.delivered_qty ?? 0, onHand: 0, outs: [], override: ov, auto, copy: isCopyName(name) })
+    rows.push({ key, name, person, source, received: ov?.received_qty ?? received, outstanding: 0, delivered: ov?.delivered_qty ?? 0, onHand: 0, outs: [], override: ov, auto, copy: isCopyName(name), origin: key.split(':')[0] as StockRow['origin'] })
   }
   // 契約時に受領した書類
   for (const d of input.contractDocs) {

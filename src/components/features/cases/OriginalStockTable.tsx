@@ -54,7 +54,7 @@ export default function OriginalStockTable({ caseId, canEdit = true }: { caseId:
         <p className="px-3 py-6 text-center text-[12.5px] text-gray-400">原本がまだありません。契約手続きで受領した書類と、受信簿で届いた到着物がここに並びます。</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-[13px] border-collapse" style={{ minWidth: 860 }}>
+          <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1000 }}>
             <thead>
               <tr>
                 <th className="px-2.5 py-2 text-left font-semibold">原本</th>
@@ -63,7 +63,8 @@ export default function OriginalStockTable({ caseId, canEdit = true }: { caseId:
                 <th className="px-2.5 py-2 text-right font-semibold w-20"><span className="inline-flex items-center gap-1">返却・納品<HintTip text="お客様へ返した／納品した数。手元から外れます。" /></span></th>
                 <th className="px-2.5 py-2 text-right font-semibold w-16">手元</th>
                 <th className="px-2.5 py-2 text-left font-semibold">出先（どの請求に）</th>
-                <th className="px-2.5 py-2 text-left font-semibold w-44">受領のもと</th>
+                <th className="px-2.5 py-2 text-left font-semibold w-40"><span className="inline-flex items-center gap-1">載せた書類<HintTip text="原本預かり証・原本受領証に載せた日と、納品タブでの扱い（対象／対象外／納品済）。預かり証は書類作成メニュー、受領証と納品は納品タブから。" /></span></th>
+                <th className="px-2.5 py-2 text-left font-semibold w-40">受領のもと</th>
                 <th className="px-2.5 py-2 w-8" />
               </tr>
             </thead>
@@ -91,6 +92,15 @@ export default function OriginalStockTable({ caseId, canEdit = true }: { caseId:
                         {r.outs.map((o, k) => <li key={k}>{o.label}{o.since ? <span className="text-gray-400">（{md(o.since)} から）</span> : null}{o.qty > 1 ? <span className="text-gray-500"> ×{o.qty}</span> : null}</li>)}
                       </ul>
                     )}
+                  </td>
+                  <td className="px-2.5 py-1.5 text-[11px]">
+                    <span className="flex flex-wrap gap-1">
+                      {r.override?.azukari_issued_on && <span className="px-1.5 py-0.5 border border-brand-200 bg-brand-50 text-brand-700">預かり証 {md(r.override.azukari_issued_on)}</span>}
+                      {r.override?.juryosho_issued_on && <span className="px-1.5 py-0.5 border border-emerald-200 bg-emerald-50 text-emerald-700">受領証 {md(r.override.juryosho_issued_on)}</span>}
+                      {r.delivered > 0 ? <span className="px-1.5 py-0.5 border border-emerald-200 bg-emerald-50 text-emerald-700">納品済</span>
+                        : r.override?.delivery_target === true ? <span className="px-1.5 py-0.5 border border-gray-300 bg-white text-gray-600">納品対象</span>
+                        : r.override?.delivery_target === false ? <span className="px-1.5 py-0.5 border border-gray-200 bg-gray-50 text-gray-400">納品対象外</span> : null}
+                    </span>
                   </td>
                   <td className="px-2.5 py-1.5 text-[12px] text-gray-500">{r.source}</td>
                   <td className="px-2.5 py-1.5 text-right">

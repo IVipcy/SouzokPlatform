@@ -1490,6 +1490,17 @@ export type OriginalDocOverrideRow = {
   delivered_qty: number
   delivered_on: string | null
   notes: string | null
+  // 納品タブ（migration 284 で contract_documents / document_receipt_items から移した）
+  delivery_target?: boolean | null            // true=対象 / false=対象外 / null=未選択
+  delivery_check_by?: string | null
+  delivery_check_at?: string | null
+  delivery_recipient_heir_id?: string | null  // 受領先（null=共通）
+  delivery_display_name?: string | null
+  delivery_touki_notice_date?: string | null
+  delivery_touki_notice_number?: string | null
+  delivery_inkan_client_names?: string[] | null
+  azukari_issued_on?: string | null           // 原本預かり証に載せた日
+  juryosho_issued_on?: string | null          // 原本受領証に載せた日
   created_at: string
   updated_at: string
 }

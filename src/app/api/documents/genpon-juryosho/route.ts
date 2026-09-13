@@ -21,6 +21,8 @@ type Body = {
   caseId: string
   recipientHeirId?: string | null   // 郵送先=相続人ID。null 時は主たる依頼者(cases.clients)を使う
   taskId?: string | null
+  /** 載せる行（原本管理の行から画面が組む。migration 284 以降はこちらが正。無ければ旧：contract_documents / document_receipt_items の delivery_target から） */
+  lines?: Array<{ name: string; quantity: number; toukiDate?: string | null; toukiNumber?: string | null; inkanNames?: string[] | null }>
 }
 
 type DocLine = {
@@ -40,7 +42,7 @@ const isInkanRow = (name: string) => /印鑑/.test(name)
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as Body
-    const { caseId, recipientHeirId = null, taskId = null } = body
+    const { caseId, recipientHeirId = null, taskId = null, lines: givenLines } = body
     if (!caseId) return NextResponse.json({ error: 'caseId は必須です' }, { status: 400 })
 
     const supabase = await createClient()
@@ -118,6 +120,11 @@ export async function POST(request: NextRequest) {
       push(d.name, d.delivery_display_name, 1, d.delivery_touki_notice_date, d.delivery_touki_notice_number, d.delivery_inkan_client_names)
     }
 
+    // 画面から行が来ていれば（原本管理の行）それを使う。同名は通数を足す
+    if (givenLines && givenLines.length > 0) {
+      bucket.clear()
+      for (const l of givenLines) push(l.name, null, l.quantity, l.toukiDate ?? null, l.toukiNumber ?? null, l.inkanNames ?? null)
+    }
     // 各集約行 → DocLine (印鑑証明書は 相続人列挙で name を書き換え、権利証は sub に通知日+番号)
     const lines: DocLine[] = [...bucket.values()].map(a => {
       if (isKenriRow(a.name)) {

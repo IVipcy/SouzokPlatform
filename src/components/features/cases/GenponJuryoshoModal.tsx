@@ -20,7 +20,9 @@ type Props = {
   heirs: HeirRow[]
   /** 納品タブで「対象」にした書類の受領先。受領先ごとの件数表示に使う（null=共通） */
   targetRecipients?: Array<string | null>
-  onGenerated?: () => void
+  /** 宛先ごとに載せる行（原本管理の行から）。無ければ API が旧方式で集める */
+  linesFor?: (recipientHeirId: string | null) => Array<{ name: string; quantity: number; toukiDate?: string | null; toukiNumber?: string | null; inkanNames?: string[] | null }>
+  onGenerated?: (recipientHeirId: string | null) => void
 }
 
 type RecipientOption = {
@@ -31,7 +33,7 @@ type RecipientOption = {
   isFallback: boolean  // heirs 未登録時の 依頼者フォールバック
 }
 
-export default function GenponJuryoshoModal({ isOpen, onClose, caseData, heirs, targetRecipients = [], onGenerated }: Props) {
+export default function GenponJuryoshoModal({ isOpen, onClose, caseData, heirs, targetRecipients = [], linesFor, onGenerated }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null)  // heir.id or 'client' or null
   const [generating, setGenerating] = useState(false)
   if (!isOpen) return null
@@ -72,6 +74,7 @@ export default function GenponJuryoshoModal({ isOpen, onClose, caseData, heirs, 
         body: JSON.stringify({
           caseId: caseData.id,
           recipientHeirId: selected.id === 'client' ? null : selected.id,
+          lines: linesFor ? linesFor(selected.id === 'client' ? null : selected.id) : undefined,
         }),
       })
       if (!res.ok) {
@@ -85,7 +88,7 @@ export default function GenponJuryoshoModal({ isOpen, onClose, caseData, heirs, 
       const a = document.createElement('a'); a.href = url; a.download = filename
       document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
       showToast('原本受領証を生成しました', 'success')
-      onGenerated?.()
+      onGenerated?.(selected.id === 'client' ? null : selected.id)
       onClose()
     } catch (e) {
       showToast(`通信エラー: ${(e as Error).message}`, 'error')

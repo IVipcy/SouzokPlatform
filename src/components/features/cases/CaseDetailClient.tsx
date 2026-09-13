@@ -903,7 +903,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <DocumentCreateTab caseData={caseState} tasks={tasks} heirs={heirs} properties={properties} kosekiRequests={kosekiRequests} contractDocuments={contractDocuments} onRefresh={handleSaved} />
       )}
       {effectiveTab === 'delivery' && (
-        <DeliveryTab caseData={caseState} currentMemberId={currentMemberId} canManage={isCaseManager} heirs={heirs} tasks={tasks} />
+        <DeliveryTab caseData={caseState} currentMemberId={currentMemberId} canManage={isCaseManager} heirs={heirs} tasks={tasks} createdDocuments={createdDocuments} />
       )}
 
       </div>{/* /地色ラッパー */}
