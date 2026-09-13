@@ -352,7 +352,7 @@ function AcquisitionCards({
                   <ReRow label="同封する小為替" full hint="申請書の「同封小為替」欄に入ります。封筒に入れる小為替の額です。">
                     <MoneyCell value={r.cost_budget} onCommit={v => saveMany(r.id, { cost_budget: v === '' ? null : Number(v) })} />
                   </ReRow>
-                  <ReRow label="同梱する資料" full hint="小為替と一緒に封筒に入れるもの（本人確認書類の写し・委任状・印鑑登録証明書・返信用封筒など）。原本を選ぶと「出払い中」になり、到着物タブの手元の数が減ります。戻ってきたら受信簿で「原本の返却」として登録します。">
+                  <ReRow label="同梱する資料" full hint="小為替と一緒に封筒に入れるもの。手元にある資料を押すと1通で入り、通数はその場で直せます。原本は押した分だけ「出払い中」になり、到着物タブの手元の数が減ります（写しは数えません）。戻ってきたら受信簿で「原本の返却」として登録します。">
                     <EnclosureRows caseId={caseId} refKind="re" refId={r.id}
                       refLabel={`${(r.target_municipality ?? r.request_to ?? '').trim() || '請求先未定'} ${items.join('・') || '取得資料'}の請求`}
                       stock={originals.stock} enclosures={originals.enclosures} onChanged={originals.reload} />

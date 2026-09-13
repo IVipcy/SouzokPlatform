@@ -312,7 +312,7 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
       )}
       {active && arrivalId && (() => {
         const r = allRequests.find(x => x.id === arrivalId); if (!r) return null
-        return <FinancialArrivalModal isOpen onClose={() => setArrivalId(null)} request={r} items={allItems.filter(it => it.request_id === r.id)} accounts={accountsOf(active)} onSaved={() => onRefresh?.()} />
+        return <FinancialArrivalModal isOpen onClose={() => setArrivalId(null)} request={r} items={allItems.filter(it => it.request_id === r.id)} accounts={accountsOf(active)} institutionName={active.name} onSaved={() => onRefresh?.()} />
       })()}
     </div>
   )

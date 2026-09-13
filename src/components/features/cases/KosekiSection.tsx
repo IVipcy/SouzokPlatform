@@ -36,7 +36,7 @@ import SelectOrTextField from './SelectOrTextField'
 import KosekiRequestDocumentModal from './KosekiRequestDocumentModal'
 import EnclosureRows from './EnclosureRows'
 import { useOriginalStock } from '@/lib/useOriginalStock'
-import { kosekiFeeEstimate, type StockRow } from '@/lib/originals'
+import type { StockRow } from '@/lib/originals'
 import type { RequestEnclosureRow } from '@/types'
 import { OFFICE_BRANCH_OPTIONS } from '@/lib/officeProfiles'
 import { notifyKosekiRelationDone } from '@/lib/kosekiRelationNotify'
@@ -1023,8 +1023,6 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
 
   const mistaken = isMistakenRequest(r.request_kind)  // 誤請求＝自社の経費
   const muted = <span className="text-[12px] text-gray-400">—</span>
-  // 手数料の目安（種別 × 通数）。同封する小為替の目安に使う
-  const fee = kosekiFeeEstimate(r.doc_types, r.copy_count)
 
   // 工程図（丸と線）。預金の手続きタブと同じ見た目。今どこかは入っている値から決める（手で選ぶ欄は無い）。
   //   請求準備 → 請求 → 到着 → 読込 →（被相続人・依頼者だけ）関係戸籍
@@ -1192,21 +1190,10 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
                 <span className="text-[13px] text-gray-500">通</span>
               </span>
             </KosekiFieldRow>
-            <KosekiFieldRow label="手数料の目安" hint="種別ごとの手数料（戸籍450／除籍・原戸籍750／住民票・除票・附票300）× 通数。役所で違うので目安です。">
-              {fee.total > 0
-                ? <span className="text-[13px] text-gray-700 tabular-nums">¥{fee.total.toLocaleString('ja-JP')}<span className="ml-1.5 text-[12px] text-gray-400">{fee.formula}</span></span>
-                : <span className="text-[12px] text-gray-400">種別を選ぶと出ます</span>}
+            <KosekiFieldRow label="同封する小為替" hint="戸籍請求書の「同封小為替」欄に入ります。封筒に入れる小為替の額です。">
+              <MoneyCell value={r.cost_budget} onCommit={v => saveField(r.id, 'cost_budget', v === '' ? null : Number(v))} />
             </KosekiFieldRow>
-            <KosekiFieldRow label="同封する小為替" full hint="戸籍請求書の「同封小為替」欄に入ります。封筒に入れる小為替の額です。目安と違ってかまいません（多めに入れる運用ならそのまま）。">
-              <span className="flex items-center gap-2 w-full">
-                <span className="w-40"><MoneyCell key={`cb-${r.cost_budget ?? ''}`} value={r.cost_budget} onCommit={v => saveField(r.id, 'cost_budget', v === '' ? null : Number(v))} /></span>
-                {fee.total > 0 && (r.cost_budget ?? null) !== fee.total && (
-                  <button type="button" onClick={() => void saveField(r.id, 'cost_budget', fee.total)}
-                    className="px-2 py-0.5 text-[12px] border border-gray-300 bg-white text-gray-600 hover:border-brand-400 hover:text-brand-700">目安（¥{fee.total.toLocaleString('ja-JP')}）を入れる</button>
-                )}
-              </span>
-            </KosekiFieldRow>
-            <KosekiFieldRow label="同梱する資料" full hint="小為替と一緒に封筒に入れるもの（本人確認書類の写し・委任状・印鑑登録証明書・返信用封筒など）。原本を選ぶと、その分は「出払い中」になり、到着物タブの手元の数が減ります。戻ってきたら受信簿で「原本の返却」として登録します。">
+            <KosekiFieldRow label="同梱する資料" full hint="小為替と一緒に封筒に入れるもの。手元にある資料（契約時に受領したもの・届いたもの）を押すと1通で入り、通数はその場で直せます。原本は押した分だけ「出払い中」になり、到着物タブの手元の数が減ります（写しは数えません）。戻ってきたら受信簿で「原本の返却」として登録します。">
               <EnclosureRows caseId={caseData.id} refKind="koseki" refId={r.id}
                 refLabel={`${(r.request_to ?? '').trim() || '請求先未定'} 戸籍請求（${targetName || '対象者未設定'}）`}
                 stock={stock} enclosures={enclosures} onChanged={() => onEnclosuresChanged?.()} />

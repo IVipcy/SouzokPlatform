@@ -12,26 +12,11 @@ import type { ContractDocumentRow, RequestEnclosureRow, OriginalDocOverrideRow }
 export const ENCLOSURE_FORMS = ['原本', '写し', 'その他'] as const
 export type EnclosureForm = typeof ENCLOSURE_FORMS[number]
 
-/** 同梱する資料の定型（よく入れるもの） */
-export const ENCLOSURE_PRESETS: Array<{ name: string; form: EnclosureForm }> = [
-  { name: '本人確認書類（写し）', form: '写し' },
-  { name: '返信用封筒（切手貼付）', form: 'その他' },
-  { name: '委任状', form: '原本' },
-  { name: '印鑑登録証明書', form: '原本' },
-]
-
-// ── 戸籍の手数料の目安（1通あたり。役所で違うので目安） ──
-export const KOSEKI_FEES: Record<string, number> = {
-  '戸籍': 450, '除籍': 750, '原戸籍': 750, '住民票': 300, '除票': 300, '戸籍の附票': 300,
-}
-/** 種別ごとの手数料 × 通数。複数の種別を選んでいるときは「各1通」で足す（出生～死亡は少なくともそれだけ要る） */
-export function kosekiFeeEstimate(docTypes: string | null | undefined, copyCount: number | null | undefined): { total: number; formula: string } {
-  const types = (docTypes ?? '').split('・').map(v => v.trim()).filter(t => t in KOSEKI_FEES)
-  const n = Math.max(1, copyCount ?? 1)
-  if (types.length === 0) return { total: 0, formula: '' }
-  const per = types.reduce((s, t) => s + KOSEKI_FEES[t], 0)
-  const formula = `${types.map(t => `${t}${KOSEKI_FEES[t]}`).join('＋')}${n > 1 ? ` × ${n}通` : ''}`
-  return { total: per * n, formula }
+/** 同梱で選ぶときの並び：印鑑登録証明書 → 委任状 → 本人確認書類 → そのほか（受領した順） */
+const PICK_ORDER = ['印鑑', '委任状', '本人確認']
+export function sortStockForPick<T extends { name: string }>(rows: T[]): T[] {
+  const rank = (n: string) => { const i = PICK_ORDER.findIndex(k => n.includes(k)); return i < 0 ? PICK_ORDER.length : i }
+  return [...rows].sort((a, b) => rank(a.name) - rank(b.name))
 }
 
 // ── 原本の行 ──
@@ -49,6 +34,8 @@ export type StockRow = {
   override: OriginalDocOverrideRow | null
   /** 契約時受領・受信簿など、行のもとがある（false＝手で足した） */
   auto: boolean
+  /** 写し（本人確認書類の写しなど）。同梱で選べるが数えない。原本の出入りの表には出さない */
+  copy: boolean
 }
 
 export type StockReceiptItem = {
@@ -70,12 +57,13 @@ export const md = (d: string | null | undefined) => (d ? d.slice(5, 10).replace(
 export const enclosureOutstanding = (e: Pick<RequestEnclosureRow, 'form' | 'stock_key' | 'quantity' | 'returned_qty'>) =>
   e.form === '原本' && e.stock_key ? Math.max(0, (e.quantity ?? 0) - (e.returned_qty ?? 0)) : 0
 
-/** 契約時受領の書類のうち、原本として数えるもの（写しは数えない。受領済のものだけ） */
+/** 契約時受領の書類のうち、手元にある（受領済の）もの。写しも行にするが数えない */
 const isContractOriginal = (d: ContractDocumentRow) => {
   const name = (d.name ?? '').trim()
-  if (!name || name.includes('写し')) return false
+  if (!name) return false
   return d.status === 'その場で受領' || !!d.arrival_date
 }
+const isCopyName = (name: string) => name.includes('写し')
 const isSealDoc = (name: string) => name.includes('印鑑登録証明') || name.includes('印鑑証明')
 
 export function buildOriginalStock(input: {
@@ -91,7 +79,7 @@ export function buildOriginalStock(input: {
   const rows: StockRow[] = []
   const push = (key: string, name: string, person: string | null, source: string, received: number, auto: boolean) => {
     const ov = ovByKey.get(key) ?? null
-    rows.push({ key, name, person, source, received: ov?.received_qty ?? received, outstanding: 0, delivered: ov?.delivered_qty ?? 0, onHand: 0, outs: [], override: ov, auto })
+    rows.push({ key, name, person, source, received: ov?.received_qty ?? received, outstanding: 0, delivered: ov?.delivered_qty ?? 0, onHand: 0, outs: [], override: ov, auto, copy: isCopyName(name) })
   }
   // 契約時に受領した書類
   for (const d of input.contractDocs) {

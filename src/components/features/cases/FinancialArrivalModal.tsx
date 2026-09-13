@@ -16,6 +16,8 @@ import Button from '@/components/ui/Button'
 import { showToast } from '@/components/ui/Toast'
 import { createClient } from '@/lib/supabase/client'
 import { MoneyCell } from './PracticeTableCells'
+import EnclosureRows from './EnclosureRows'
+import { useOriginalStock } from '@/lib/useOriginalStock'
 import { IRREGULAR_STATUSES, IRREGULAR_TYPES, itemConditionLabel, itemStatus, requestStatus } from '@/lib/financialWorkflow'
 import type { FinancialAssetRow, FinancialRequestRow, FinancialRequestItemRow } from '@/types'
 
@@ -31,16 +33,20 @@ export const StatusChip = ({ s }: { s: string }) => (
   <span className={`inline-block text-[10.5px] px-2 py-[1px] rounded-full font-semibold ${STATUS_CLS[s] ?? 'text-gray-500 border border-gray-200'}`}>{s}</span>
 )
 
-export default function FinancialArrivalModal({ isOpen, onClose, request, items, accounts, onSaved }: {
+export default function FinancialArrivalModal({ isOpen, onClose, request, items, accounts, onSaved, institutionName = '' }: {
   isOpen: boolean
   onClose: () => void
   request: FinancialRequestRow
+  /** 調査先の名前（同梱する資料の「出先」に出す） */
+  institutionName?: string
   items: FinancialRequestItemRow[]
   accounts: FinancialAssetRow[]
   onSaved: () => void
 }) {
   const supabase = createClient()
   const [busy, setBusy] = useState(false)
+  // 同梱する資料（手元にある原本）。戸籍・不動産の請求カードと同じ部品
+  const originals = useOriginalStock(request.case_id)
   const accountOf = (id: string) => accounts.find(a => a.id === id)
   const accountLabel = (id: string) => {
     const a = accountOf(id)
@@ -85,10 +91,19 @@ export default function FinancialArrivalModal({ isOpen, onClose, request, items,
           </label>
           <StatusChip s={st} />
           {!request.request_date && <span className="text-[11px] text-gray-500">請求日を入れると「請求中」になります</span>}
-          <label className="ml-auto inline-flex items-center gap-1.5 text-[11.5px] text-gray-600 cursor-pointer">
-            <input type="checkbox" checked={request.seal_original_sent} onChange={e => void saveRequest({ seal_original_sent: e.target.checked, ...(e.target.checked ? {} : { seal_original_returned_date: null }) })} className="w-4 h-4 accent-brand-600" />
-            印鑑登録証明書の原本を同封
-          </label>
+          {/* 旧：請求を登録するときに付けた「印鑑登録証明書の原本を同封」。付いているものだけ返却日の欄を出す（新しい同梱は下のチップで） */}
+          {request.seal_original_sent && (
+            <label className="ml-auto inline-flex items-center gap-1.5 text-[11.5px] text-gray-600 cursor-pointer">
+              <input type="checkbox" checked={request.seal_original_sent} onChange={e => void saveRequest({ seal_original_sent: e.target.checked, ...(e.target.checked ? {} : { seal_original_returned_date: null }) })} className="w-4 h-4 accent-brand-600" />
+              印鑑登録証明書の原本を同封
+            </label>
+          )}
+        </div>
+        {/* 同梱する資料：手元にある資料を押して通数を入れる。原本は出払い中になり、受信簿の「原本の返却」で戻る */}
+        <div className="rounded-md border border-gray-200 px-3 py-2">
+          <div className="text-[11.5px] font-semibold text-gray-600 mb-1.5">同梱する資料 <span className="font-normal text-gray-400">押すと1通入ります。原本は出払い中になり、戻ってきたら受信簿で「原本の返却」を登録します</span></div>
+          <EnclosureRows caseId={request.case_id} refKind="fin" refId={request.id} refLabel={`${institutionName || '調査先'} への請求${request.request_date ? `（${request.request_date.slice(5).replace('-', '/')}）` : ''}`}
+            stock={originals.stock} enclosures={originals.enclosures} onChanged={originals.reload} />
         </div>
         {/* 原本を出した請求だけ、返却の欄。入れると所在から消える */}
         {request.seal_original_sent && (

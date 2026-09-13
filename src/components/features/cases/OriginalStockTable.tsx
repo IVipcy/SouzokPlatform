@@ -17,7 +17,9 @@ const inp = 'input-flat w-full px-2 py-1 text-[13px] text-gray-800 outline-none 
 
 export default function OriginalStockTable({ caseId, canEdit = true }: { caseId: string; canEdit?: boolean }) {
   const supabase = createClient()
-  const { stock, loading, reload } = useOriginalStock(caseId)
+  const { stock: allStock, loading, reload } = useOriginalStock(caseId)
+  // 写し（本人確認書類の写しなど）は数えないので、この表には出さない
+  const stock = allStock.filter(r => !r.copy)
   const [adding, setAdding] = useState(false)
   const [newName, setNewName] = useState('')
   const [newQty, setNewQty] = useState('1')
