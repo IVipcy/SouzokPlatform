@@ -116,18 +116,20 @@ export default function EnclosureRows({ caseId, refKind, refId, refLabel, stock,
   }
   const morePick = stock.filter(s => !coveredKeys.has(s.key) && !extras.some(e => e.stock_key === s.key) && (s.copy || s.onHand > 0))
 
+  // ほかの請求に出ている分だけ言う（この請求で入れた分は「出払い中」と言わない）
+  const mineIds = new Set(mine.map(e => e.id))
   const outsNote = (rows: StockRow[]) => {
-    const outs = rows.flatMap(r => r.outs)
-    const n = rows.reduce((s, r) => s + r.outstanding, 0)
-    return n > 0 ? `出払い中 ${n}（${[...new Set(outs.map(o => o.label))].join('・')}）` : ''
+    const outs = rows.flatMap(r => r.outs).filter(o => !(o.enclosureId && mineIds.has(o.enclosureId)))
+    const n = outs.reduce((s, o) => s + o.qty, 0)
+    return n > 0 ? `ほかに ${n} 通が ${[...new Set(outs.map(o => o.label))].join('・')} に出ています` : ''
   }
 
   return (
     <div className="w-full">
       {/* 表の型は使わない（全体の thead 塗りが効いて重くなる）。項目名の面の中に置く軽い行にする */}
-      <div className="w-full max-w-[820px] text-[13px]">
-        <div className="grid grid-cols-[minmax(0,1fr)_3.5rem_6.5rem_minmax(0,1.3fr)] gap-x-3 items-center pb-1 text-[11.5px] text-gray-400">
-          <span>資料</span><span className="text-right">手元</span><span>今回入れる数</span><span />
+      <div className="w-full text-[13px]">
+        <div className="grid grid-cols-[minmax(0,1fr)_3.5rem_6.5rem_minmax(0,1.6fr)] gap-x-3 items-center pb-1 text-[11.5px] text-gray-400">
+          <span>資料</span><span className="text-right">手元</span><span>今回入れる数</span><span>備考</span>
         </div>
         {items.map(item => {
           const rows = rowsFor(item)
@@ -137,12 +139,12 @@ export default function EnclosureRows({ caseId, refKind, refId, refLabel, stock,
           const avail = onHand + qty     // この請求で使える数（既に入れた分は戻して数える）
           const locked = cur.some(e => e.returned_qty > 0)
           const canType = !disabled && !locked && (item.copy || avail > 0)
-          const note = locked ? `返却あり（${cur.reduce((s, e) => s + e.returned_qty, 0)} 通 戻り）`
-            : item.copy ? '写しは数えない'
-            : avail === 0 ? `手元にありません${item.note ? `・${item.note}` : ''}`
-            : [qty > 0 ? `入れたあと残り ${onHand}` : '', outsNote(rows), item.note ?? ''].filter(Boolean).join('・')
+          const note = locked ? `${cur.reduce((s, e) => s + e.returned_qty, 0)} 通が返却されています（数は直せません）`
+            : item.copy ? [item.note ?? '', '写しなので手元の数は減りません'].filter(Boolean).join('。')
+            : avail === 0 ? [item.note ?? '', '手元にありません'].filter(Boolean).join('。')
+            : [item.note ?? '', qty > 0 ? `同封すると手元は ${onHand} 通になります` : '', outsNote(rows)].filter(Boolean).join('。')
           return (
-            <div key={item.key} className="grid grid-cols-[minmax(0,1fr)_3.5rem_6.5rem_minmax(0,1.3fr)] gap-x-3 items-center py-1 border-t border-gray-100">
+            <div key={item.key} className="grid grid-cols-[minmax(0,1fr)_3.5rem_6.5rem_minmax(0,1.6fr)] gap-x-3 items-center py-1 border-t border-gray-100">
               <span className={`truncate ${avail === 0 && !item.copy ? 'text-gray-400' : 'text-gray-800'}`}>{item.name}</span>
               <span className={`text-right tabular-nums ${item.copy ? 'text-gray-300' : avail > 0 ? 'text-gray-800' : 'text-red-600'}`}>{item.copy ? '—' : avail}</span>
               <span className="inline-flex items-center gap-1">
@@ -151,7 +153,7 @@ export default function EnclosureRows({ caseId, refKind, refId, refLabel, stock,
                   className={qtyCls} />
                 <span className="text-[12px] text-gray-500">通</span>
               </span>
-              <span className="text-[11.5px] text-gray-500 truncate" title={note}>{note}</span>
+              <span className="text-[11.5px] text-gray-500 leading-snug">{note}</span>
             </div>
           )
         })}
@@ -159,7 +161,7 @@ export default function EnclosureRows({ caseId, refKind, refId, refLabel, stock,
           const s = stock.find(x => x.key === e.stock_key)
           const avail = s ? (s.copy ? null : s.onHand + e.quantity) : null
           return (
-            <div key={e.id} className="grid grid-cols-[minmax(0,1fr)_3.5rem_6.5rem_minmax(0,1.3fr)] gap-x-3 items-center py-1 border-t border-gray-100">
+            <div key={e.id} className="grid grid-cols-[minmax(0,1fr)_3.5rem_6.5rem_minmax(0,1.6fr)] gap-x-3 items-center py-1 border-t border-gray-100">
               <span className="truncate text-gray-800">{e.doc_name}</span>
               <span className={`text-right tabular-nums ${avail == null ? 'text-gray-300' : avail > 0 ? 'text-gray-800' : 'text-red-600'}`}>{avail == null ? '—' : avail}</span>
               <span className="inline-flex items-center gap-1">
@@ -168,7 +170,7 @@ export default function EnclosureRows({ caseId, refKind, refId, refLabel, stock,
                 <span className="text-[12px] text-gray-500">通</span>
               </span>
               <span className="inline-flex items-center gap-2 text-[11.5px] text-gray-500 min-w-0">
-                <span className="truncate">{s ? (s.copy ? '写しは数えない' : `入れたあと残り ${s.onHand}`) : '原本の行に結んでいない'}</span>
+                <span className="leading-snug">{s ? (s.copy ? '写しなので手元の数は減りません' : `同封すると手元は ${s.onHand} 通になります`) : '原本の行に結んでいないので手元の数は変わりません'}</span>
                 {!disabled && <button type="button" onClick={() => void deleteRows([e.id]).then(ok => { if (ok) onChanged() })} title="外す" className="text-gray-300 hover:text-red-500 flex-none"><X className="w-3.5 h-3.5" /></button>}
               </span>
             </div>
