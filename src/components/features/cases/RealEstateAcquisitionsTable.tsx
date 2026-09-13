@@ -2,6 +2,8 @@
 
 import { useState, useEffect, type ReactNode } from 'react'
 import { PracticeGroup, PracticeRow, PracticeFoldGroup, PracticeActionBar, PracticeAfterDivider } from './PracticeCard'
+import EnclosureRows from './EnclosureRows'
+import { useOriginalStock, type OriginalStock } from '@/lib/useOriginalStock'
 import { Plus, Trash2, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -146,6 +148,9 @@ const ReRow = PracticeRow
 const ReGroup = PracticeGroup
 
 type AcquisitionCardsProps = {
+  caseId: string
+  /** 原本の出入り（同梱する資料の候補・案件の同梱 全件・読み直し） */
+  originals: OriginalStock
   rows: RealEstateAcquisitionRow[]
   properties: RealEstatePropertyRow[]
   muniProps: RealEstatePropertyRow[]
@@ -181,7 +186,7 @@ type AcquisitionCardsProps = {
  * タブ列を2本並べる形は見慣れないという指摘があったため。
  */
 function AcquisitionCards({
-  rows, properties, muniProps, activeId, setActiveId, itemsOf, rowScopeOf, officeDefault,
+  caseId, originals, rows, properties, muniProps, activeId, setActiveId, itemsOf, rowScopeOf, officeDefault,
   save, saveMany, toggleItem, addRow, delRow, reqCheck, cancelCheck, setAcquirer,
   receipts, meId, fullCost, confirmedOf, onMakeDoc, houmuOffice, onSaveHoumuOffice, renderProperties,
 }: AcquisitionCardsProps) {
@@ -343,9 +348,16 @@ function AcquisitionCards({
               {noRequest || isRef ? (
                 <ReRow label="費用" full>{isRef ? <span className="text-[12px] text-gray-400">参照のみ（費用なし）</span> : muted}</ReRow>
               ) : fullCost ? (
-                <ReRow label="同封する小為替" full hint="申請書の「同封小為替」欄に入ります。封筒に入れる小為替の額です。">
-                  <MoneyCell value={r.cost_budget} onCommit={v => saveMany(r.id, { cost_budget: v === '' ? null : Number(v) })} />
-                </ReRow>
+                <>
+                  <ReRow label="同封する小為替" full hint="申請書の「同封小為替」欄に入ります。封筒に入れる小為替の額です。">
+                    <MoneyCell value={r.cost_budget} onCommit={v => saveMany(r.id, { cost_budget: v === '' ? null : Number(v) })} />
+                  </ReRow>
+                  <ReRow label="同梱する資料" full hint="小為替と一緒に封筒に入れるもの（本人確認書類の写し・委任状・印鑑登録証明書・返信用封筒など）。原本を選ぶと「出払い中」になり、到着物タブの手元の数が減ります。戻ってきたら受信簿で「原本の返却」として登録します。">
+                    <EnclosureRows caseId={caseId} refKind="re" refId={r.id}
+                      refLabel={`${(r.target_municipality ?? r.request_to ?? '').trim() || '請求先未定'} ${items.join('・') || '取得資料'}の請求`}
+                      stock={originals.stock} enclosures={originals.enclosures} onChanged={originals.reload} />
+                  </ReRow>
+                </>
               ) : (
                 <ReRow label="印紙・手数料" full>
                   <MoneyCell value={r.cost_confirmed} onCommit={v => saveMany(r.id, { cost_confirmed: v === '' ? null : Number(v) })} />
@@ -470,6 +482,8 @@ function AcquisitionCards({
  * 物件単位（登記情報/公図/地積/路線価）は対象物件を選択、市区町村単位（評価証明/名寄帳）は市区町村を入力。
  */
 export default function RealEstateAcquisitionsTable({ caseId, acquisitions, properties, onRefresh, orderSheetMode = false, receipts = [], contractDocs = [], scope = 'all', municipalityFilter, onAfterAddRow, additionsNeedApproval = false, onAdditionalPending, layout = 'table', onMakeDoc, houmuOffice, onSaveHoumuOffice, renderProperties }: Props) {
+  // 原本の出入り（同梱する資料の候補）。カード表示のときだけ読む
+  const originals = useOriginalStock(caseId, layout === 'cards')
   const supabase = createClient()
   const authUser = useAuth()
   const meId = authUser?.memberId ?? null
@@ -653,6 +667,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
       <>
         <ContractReceivedBlock docs={contractDocs} caseId={caseId} onRefresh={onRefresh} />
         <AcquisitionCards
+          caseId={caseId} originals={originals}
           rows={visibleRows} properties={properties} muniProps={muniProps}
           activeId={activeId} setActiveId={setActiveId}
           itemsOf={itemsOf} rowScopeOf={rowScopeOf} officeDefault={officeDefault}

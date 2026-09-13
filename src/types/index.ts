@@ -794,6 +794,7 @@ export type KosekiRequestRow = {
   read_result: string | null      // 読込結果の内容（migration 146）
   read_status: string | null      // 読込結果のステータス（取得完了/一部不足。migration 261）
   relation_koseki_done: boolean   // 被相続人との関係戸籍 取得完了（migration 270）
+  copy_count?: number | null      // 請求する通数（請求書の通数欄。migration 283）
   // 費用（migration 148。確定費用＝予算−返金＝立替実費の実績）
   cost_budget: number | null
   cost_refund: number | null
@@ -1234,6 +1235,9 @@ export type DocumentReceiptItemRow = {
   case_document_id: string | null
   // 共有フォルダにアップ済かの手動フラグ（migration 137）。null=未アップ
   uploaded_at: string | null
+  // 原本の返却（migration 283）：戻ってきた同梱／金融の請求に出していた印鑑登録証明書
+  return_enclosure_id?: string | null
+  return_fin_request_id?: string | null
   created_at: string
   // 紐付けタスク（document_receipt_item_tasks 経由・join用）
   document_receipt_item_tasks?: { task: { id: string; title: string; status: string } | null }[]
@@ -1456,4 +1460,36 @@ export type KosekiPlanRow = {
   updated_at: string
   acquisition_authority?: string | null  // 取得方法の見立て（委任状／職務上請求。migration 254）
   priority?: string | null               // 優先度（通常/急ぎ/超急ぎ。migration 265）
+}
+
+// === 請求に同梱する資料（migration 283） ===
+export type RequestEnclosureRow = {
+  id: string
+  case_id: string
+  ref_kind: 'koseki' | 're' | 'fin' | 'cancel'
+  ref_id: string
+  ref_label: string | null       // 請求の呼び名（原本の出入りの「出先」）
+  doc_name: string
+  quantity: number
+  form: '原本' | '写し' | 'その他'
+  stock_key: string | null       // 原本の出入りの行（contract:{id} / receipt:{item_id} / manual:{id}）
+  returned_qty: number
+  returned_on: string | null
+  sort_order: number
+  created_at: string
+}
+
+// === 原本の出入りの手直し（棚卸し・納品・手で足した原本。migration 283） ===
+export type OriginalDocOverrideRow = {
+  id: string
+  case_id: string
+  stock_key: string
+  doc_name: string | null
+  person: string | null
+  received_qty: number | null
+  delivered_qty: number
+  delivered_on: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
 }

@@ -34,6 +34,10 @@ import { PracticeGroup, PracticeRow, PracticeFoldGroup } from './PracticeCard'
 import { TxtCell, SelCell, MultiCell, DateCell, MoneyCell, TemplateTextField } from './PracticeTableCells'
 import SelectOrTextField from './SelectOrTextField'
 import KosekiRequestDocumentModal from './KosekiRequestDocumentModal'
+import EnclosureRows from './EnclosureRows'
+import { useOriginalStock } from '@/lib/useOriginalStock'
+import { kosekiFeeEstimate, type StockRow } from '@/lib/originals'
+import type { RequestEnclosureRow } from '@/types'
 import { OFFICE_BRANCH_OPTIONS } from '@/lib/officeProfiles'
 import { notifyKosekiRelationDone } from '@/lib/kosekiRelationNotify'
 import CheckRequestControl from './CheckRequestControl'
@@ -115,6 +119,8 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
 }) {
   const supabase = createClient()
   const isManager = useIsManager()
+  // 原本の出入り（同梱する資料の候補・手元の数）。到着物タブと同じ読み方
+  const originals = useOriginalStock(caseId)
   // 保存できた値をサーバー再取得が返るまで重ねておく（入力してから反映されるまでのラグ対策）。
   // サーバーの値が変わったら上書きは剥がす（他の人の編集が消えないように）。
   const [localEdits, setLocalEdits] = useState<Record<string, Partial<KosekiRequestRow>>>({})
@@ -774,6 +780,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
                         onMakeDocWith={list => setDocRequests(list)}
                         onShowImages={() => showImagesFor(cur)}
                         onRequestDateSet={v => applyDateToSiblings(cur, v)}
+                        stock={originals.stock} enclosures={originals.enclosures} onEnclosuresChanged={originals.reload}
                         onDelete={() => delRequest(cur)} onCopy={() => copyRequest(cur)} onMakeDoc={() => setDocRequests([cur])} />
                     )
                   })()}
@@ -801,6 +808,8 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
           heirs={heirs}
           kosekiRequests={docRequests}
           allRequests={requests}
+          enclosures={originals.enclosures}
+          onGenerated={() => onRefresh?.()}
         />
       )}
 
@@ -933,8 +942,12 @@ function AddKosekiModal({ onClose, onSubmit }: {
 const KosekiFieldRow = PracticeRow
 const KosekiGroup = PracticeGroup
 
-function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField, saveMany, onDelete, onCopy, onMakeDoc, targetInfo, onSaveTargetInfo, onToggleRelationDone, siblings = [], onMakeDocWith, onShowImages, onRequestDateSet }: {
+function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField, saveMany, onDelete, onCopy, onMakeDoc, targetInfo, onSaveTargetInfo, onToggleRelationDone, siblings = [], onMakeDocWith, onShowImages, onRequestDateSet, stock = [], enclosures = [], onEnclosuresChanged }: {
   r: KosekiRequestRow
+  /** 原本の出入り（同梱する資料の候補）と、案件の同梱 全件 */
+  stock?: StockRow[]
+  enclosures?: RequestEnclosureRow[]
+  onEnclosuresChanged?: () => void
   /** 同じ役所への未請求（一緒に請求できるもの） */
   siblings?: KosekiRequestRow[]
   /** 複数の請求をまとめて請求書ウィンドウで開く */
@@ -1010,6 +1023,8 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
 
   const mistaken = isMistakenRequest(r.request_kind)  // 誤請求＝自社の経費
   const muted = <span className="text-[12px] text-gray-400">—</span>
+  // 手数料の目安（種別 × 通数）。同封する小為替の目安に使う
+  const fee = kosekiFeeEstimate(r.doc_types, r.copy_count)
 
   // 工程図（丸と線）。預金の手続きタブと同じ見た目。今どこかは入っている値から決める（手で選ぶ欄は無い）。
   //   請求準備 → 請求 → 到着 → 読込 →（被相続人・依頼者だけ）関係戸籍
@@ -1160,17 +1175,43 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
         </KosekiFieldRow>
       </KosekiGroup>
 
-      {/* Step3 は請求の前に決めること＝封筒に入れる小為替だけ。
+      {/* Step3 は請求の前に決めること＝何通請求し、封筒に何を入れるか（小為替・同梱する資料）。
           返金・確定費用は届いてから分かるので Step4 へ。請求前に埋める欄と混ぜない。 */}
-      <KosekiGroup no="Step3" title="同封する小為替">
+      <KosekiGroup no="Step3" title="請求する通数と同封するもの">
         {isClient ? (
           <KosekiFieldRow label="費用" full>
             <span className="text-[12px] text-gray-400">依頼者負担（依頼者取得のため、費用は入力しません）</span>
           </KosekiFieldRow>
         ) : (
-          <KosekiFieldRow label="同封する小為替" full hint="戸籍請求書の「同封小為替」欄に入ります。封筒に入れる小為替の額です。">
-            <MoneyCell value={r.cost_budget} onCommit={v => saveField(r.id, 'cost_budget', v === '' ? null : Number(v))} />
-          </KosekiFieldRow>
+          <>
+            <KosekiFieldRow label="請求する通数" hint="戸籍請求書の「通数」欄に入ります。">
+              <span className="inline-flex items-center gap-1.5">
+                <input type="text" inputMode="numeric" key={`cc-${r.copy_count ?? ''}`} defaultValue={r.copy_count != null ? String(r.copy_count) : ''} placeholder="1"
+                  onBlur={e => { const n = Number(e.target.value.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[^0-9]/g, '')); const v = n > 0 ? n : null; if (v !== (r.copy_count ?? null)) void saveField(r.id, 'copy_count', v) }}
+                  className="input-flat w-20 px-2.5 py-1.5 text-[14px] text-right text-gray-800 outline-none" />
+                <span className="text-[13px] text-gray-500">通</span>
+              </span>
+            </KosekiFieldRow>
+            <KosekiFieldRow label="手数料の目安" hint="種別ごとの手数料（戸籍450／除籍・原戸籍750／住民票・除票・附票300）× 通数。役所で違うので目安です。">
+              {fee.total > 0
+                ? <span className="text-[13px] text-gray-700 tabular-nums">¥{fee.total.toLocaleString('ja-JP')}<span className="ml-1.5 text-[12px] text-gray-400">{fee.formula}</span></span>
+                : <span className="text-[12px] text-gray-400">種別を選ぶと出ます</span>}
+            </KosekiFieldRow>
+            <KosekiFieldRow label="同封する小為替" full hint="戸籍請求書の「同封小為替」欄に入ります。封筒に入れる小為替の額です。目安と違ってかまいません（多めに入れる運用ならそのまま）。">
+              <span className="flex items-center gap-2 w-full">
+                <span className="w-40"><MoneyCell key={`cb-${r.cost_budget ?? ''}`} value={r.cost_budget} onCommit={v => saveField(r.id, 'cost_budget', v === '' ? null : Number(v))} /></span>
+                {fee.total > 0 && (r.cost_budget ?? null) !== fee.total && (
+                  <button type="button" onClick={() => void saveField(r.id, 'cost_budget', fee.total)}
+                    className="px-2 py-0.5 text-[12px] border border-gray-300 bg-white text-gray-600 hover:border-brand-400 hover:text-brand-700">目安（¥{fee.total.toLocaleString('ja-JP')}）を入れる</button>
+                )}
+              </span>
+            </KosekiFieldRow>
+            <KosekiFieldRow label="同梱する資料" full hint="小為替と一緒に封筒に入れるもの（本人確認書類の写し・委任状・印鑑登録証明書・返信用封筒など）。原本を選ぶと、その分は「出払い中」になり、到着物タブの手元の数が減ります。戻ってきたら受信簿で「原本の返却」として登録します。">
+              <EnclosureRows caseId={caseData.id} refKind="koseki" refId={r.id}
+                refLabel={`${(r.request_to ?? '').trim() || '請求先未定'} 戸籍請求（${targetName || '対象者未設定'}）`}
+                stock={stock} enclosures={enclosures} onChanged={() => onEnclosuresChanged?.()} />
+            </KosekiFieldRow>
+          </>
         )}
       </KosekiGroup>
 
@@ -1185,7 +1226,7 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
           <>
             <span className="text-[13px] font-bold text-brand-700">ここまでで請求できます</span>
             <span className="text-[12px] text-gray-500">
-              {isShokumujo ? '職務上請求用紙で発送したら、Step4 に請求日を' : '請求書を出して発送したら、Step4 に請求日を'}
+              {isShokumujo ? '職務上請求用紙で発送したら、Step4 に請求日を' : '請求書を作ると、作った日が Step4 の請求日に入ります（あとから直せます）'}
             </span>
           </>
         )}
@@ -1241,7 +1282,7 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
                 onCancel={() => saveMany(r.id, { request_check_requested_at: null, request_check_requested_by: null })} />
             : <span className="text-[12px] text-gray-300">請求日待ち</span>}
         </KosekiFieldRow>
-        <KosekiFieldRow label="到着日" hint="到着物受信簿のW-Check（受信確定）で自動的に入ります。手で直すこともできます。">
+        <KosekiFieldRow label="到着日" hint="到着物受信簿で登録すると自動で入ります。手で直すこともできます。">
           <DateCell value={r.arrival_date} onCommit={v => saveMany(r.id, { arrival_date: v || null, ...(v && !r.receipt_done_by ? { receipt_done_by: meId } : {}) })} />
         </KosekiFieldRow>
         {isClient ? (

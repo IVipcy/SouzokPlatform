@@ -1,0 +1,157 @@
+// 原本の出入り（到着物タブ）と、請求に同梱する資料の共通ロジック。
+//
+//   原本の行は、契約時にお客様から受領した書類（contract_documents）と、受信簿で届いた到着物（document_receipt_items）から自動で作る。
+//   手元の数 ＝ 受領した数 − 出払い中（請求に同梱して、まだ戻っていない）− お客様へ返した／納品した数。
+//   出払い中は request_enclosures（原本・stock_key あり）の「通数 − 戻った数」と、
+//   金融の請求の印鑑登録証明書（financial_requests.seal_original_sent で返却日なし。migration 272）を合算する。
+//
+// サーバー／クライアント両方から使う（'use client' は付けない）。
+
+import type { ContractDocumentRow, RequestEnclosureRow, OriginalDocOverrideRow } from '@/types'
+
+export const ENCLOSURE_FORMS = ['原本', '写し', 'その他'] as const
+export type EnclosureForm = typeof ENCLOSURE_FORMS[number]
+
+/** 同梱する資料の定型（よく入れるもの） */
+export const ENCLOSURE_PRESETS: Array<{ name: string; form: EnclosureForm }> = [
+  { name: '本人確認書類（写し）', form: '写し' },
+  { name: '返信用封筒（切手貼付）', form: 'その他' },
+  { name: '委任状', form: '原本' },
+  { name: '印鑑登録証明書', form: '原本' },
+]
+
+// ── 戸籍の手数料の目安（1通あたり。役所で違うので目安） ──
+export const KOSEKI_FEES: Record<string, number> = {
+  '戸籍': 450, '除籍': 750, '原戸籍': 750, '住民票': 300, '除票': 300, '戸籍の附票': 300,
+}
+/** 種別ごとの手数料 × 通数。複数の種別を選んでいるときは「各1通」で足す（出生～死亡は少なくともそれだけ要る） */
+export function kosekiFeeEstimate(docTypes: string | null | undefined, copyCount: number | null | undefined): { total: number; formula: string } {
+  const types = (docTypes ?? '').split('・').map(v => v.trim()).filter(t => t in KOSEKI_FEES)
+  const n = Math.max(1, copyCount ?? 1)
+  if (types.length === 0) return { total: 0, formula: '' }
+  const per = types.reduce((s, t) => s + KOSEKI_FEES[t], 0)
+  const formula = `${types.map(t => `${t}${KOSEKI_FEES[t]}`).join('＋')}${n > 1 ? ` × ${n}通` : ''}`
+  return { total: per * n, formula }
+}
+
+// ── 原本の行 ──
+export type StockOut = { label: string; qty: number; since: string | null; enclosureId?: string; finRequestId?: string }
+export type StockRow = {
+  key: string                 // contract:{id} / receipt:{item_id} / manual:{id} / seal:{case}
+  name: string
+  person: string | null
+  source: string              // 受領のもと（契約時に受領／9/2 到着／手で追加）
+  received: number
+  outstanding: number         // 出払い中
+  delivered: number           // 返却・納品済（手元から外した数）
+  onHand: number
+  outs: StockOut[]
+  override: OriginalDocOverrideRow | null
+  /** 契約時受領・受信簿など、行のもとがある（false＝手で足した） */
+  auto: boolean
+}
+
+export type StockReceiptItem = {
+  id: string
+  item_name: string
+  quantity: number | null
+  received_from?: string | null
+  return_enclosure_id?: string | null
+  return_fin_request_id?: string | null
+  received_date: string | null
+  is_parcel?: boolean | null
+}
+export type StockFinRequest = { id: string; institution_id: string; request_date: string | null; seal_original_sent: boolean; seal_original_returned_date: string | null }
+
+export const stockKey = (kind: 'contract' | 'receipt' | 'manual' | 'seal', id: string) => `${kind}:${id}`
+export const md = (d: string | null | undefined) => (d ? d.slice(5, 10).replace('-', '/') : '')
+
+/** 同梱の出払い中の数（原本で、原本の行に結んだものだけ） */
+export const enclosureOutstanding = (e: Pick<RequestEnclosureRow, 'form' | 'stock_key' | 'quantity' | 'returned_qty'>) =>
+  e.form === '原本' && e.stock_key ? Math.max(0, (e.quantity ?? 0) - (e.returned_qty ?? 0)) : 0
+
+/** 契約時受領の書類のうち、原本として数えるもの（写しは数えない。受領済のものだけ） */
+const isContractOriginal = (d: ContractDocumentRow) => {
+  const name = (d.name ?? '').trim()
+  if (!name || name.includes('写し')) return false
+  return d.status === 'その場で受領' || !!d.arrival_date
+}
+const isSealDoc = (name: string) => name.includes('印鑑登録証明') || name.includes('印鑑証明')
+
+export function buildOriginalStock(input: {
+  contractDocs: ContractDocumentRow[]
+  receiptItems: StockReceiptItem[]
+  enclosures: RequestEnclosureRow[]
+  overrides: OriginalDocOverrideRow[]
+  finRequests?: StockFinRequest[]
+  institutions?: Array<{ id: string; name: string }>
+  sealCopies?: number | null
+}): StockRow[] {
+  const ovByKey = new Map(input.overrides.map(o => [o.stock_key, o]))
+  const rows: StockRow[] = []
+  const push = (key: string, name: string, person: string | null, source: string, received: number, auto: boolean) => {
+    const ov = ovByKey.get(key) ?? null
+    rows.push({ key, name, person, source, received: ov?.received_qty ?? received, outstanding: 0, delivered: ov?.delivered_qty ?? 0, onHand: 0, outs: [], override: ov, auto })
+  }
+  // 契約時に受領した書類
+  for (const d of input.contractDocs) {
+    if (!isContractOriginal(d)) continue
+    const name = (d.name ?? '').trim()
+    const received = isSealDoc(name) && input.sealCopies != null ? input.sealCopies : 1
+    push(stockKey('contract', d.id), name, null, `契約時に受領${d.arrival_date ? `（${md(d.arrival_date)}）` : ''}`, received, true)
+  }
+  // 受信簿の到着物（原本の返却・未開封の一式は行にしない）
+  for (const it of input.receiptItems) {
+    if (it.return_enclosure_id || it.return_fin_request_id || it.is_parcel) continue
+    if (it.item_name.includes('未開封')) continue
+    push(stockKey('receipt', it.id), it.item_name, null, `${md(it.received_date)} 到着${it.received_from ? `（${it.received_from}）` : ''}`, it.quantity ?? 1, true)
+  }
+  // 手で足した原本
+  for (const o of input.overrides) {
+    if (!o.stock_key.startsWith('manual:')) continue
+    push(o.stock_key, (o.doc_name ?? '').trim() || '（名称未入力）', o.person ?? null, '手で追加', o.received_qty ?? 1, false)
+  }
+  // 出払い中：同梱
+  for (const e of input.enclosures) {
+    const n = enclosureOutstanding(e)
+    const total = e.form === '原本' && e.stock_key ? e.quantity : 0
+    if (!e.stock_key || total === 0) continue
+    const row = rows.find(r => r.key === e.stock_key)
+    if (!row) continue
+    row.outstanding += n
+    row.outs.push({ label: `${e.ref_label || '請求'}${e.returned_qty > 0 ? `（${e.returned_qty}通 ${md(e.returned_on)} 返却）` : ''}`, qty: n, since: e.created_at?.slice(0, 10) ?? null, enclosureId: e.id })
+  }
+  // 出払い中：金融の請求に出した印鑑登録証明書（migration 272 の仕組み。印鑑証明の行があればそこへ、無ければ行を作る）
+  const finOuts = (input.finRequests ?? []).filter(r => r.seal_original_sent && !r.seal_original_returned_date)
+  if (finOuts.length > 0) {
+    const nameOf = new Map((input.institutions ?? []).map(i => [i.id, i.name]))
+    let row = rows.find(r => r.key.startsWith('contract:') && isSealDoc(r.name))
+    if (!row) {
+      push(stockKey('seal', 'case'), '印鑑登録証明書（依頼者）', null, '契約手続きの受領書類', input.sealCopies ?? 0, true)
+      row = rows[rows.length - 1]
+    }
+    for (const r of finOuts) {
+      row.outstanding += 1
+      row.outs.push({ label: `${nameOf.get(r.institution_id) ?? '調査先'} への請求`, qty: 1, since: r.request_date, finRequestId: r.id })
+    }
+  }
+  for (const r of rows) r.onHand = Math.max(0, r.received - r.outstanding - r.delivered)
+  return rows
+}
+
+/** 受信簿の「原本の返却」で選べるもの＝出払い中の同梱と、金融の請求に出した印鑑証明 */
+export type ReturnOption = { value: string; label: string; remaining: number; enclosureId?: string; finRequestId?: string }
+export function buildReturnOptions(enclosures: RequestEnclosureRow[], finRequests: StockFinRequest[], institutions: Array<{ id: string; name: string }>): ReturnOption[] {
+  const out: ReturnOption[] = []
+  for (const e of enclosures) {
+    const n = enclosureOutstanding(e)
+    if (n <= 0) continue
+    out.push({ value: `ret-enc:${e.id}`, label: `返却：${e.doc_name}（${e.ref_label || '請求'} に出したもの）`, remaining: n, enclosureId: e.id })
+  }
+  const nameOf = new Map(institutions.map(i => [i.id, i.name]))
+  for (const r of finRequests) {
+    if (!r.seal_original_sent || r.seal_original_returned_date) continue
+    out.push({ value: `ret-fin:${r.id}`, label: `返却：印鑑登録証明書（${nameOf.get(r.institution_id) ?? '調査先'} への請求 に出したもの）`, remaining: 1, finRequestId: r.id })
+  }
+  return out
+}

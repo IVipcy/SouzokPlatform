@@ -11,6 +11,8 @@ import Button from '@/components/ui/Button'
 import TabHeader from './TabHeader'
 import OpenStorageFile from '@/components/features/documents/OpenStorageFile'
 import CaseFolderSection from './CaseFolderSection'
+import OriginalStockTable from './OriginalStockTable'
+import { SubTabs } from '@/components/ui/SubTabs'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { isItemNotRequired } from '@/lib/receiptLink'
@@ -71,6 +73,8 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
   const isManager = globalManager || canOperateReceipts
   const [, startTransition] = useTransition()
   const [linkingItem, setLinkingItem] = useState<ReceiptItemRow | null>(null)
+  // 到着物タブの2面：受信簿（届いたもの）／原本の出入り（手元にある原本と出先）
+  const [recTab, setRecTab] = useState<'receipts' | 'originals'>('receipts')
 
   // 契約時受領書類の区分（id → category）。紐づけ不要の自動判定に使う。
   const contractCat = useMemo(
@@ -195,8 +199,14 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
   // 到着物一覧（受信簿）タブ
   return (
     <div className="space-y-3.5">
-      <TabHeader title="到着物" description="受信簿に登録された到着物の一覧です。どのタスクで使うかをここで結び付けます。" />
+      <TabHeader title="到着物・原本の出入り" description="受信簿に登録された到着物と、手元にある原本がいまどこに出ているか（請求に同梱して出払い中／戻った／納品した）を見ます。" />
+      <SubTabs tabs={[{ key: 'receipts', label: '受信簿（届いたもの）', count: rows.length }, { key: 'originals', label: '原本の出入り（手元にある原本と出先）' }]} active={recTab} onChange={k => setRecTab(k as 'receipts' | 'originals')} />
 
+      {recTab === 'originals' ? (
+        <Section title="原本の出入り（手元にある原本と出先）">
+          <OriginalStockTable caseId={caseData.id} canEdit={isManager} />
+        </Section>
+      ) : (
       <Section title="到着物一覧（受信簿）">
         {unuploadedCount > 0 && (
           <div className="flex justify-end mb-2">
@@ -322,6 +332,7 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
           </div>
         )}
       </Section>
+      )}
 
       {linkingItem && (
         <LinkTaskModal

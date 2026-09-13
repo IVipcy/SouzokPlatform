@@ -9,6 +9,7 @@ import { showToast } from '@/components/ui/Toast'
 import { notifyParcelArrival } from '@/lib/arrivalParcel'
 import { buildDeliverableOptions, type DeliverableOption } from '@/lib/deliverables'
 import { applyReceiptLinkDates } from '@/lib/receiptLinks'
+import { buildReturnOptions, type ReturnOption, type StockFinRequest } from '@/lib/originals'
 
 // 再登録（開封）モード：既存の郵送物一式レコードを開いて中身を本登録し直す
 export type EditReceiptInfo = {
@@ -18,7 +19,7 @@ export type EditReceiptInfo = {
   /** 事務管理が一式を登録したときに選んだ郵便物の種類。開封して再登録するときも引き継ぐ */
   postalType: string | null
 }
-import type { FinancialAssetRow, RealEstatePropertyRow, KosekiRequestRow, ContractDocumentRow, RealEstateAcquisitionRow, AgreementDispatchRow, HeirRow } from '@/types'
+import type { FinancialAssetRow, RealEstatePropertyRow, KosekiRequestRow, ContractDocumentRow, RealEstateAcquisitionRow, AgreementDispatchRow, HeirRow, RequestEnclosureRow } from '@/types'
 
 type CaseLite = {
   id: string
@@ -32,6 +33,7 @@ type ItemDraft = {
   quantity: string  // 文字列で保持して入力柔軟性を確保
   received_from: string
   linked: string  // 取得物リンク `${kind}:${id}:${field}`（空=リンクなし）
+  returnRef: string  // 原本の返却 `ret-enc:{同梱ID}` / `ret-fin:{金融の請求ID}`（空=返却ではない）
   otherMode: boolean  // 受信待ちに無い物を自由入力するモード（true=名称入力欄を表示）
 }
 
@@ -59,6 +61,7 @@ function newItem(): ItemDraft {
     quantity: '',
     received_from: '',
     linked: '',
+    returnRef: '',
     otherMode: false,
   }
 }
@@ -78,6 +81,8 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
   const [bulkFrom, setBulkFrom] = useState('')
   const [items, setItems] = useState<ItemDraft[]>([newItem()])
   const [deliverables, setDeliverables] = useState<DeliverableOption[]>([])
+  // 原本の返却の候補（出払い中の同梱・金融の請求に出した印鑑登録証明書）
+  const [returnOptions, setReturnOptions] = useState<ReturnOption[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -91,6 +96,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
     setStorageTeamId('')
     setItems([newItem()])
     setDeliverables([])
+    setReturnOptions([])
     setLocation(defaultLocation ?? '')
     setParcelMode(false)
     setBulkQty('')
@@ -103,8 +109,9 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
   const selectCase = async (id: string) => {
     setSelectedCaseId(id)
     setDeliverables([])
+    setReturnOptions([])
     const supabase = createClient()
-    const [fa, re, ac, ko, cd, cs, ad, hr, salesRow] = await Promise.all([
+    const [fa, re, ac, ko, cd, cs, ad, hr, salesRow, encl, finReq, finInst] = await Promise.all([
       supabase.from('financial_assets').select('*').eq('case_id', id),
       supabase.from('real_estate_properties').select('*').eq('case_id', id),
       supabase.from('real_estate_acquisitions').select('*').eq('case_id', id).order('sort_order').order('created_at'),
@@ -115,7 +122,12 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
       supabase.from('heirs').select('*').eq('case_id', id).order('sort_order').order('created_at'),
       // 原本格納先の初期値：この案件の受注担当のチーム（チームに管理担当も受注担当も所属）
       supabase.from('case_members').select('members(team_id)').eq('case_id', id).eq('role', 'sales').limit(1).maybeSingle(),
+      // 原本の返却の候補（migration 283）
+      supabase.from('request_enclosures').select('*').eq('case_id', id),
+      supabase.from('financial_requests').select('id, institution_id, request_date, seal_original_sent, seal_original_returned_date').eq('case_id', id),
+      supabase.from('financial_institutions').select('id, name').eq('case_id', id),
     ])
+    setReturnOptions(buildReturnOptions((encl.data ?? []) as RequestEnclosureRow[], (finReq.data ?? []) as StockFinRequest[], (finInst.data ?? []) as Array<{ id: string; name: string }>))
     // 受注担当のチームを原本格納先の初期選択に（未設定なら空のまま）
     const salesTeam = (salesRow.data as { members?: { team_id?: string | null } | null } | null)?.members?.team_id ?? ''
     if (salesTeam && teams.some(t => t.id === salesTeam)) setStorageTeamId(salesTeam)
@@ -321,6 +333,8 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
       sort_order: idx,
       case_document_id: (createdDocs[idx] as { id: string }).id,
       ...parseLink(it.linked),
+      return_enclosure_id: it.returnRef.startsWith('ret-enc:') ? it.returnRef.slice(8) : null,
+      return_fin_request_id: it.returnRef.startsWith('ret-fin:') ? it.returnRef.slice(8) : null,
     }))
     const { error: itemsErr } = await supabase
       .from('document_receipt_items')
@@ -337,6 +351,19 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
     // 間違い登録は受信簿のゴミ箱で消すと取り消される。
     const okDates = await applyReceiptLinkDates(supabase, itemRows, receivedDate)
     if (!okDates) showToast('登録はできましたが、一部の到着日の反映に失敗しました', 'error')
+
+    // 原本の返却：出払い中の同梱に「戻った数」を足す／金融の請求の印鑑登録証明書に返却日を入れる（手元の数が戻る）
+    for (const it of validItems) {
+      if (!it.returnRef) continue
+      const qty = it.quantity ? Number(it.quantity) : 1
+      if (it.returnRef.startsWith('ret-enc:')) {
+        const encId = it.returnRef.slice(8)
+        const { data: cur } = await supabase.from('request_enclosures').select('returned_qty').eq('id', encId).maybeSingle()
+        await supabase.from('request_enclosures').update({ returned_qty: ((cur as { returned_qty?: number } | null)?.returned_qty ?? 0) + qty, returned_on: receivedDate }).eq('id', encId)
+      } else if (it.returnRef.startsWith('ret-fin:')) {
+        await supabase.from('financial_requests').update({ seal_original_returned_date: receivedDate }).eq('id', it.returnRef.slice(8))
+      }
+    }
 
     // 4. 受注担当へ通知（書類が届いた → クリックで案件の書類タブへ）
     const { data: salesMembers } = await supabase
@@ -609,9 +636,11 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
 
           <div className="space-y-2">
             {items.map(it => {
-              const useSelect = deliverables.length > 0
+              const useSelect = deliverables.length > 0 || returnOptions.length > 0
               // 他の行で既に選んだ受領待ちは、この行の候補から外す（同じ物を二重に紐づけない）
               const usedByOthers = new Set(items.filter(x => x.key !== it.key && x.linked).map(x => x.linked))
+              const usedReturns = new Set(items.filter(x => x.key !== it.key && x.returnRef).map(x => x.returnRef))
+              const returnsForRow = returnOptions.filter(o => !usedReturns.has(o.value))
               const groupedForRow = groupedDeliverables
                 .map(([group, opts]) => [group, opts.filter(o => !usedByOthers.has(o.value))] as const)
                 .filter(([, opts]) => opts.length > 0)
@@ -620,14 +649,18 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
                   <div className="grid grid-cols-[1fr_72px_1fr_28px] gap-2 items-center">
                     {useSelect ? (
                       <select
-                        value={it.otherMode ? '__other__' : it.linked}
+                        value={it.otherMode ? '__other__' : it.returnRef || it.linked}
                         onChange={e => {
                           const v = e.target.value
-                          if (v === '__other__') updateItem(it.key, { otherMode: true, linked: '', item_name: '' })
-                          else if (v === '') updateItem(it.key, { otherMode: false, linked: '', item_name: '' })
-                          else {
+                          if (v === '__other__') updateItem(it.key, { otherMode: true, linked: '', returnRef: '', item_name: '' })
+                          else if (v === '') updateItem(it.key, { otherMode: false, linked: '', returnRef: '', item_name: '' })
+                          else if (v.startsWith('ret-')) {
+                            // 原本の返却：出払い中の数を通数の既定に
+                            const opt = returnOptions.find(o => o.value === v)
+                            updateItem(it.key, { otherMode: false, linked: '', returnRef: v, item_name: opt?.label ?? '', quantity: opt ? String(opt.remaining) : it.quantity })
+                          } else {
                             const opt = deliverables.find(o => o.value === v)
-                            updateItem(it.key, { otherMode: false, linked: v, item_name: opt?.label ?? '' })
+                            updateItem(it.key, { otherMode: false, linked: v, returnRef: '', item_name: opt?.label ?? '' })
                           }
                         }}
                         className="w-full min-w-0 px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md bg-white outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-300"
@@ -638,6 +671,11 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
                             {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                           </optgroup>
                         ))}
+                        {returnsForRow.length > 0 && (
+                          <optgroup label="原本の返却（出払い中のもの）">
+                            {returnsForRow.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                          </optgroup>
+                        )}
                         <option value="__other__">その他（自由入力）</option>
                       </select>
                     ) : (
@@ -694,7 +732,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
         </div>
 
         <p className="text-[11px] text-gray-400 leading-relaxed">
-          到着物は案件の「到着物」タブに保存されます。受信待ちに紐づけると、登録した時点で各タブの受領日・到着日へ自動反映されます。
+          到着物は案件の「到着物・原本の出入り」タブに保存されます。受信待ちに紐づけると、登録した時点で各タブの受領日・到着日へ自動反映されます。出払い中の原本（印鑑登録証明書など）が戻ってきたら「原本の返却」を選ぶと手元の数が戻ります。
         </p>
       </div>
     </Modal>

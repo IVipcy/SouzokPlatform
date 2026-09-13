@@ -27,7 +27,8 @@ import {
 } from '@/lib/officeProfiles'
 import { KOSEKI_REQUEST_TYPES, KOSEKI_DOC_FORMS, defaultKosekiPurpose, includesJuminhyo, kosekiBundleNote } from '@/lib/constants'
 import { siblingRequestsOf } from '@/lib/kosekiSiblings'
-import type { CaseRow, TaskRow, HeirRow, KosekiRequestRow } from '@/types'
+import { createClient } from '@/lib/supabase/client'
+import type { CaseRow, TaskRow, HeirRow, KosekiRequestRow, RequestEnclosureRow } from '@/types'
 
 type Props = {
   isOpen: boolean
@@ -45,6 +46,10 @@ type Props = {
   defaultTaskId?: string
   /** 案件の戸籍請求 全件。同じ役所への未請求があるか（備考の重複1通の一言）を見るのに使う */
   allRequests?: KosekiRequestRow[]
+  /** 案件の同梱する資料（確認画面に出すだけ） */
+  enclosures?: RequestEnclosureRow[]
+  /** 請求書を作ったあと（カードの請求日・通数を書いたので読み直してもらう） */
+  onGenerated?: () => void
 }
 
 // 請求書に印字する種別＝実務タブの請求の種別（戸籍/除籍/…）＋種別②（謄本/抄本）。
@@ -58,10 +63,12 @@ function parseRequestTypes(...docTypes: (string | null | undefined)[]): string[]
 
 const toDigits = (s: string) => s.replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0)).replace(/[^\d]/g, '')
 
-export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, heirs, kosekiRequests = [], defaultTaskId, allRequests = [] }: Props) {
+export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, heirs, kosekiRequests = [], defaultTaskId, allRequests = [], enclosures = [], onGenerated }: Props) {
   const [variant, setVariant] = useState<KosekiVariant>(defaultKosekiVariant(caseData.contract_type))
-  const [requestDate, setRequestDate] = useState<string>(new Date().toISOString().slice(0, 10))
-  const [copyCount, setCopyCount] = useState<number>(1)
+  // 請求日・通数はカード（Step3 の通数・Step4 の請求日）から。無ければ今日・1通。作ったらカードへ書き戻す
+  const first = kosekiRequests[0]
+  const [requestDate, setRequestDate] = useState<string>(first?.request_date ?? new Date().toISOString().slice(0, 10))
+  const [copyCount, setCopyCount] = useState<number>(first?.copy_count ?? 1)
   // 事業部。同じ拠点でも事業部で電話が変わる（共同ビルの第一／第二）ため、拠点とセットで決まる。
   // 拠点はカード（Step1の拠点）が持つので、ここでは事業部だけ選ぶ。
   const [division, setDivision] = useState<string>(IKIIKI_DEFAULT_BRANCH.division)
@@ -90,11 +97,11 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
   useEffect(() => {
     if (!isOpen) return
     setVariant(defaultKosekiVariant(caseData.contract_type))
-    setRequestDate(new Date().toISOString().slice(0, 10))
-    setCopyCount(1)
+    setRequestDate(first?.request_date ?? new Date().toISOString().slice(0, 10))
+    setCopyCount(first?.copy_count ?? 1)
     setPick(0)
     setBundleNote(true)
-  }, [isOpen, caseData.contract_type])
+  }, [isOpen, caseData.contract_type, first?.id, first?.request_date, first?.copy_count])
 
   // 拠点が変わったら、その拠点にある事業部の先頭に寄せる（無い事業部が残らないように）
   useEffect(() => {
@@ -188,7 +195,13 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
         made += 1
       }
       if (made === 0) return
-      showToast(made > 1 ? `戸籍請求書を${made}枚生成しました（同じ封筒に入れてください）` : '戸籍請求書を生成しました', 'success')
+      // 作った日をカードの請求日に、通数を Step3 に書き戻す（請求書と実務タブの請求日を同じにする）
+      const supabase = createClient()
+      const n = Number(copyCount) || 1
+      await Promise.all(targets.map(q => supabase.from('koseki_requests')
+        .update({ request_date: requestDate || q.request_date, copy_count: n }).eq('id', q.id)))
+      onGenerated?.()
+      showToast(made > 1 ? `戸籍請求書を${made}枚生成しました（同じ封筒に入れてください）。請求日をカードに入れました` : '戸籍請求書を生成しました。請求日をカードに入れました', 'success')
       onClose()
     } catch (e) {
       showToast(`通信エラー: ${(e as Error).message}`, 'error')
@@ -295,7 +308,9 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
                   ほか {targets.map(q => (q.target_person ?? '').trim() || '対象者未設定').filter(n => n !== doc.targetName).join('・')} の分も、それぞれの請求カードの内容で同じ様式で出します。
                 </div>
               )}
+              <ConfRow label="通数" value={`${Number(copyCount) || 1}通`} />
               <ConfRow label="同封小為替" value={doc.kogawase == null ? '' : `¥${doc.kogawase.toLocaleString('ja-JP')}`} />
+              <ConfRow label="同梱する資料" value={enclosures.filter(e => e.ref_kind === 'koseki' && e.ref_id === k.id).map(e => `${e.doc_name} ${e.quantity}${e.form === 'その他' ? '' : `（${e.form}）`}`).join('・')} />
               <ConfRow label="拠点" value={agentOfficeLabel} />
               <ConfRow label="請求者欄" value={preset.requesterLabel} />
               <ConfRow label="代理人欄" value={preset.agentLabel ?? '（表示なし）'} last />
