@@ -347,7 +347,7 @@ function AcquisitionCards({
 
             {/* Step2 は請求の前に決めること＝封筒に入れる小為替（役所）／印紙・手数料（法務局）だけ。
                 返金・確定費用は届いてから分かるので Step3 へ（戸籍と同じ）。 */}
-            <ReGroup no="Step2" title={isProp ? '印紙・手数料' : '同封する小為替'}>
+            <ReGroup no="Step2" title={isProp ? '印紙・手数料' : '同封する小為替・資料'}>
               {noRequest || isRef ? (
                 <ReRow label="費用" full>{isRef ? <span className="text-[12px] text-gray-400">参照のみ（費用なし）</span> : muted}</ReRow>
               ) : fullCost ? (
