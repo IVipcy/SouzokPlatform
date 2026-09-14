@@ -354,7 +354,15 @@ export function defaultRolesForGyomu(gyomu: string): { gyomu: string; sagyou: st
     const rows = tasksFor(c, gyomu).filter(t => !isOptionalTask(t.task))
     if (rows.length) return rows.map(t => ({ gyomu, sagyou: t.task, owner: '自社', note: '', kind: kindOf(t) }))
   }
-  return []
+  // 作業が全部 optional の業務（手紙＝各相続人への通知・案内文の送付 だけ）。
+  // 実施業務で明示的に選んだ以上はやる作業なので、optional でも入れる。
+  // ここが空だと実施業務のチップを押しても何も入らず、押しても反応しないように見える。
+  for (const c of cats) {
+    const rows = tasksFor(c, gyomu)
+    if (rows.length) return rows.map(t => ({ gyomu, sagyou: t.task, owner: '自社', note: '', kind: kindOf(t) }))
+  }
+  // マスタに無い業務でも、選んだことは残す（作業名は空。あとで足す）
+  return [{ gyomu, sagyou: '', owner: '自社', note: '', kind: 'task' }]
 }
 
 /** 区分×業務×作業名 から kind（資料/タスク）の初期値を引く。未知の作業は task。 */
