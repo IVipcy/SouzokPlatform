@@ -662,8 +662,10 @@ export const ACQUISITION_ITEMS = [
   { key: '所有者事項', method: '請求', target: '物件', office: '法務局' },
   { key: '公図', method: '請求', target: '物件', office: '法務局' },
   { key: '地積測量図', method: '請求', target: '物件', office: '法務局' },
-  { key: '評価証明', method: '請求', target: '市区町村', office: '市区町村役所' },
+  // 役所へ請求するもの。並びは申請書（固定資産証明等申請書）の「証明書の種類」欄と同じ 名寄帳 → 評価証明 → 非課税証明書
   { key: '名寄帳', method: '請求', target: '市区町村', office: '市区町村役所' },
+  { key: '評価証明', method: '請求', target: '市区町村', office: '市区町村役所' },
+  { key: '非課税証明書', method: '請求', target: '市区町村', office: '市区町村役所' },
   { key: '路線価', method: '参照', target: '物件', office: '' },
 ] as const
 

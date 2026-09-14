@@ -66,10 +66,13 @@ const itemsOf = (r: RealEstateAcquisitionRow): string[] => {
   if (arr.length > 0) return arr
   return r.item_type ? [r.item_type] : []
 }
-/** 役所ぶん（名寄帳・評価証明）の請求か */
+/** 申請書に載る証明書の種類（ひな型の「証明書の種類」欄の並び） */
+const CERT_KINDS = ['名寄帳', '評価証明', '非課税証明書'] as const
+const isCertItem = (x: string) => x === '名寄帳' || x.includes('評価証明') || x.includes('非課税')
+/** 役所ぶん（名寄帳・評価証明・非課税証明書）の請求か */
 const isMuniRequest = (r: RealEstateAcquisitionRow) =>
-  (r.scope === 'municipality' || (!r.scope && itemsOf(r).some(x => x === '名寄帳' || x.includes('評価証明'))))
-  && itemsOf(r).some(x => x === '名寄帳' || x.includes('評価証明'))
+  (r.scope === 'municipality' || (!r.scope && itemsOf(r).some(isCertItem)))
+  && itemsOf(r).some(isCertItem)
 
 export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseData, properties, defaultTaskId, acquisition = null }: Props) {
   const [variant, setVariant] = useState<FixedAssetVariant>(defaultFixedAssetVariant(caseData.contract_type))
@@ -115,10 +118,9 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
   const muniKey = (k?.target_municipality ?? '').trim()
   const muniProps = muniKey ? properties.filter(p => municipalityOf(p) === muniKey) : []
   const items = k ? itemsOf(k) : []
-  const certKinds = [
-    ...(items.includes('名寄帳') ? ['名寄帳'] : []),
-    ...(items.some(x => x.includes('評価証明')) ? ['評価証明'] : []),
-  ]
+  // カードで選んだ証明書だけを、申請書の欄の並び（名寄帳 → 評価証明 → 非課税証明書）で
+  const certKinds = CERT_KINDS.filter(k =>
+    k === '名寄帳' ? items.includes('名寄帳') : k === '評価証明' ? items.some(x => x.includes('評価証明')) : items.some(x => x.includes('非課税')))
   const yearRaw = (k?.doc_year ?? k?.myna_year ?? '').trim()
   const doc = {
     municipality: stripPref(muniKey),

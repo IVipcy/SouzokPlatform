@@ -30,7 +30,7 @@ type Body = {
   municipality: string         // 提出先市区町村名
   nendo: string                // 年度（例: 令和7年度）
   copyCount: number            // 部数
-  certKinds: string[]          // 証明書種類（名寄帳/評価証明/非課税証明書）※MVPでは表示のみ
+  certKinds: string[]          // 証明書種類（名寄帳/評価証明/非課税証明書）。選んだものだけ「証明書の種類」欄に載せる
   ownerName: string            // 所有者氏名（通常 cases.deceased_name）
   ownerAddress: string         // 所有者住所
   properties: PropertyRow[]    // 対象資産（最大5件）
@@ -49,6 +49,8 @@ const CELL_MAP = {
   requesterName: 'F6',
   nendo: 'F14',
   copyCount: 'H14',
+  // 証明書の種類（ひな型は3行の固定文字。選んだものだけを上から書き、残りは空にする）
+  certKinds: ['B14', 'B15', 'B16'],
   ownerName: 'D17',
   ownerAddress: 'D19',
   purpose: 'C42',
@@ -88,7 +90,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as Body
     const { caseId, variant, requestDate, municipality, nendo, copyCount,
-            ownerName, ownerAddress, properties, kogawaseAmount, notes } = body
+            ownerName, ownerAddress, properties, kogawaseAmount, notes, certKinds = [] } = body
 
     if (!caseId || !variant) {
       return NextResponse.json({ error: 'caseId, variant は必須です' }, { status: 400 })
@@ -149,6 +151,12 @@ export async function POST(request: NextRequest) {
     setCell(ws, CELL_MAP.requesterName, clientName)
     setCell(ws, CELL_MAP.nendo, nendo)
     setCell(ws, CELL_MAP.copyCount, `${copyCount}　通`)
+    // 証明書の種類：カードで選んだものだけ（並びは 名寄帳 → 評価証明 → 非課税証明書）。ひな型の記入例は消す
+    {
+      const order = ['名寄帳', '評価証明', '非課税証明書']
+      const picked = order.filter(k => certKinds.some(c => c === k || (k === '評価証明' && c.includes('評価証明')) || (k === '非課税証明書' && c.includes('非課税'))))
+      CELL_MAP.certKinds.forEach((addr, i) => setCell(ws, addr, picked[i] ?? null))
+    }
     setCell(ws, CELL_MAP.ownerName, `故　${ownerName}`)
     setCell(ws, CELL_MAP.ownerAddress, ownerAddress)
     setCell(ws, CELL_MAP.purpose, preset.purpose)

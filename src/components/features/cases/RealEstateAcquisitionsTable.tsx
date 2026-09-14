@@ -38,7 +38,7 @@ const acquirerOf = (r: { acquirer: string | null; received_at_meeting?: boolean 
 const acquirerValue = (label: string) => (label === '依頼者取得' ? '依頼者' : '自社')
 
 // 年度を持つ資料。登記情報・公図・地積測量図・路線価には年度がない。
-const YEAR_ITEMS = ['名寄帳', '評価証明']
+const YEAR_ITEMS = ['名寄帳', '評価証明', '非課税証明書']
 // 和暦の年度候補（今年度／前年度）
 const yearOptions = () => { const y = new Date().getFullYear(); return [`令和${y - 2018}年度`, `令和${y - 2019}年度`] }
 import type { RealEstateAcquisitionRow, RealEstatePropertyRow, TaskRow, ContractDocumentRow } from '@/types'
