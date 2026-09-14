@@ -884,8 +884,8 @@ function ProcedureCards({ inst: i, ev, requests, save, memberId, today, caseData
             </select>
             {i.form_source === '社内在庫' && <span className="text-[12px] text-gray-500">在庫あり {md(i.form_stock_date)}</span>}
             {(i.form_source === '金融機関へ請求' || i.form_source === '窓口で受け取る') && (<>
-              <Chk checked={!!i.form_arrival_date} onChange={on => void save({ form_arrival_date: on ? today : null })} label={i.form_source === '窓口で受け取る' ? '受け取った' : '届いた'} note={md(i.form_arrival_date)} />
-              {!i.form_arrival_date && <span className="text-[12px] text-gray-400">{i.form_source === '窓口で受け取る' ? '受け取るまで請求に進めません' : '到着待ち'}</span>}
+              <Chk checked={!!i.form_arrival_date} onChange={on => void save({ form_arrival_date: on ? today : null })} label={i.form_source === '窓口で受け取る' ? '原本確認して受け取った' : '届いた'} note={md(i.form_arrival_date)} />
+              {!i.form_arrival_date && <span className="text-[12px] text-gray-400">{i.form_source === '窓口で受け取る' ? '窓口で原本確認して受け取るまで請求に進めません' : '到着待ち'}</span>}
             </>)}
           </>) : <span className="text-[12px] text-gray-400">この銀行では不要</span>}
           <NotNeededAtEnd required={i.form_required} onChange={v => void save({ form_required: v })} />
@@ -938,7 +938,7 @@ function ProcedureCards({ inst: i, ev, requests, save, memberId, today, caseData
         const visit = !isAdmin && i.handling_method === '来店'
         const missing: string[] = []
         if (onHold) missing.push('調査禁止中')
-        if (!formSecured(i)) missing.push(i.form_source === '窓口で受け取る' ? '依頼書を受け取っていません' : '依頼書の到着待ち')
+        if (!formSecured(i)) missing.push(i.form_source === '窓口で受け取る' ? '依頼書を受け取っていません（要原本確認）' : '依頼書の到着待ち')
         if (!isAdmin && i.handling_method === '未確認') missing.push('請求方法（郵送か来店か）が未選択')
         if (sealBlocked) missing.push(seal.status === '期限切れ' ? '印鑑登録証明書が期限切れ' : '印鑑登録証明書が未登録')
         if (visit && !i.visit_date) missing.push('来店日が未入力')
@@ -950,7 +950,7 @@ function ProcedureCards({ inst: i, ev, requests, save, memberId, today, caseData
             <PracticeRow label="依頼書" full>
               {!i.form_required ? <span className="text-gray-500">不要</span>
                 : formSecured(i) ? <><span className="text-emerald-700 font-semibold">手元にある</span><span className="text-[12px] text-gray-500">{i.form_source === '社内在庫' ? `社内在庫 ${md(i.form_stock_date)}` : `${i.form_source === '窓口で受け取る' ? '受け取り' : '到着'} ${md(i.form_arrival_date)}`}</span></>
-                : <><span className="text-amber-700 font-semibold">{i.form_source === '未確認' ? '手配方法が未選択' : i.form_source === '窓口で受け取る' ? '受け取り待ち' : '到着待ち'}</span><span className="text-[12px] text-gray-400">②の「依頼書の手配」で記録します</span></>}
+                : <><span className="text-amber-700 font-semibold">{i.form_source === '未確認' ? '手配方法が未選択' : i.form_source === '窓口で受け取る' ? '要原本確認・受け取り待ち' : '到着待ち'}</span><span className="text-[12px] text-gray-400">②の「依頼書の手配」で記録します</span></>}
             </PracticeRow>
             <SealRows caseData={caseData} patchCase={patchCase} today={today} />
             {visit && (

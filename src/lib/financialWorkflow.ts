@@ -15,7 +15,8 @@ import type {
 export const INSTITUTION_KINDS = ['預金', '証券', '株主名簿管理人', 'ほふり'] as const
 export const FORM_SOURCES = ['未確認', '社内在庫', '金融機関へ請求', '窓口で受け取る'] as const
 /** 画面の言い方（値は変えない） */
-export const FORM_SOURCE_LABEL: Record<string, string> = { '未確認': '—', '社内在庫': '社内在庫あり', '金融機関へ請求': '銀行から送ってもらう', '窓口で受け取る': '窓口で受け取る' }
+// 「窓口で受け取る」は画面では「要原本確認」（原本を窓口で確認してもらって依頼書を受け取る）。DBの値は変えない
+export const FORM_SOURCE_LABEL: Record<string, string> = { '未確認': '—', '社内在庫': '社内在庫あり', '金融機関へ請求': '銀行から送ってもらう', '窓口で受け取る': '要原本確認' }
 export const SEARCH_METHOD_LABEL: Record<string, string> = { '未確認': '—', '電話回答': '電話で回答あり', '要原本確認': '原本の提出が必要', '要請求': '調査依頼書の提出が必要' }
 export const SEARCH_METHODS = ['未確認', '電話回答', '要原本確認', '要請求'] as const
 export const SUBMISSION_METHODS = ['未確認', '郵送', '来店'] as const
