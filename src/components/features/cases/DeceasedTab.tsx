@@ -137,13 +137,18 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
 
   // メイン依頼者（面談で氏名・生年月日・住所を聴取済み）を相続人としてプリセット追加。本籍のみ空欄。
   const mainClient = caseClients.find(c => c.priority === 'main') ?? caseClients[0]
+  // 依頼者の続柄（オーダーシートの依頼者一覧 → 無ければ依頼者情報）。選択肢にある値は relationship_type、それ以外は自由文の relationship に入れる
+  const clientRel = (mainClient?.relationship ?? caseData.clients?.relationship_to_deceased ?? '').trim()
+  const clientRelPatch = (): { relationship_type: string | null; relationship: string | null } =>
+    !clientRel ? { relationship_type: null, relationship: null }
+      : (HEIR_RELATIONSHIPS as readonly string[]).includes(clientRel) ? { relationship_type: clientRel, relationship: clientRel } : { relationship_type: null, relationship: clientRel }
   const startAddFromClient = () => {
     setEditingHeirId(null)
     setHeirForm({
       ...emptyHeirForm(),
       name: mainClient?.name ?? caseData.clients?.name ?? '',
       furigana: mainClient?.furigana ?? caseData.clients?.furigana ?? '',
-      relationship: '',
+      relationship: ((HEIR_RELATIONSHIPS as readonly string[]).includes(clientRel) ? clientRel : '') as RelType | '',
       birth_date: mainClient?.birth_date ?? '',
       address: caseData.clients?.address ?? '',
       registered_address: '',
@@ -165,7 +170,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       case_id: caseData.id,
       name,
       furigana: mainClient?.furigana ?? caseData.clients?.furigana ?? null,
-      relationship_type: null,
+      ...clientRelPatch(),
       birth_date: mainClient?.birth_date || null,
       address: caseData.clients?.address ?? null,
       registered_address: null,
@@ -174,6 +179,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       email: mainClient?.email ?? caseData.clients?.email ?? null,
       is_legal_heir: true,
       is_applicant: true,
+      is_client: true,
       lived_together: false,
       other_parent_heir_id: null,
       sort_order: 0,
@@ -209,13 +215,19 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
     for (const [k, v] of Object.entries(src)) {
       if (v && !(heir as unknown as Record<string, unknown>)[k]) patch[k] = v
     }
+    // 続柄：オーダーシートで依頼者の続柄を入れたのに相続人一覧に出ていなかった。空欄のときだけ依頼者の続柄を入れる
+    if (clientRel && !(heir.relationship_type ?? '').trim() && !(heir.relationship ?? '').trim()) {
+      const rp = clientRelPatch()
+      if (rp.relationship_type) patch.relationship_type = rp.relationship_type
+      if (rp.relationship) patch.relationship = rp.relationship
+    }
     if (Object.keys(patch).length === 0) return
     ;(async () => {
       const { error } = await createClient().from('heirs').update(patch).eq('id', heir.id)
       if (!error) onRefresh()
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [heirs, mainClient, caseData.clients])
+  }, [heirs, mainClient, caseData.clients, clientRel])
 
   const startEdit = (heir: HeirRow) => {
     setEditingHeirId(heir.id)
