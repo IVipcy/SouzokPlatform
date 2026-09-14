@@ -63,7 +63,7 @@ export const TAB_LABELS: Record<TabKey, string> = {
   execution: '執行通知',
   contractCreate: '契約書作成',
   contract: '請求',
-  receipts: '到着物と原本管理',
+  receipts: '到着物/原本管理',
   docs: '案件フォルダ',
   documentCreate: '書類作成',
   delivery: '納品',

@@ -274,11 +274,11 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                   <button
                     type="button"
                     onClick={() => onActivateTab?.('receipts')}
-                    title="到着物（受信簿・受領台帳）を開く"
+                    title="到着物と原本管理（受信簿・手元の原本）を開く"
                     className="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-md text-[12px] font-semibold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors whitespace-nowrap"
                   >
                     <Inbox className="w-3.5 h-3.5" strokeWidth={2} />
-                    到着物
+                    到着物/原本管理
                     {(highlightTabs ?? []).includes('receipts') && (
                       <span className="text-brand-600 font-bold text-[10px] leading-none">●</span>
                     )}

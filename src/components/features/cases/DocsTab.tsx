@@ -199,7 +199,7 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
   // 到着物一覧（受信簿）タブ
   return (
     <div className="space-y-3.5">
-      <TabHeader title="到着物と原本管理" description="受信簿に登録された到着物と、手元にある原本がいまどこに出ているか（請求に同梱して出払い中／戻った／納品した）を見ます。" />
+      <TabHeader title="到着物/原本管理" description="受信簿に登録された到着物と、手元にある原本がいまどこに出ているか（請求に同梱して出払い中／戻った／納品した）を見ます。" />
       <SubTabs tabs={[{ key: 'receipts', label: '到着物（受信簿）', count: rows.length }, { key: 'originals', label: '原本管理' }]} active={recTab} onChange={k => setRecTab(k as 'receipts' | 'originals')} />
 
       {recTab === 'originals' ? (
