@@ -26,6 +26,8 @@ import { useCurrentMember } from '@/lib/useCurrentMember'
 import TaskHourenSouModal from '@/components/features/tasks/TaskHourenSouModal'
 import { notifyTasksReady, type ReadyTaskLite } from '@/lib/taskReadyNotify'
 import { loadNextCandidates, type NextCandidate } from '@/lib/nextTaskCandidates'
+import { useOriginalsGate } from '@/lib/useOriginalsGate'
+import { gateNote } from '@/lib/originalsGate'
 import { KosekiImagePicker } from '@/components/features/cases/KosekiImagePick'
 import type { TaskRow } from '@/types'
 
@@ -110,7 +112,12 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
     return () => { alive = false }
   }, [task.case_id, task.title])
 
-  const picked = cands.filter(c => c.on && c.title.trim())
+  // 原本ゲート：請求に要る原本（委任状・印鑑登録証明書・戸籍）が手元に無い候補は出さない（薄く「原本待ち」と見せるだけ）
+  const { gateFor: originalsGateFor } = useOriginalsGate(task.case_id, cands.map(c => c.rid))
+  const blockedRids = new Set(cands.filter(c => { const g = originalsGateFor(c.rid); return !!g && !g.ok }).map(c => c.rid))
+  const openCands = cands.filter(c => !blockedRids.has(c.rid))
+  const blockedCands = cands.filter(c => blockedRids.has(c.rid))
+  const picked = openCands.filter(c => c.on && c.title.trim())
   const hasAction = noNext || picked.length > 0 || newTitle.trim().length > 0 || consulted
   const canSubmit = result.trim().length > 0 && hasAction
   // 押せないときは、何が足りないのかを footer に出す（黙って灰色にしない）。
@@ -295,7 +302,7 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
             {/* 戸籍の完了に依存していて、いま始められるもの。無ければ枠ごと出さない。 */}
             {loading ? (
               <div className="py-2 text-center text-[12px] text-gray-400"><Loader2 className="w-4 h-4 animate-spin inline mr-1" />次に進めるものを確認中…</div>
-            ) : cands.length > 0 && (
+            ) : (openCands.length > 0 || blockedCands.length > 0) && (
               <div className="rounded-lg border border-brand-200 bg-brand-50/40 overflow-hidden">
                 <div className="px-3 py-1.5 bg-brand-50 border-b border-brand-200 text-[11.5px] font-semibold text-brand-800 flex items-center gap-1.5">
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -303,7 +310,7 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
                   <span className="font-normal text-brand-600">選ぶと作られます</span>
                 </div>
                 <div className="p-2 space-y-1.5">
-                  {cands.map(c => (
+                  {openCands.map(c => (
                     <div key={c.rid} className={`rounded-lg border transition-colors ${c.on ? 'border-brand-400 bg-white' : 'border-gray-200 bg-white/70 hover:border-gray-300'}`}>
                       <label className="flex items-start gap-2.5 px-2.5 py-2 cursor-pointer">
                         <input type="checkbox" checked={c.on}
@@ -328,6 +335,24 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
                       </label>
                     </div>
                   ))}
+                  {blockedCands.length > 0 && (
+                    <div className="pt-1">
+                      <div className="text-[11px] text-gray-500 mb-1">原本待ちのため出していない請求（原本が戻ると、受信簿の「対応」から候補に出ます）</div>
+                      {blockedCands.map(c => {
+                        const g = originalsGateFor(c.rid)
+                        return (
+                          <div key={c.rid} className="flex items-start gap-2.5 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white/60 opacity-70">
+                            <span className="w-4 h-4 mt-[3px] flex-none rounded border border-gray-300 bg-gray-50" />
+                            <span className="min-w-0 flex-1">
+                              <span className="text-[12.5px] text-gray-600 block truncate">{c.title}</span>
+                              <span className="block text-[10.5px] text-amber-700 mt-0.5">{g ? gateNote(g) : ''}</span>
+                            </span>
+                            <span className="flex-none text-[10.5px] px-1.5 py-0.5 border border-amber-300 bg-amber-50 text-amber-800">原本待ち</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

@@ -21,6 +21,7 @@ import { GyomuBadge } from '@/components/ui/KoteiBadge'
 import { RemainCell } from '@/components/ui/RemainCell'
 import { getStartSignal, type ReadinessReceipt } from '@/lib/taskReadiness'
 import { isTaskFreezeBlocked } from '@/lib/financeFreeze'
+import type { OriginalsWaitByTask } from '@/lib/loadOriginalsWait'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { showToast } from '@/components/ui/Toast'
 import type { TaskRow, MemberRow } from '@/types'
@@ -52,6 +53,8 @@ type Props = {
   financeBlockedCaseIds?: string[]
   /** 案件ID→金融資産（機関名・凍結確認）。解約タスクは機関単位で凍結ゲートを判定する。 */
   freezeAssetsByCase?: Record<string, Array<{ institution_name?: string | null; freeze_confirmed?: boolean | null }>>
+  /** タスクID→原本待ち（請求に要る原本が手元に無い）。着手OKの代わりに「原本待ち」と出す */
+  originalsWaitByTask?: OriginalsWaitByTask
   /** 事務管理ダッシュボードのタブに埋め込むとき。ページ見出しを出さず、検索欄だけ上に置く。 */
   embedded?: boolean
   /** バナーから飛んできたときの絞り込み指定。key が変わるたびに反映する。 */
@@ -169,7 +172,7 @@ function Chip({ label, note, tone, on, onClick }: {
 /** 郵便タブのキー。業務タブのキー（heirs/realestate/…）とぶつからない名前にする。 */
 const MAIL_TAB = 'mail'
 
-export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [], roleScope = 'assistant', financeBlockedCaseIds = [], freezeAssetsByCase = {}, embedded = false, jump = null, caseScope = false, mailTaskIds }: Props) {
+export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [], roleScope = 'assistant', financeBlockedCaseIds = [], freezeAssetsByCase = {}, originalsWaitByTask = {}, embedded = false, jump = null, caseScope = false, mailTaskIds }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentMemberId = useCurrentMember(serverMemberId)
@@ -616,6 +619,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         onDelete={setDeleteTask}
         onSetPriority={setPriority}
         freezeAssetsByCase={freezeAssetsByCase}
+        originalsWaitByTask={originalsWaitByTask}
         selectedIds={selectedIds}
         onToggleSelect={toggleSelect}
         onToggleSelectAll={toggleSelectAll}
@@ -665,6 +669,7 @@ function ListView({
   onDelete,
   onSetPriority,
   freezeAssetsByCase,
+  originalsWaitByTask = {},
   selectedIds,
   onToggleSelect,
   onToggleSelectAll,
@@ -683,6 +688,7 @@ function ListView({
   onSetPriority: (task: TaskRow, priority: string) => void
   /** 案件ID→金融資産（機関名・凍結確認）。解約タスクは凍結が済むまで着手させない */
   freezeAssetsByCase: Record<string, Array<{ institution_name?: string | null; freeze_confirmed?: boolean | null }>>
+  originalsWaitByTask?: OriginalsWaitByTask
   selectedIds: Set<string>
   onToggleSelect: (taskId: string) => void
   onToggleSelectAll: (visibleIds: string[]) => void
@@ -796,6 +802,7 @@ function ListView({
                 onDelete={onDelete}
                 onSetPriority={onSetPriority}
                 freezeAssets={freezeAssetsByCase[task.case_id] ?? []}
+                originalsWait={originalsWaitByTask[task.id] ?? null}
                 selected={selectedIds.has(task.id)}
                 onToggleSelect={() => onToggleSelect(task.id)}
                 roleScope={roleScope}
@@ -811,7 +818,7 @@ function ListView({
 }
 
 // ─── 1行 ───
-function TaskRow({ task, caseMap, allMembers: _allMembers, today, onDelete, onSetPriority, freezeAssets, selected, onToggleSelect, roleScope, caseScope }: {
+function TaskRow({ task, caseMap, allMembers: _allMembers, today, onDelete, onSetPriority, freezeAssets, originalsWait = null, selected, onToggleSelect, roleScope, caseScope }: {
   task: TaskRow
   caseMap: Record<string, CaseInfo>
   allMembers: MemberRow[]
@@ -819,6 +826,8 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onDelete, onSe
   onDelete: (task: TaskRow) => void
   onSetPriority: (task: TaskRow, priority: string) => void
   freezeAssets: Array<{ institution_name?: string | null; freeze_confirmed?: boolean | null }>
+  /** 原本待ち（足りない原本と一言）。null＝原本は揃っている／請求のタスクではない */
+  originalsWait?: { missing: string[]; note: string } | null
   selected: boolean
   onToggleSelect: () => void
   roleScope: 'assistant' | 'manager' | 'touki'
@@ -860,7 +869,9 @@ function TaskRow({ task, caseMap, allMembers: _allMembers, today, onDelete, onSe
         {status === '着手前' ? (
           isTaskFreezeBlocked(task, freezeAssets)
             ? <span className="inline-block px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-gray-100 text-gray-500" title="口座の凍結確認が済むまで着手できません">凍結確認待ち</span>
-            : <span className="inline-block px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-amber-50 text-amber-700">着手OK</span>
+            : originalsWait
+              ? <span className="inline-flex flex-col leading-tight"><span className="inline-block px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-gray-100 text-gray-600" title={`${originalsWait.note}。原本が戻る（受信簿で「原本の返却」を登録）と着手OKになります`}>原本待ち</span><span className="text-[10px] text-amber-700 mt-0.5 truncate max-w-[88px]" title={originalsWait.note}>{originalsWait.missing.join('・')}</span></span>
+              : <span className="inline-block px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-amber-50 text-amber-700">着手OK</span>
         ) : status === '完了' ? (
           <span className="inline-block px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-emerald-50 text-emerald-700">完了</span>
         ) : (

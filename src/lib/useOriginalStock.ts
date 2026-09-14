@@ -17,7 +17,8 @@ export function useOriginalStock(caseId: string | null | undefined, enabled = tr
   const [finRequests, setFinRequests] = useState<StockFinRequest[]>([])
   const [institutions, setInstitutions] = useState<Array<{ id: string; name: string }>>([])
   const [sealCopies, setSealCopies] = useState<number | null>(null)
-  const [loading, setLoading] = useState(false)
+  // 最初の描画から「読み込み中」にする（空のまま一瞬「原本なし」と判定されないように）
+  const [loading, setLoading] = useState(!!caseId && enabled)
   const [tick, setTick] = useState(0)
   const reload = useCallback(() => setTick(t => t + 1), [])
 

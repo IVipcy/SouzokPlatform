@@ -17,6 +17,8 @@ import TaskHourenSouModal from './TaskHourenSouModal'
 import { getCompletionCaution, type CompletionCaution } from '@/lib/completionCaution'
 import { getStartSignal, isWaitingReceipt, receiptWaitNote } from '@/lib/taskReadiness'
 import { isFinanceFreezeTask } from '@/lib/financeFreeze'
+import { useOriginalsGate } from '@/lib/useOriginalsGate'
+import { gateKindOfRid, gateNote } from '@/lib/originalsGate'
 import { getPhaseLabel } from '@/lib/phases'
 import { TASK_STATUSES_V12, STATUS_FLOW_STEPS } from '@/lib/taskSectionDefs'
 import TaskDetailSidebar from './TaskDetailSidebar'
@@ -153,7 +155,11 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
   // 着手不可（ハード制限）は口座凍結未確認の金融タスクのみ。
   const startSignal = getStartSignal(task)
   const freezeBlocked = !isSystemTask && financeFreezeBlocked && isFinanceFreezeTask(task)
-  const canStart = !freezeBlocked
+  // 原本待ち：請求に要る原本（委任状・印鑑登録証明書・戸籍）が手元に無い請求タスクは着手できない。原本管理から計算
+  const { gateFor: originalsGateFor } = useOriginalsGate(task.case_id, [task.source_rid ?? ''], !isSystemTask && currentStatus === '着手前' && !!gateKindOfRid(task.source_rid))
+  const originalsGateResult = !isSystemTask && currentStatus === '着手前' ? originalsGateFor(task.source_rid) : null
+  const originalsBlocked = !!originalsGateResult && !originalsGateResult.ok
+  const canStart = !freezeBlocked && !originalsBlocked
   const waiting = !isSystemTask && isWaitingReceipt(task)
   // 未着手のタスクを開いたら「着手しますか？（着手する/閲覧だけ）」を出す。
   // 事務管理タスクに加え、初期対応タスク（受注時に生成される system タスク）も対象。
@@ -205,6 +211,10 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
     // 金融資産調査・解約タスクは、口座凍結が未確認だと着手不可（ハード制限）
     if (currentStatus === '着手前' && financeFreezeBlocked && isFinanceFreezeTask(task)) {
       showToast('口座の凍結確認が未完了です。財産調査タブで管理担当が凍結確認すると着手できます', 'error')
+      return
+    }
+    if (currentStatus === '着手前' && originalsBlocked && originalsGateResult) {
+      showToast(`原本待ちです：${gateNote(originalsGateResult)}。受信簿で「原本の返却」を登録すると着手できます`, 'error')
       return
     }
     setAdvancing(true)
@@ -370,16 +380,28 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
               </div>
             )}
 
+            {/* 原本待ち：足りない原本と出先、戻ったら自動で着手OKになること、急ぐときの手 */}
+            {originalsBlocked && originalsGateResult && (
+              <div className="flex items-start gap-2 px-3 py-2 border-l-[3px] border-amber-400 bg-amber-50 text-[12.5px] text-amber-900 leading-relaxed">
+                <Package className="w-4 h-4 flex-none mt-0.5 text-amber-600" strokeWidth={2} />
+                <span>
+                  <b>原本待ち：{originalsGateResult.missing.map(m => m.name).join('・')}が手元にありません</b>
+                  {originalsGateResult.missing.some(m => m.outs.length > 0) && <>（{originalsGateResult.missing.filter(m => m.outs.length > 0).map(m => `${m.name}は${m.outs.join('・')}に出払い中`).join('。')}）</>}。
+                  戻ってきたら受信簿で「原本の返却」を登録すると、このタスクは自動で着手OKになります。
+                  今すぐ進めるなら、依頼者にもう1通取ってもらい、契約手続きの受領書類（または到着物/原本管理）に足してください。
+                </span>
+              </div>
+            )}
             {/* ステータス表示 + 進行ボタン + 優先度 */}
             <div className="flex items-center gap-2 flex-wrap pt-1">
               {/* 進行ボタン */}
               {currentStatus === '着手前' && (
                 <div className="inline-flex items-center gap-2">
-                  {!canStart && <span className="text-[12px] text-gray-400">口座の凍結確認後に押せます</span>}
+                  {!canStart && <span className="text-[12px] text-gray-400">{originalsBlocked ? '原本が戻ると押せます' : '口座の凍結確認後に押せます'}</span>}
                   <button
                     onClick={handleAdvance}
                     disabled={advancing || !canStart}
-                    title={canStart ? undefined : '口座の凍結確認が未完了です'}
+                    title={canStart ? undefined : originalsBlocked && originalsGateResult ? `原本待ち：${gateNote(originalsGateResult)}` : '口座の凍結確認が未完了です'}
                     className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold text-white shadow-sm transition-all
                       ${!canStart ? 'bg-gray-300 cursor-not-allowed' : advancing ? 'bg-green-400 cursor-wait scale-95' : 'bg-green-600 hover:bg-green-700 hover:scale-105 active:scale-95'}`}
                   >
@@ -792,6 +814,11 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
               <div className="flex items-start gap-2 text-[12.5px] text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
                 <Package className="w-4 h-4 flex-shrink-0 mt-0.5 text-gray-400" strokeWidth={2} />
                 <span>口座の<strong className="font-semibold">凍結確認が未完了</strong>です。財産調査タブで管理担当が凍結確認すると着手できます。</span>
+              </div>
+            ) : originalsBlocked && originalsGateResult ? (
+              <div className="flex items-start gap-2 text-[12.5px] text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <Package className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-600" strokeWidth={2} />
+                <span><strong className="font-semibold">原本待ち</strong>：{gateNote(originalsGateResult)}。戻ってきたら受信簿で「原本の返却」を登録すると着手できます。</span>
               </div>
             ) : isInitialTask ? (
               <div className="flex items-start gap-2 text-[12.5px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">

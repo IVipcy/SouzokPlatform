@@ -9,6 +9,8 @@ import TaskTargetPicker, { emptyTarget, resolveTargetRid, type TaskTarget } from
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { buildInstitutionAlert, type InstitutionAlert, type KosekiProgress } from '@/lib/institutionAlert'
 import { showToast } from '@/components/ui/Toast'
+import { useOriginalsGate } from '@/lib/useOriginalsGate'
+import type { GateKind } from '@/lib/originalsGate'
 import type { MemberRow } from '@/types'
 
 type Props = {
@@ -39,6 +41,10 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
 
   const patch = (p: Partial<NewTaskValue>) => setForm(prev => ({ ...prev, ...p }))
   const close = () => { setTab('manual'); setAlert(null); onClose() }
+  // 対象（請求）に要る原本の手元。足りなければ「原本待ち」として作ることを先に言う（作るのは止めない）
+  const { gateForKind } = useOriginalsGate(caseId, [], isOpen)
+  const targetGateKind: GateKind | null = target.kind === 'koseki' ? 'koseki' : target.kind === 'name' && target.prefix === 're-muni' ? 're' : target.kind === 'name' && target.prefix === 'fin' ? 'fin' : null
+  const targetGate = targetGateKind ? gateForKind(targetGateKind) : null
 
   useEffect(() => {
     if (!isOpen) return
@@ -288,6 +294,13 @@ export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, default
         <div className="mt-3">
           <TaskTargetPicker caseId={caseId} gyomu={form.gyomu} value={target} onChange={setTarget} />
         </div>
+        {targetGate && targetGate.checked.length > 0 && (
+          <div className={`mt-2.5 px-3 py-2 border-l-[3px] text-[12.5px] leading-relaxed ${targetGate.ok ? 'border-emerald-400 bg-emerald-50 text-emerald-900' : 'border-amber-400 bg-amber-50 text-amber-900'}`}>
+            <span className="font-semibold">この請求に要る原本</span>
+            <span className="ml-2">{targetGate.checked.map(c => `${c.name} 手元${c.onHand}`).join('　')}</span>
+            {!targetGate.ok && <span className="block mt-0.5">原本が足りないので「原本待ち」として作ります（{targetGate.missing.map(m => `${m.name}${m.outs.length ? `は${m.outs.join('・')}に出払い中` : ''}`).join('・')}）。戻れば自動で着手OKになります。</span>}
+          </div>
+        )}
       </div>
       </>
       )}

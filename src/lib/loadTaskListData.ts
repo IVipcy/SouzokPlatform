@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { toReadinessReceipts, type ReadinessReceipt } from '@/lib/taskReadiness'
+import { loadOriginalsWaitByTask, type OriginalsWaitByTask } from '@/lib/loadOriginalsWait'
 import type { TaskRow, MemberRow } from '@/types'
 
 type RawMember = { id: string; name: string; avatar_color: string; avatar_url: string | null }
@@ -32,6 +33,8 @@ export async function loadTaskListData(): Promise<{
   financeBlockedCaseIds: string[]
   /** 案件ID→金融資産(機関名・凍結確認)。解約タスクの機関単位ゲート判定に使う */
   freezeAssetsByCase: Record<string, Array<{ institution_name: string | null; freeze_confirmed: boolean | null }>>
+  /** タスクID→原本待ち（請求に要る原本が手元に無い着手前の請求タスク）。原本管理から計算 */
+  originalsWaitByTask: OriginalsWaitByTask
 }> {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
@@ -102,14 +105,17 @@ export async function loadTaskListData(): Promise<{
   const receipts: ReadinessReceipt[] = toReadinessReceipts(
     (receiptsResult.data ?? []) as unknown as Parameters<typeof toReadinessReceipts>[0],
   )
+  const tasks = (tasksResult.data ?? []) as TaskRow[]
+  const originalsWaitByTask = await loadOriginalsWaitByTask(supabase, tasks)
 
   return {
-    tasks: (tasksResult.data ?? []) as TaskRow[],
+    tasks,
     caseMap,
     allMembers: (membersResult.data ?? []) as MemberRow[],
     currentMemberId: currentUser?.memberId ?? null,
     receipts,
     financeBlockedCaseIds,
     freezeAssetsByCase,
+    originalsWaitByTask,
   }
 }

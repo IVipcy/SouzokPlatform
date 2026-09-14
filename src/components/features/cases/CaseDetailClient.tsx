@@ -858,7 +858,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <ClientInfoTab caseData={caseState} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={handleSaved} caseClients={caseClients ?? []} allMembers={allMembers} currentMemberId={currentMemberId} salesMemberId={salesMemberId} />
       )}
       {effectiveTab === 'tasks' && (
-        <TasksTab tasks={tasks} allMembers={allMembers} currentMemberId={currentMemberId} onAddTask={addTaskModal.open} documentReceipts={documentReceipts} caseStatus={caseState.status} financeAssets={financialInstitutions.map(i => ({ institution_name: i.name, freeze_confirmed: i.freeze_confirmed }))} hideCaseTasks={isManagerViewer && caseState.status !== '作業着手準備'} />
+        <TasksTab tasks={tasks} allMembers={allMembers} currentMemberId={currentMemberId} onAddTask={addTaskModal.open} documentReceipts={documentReceipts} caseStatus={caseState.status} financeAssets={financialInstitutions.map(i => ({ institution_name: i.name, freeze_confirmed: i.freeze_confirmed }))} hideCaseTasks={isManagerViewer && caseState.status !== '作業着手準備'} deceasedName={caseState.deceased_name} kosekiRequests={kosekiRequests} />
       )}
       {effectiveTab === 'deceased' && (
         <DeceasedTab caseData={caseState} heirs={heirs} kosekiRequests={kosekiRequests} onRefresh={handleSaved} patchCase={patchCase} contractDocuments={contractDocuments} caseClients={caseClients} documentReceipts={documentReceipts} tasks={tasks} />

@@ -12,6 +12,7 @@ import { deliverableLinkLabel } from '@/lib/deliverables'
 import { READY_REASON_DOC } from '@/lib/taskReadiness'
 import { applyReceiptLinkDates, receiptItemLanding, receiptTaskDefaults } from '@/lib/receiptLinks'
 import NewTaskFields, { emptyNewTask, type NewTaskValue } from '@/components/features/tasks/NewTaskFields'
+import ReturnUnlockPanel, { type UnlockCandidate } from './ReturnUnlockPanel'
 import Modal from '@/components/ui/Modal'
 import FloatingWindow from '@/components/ui/FloatingWindow'
 import Button from '@/components/ui/Button'
@@ -354,6 +355,8 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   const [mode, setMode] = useState<Record<string, 'task' | 'none'>>({})
   const [forms, setForms] = useState<Record<string, NewTaskValue>>({})
   const [prep, setPrep] = useState<Record<string, ItemPrep>>({})
+  // 原本の返却で「請求できるようになった請求」のうち、タスクを作ると選ばれたもの
+  const [unlockPicked, setUnlockPicked] = useState<UnlockCandidate[]>([])
 
   const items = (receipt.items ?? []).slice().sort((a, b) => a.sort_order - b.sort_order)
 
@@ -497,6 +500,22 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
         .upsert(joinRows, { onConflict: 'receipt_item_id,task_id', ignoreDuplicates: true })
       if (joinErr) { setSaving(false); setError(`保存に失敗しました: ${joinErr.message}`); return }
     }
+    // 原本が戻って請求できるようになった請求のタスク（着手OK・理由「原本が戻った」）
+    for (const c of unlockPicked) {
+      const { data: nt, error: e } = await supabase.from('tasks').insert({
+        case_id: receipt.case_id, task_kind: 'case', title: c.title, phase: c.gyomu, category: c.gyomu, status: '着手前', priority: '通常',
+        sort_order: 99, created_by: currentMemberId, procedure_text: c.work, source_rid: c.rid,
+        ext_data: { ready_reason: `原本が戻った（${c.byOriginal}）`, ready_on_receipt: false },
+      }).select('id').single()
+      if (e || !nt) { setSaving(false); setError(`タスクの追加に失敗しました: ${e?.message ?? ''}`); return }
+      joinRows.push({ receipt_item_id: c.receiptItemId, task_id: (nt as { id: string }).id })
+      madeTitles.push(c.title)
+    }
+    if (unlockPicked.length > 0) {
+      const { error: joinErr } = await supabase.from('document_receipt_item_tasks')
+        .upsert(joinRows.filter(j => unlockPicked.some(c => c.receiptItemId === j.receipt_item_id)), { onConflict: 'receipt_item_id,task_id', ignoreDuplicates: true })
+      if (joinErr) { setSaving(false); setError(`保存に失敗しました: ${joinErr.message}`); return }
+    }
     // 後方互換：受信単位の代表タスク
     if (firstTaskId) await supabase.from('document_receipts').update({ started_task_id: firstTaskId }).eq('id', receipt.id)
 
@@ -526,7 +545,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
         <>
           <Button variant="secondary" onClick={onClose} disabled={saving}>キャンセル</Button>
           <Button variant="primary" onClick={confirm} loading={saving} disabled={loading}>
-            {taskItems.length > 0 ? `この内容で完了（タスク ${taskItems.length}件）` : '対応を完了'}
+            {taskItems.length + unlockPicked.length > 0 ? `この内容で完了（タスク ${taskItems.length + unlockPicked.length}件）` : '対応を完了'}
           </Button>
         </>
       }
@@ -542,6 +561,8 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
           <div className="py-6 text-center text-[12px] text-gray-400">到着物がありません</div>
         ) : (
           <div className="space-y-3 max-h-[30rem] overflow-y-auto">
+            {/* 原本の返却が含まれるとき：戻った原本で請求できるようになった請求 */}
+            <ReturnUnlockPanel caseId={receipt.case_id} items={items} onChange={setUnlockPicked} />
             {items.map(it => {
               const m = modeOf(it)
               const f = formOf(it.id)

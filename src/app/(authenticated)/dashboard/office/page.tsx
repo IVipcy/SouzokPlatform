@@ -103,6 +103,7 @@ export default async function OfficeDashboardPage() {
       receipts={taskData.receipts}
       financeBlockedCaseIds={taskData.financeBlockedCaseIds}
       freezeAssetsByCase={taskData.freezeAssetsByCase}
+      originalsWaitByTask={taskData.originalsWaitByTask}
       today={today}
     />
   )

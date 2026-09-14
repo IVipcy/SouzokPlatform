@@ -57,7 +57,7 @@ export default function ToukiTeamTabs({ requests, tasks, taskData, currentMember
         // 事務管理のタスク一覧と同じ見た目・操作（行を押すとタスク詳細、着手はそこで）。担当区分＝相続登記チーム
         <TaskListClient embedded roleScope="touki"
           tasks={taskData.tasks} caseMap={taskData.caseMap} allMembers={taskData.allMembers} currentMemberId={currentMemberId}
-          receipts={taskData.receipts} financeBlockedCaseIds={taskData.financeBlockedCaseIds} freezeAssetsByCase={taskData.freezeAssetsByCase} />
+          receipts={taskData.receipts} financeBlockedCaseIds={taskData.financeBlockedCaseIds} freezeAssetsByCase={taskData.freezeAssetsByCase} originalsWaitByTask={taskData.originalsWaitByTask} />
       ) : (
         <div className="space-y-3.5">
           {/* 種別ごとの未処理件数。3営業日超があれば琥珀 */}

@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useMemo, useTransition } from 'react'
+import { useOriginalStock } from '@/lib/useOriginalStock'
+import { originalsWaitForTasks, gateNote } from '@/lib/originalsGate'
 import { useRouter } from 'next/navigation'
 import { Plus } from 'lucide-react'
 import Button from '@/components/ui/Button'
@@ -27,6 +29,9 @@ type Props = {
   financeAssets?: Array<{ institution_name?: string | null; freeze_confirmed?: boolean | null }>
   /** 管理担当の閲覧時：事務管理タスク(case)を隠し、受注担当/管理担当タスク(system)のみ表示する。 */
   hideCaseTasks?: boolean
+  /** 原本待ちの判定に使う（被相続人名で戸籍を分ける・戸籍の職務上請求は委任状不要） */
+  deceasedName?: string | null
+  kosekiRequests?: Array<{ id: string; acquisition_authority?: string | null }>
 }
 
 // ステータス正規化（進捗バーの集計用）
@@ -37,7 +42,7 @@ const normalizeStatus = (status: string) => {
   return status
 }
 
-export default function TasksTab({ tasks, allMembers, currentMemberId: serverMemberId, onAddTask, documentReceipts, caseStatus, financeAssets = [], hideCaseTasks = false }: Props) {
+export default function TasksTab({ tasks, allMembers, currentMemberId: serverMemberId, onAddTask, documentReceipts, caseStatus, financeAssets = [], hideCaseTasks = false, deceasedName = null, kosekiRequests = [] }: Props) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const currentMemberId = useCurrentMember(serverMemberId)
@@ -60,6 +65,13 @@ export default function TasksTab({ tasks, allMembers, currentMemberId: serverMem
   const hasAnyTask = tasks.length > 0
 
   const caseId = tasks[0]?.case_id ?? null
+  // 原本待ち：請求に要る原本が手元に無い着手前の請求タスク。原本管理から計算（保存しない）
+  const { stock: originalStock } = useOriginalStock(caseId)
+  const originalsWaitByTask = useMemo(() => {
+    if (!caseId) return {}
+    const gates = originalsWaitForTasks(tasks, { [caseId]: originalStock }, { [caseId]: { deceasedName, kosekiAuthority: Object.fromEntries(kosekiRequests.map(k => [k.id, k.acquisition_authority ?? null])) } })
+    return Object.fromEntries(Object.entries(gates).map(([id, g]) => [id, { missing: g.missing.map(m => m.name), note: gateNote(g) }]))
+  }, [tasks, originalStock, caseId, deceasedName, kosekiRequests])
   const systemTasks = tasks.filter(t => t.task_kind === 'system')
   const systemCount = systemTasks.length
   const caseCount = tasks.filter(t => t.task_kind === 'case').length
@@ -132,6 +144,7 @@ export default function TasksTab({ tasks, allMembers, currentMemberId: serverMem
                 currentMemberId={currentMemberId}
                 receipts={receipts}
                 freezeAssetsByCase={caseId ? { [caseId]: financeAssets } : {}}
+                originalsWaitByTask={originalsWaitByTask}
                 roleScope="assistant"
               />
             </Section>

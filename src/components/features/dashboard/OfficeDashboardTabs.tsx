@@ -89,7 +89,7 @@ function TabBtn({ v, label, icon: Icon, count, current, onSelect, sev, alwaysCou
 
 export default function OfficeDashboardTabs({
   startRows, currentMemberId, currentMemberName, mailTaskIds, hourenSou,
-  tasks, caseMap, allMembers, receipts, financeBlockedCaseIds, freezeAssetsByCase, today,
+  tasks, caseMap, allMembers, receipts, financeBlockedCaseIds, freezeAssetsByCase, originalsWaitByTask = {}, today,
 }: {
   startRows: OfficeRow[]
   currentMemberId: string | null
@@ -102,6 +102,7 @@ export default function OfficeDashboardTabs({
   receipts: ReadinessReceipt[]
   financeBlockedCaseIds: string[]
   freezeAssetsByCase: Record<string, Array<{ institution_name?: string | null; freeze_confirmed?: boolean | null }>>
+  originalsWaitByTask?: Record<string, { missing: string[]; note: string }>
   today: string
 }) {
   const router = useRouter()
@@ -204,7 +205,7 @@ export default function OfficeDashboardTabs({
         <TaskListClient
           embedded
           tasks={tasks} caseMap={caseMap} allMembers={allMembers} currentMemberId={currentMemberId}
-          receipts={receipts} financeBlockedCaseIds={financeBlockedCaseIds} freezeAssetsByCase={freezeAssetsByCase}
+          receipts={receipts} financeBlockedCaseIds={financeBlockedCaseIds} freezeAssetsByCase={freezeAssetsByCase} originalsWaitByTask={originalsWaitByTask}
           roleScope="assistant" jump={jump}
           mailTaskIds={mailIdSet}
         />
