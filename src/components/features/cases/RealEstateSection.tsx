@@ -65,10 +65,10 @@ function PropertyGroup({ title, rows, municipalityOf }: {
           <td className="px-2.5 py-2 font-medium text-gray-800">{p.address || <span className="text-gray-300">—</span>}</td>
           <td className="px-2.5 py-2 text-gray-600">{(land ? p.lot_number : p.kaoku_bango) || <span className="text-gray-300">—</span>}</td>
           <td className="px-2.5 py-2 text-gray-600">{(land ? p.land_category : p.building_kind) || <span className="text-gray-300">—</span>}</td>
-          <td className="px-2.5 py-2 text-gray-600 max-w-[14rem] truncate" title={land ? undefined : (p.building_structure ?? undefined)}>
+          <td className="px-2.5 py-2 text-gray-600 max-w-[14rem] truncate" title={land ? undefined : ([p.building_structure, p.floor_area ? `${p.floor_area}㎡` : ''].filter(Boolean).join('　') || undefined)}>
             {land
               ? (p.land_area != null ? `${p.land_area}㎡` : <span className="text-gray-300">—</span>)
-              : (p.building_structure || <span className="text-gray-300">—</span>)}
+              : ([p.building_structure, p.floor_area ? `${p.floor_area}㎡` : ''].filter(Boolean).join('　') || <span className="text-gray-300">—</span>)}
           </td>
           <td className="px-2.5 py-2 text-center text-gray-600 tabular-nums">{shareText(p.share_numerator, p.share_denominator) || '全部'}</td>
           <td className="px-2.5 py-2 text-right tabular-nums">{yen(p.appraisal_value)}</td>
@@ -294,10 +294,10 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
     const own = (a: RealEstateAcquisitionRow) => (a.acquirer ?? '自社') !== '依頼者' && (a.acquirer ?? '') !== '依頼者取得'
     const muniReq = muniRows.filter(own).filter(a => !!a.request_date)
     const muniArr = muniRows.filter(a => !!a.arrival_date)
-    const muniRead = muniRows.filter(a => !!a.read_status)
+    const muniRead = muniRows.filter(a => !!a.arrival_date)   // 「取得の結果」の欄はやめたので、届いたら読込済とみなす
     const propReq = propRows.filter(own).filter(a => !!a.request_date)
     const propArr = propRows.filter(a => !!a.arrival_date)
-    const propRead = propRows.filter(a => !!a.read_status)
+    const propRead = propRows.filter(a => !!a.arrival_date)
     const valued = props.filter(p => p.appraisal_value != null)
     const d1 = muniReq.length > 0 || muniRows.some(a => !own(a) && !!a.arrival_date)
     const d2 = muniRows.length > 0 && muniRead.length === muniRows.length
@@ -307,10 +307,10 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
     const d6 = props.length > 0 && valued.length === props.length
     const nodes: StepperNode[] = [
       { label: '役所へ請求', sub: muniReq.length > 0 ? `${[...new Set(muniReq.flatMap(itemsOf))].join('・') || '名寄帳・評価証明'} ${mdd(muniReq[0].request_date)}` : '名寄帳・評価証明', state: 'future' },
-      { label: '到着・読込', sub: muniArr.length > 0 ? `到着 ${mdd(muniArr[0].arrival_date)}${d2 ? '・読込済' : `・読込 ${muniRead.length}/${muniRows.length}`}` : '到着待ち', state: 'future' },
+      { label: '到着・読込', sub: muniArr.length > 0 ? `到着 ${mdd(muniArr[0].arrival_date)}${d2 ? '' : `（${muniArr.length}/${muniRows.length}）`}` : '到着待ち', state: 'future' },
       { label: '物件を確定', sub: props.length > 0 ? `判明した物件 ${props.length}件` : 'Step4 の判明した物件に登録', state: 'future' },
       { label: '法務局へ請求', sub: propReq.length > 0 ? `${[...new Set(propReq.flatMap(itemsOf))].join('・')} ${mdd(propReq[0].request_date)}` : '登記情報・公図など', state: 'future' },
-      { label: '到着・読込', sub: propArr.length > 0 ? `到着 ${mdd(propArr[0].arrival_date)}${d5 ? '・読込済' : `・読込 ${propRead.length}/${propRows.length}`}` : propRows.length > 0 ? '到着待ち' : '', state: 'future' },
+      { label: '到着・読込', sub: propArr.length > 0 ? `到着 ${mdd(propArr[0].arrival_date)}${d5 ? '' : `（${propArr.length}/${propRows.length}）`}` : propRows.length > 0 ? '到着待ち' : '', state: 'future' },
       { label: '評価額 確定', sub: props.length > 0 ? `${valued.length}/${props.length}件` : '', state: 'future' },
     ]
     const flags = [d1, d2, d3, d4, d5, d6]
@@ -492,6 +492,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
               <RealEstateAcquisitionsTable layout="cards" caseId={caseId} acquisitions={acquisitions} properties={properties} onRefresh={onRefresh} receipts={receipts} tasks={tasks} contractDocs={contractDocs} scope="all" municipalityFilter={muniKey} additionsNeedApproval={additionsNeedApproval} onAdditionalPending={() => notifyManagersAdditional('不動産の追加請求の承認依頼', `${muniKey}で取得資料が追加されました。承認するとタスクを生成します。`)} onAfterAddRow={() => promptIfMissing(muniKey, 'muni')}
                 onMakeDoc={caseData ? r => setDocAcq(r) : undefined}
                 deceasedName={caseData?.deceased_name ?? null}
+                deceasedAddress={[caseData?.deceased_address, caseData?.deceased_address2].filter(Boolean).join('　') || null}
                 houmuOffice={houmuOfMuni(muniKey)}
                 onSaveHoumuOffice={v => void setHoumuOfMuni(muniKey, v)}
                 renderProperties={() => (

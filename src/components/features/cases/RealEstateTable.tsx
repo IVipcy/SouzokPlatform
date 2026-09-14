@@ -258,7 +258,8 @@ function PropertyTable({ title, kind, rows, showMuni, renderRow, onAdd, busy }: 
               <th className={TH}>所在<span className="block text-[10px] font-normal text-brand-700">名寄帳取得後に地番を要確認</span></th>
               <th className={TH + ' w-32'}>{land ? '地番' : '家屋番号'}</th>
               <th className={TH + ' w-28'}>{land ? '地目' : '種類'}</th>
-              <th className={TH + (land ? ' text-right w-28' : ' w-44')}>{land ? '地積（㎡）' : '構造・床面積'}</th>
+              <th className={TH + (land ? ' text-right w-28' : ' w-32')}>{land ? '地積（㎡）' : '構造'}</th>
+              {!land && <th className={TH + ' text-right w-24'}>床面積（㎡）</th>}
               {/* 近傍宅地価格の要否（私道など非課税地の評価に要る）。名寄帳を読んで分かるのでここで入れ、評価証明の申請書に載る */}
               {land && <th className={TH + ' w-28'}>近傍宅地価格<span className="block text-[10px] font-normal text-brand-700">評価証明の申請に</span></th>}
               <th className={TH + ' w-32'}>持分<span className="block text-[10px] font-normal text-brand-700">空欄＝全部</span></th>
@@ -325,7 +326,8 @@ function BuildingRow(p: RowProps) {
       <HeadCells {...p} />
       <CellInput value={r.kaoku_bango} onChange={v => setLocal(r.id, 'kaoku_bango', v)} onCommit={v => commit(r.id, 'kaoku_bango', v)} placeholder="12番3" />
       <SelectCell value={r.building_kind} options={BUILDING_KINDS} onPick={v => { setLocal(r.id, 'building_kind', v); commit(r.id, 'building_kind', v) }} />
-      <CellInput value={r.building_structure} onChange={v => setLocal(r.id, 'building_structure', v)} onCommit={v => commit(r.id, 'building_structure', v)} placeholder="木造2階建 95.20㎡" />
+      <CellInput value={r.building_structure} onChange={v => setLocal(r.id, 'building_structure', v)} onCommit={v => commit(r.id, 'building_structure', v)} placeholder="木造2階建" />
+      <CellInput value={r.floor_area ?? null} onChange={v => setLocal(r.id, 'floor_area', v)} onCommit={v => commit(r.id, 'floor_area', v)} placeholder="95.20" />
       <TailCells {...p} />
     </tr>
   )
@@ -506,8 +508,11 @@ function RealCard({ r, setLocal, commit, saveNumber, onDelete, orderSheetMode, s
                 {BUILDING_KINDS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </FieldBlock>
-            <FieldBlock label="構造・床面積">
-              <input type="text" value={r.building_structure ?? ''} onChange={e => setLocal(r.id, 'building_structure', e.target.value)} onBlur={e => commit(r.id, 'building_structure', e.target.value)} placeholder="木造2階建 95.20㎡" className={inputCls} />
+            <FieldBlock label="構造">
+              <input type="text" value={r.building_structure ?? ''} onChange={e => setLocal(r.id, 'building_structure', e.target.value)} onBlur={e => commit(r.id, 'building_structure', e.target.value)} placeholder="木造2階建" className={inputCls} />
+            </FieldBlock>
+            <FieldBlock label="床面積（㎡）">
+              <input type="text" inputMode="decimal" value={r.floor_area ?? ''} onChange={e => setLocal(r.id, 'floor_area', e.target.value)} onBlur={e => commit(r.id, 'floor_area', e.target.value)} placeholder="95.20" className={inputCls} />
             </FieldBlock>
           </>
         ))}

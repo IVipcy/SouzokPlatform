@@ -48,7 +48,7 @@ type Property = {
   id: string
   property_type?: string | null; address?: string | null; lot_number?: string | null; kaoku_bango?: string | null
   land_category?: string | null; land_area?: number | null
-  building_kind?: string | null; building_structure?: string | null
+  building_kind?: string | null; building_structure?: string | null; floor_area?: string | null
   share_numerator?: number | null; share_denominator?: number | null
   appraisal_value?: number | null; notes?: string | null
 }
@@ -116,7 +116,7 @@ export function buildInventorySections(
       building.map(p => propRow(p, [
         cell(p.address, 'address'),
         cell(p.building_kind, 'building_kind'),
-        cell(p.building_structure, 'building_structure'),
+        cell([p.building_structure, p.floor_area ? `${p.floor_area}㎡` : ''].filter(Boolean).join('　') || null, 'building_structure'),
         cell(shareText(p.share_numerator, p.share_denominator)),
       ], true))),
     sec('deposit', '預貯金', ['金融機関', '支店', '種別', '口座番号等'], '金額',

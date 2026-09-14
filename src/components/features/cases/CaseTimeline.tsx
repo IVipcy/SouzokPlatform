@@ -186,7 +186,7 @@ function AxisNode({ compact, leftPct, Icon, label, date, tone, big }: {
 // 帯の上に出す数字（残り/超過）。月ラベルよりさらに上の段。
 function AxisCaption({ compact, leftPct, head, value, color }: { compact: boolean; leftPct: number; head: string; value: string; color: string }) {
   return (
-    <div className="absolute whitespace-nowrap" style={{ left: `${leftPct}%`, top: -36, transform: 'translateX(-50%)', color }}>
+    <div className="absolute whitespace-nowrap" style={{ left: `${leftPct}%`, top: -54, transform: 'translateX(-50%)', color }}>
       <span className="text-[10.5px] mr-1">{head}</span>
       <span className={`${compact ? 'text-[14px]' : 'text-[15px]'} font-bold`}>{value}</span>
     </div>
@@ -236,7 +236,7 @@ function ActiveMilestoneAxis({ caseData, compact }: { caseData: CaseRow; compact
   const nodePx = compact ? 26 : 32
 
   return (
-    <div style={{ padding: `40px ${compact ? 44 : 56}px ${nodePx / 2 + 42}px` }}>
+    <div style={{ padding: `58px ${compact ? 44 : 56}px ${nodePx / 2 + 42}px` }}>
       <div className="relative" style={{ height: 7 }}>
         {/* 月目盛り（クリーム系の細線＋小さな月ラベル） */}
         {monthTicks.filter((_, i) => i % tickStep === 0).map((t, i) => (

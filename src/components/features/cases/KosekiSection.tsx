@@ -522,7 +522,9 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
     await notifyKosekiRelationDone(caseId, (r.target_person ?? '').trim())
     showToast('関係戸籍の取得完了を記録し、管理担当へ通知しました', 'success')
   }
+  // 請求タブ・画像は新しい請求が左（作った順の逆）。転籍を遡ると請求が増えるので、いま見るものが先頭に来る
   const personRequests = requests.filter(r => personKey(r) === activePerson)
+    .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? '') || (b.sort_order ?? 0) - (a.sort_order ?? 0))
 
   // 「前の請求の画像を横に出す」。同じ人の、この請求以外で届いた画像（無ければその人の全画像）。
   const showImagesFor = (r: KosekiRequestRow) => {
@@ -839,6 +841,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
           imageUrl={kosekiImageUrls[editImage.id] ?? ''}
           initial={editImage.annotations ?? []}
           title={`${editImage.target_person ? `${editImage.target_person}の戸籍 — ` : ''}${editImage.file_name ?? '画像'}`}
+          targetPerson={editImage.target_person ?? requests.find(r => r.id === editImage.koseki_request_id)?.target_person ?? null}
           onSave={annos => saveImageAnnotations(editImage.id, annos)}
         />
       )}
@@ -1361,7 +1364,7 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
         {/* 関係戸籍が揃ったか。被相続人と、依頼者である相続人だけに聞く。
             これが立つと名寄せ請求・金融の資料請求・凍結依頼へ進める。 */}
         {(isDeceasedTarget || isClientTarget) && (
-          <KosekiFieldRow label="被相続人との関係戸籍" full
+          <KosekiFieldRow label="関係戸籍の取得" full
             hint="この人と被相続人のつながりが、届いた戸籍で最後までたどれたか。チェックすると案件の管理担当へ通知が飛び、タスク完了画面に名寄せ請求・金融機関への資料請求が候補として出ます。">
             <label className="inline-flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={!!r.relation_koseki_done}

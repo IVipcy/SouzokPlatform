@@ -107,6 +107,8 @@ export async function GET() {
 
   const alerts: AlertItem[] = []
   const push = (a: AlertItem) => alerts.push(a)
+  // タスク系のアラートに「どの案件か」を添える（同じタスク名が並んでも見分けられるように）
+  const caseLabelOf = (caseId: string) => { const c = cases.find(x => x.id === caseId); return c ? `${c.case_number} ${c.deal_name}` : null }
 
   for (const c of cases) {
     const roles = roleByCase.get(c.id) ?? new Set<string>()
@@ -144,23 +146,24 @@ export async function GET() {
     if (t.title === PREPAY_THANKS_TITLE) {
       const psev = t.status !== 'キャンセル' ? prepayThanksSeverity(t.due_date, todayStr) : null
       if (psev) {
-        push({ id: `prepay-${t.id}`, severity: psev, category: '前受金入金御礼 未連絡', title: t.title,
-          body: `入金を確認した ${t.due_date} から日がたっています。お客様へ御礼のご連絡をお願いします`, href: `/tasks/${t.id}` })
+        // 飛び先は依頼者連絡タブ（御礼の連絡はそこで記録する）
+        push({ id: `prepay-${t.id}`, severity: psev, category: '前受金入金御礼 未連絡', title: t.title, caseLabel: caseLabelOf(t.case_id),
+          body: `入金を確認した ${t.due_date} から日がたっています。お客様へ御礼のご連絡をお願いします`, href: `/cases/${t.case_id}?tab=clientInfo` })
       }
       continue
     }
     // しきい値はバナー・案件色と共通（5営業日=黄／14日=赤）。1〜4営業日の軽微は出さない。
     const tsev = t.status !== 'キャンセル' ? overdueSeverity(t.due_date, todayStr) : null
     if (tsev) {
-      push({ id: `task-${t.id}`, severity: tsev === 'chui' ? 'high' : 'mid', category: 'タスク期限超過', title: t.title, body: `期限 ${t.due_date} を超過`, href: `/tasks/${t.id}` })
+      push({ id: `task-${t.id}`, severity: tsev === 'chui' ? 'high' : 'mid', category: 'タスク期限超過', title: t.title, caseLabel: caseLabelOf(t.case_id), body: `期限 ${t.due_date} を超過`, href: `/tasks/${t.id}` })
     }
     // 超急ぎの未着手タスク（前受金入金御礼連絡 等）→ 至急タスクとして目立たせる
     if (t.priority === '超急ぎ' && t.status === '未着手') {
-      push({ id: `urgent-${t.id}`, severity: 'high', category: '至急タスク', title: t.title, body: '超急ぎのタスクです。至急対応してください', href: `/tasks/${t.id}` })
+      push({ id: `urgent-${t.id}`, severity: 'high', category: '至急タスク', title: t.title, caseLabel: caseLabelOf(t.case_id), body: '超急ぎのタスクです。至急対応してください', href: `/tasks/${t.id}` })
     }
     // 自分宛てタスクあり：受注/管理担当タスク(system)で未着手のもの（事務管理タスクは対象外）
     else if (t.task_kind === 'system' && t.status === '未着手') {
-      push({ id: `newtask-${t.id}`, severity: 'info', category: '自分宛てタスク', title: t.title, body: '自分宛てのタスクがあります', href: `/tasks/${t.id}` })
+      push({ id: `newtask-${t.id}`, severity: 'info', category: '自分宛てタスク', title: t.title, caseLabel: caseLabelOf(t.case_id), body: '自分宛てのタスクがあります', href: `/tasks/${t.id}` })
     }
   }
 

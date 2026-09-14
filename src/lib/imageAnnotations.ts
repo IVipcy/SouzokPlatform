@@ -88,9 +88,29 @@ export const TEXT_FONT_MAX = 0.06
 
 // テキスト枠の定型。戸籍に書き添える内容は毎回この2行なので、最初から入れておく。
 // 自由に何でも書けると人によって書き方が変わり、あとから読む人が困る。
-export const TEXT_PERIOD_LINE = '証明期間：　　年　　月　　日 ～ 　　年　　月　　日'
-export const TEXT_TARGET_LINE = '対象者（　　　　　　）：　　年　　月　　日 ～ 　　年　　月　　日'
+// 空白は1文字ずつ（以前は全角空白が並んでいて、毎回消す手間が大きかった）
+export const TEXT_PERIOD_LINE = '証明期間： 年 月 日 ～ 年 月 日'
+export const TEXT_TARGET_LINE = '対象者（　）： 年 月 日 ～ 年 月 日'
 export const TEXT_DEFAULT = `${TEXT_PERIOD_LINE}\n${TEXT_TARGET_LINE}`
+
+/** テキスト枠の種類。書くものは3つに決まっている（住民票・附票／現在戸籍／一連戸籍） */
+export type TextPreset = 'juu' | 'fu' | 'gen' | 'series'
+export const TEXT_PRESETS: Array<{ key: TextPreset; label: string; use: string }> = [
+  { key: 'juu', label: '住民票（住）', use: '住民票・除票に「対象者・住」' },
+  { key: 'fu', label: '附票（附）', use: '戸籍の附票に「対象者・附」' },
+  { key: 'gen', label: '現在戸籍（現）', use: '現在戸籍に「対象者・現」' },
+  { key: 'series', label: '一連戸籍', use: '証明期間と対象者の掲載期間の2行' },
+]
+/** 種類と対象者名から枠の中身を作る。対象者が無ければ「対象者」 */
+export function textForPreset(preset: TextPreset, targetPerson: string | null | undefined): string {
+  const name = (targetPerson ?? '').trim() || '対象者'
+  if (preset === 'juu') return `${name}・住`
+  if (preset === 'fu') return `${name}・附`
+  if (preset === 'gen') return `${name}・現`
+  return `${TEXT_PERIOD_LINE}\n対象者（${name}）： 年 月 日 ～ 年 月 日`
+}
+/** 種類ごとの枠の幅（画像幅に対する割合）。短い1行は狭く */
+export const textBoxWidthForPreset = (preset: TextPreset) => (preset === 'series' ? TEXT_BOX_W : TEXT_BOX_W * 0.42)
 
 /** その箱の文字サイズ（未指定なら既定） */
 export const fontOf = (a: TextAnno) => a.font ?? TEXT_FONT

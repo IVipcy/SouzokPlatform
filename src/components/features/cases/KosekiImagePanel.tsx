@@ -304,6 +304,7 @@ export default function KosekiImagePanel({ caseId, targetPerson, requests = [], 
           imageUrl={urls[editing.id] ?? ''}
           initial={editing.annotations ?? []}
           title={`${editing.target_person ? `${editing.target_person}の戸籍 — ` : ''}${editing.file_name ?? '画像'}`}
+          targetPerson={editing.target_person ?? requests.find(r => r.id === editing.koseki_request_id)?.target_person ?? null}
           onSave={annos => saveAnnotations(editing, annos)}
         />
       )}

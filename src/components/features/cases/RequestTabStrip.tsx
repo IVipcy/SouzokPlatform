@@ -43,7 +43,7 @@ export function RequestTabStrip({ tabs, activeId, onSelect, onAdd, addTitle = 'è
           return (
             <button key={t.id} type="button" onClick={() => onSelect(t.id)} title={t.title} data-on={on ? '1' : undefined}
               className={`inline-flex items-center gap-2 px-3 py-1.5 text-[13px] rounded-t-lg border border-b-0 -mb-px transition-colors flex-none ${
-                on ? 'relative z-10 bg-white border-gray-200 text-gray-800 font-semibold shadow-[0_-2px_6px_rgba(15,23,42,0.06),0_3px_0_0_#fff]'
+                on ? 'relative z-10 bg-brand-600 border-brand-600 text-white font-semibold'
                   : `bg-gray-50 border-transparent hover:text-gray-800 ${t.finished ? 'text-gray-400' : 'text-gray-500'}`}`}>
               {t.label}
               {t.status && <span className={`text-[12px] tracking-wider px-2 py-[1px] rounded-full flex-none ${t.status.cls}`}>{t.status.label}</span>}

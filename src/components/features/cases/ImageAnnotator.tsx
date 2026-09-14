@@ -28,10 +28,11 @@ import {
   RECT_COLOR, RECT_MIN, RECT_USE,
   drawAnnotations, textBoxHeight, textFontPx, getMeasureCtx, newId,
   type Anno, type PenAnno, type TextAnno, type RectAnno,
+  TEXT_PRESETS, textForPreset, textBoxWidthForPreset, type TextPreset,
 } from '@/lib/imageAnnotations'
 
 // 道具。赤枠は「次に請求する箇所」を囲む専用（色は選ばせない。意味を1つに固定する）
-type Tool = { kind: 'marker'; color: string } | { kind: 'rect' } | { kind: 'text' } | { kind: 'erase' }
+type Tool = { kind: 'marker'; color: string } | { kind: 'rect' } | { kind: 'text'; preset: TextPreset } | { kind: 'erase' }
 
 function ToolBtn({ on, onClick, children, label }: { on: boolean; onClick: () => void; children: React.ReactNode; label: string }) {
   return (
@@ -50,8 +51,10 @@ function ColorDot({ css, on, onClick, label }: { css: string; on: boolean; onCli
   )
 }
 
-export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onSave, title }: {
+export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onSave, title, targetPerson = null }: {
   isOpen: boolean
+  /** この画像の対象者。テキスト枠の「田玉正二・住」などに入る */
+  targetPerson?: string | null
   onClose: () => void
   imageUrl: string
   initial: Anno[]
@@ -155,7 +158,8 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
     }
     if (tool.kind === 'text') {
       // 中身は定型（証明期間／対象者）。空の枠を置いて自由に書かせない。
-      const t: TextAnno = { id: newId(), type: 'text', color: TEXT_COLOR, x: Math.min(p.x, 1 - TEXT_BOX_W), y: p.y, w: TEXT_BOX_W, font: TEXT_FONT, text: TEXT_DEFAULT, leader: null }
+      const bw = textBoxWidthForPreset(tool.preset)
+      const t: TextAnno = { id: newId(), type: 'text', color: TEXT_COLOR, x: Math.min(p.x, 1 - bw), y: p.y, w: bw, font: TEXT_FONT, text: textForPreset(tool.preset, targetPerson), leader: null }
       push([...annos, t])
       setEditingId(t.id)
       setSelectedId(t.id)
@@ -302,7 +306,10 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
               className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[12px] font-semibold border transition ${tool.kind === 'rect' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-red-600 border-red-200 hover:border-red-400'}`}>
               <Square className="w-3.5 h-3.5" strokeWidth={2.5} />赤枠
             </button>
-            <ToolBtn on={tool.kind === 'text'} onClick={() => setTool({ kind: 'text' })} label="テキスト枠"><Type className="w-3.5 h-3.5" />テキスト枠</ToolBtn>
+            {/* テキスト枠は3種類（住民票・附票／現在戸籍／一連戸籍）。中身は対象者名入りで最初から決まっている */}
+            {TEXT_PRESETS.map(tp => (
+              <ToolBtn key={tp.key} on={tool.kind === 'text' && tool.preset === tp.key} onClick={() => setTool({ kind: 'text', preset: tp.key })} label={tp.use}><Type className="w-3.5 h-3.5" />{tp.label}</ToolBtn>
+            ))}
             <ToolBtn on={tool.kind === 'erase'} onClick={() => setTool({ kind: 'erase' })} label="消す"><Trash2 className="w-3.5 h-3.5" />消す</ToolBtn>
             <button type="button" onClick={undo} disabled={history.length === 0}
               className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[12px] font-semibold border border-gray-200 bg-white text-gray-600 hover:border-brand-300 disabled:opacity-40">

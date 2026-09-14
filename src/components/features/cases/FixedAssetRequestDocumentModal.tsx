@@ -105,7 +105,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
       if (!alive) return
       const list = ((data ?? []) as RealEstateAcquisitionRow[]).filter(isMuniRequest)
       setCandidates(list)
-      setPickId(list[0]?.id ?? '')
+      setPickId(list.length === 1 ? list[0].id : '')   // 1件だけなら選ぶ。複数なら宛先・年度を見て選ばせる（先頭が黙って選ばれて年度が違う紙が出ないように）
       setLoading(false)
     })()
     return () => { alive = false }
@@ -127,12 +127,19 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
     nendo: yearRaw ? (yearRaw.endsWith('分') ? yearRaw : `${yearRaw}分`) : '',
     certKinds,
     ownerName: (caseData.deceased_name ?? '').trim(),
+    // 所有者の住所：カードの「所有者の住所」（1行1住所）。空なら被相続人情報の住所
+    ownerAddresses: ((k?.owner_addresses ?? '').split('\n').map(x => x.trim()).filter(Boolean).length > 0
+      ? (k?.owner_addresses ?? '').split('\n').map(x => x.trim()).filter(Boolean)
+      : [[caseData.deceased_address, caseData.deceased_address2].filter(Boolean).join('　')].filter(Boolean)),
     ownerAddress: [caseData.deceased_address, caseData.deceased_address2].filter(Boolean).join('　'),
+    // 名寄帳の申請には定型2文（申請書の備考欄に○が付く）
+    mynaNotes: certKinds.includes('名寄帳'),
     kogawase: k?.cost_budget ?? null,
     notes: (k?.notes ?? '').trim(),
   }
   // 対象物件：土地は「所在＋地番」、建物は「所在」＋家屋番号。近傍宅地価格の要否は「判明した物件」の土地の列の値。
-  const sheets: Sheet[] = muniProps.map(p => {
+  // 証明する資産（対象物件）は評価証明の申請にだけ載せる。名寄帳だけの申請では空のまま
+  const sheets: Sheet[] = (certKinds.includes('評価証明') ? muniProps : []).map(p => {
     const land = isLandProperty(p.property_type) || !p.property_type
     const building = isBuildingProperty(p.property_type)
     const addr = [p.address, land ? p.lot_number : null].filter(Boolean).join(' ')
@@ -169,7 +176,9 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
             copyCount,
             certKinds: doc.certKinds,
             ownerName: doc.ownerName,
-            ownerAddress: doc.ownerAddress,
+            ownerAddress: doc.ownerAddresses[0] ?? doc.ownerAddress,
+            ownerAddresses: doc.ownerAddresses,
+            mynaNotes: doc.mynaNotes,
             properties: chunks[i],
             kogawaseAmount: doc.kogawase,
             notes: doc.notes,
@@ -279,6 +288,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
                 <p className="text-[12px] text-amber-700">役所への請求（名寄帳・評価証明）がまだありません。財産調査タブの市区町村ページで「＋ 請求を追加 → 役所へ」を作ってから出してください。</p>
               ) : (
                 <select value={pickId} onChange={e => setPickId(e.target.value)} className={sel}>
+                  <option value="">請求を選んでください（宛先／資料／年度）</option>
                   {candidates.map(c => (
                     <option key={c.id} value={c.id}>
                       {[stripPref((c.target_municipality ?? '').trim()) || '市区町村未入力', itemsOf(c).join('・') || '資料未選択', c.doc_year ?? c.myna_year].filter(Boolean).join('／')}
@@ -295,14 +305,14 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
               <ConfRow label="提出先市区町村" value={doc.municipality} from="カード：対象" />
               <ConfRow label="年度" value={doc.nendo} from="カード：年度" />
               <ConfRow label="証明書の種類" value={doc.certKinds.join('・')} from="カード：取得する資料" />
-              <ConfRow label="所有者" value={[doc.ownerName ? `故 ${doc.ownerName}` : '', doc.ownerAddress].filter(Boolean).join('　')} from="被相続人・最後の住所" />
+              <ConfRow label="所有者" value={[doc.ownerName ? `故 ${doc.ownerName}` : '', ...doc.ownerAddresses].filter(Boolean).join('\n')} from={k?.owner_addresses?.trim() ? 'カード：所有者の住所' : '被相続人情報の住所（カードの所有者の住所が空）'} />
               <ConfRow label="使用目的" value={preset.purpose} from="様式" />
               <ConfRow label="対象物件" from={`${muniKey || '市区町村'}の判明した物件（Step4 読込結果）`}
                 value={sheets.length === 0 ? '' : sheets.map((sh, i) =>
                   `${i + 1}. ${[sh.landAddress ? `${sh.landAddress}（土地）` : '', sh.buildingAddress ? `${sh.buildingAddress}${sh.kaokuBango ? ` 家屋番号${sh.kaokuBango}` : ''}（建物）` : '', sh.needNeighborPrice ? '近傍宅地価格 要' : ''].filter(Boolean).join('　')}`
                 ).join('\n')} />
               <ConfRow label="同封小為替" value={doc.kogawase == null ? '' : `¥${doc.kogawase.toLocaleString('ja-JP')}`} from="カード：同封する小為替" />
-              <ConfRow label="備考" value={doc.notes} from="カード：備考" optional last />
+              <ConfRow label="備考" value={[doc.mynaNotes ? '○ マンションの共有土地について土地全体の評価額が記載される主コードの名寄も必要です。\n○ 名寄帳に関しましては、単有・共有のもの全て発行願います。' : '', doc.notes].filter(Boolean).join('\n')} from={doc.mynaNotes ? '名寄帳の定型2文（自動）＋カード：備考' : 'カード：備考'} optional last />
             </div>
           )}
           {sheets.length > PER_SHEET && (

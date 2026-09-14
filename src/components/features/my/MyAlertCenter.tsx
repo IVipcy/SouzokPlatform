@@ -168,8 +168,9 @@ function AlertRow({ a, onNavigate }: { a: AlertItem; onNavigate: () => void }) {
     <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg hover:bg-gray-50 border border-gray-100">
       <span className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${sv.dot}`} />
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 mb-0.5">
+        <div className="flex items-center gap-1.5 mb-0.5 min-w-0">
           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${sv.chip}`}>{a.category}</span>
+          {a.caseLabel && <span className="text-[10.5px] px-1.5 py-0.5 rounded border border-brand-200 bg-brand-50 text-brand-700 truncate" title={a.caseLabel}>{a.caseLabel}</span>}
         </div>
         <div className="text-[13px] font-semibold text-gray-900 truncate">{a.title}</div>
         {a.body && <div className="text-[12px] text-gray-500 mt-0.5 line-clamp-2">{a.body}</div>}

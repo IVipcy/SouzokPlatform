@@ -106,18 +106,22 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
       result = result.filter(c => c.status === statusFilter)
     }
     if (search.trim()) {
-      const q = search.trim().toLowerCase()
+      // 空白の有無・全角半角・カタカナ／ひらがなの揺れを吸収してから比べる（「山田 太郎」「山田　太郎」「ﾔﾏﾀﾞ」）
+      const norm = (v: string | null | undefined) => (v ?? '')
+        .normalize('NFKC').replace(/[\s\u3000]/g, '').toLowerCase()
+        .replace(/[\u30a1-\u30f6]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60))
+      const q = norm(search)
       // 電話番号はハイフン等を無視して数字だけで部分一致させる
       const qDigits = q.replace(/[^0-9]/g, '')
       const phoneHit = (v: string | null | undefined) =>
         !!qDigits && !!v && v.replace(/[^0-9]/g, '').includes(qDigits)
       result = result.filter(c =>
-        c.deal_name.toLowerCase().includes(q) ||
-        c.case_number?.toLowerCase().includes(q) ||
-        c.deceased_name?.toLowerCase().includes(q) ||
-        c.deceased_furigana?.toLowerCase().includes(q) ||
-        c.clients?.name?.toLowerCase().includes(q) ||
-        c.clients?.furigana?.toLowerCase().includes(q) ||
+        norm(c.deal_name).includes(q) ||
+        norm(c.case_number).includes(q) ||
+        norm(c.deceased_name).includes(q) ||
+        norm(c.deceased_furigana).includes(q) ||
+        norm(c.clients?.name).includes(q) ||
+        norm(c.clients?.furigana).includes(q) ||
         phoneHit(c.clients?.phone) ||
         phoneHit(c.clients?.mobile_phone)
       )

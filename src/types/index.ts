@@ -931,7 +931,8 @@ export type RealEstatePropertyRow = {
   land_category: string | null                     // 地目（土地）
   land_area: number | null                         // 地積㎡（土地）
   building_kind: string | null                     // 種類（建物）
-  building_structure: string | null                // 構造・床面積（建物）
+  building_structure: string | null                // 構造（建物）。床面積は floor_area に分けた（migration 285）
+  floor_area?: string | null                       // 床面積 ㎡（建物。migration 285）
   share_numerator: number | null                   // 被相続人の登記持分（分子）。未入力＝持分1
   share_denominator: number | null                 // 被相続人の登記持分（分母）
   mortgage: string | null                          // 抵当権（設定内容）
@@ -989,6 +990,7 @@ export type RealEstateAcquisitionRow = {
   received: boolean
   amount: number | null
   notes: string | null
+  owner_addresses?: string | null       // 申請書の所有者・納税義務者の住所（1行1住所。空なら被相続人の住所。migration 285）
   // 費用＋ダブルチェック（migration 148）
   cost_budget: number | null
   cost_refund: number | null

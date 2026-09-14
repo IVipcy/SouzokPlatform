@@ -32,7 +32,9 @@ type Body = {
   copyCount: number            // 部数
   certKinds: string[]          // 証明書種類（名寄帳/評価証明/非課税証明書）。選んだものだけ「証明書の種類」欄に載せる
   ownerName: string            // 所有者氏名（通常 cases.deceased_name）
-  ownerAddress: string         // 所有者住所
+  ownerAddress: string         // 所有者住所（後方互換。ownerAddresses があればそちら）
+  ownerAddresses?: string[]    // 所有者住所（1行1住所。住所歴を複数出せる）
+  mynaNotes?: boolean          // 名寄帳の定型2文（備考欄の○）を付ける
   properties: PropertyRow[]    // 対象資産（最大5件）
   kogawaseAmount: number | null
   notes: string
@@ -53,6 +55,9 @@ const CELL_MAP = {
   certKinds: ['B14', 'B15', 'B16'],
   ownerName: 'D17',
   ownerAddress: 'D19',
+  // 名寄帳の定型2文（ひな型に文があり、J列の○で有効にする）
+  mynaNoteMarks: ['J43', 'J44'],
+  mynaNoteTexts: ['K43', 'K44'],
   purpose: 'C42',
   notesFreeInput: 'I45',
   kogawaseAmount: 'G52',
@@ -90,7 +95,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as Body
     const { caseId, variant, requestDate, municipality, nendo, copyCount,
-            ownerName, ownerAddress, properties, kogawaseAmount, notes, certKinds = [] } = body
+            ownerName, ownerAddress, properties, kogawaseAmount, notes, certKinds = [], ownerAddresses, mynaNotes = false } = body
 
     if (!caseId || !variant) {
       return NextResponse.json({ error: 'caseId, variant は必須です' }, { status: 400 })
@@ -158,7 +163,17 @@ export async function POST(request: NextRequest) {
       CELL_MAP.certKinds.forEach((addr, i) => setCell(ws, addr, picked[i] ?? null))
     }
     setCell(ws, CELL_MAP.ownerName, `故　${ownerName}`)
-    setCell(ws, CELL_MAP.ownerAddress, ownerAddress)
+    // 所有者の住所：1行1住所で複数出す。行数に合わせて欄（19〜20行）を伸ばす
+    {
+      const lines = (ownerAddresses && ownerAddresses.length > 0 ? ownerAddresses : [ownerAddress]).map(x => (x ?? '').trim()).filter(Boolean)
+      setCell(ws, CELL_MAP.ownerAddress, lines.join('\n'))
+      const c = ws.getCell(CELL_MAP.ownerAddress)
+      c.alignment = { ...(c.alignment ?? {}), wrapText: true, vertical: 'middle' }
+      if (lines.length > 2) ws.getRow(20).height = 39 + (lines.length - 2) * 16
+    }
+    // 名寄帳の定型2文：申請書の備考欄に○を付ける（名寄帳でなければ文も消す）
+    CELL_MAP.mynaNoteMarks.forEach(addr => setCell(ws, addr, mynaNotes ? '○' : null))
+    if (!mynaNotes) CELL_MAP.mynaNoteTexts.forEach(addr => setCell(ws, addr, null))
     setCell(ws, CELL_MAP.purpose, preset.purpose)
     if (notes) setCell(ws, CELL_MAP.notesFreeInput, notes)
     if (kogawaseAmount !== null && kogawaseAmount !== undefined) {

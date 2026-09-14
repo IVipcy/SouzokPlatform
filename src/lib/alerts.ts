@@ -22,6 +22,8 @@ export type AlertItem = {
   title: string        // 本文（案件名 等）
   body?: string | null
   href: string | null  // クリック時の遷移先
+  /** どの案件か（案件番号＋依頼者名）。タスク系のアラートで出す（案件名がタイトルのものは無し） */
+  caseLabel?: string | null
 }
 
 // 案件詳細ヘッダー用：1案件の有効アラート（種別＋重大度）。

@@ -16,6 +16,7 @@ import { PriorityCell } from './PracticeTableCells'
 import { PersonRoleChip, PersonRoleLegend, roleKindOf, type PersonRoleKind } from '@/components/ui/PersonRoleChip'
 import { KOSEKI_PLAN_RANGES, KOSEKI_PLAN_ADDRESS_DOCS, KOSEKI_AUTHORITIES } from '@/lib/constants'
 import HintTip from '@/components/ui/HintTip'
+import { normalizePersonName } from '@/lib/personName'
 import type { CaseRow, HeirRow, KosekiPlanRow } from '@/types'
 
 type Props = {
@@ -72,7 +73,15 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
     const supabase = createClient()
     const { error } = await supabase.from('koseki_plans')
       .upsert({ case_id: caseId, person_name: key, [field]: v }, { onConflict: 'case_id,person_name' })
-    if (error) showToast(`保存に失敗しました: ${error.message}`, 'error')
+    if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
+    // 取得方法は、同じ人の戸籍請求カードで空のものにも入れる（オーダーシートで決めた値がカードに出ない、をなくす）。
+    // 名前は表記ゆれ（空白・全角半角）をそろえて一致させる。手で入れてあるカードは上書きしない。
+    if (field === 'acquisition_authority' && v) {
+      const { data: reqs } = await supabase.from('koseki_requests').select('id, target_person, acquisition_authority').eq('case_id', caseId)
+      const ids = ((reqs ?? []) as Array<{ id: string; target_person: string | null; acquisition_authority: string | null }>)
+        .filter(r => !r.acquisition_authority && normalizePersonName(r.target_person ?? '') === normalizePersonName(key)).map(r => r.id)
+      if (ids.length > 0) await supabase.from('koseki_requests').update({ acquisition_authority: v }).in('id', ids)
+    }
   }
 
   /**

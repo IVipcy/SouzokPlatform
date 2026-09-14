@@ -27,7 +27,7 @@ type Property = {
   id: string
   property_type: string | null; address: string | null; lot_number: string | null; kaoku_bango: string | null
   land_category: string | null; land_area: number | null
-  building_kind: string | null; building_structure: string | null
+  building_kind: string | null; building_structure: string | null; floor_area?: string | null
   share_numerator: number | null; share_denominator: number | null
   appraisal_value: number | null; notes: string | null
 }

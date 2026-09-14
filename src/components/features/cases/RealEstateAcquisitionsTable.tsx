@@ -87,6 +87,8 @@ type Props = {
   onMakeDoc?: (r: RealEstateAcquisitionRow) => void
   /** 被相続人の名前（同梱する資料で戸籍を被相続人／相続人に分ける） */
   deceasedName?: string | null
+  /** 被相続人の住所（所有者の住所欄が空のときの既定） */
+  deceasedAddress?: string | null
   /** この市区町村の管轄法務局（物件に保存されている値）。法務局カードの請求先の既定値 */
   houmuOffice?: string
   /** 法務局カードで請求先を入れたとき、管轄法務局が空なら物件側にも保存する */
@@ -100,9 +102,6 @@ const propLabel = (p: RealEstatePropertyRow) => p.address || p.lot_number || p.p
 // selectのoption表示は先頭に[土地]/[建物]を付けて、同じ住所の物件を判別可能に。
 const propLabelWithType = (p: RealEstatePropertyRow) => `${p.property_type ? `[${p.property_type}] ` : ''}${propLabel(p)}`
 
-/** 読込結果のステータス。戸籍と同じ2つに揃える（内容は自由欄に書く）。 */
-const RE_READ_STATUSES = ['取得完了', '一部不足'] as const
-
 /**
  * タブの状態バッジ。色ではなく文字で言う。
  * 完了は薄く沈め、手を打つ必要がある「一部不足」だけ色を付ける。
@@ -115,10 +114,10 @@ const RE_TAB_STATUS = {
   done:    { label: '完了',     cls: 'text-gray-400 bg-gray-100' },
 } as const
 
+// 「取得の結果（取得完了／一部不足）」の欄はやめた（判明した物件だけ残す）。届いたら完了
 const reTabStatus = (r: RealEstateAcquisitionRow): keyof typeof RE_TAB_STATUS => {
-  if (r.read_status === '一部不足') return 'partial'
-  if (r.read_status === '取得完了') return 'done'
-  if (r.arrival_date) return 'check'
+  if (r.read_status === '一部不足') return 'partial'   // 旧データの互換
+  if (r.arrival_date) return 'done'
   return r.request_date ? 'request' : 'none'
 }
 
@@ -152,6 +151,8 @@ const ReGroup = PracticeGroup
 type AcquisitionCardsProps = {
   caseId: string
   deceasedName: string | null
+  /** 被相続人の住所（所有者の住所欄の既定の案内） */
+  deceasedAddress: string | null
   /** 原本の出入り（同梱する資料の候補・案件の同梱 全件・読み直し） */
   originals: OriginalStock
   rows: RealEstateAcquisitionRow[]
@@ -189,7 +190,7 @@ type AcquisitionCardsProps = {
  * タブ列を2本並べる形は見慣れないという指摘があったため。
  */
 function AcquisitionCards({
-  caseId, deceasedName, originals, rows, properties, muniProps, activeId, setActiveId, itemsOf, rowScopeOf, officeDefault,
+  caseId, deceasedName, deceasedAddress, originals, rows, properties, muniProps, activeId, setActiveId, itemsOf, rowScopeOf, officeDefault,
   save, saveMany, toggleItem, addRow, delRow, reqCheck, cancelCheck, setAcquirer,
   receipts, meId, fullCost, confirmedOf, onMakeDoc, houmuOffice, onSaveHoumuOffice, renderProperties,
 }: AcquisitionCardsProps) {
@@ -337,7 +338,15 @@ function AcquisitionCards({
                 ) : <span className="text-[12px] text-gray-400">名寄帳・評価証明を選ぶと年度が出ます</span>}
               </ReRow>
               {!isProp && !isRef && (
-                <ReRow label="備考" full hint="固定資産証明等申請書の「備考」欄にそのまま入ります。">
+                <ReRow label="所有者の住所" full hint="申請書の「所有者・納税義務者」の住所欄に載せます。1行1住所（住所歴があれば改行で続ける）。空なら被相続人情報の住所を使います。">
+                  <textarea key={`oa-${r.id}`} defaultValue={r.owner_addresses ?? ''} rows={2}
+                    onBlur={e => { const v = e.target.value.replace(/\r/g, '').trim(); if (v !== (r.owner_addresses ?? '')) save(r.id, 'owner_addresses', v || null) }}
+                    placeholder={deceasedAddress ? `空なら被相続人情報の住所：${deceasedAddress}` : '例：神奈川県横浜市都筑区…（1行1住所）'}
+                    className="input-flat w-full px-2.5 py-1.5 text-[14px] text-gray-800 outline-none resize-y" />
+                </ReRow>
+              )}
+              {!isProp && !isRef && (
+                <ReRow label="備考" full hint="固定資産証明等申請書の「備考」欄にそのまま入ります。名寄帳の定型2文（マンションの共有土地・単有／共有すべて）は申請書側に自動で付くので、ここには書かなくてよい。">
                   <input type="text" defaultValue={r.notes ?? ''}
                     onBlur={e => { if (e.target.value !== (r.notes ?? '')) save(r.id, 'notes', e.target.value || null) }}
                     placeholder="申請書の備考欄に入れたいこと（無ければ空のまま）" className={dateCls} />
@@ -433,36 +442,7 @@ function AcquisitionCards({
             {/* 届いた資料を読んだ結果。名寄帳は「この市区町村の物件を洗い出す」ために取るので、
                 読んで何が見つかったかを残さないと、私道の持分などを見落としたまま先へ進んでしまう。 */}
             <PracticeFoldGroup no="Step4" title="読込結果"
-              autoOpen={!!r.arrival_date || !!r.read_status || !!(r.read_result ?? '').trim()}>
-              <ReRow label="取得の結果" full>
-                <div className="inline-flex border border-gray-300">
-                  {RE_READ_STATUSES.map(st => {
-                    const on = r.read_status === st
-                    return (
-                      <button key={st} type="button" onClick={() => save(r.id, 'read_status', on ? null : st)}
-                        className={`px-3 py-1 text-[13px] font-semibold transition ${
-                          on ? (st === '一部不足' ? 'bg-red-600 text-white' : 'bg-gray-600 text-white') : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
-                        {st}
-                      </button>
-                    )
-                  })}
-                </div>
-              </ReRow>
-              <ReRow label="内容" full>
-                <input type="text" defaultValue={r.read_result ?? ''}
-                  onBlur={e => { if (e.target.value !== (r.read_result ?? '')) save(r.id, 'read_result', e.target.value || null) }}
-                  placeholder={isProp ? '読んで分かったこと' : '例：私道の持分が2筆あった。下の物件一覧へ追加済み'}
-                  className={dateCls} />
-              </ReRow>
-              {r.read_status === '一部不足' && (
-                <ReRow label="次にやること" full>
-                  <span className="text-[13px] text-brand-700">
-                    {isProp
-                      ? '足りなかった資料について、上の「＋」で法務局への請求を作ってください。'
-                      : '見つかった物件を下の「判明した物件」に足したうえで、「＋」で法務局への請求（評価証明の取り直しは役所へ）を作ってください。'}
-                  </span>
-                </ReRow>
-              )}
+              autoOpen={!!r.arrival_date}>
               {/* 判明した物件（この市区町村の物件一覧）。読んで分かった場所で分かったことを入れる。
                   家屋番号（建物）・近傍宅地価格の要否（土地）もここ。市区町村に1つの表なので、どのカードの Step4 を開いても同じ表。 */}
               {renderProperties && (
@@ -484,7 +464,7 @@ function AcquisitionCards({
  * 路線価は「参照」なので請求先・日付はグレーアウトし、取得済のみ管理。
  * 物件単位（登記情報/公図/地積/路線価）は対象物件を選択、市区町村単位（評価証明/名寄帳）は市区町村を入力。
  */
-export default function RealEstateAcquisitionsTable({ caseId, acquisitions, properties, onRefresh, orderSheetMode = false, receipts = [], contractDocs = [], scope = 'all', municipalityFilter, onAfterAddRow, additionsNeedApproval = false, onAdditionalPending, layout = 'table', onMakeDoc, houmuOffice, onSaveHoumuOffice, renderProperties, deceasedName = null }: Props) {
+export default function RealEstateAcquisitionsTable({ caseId, acquisitions, properties, onRefresh, orderSheetMode = false, receipts = [], contractDocs = [], scope = 'all', municipalityFilter, onAfterAddRow, additionsNeedApproval = false, onAdditionalPending, layout = 'table', onMakeDoc, houmuOffice, onSaveHoumuOffice, renderProperties, deceasedName = null, deceasedAddress = null }: Props) {
   // 原本の出入り（同梱する資料の候補）。カード表示のときだけ読む
   const originals = useOriginalStock(caseId, layout === 'cards')
   const supabase = createClient()
@@ -595,6 +575,11 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
     // scope='all'（カード表示）。役所ぶんも法務局ぶんも、この市区町村のものを全部出す。
     return (r.target_municipality ?? '') === municipalityFilter
       || (r.target_property_id != null && muniPropIds.has(r.target_property_id))
+  }).sort((a, b) => {
+    // 役所ぶんが先、法務局ぶんが後ろ。その中は新しい請求が左
+    const sa = rowScopeOf(a) === 'property' ? 1 : 0, sb = rowScopeOf(b) === 'property' ? 1 : 0
+    if (sa !== sb) return sa - sb
+    return (b.created_at ?? '').localeCompare(a.created_at ?? '') || (b.sort_order ?? 0) - (a.sort_order ?? 0)
   })
   // 並び順：①市区町村役場 → ②法務局 の順にまとめ、法務局内は物件ごとにまとまるよう物件IDでソート。
   //   scope 未設定の行は item_type の対象から推定して②扱いに寄せる。
@@ -639,6 +624,8 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
     // カード表示はタブが1本なので、押したボタンで宛先（役所／法務局）を受け取る。
     const sc = forScope ?? (scope === 'municipality' || scope === 'property' ? scope : undefined)
     if (sc) init.scope = sc
+    // 役所への請求の初期値は名寄帳だけ（評価証明は物件が分かってから取り直すことが多い）
+    if (sc === 'municipality') { init.item_types = ['名寄帳']; init.item_type = '名寄帳' }
     // 新規行をこの市区町村タブに固定（②物件はあとで物件を選ぶ）＋請求先の既定値をセット
     if (municipalityFilter != null) { init.target_municipality = municipalityFilter; const o = officeDefault(municipalityFilter); if (o) init.request_to = o }
     // 初期生成後に事務が足す＝承認ゲート対象（承認までタスクは作らない）
@@ -670,7 +657,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
       <>
         <ContractReceivedBlock docs={contractDocs} caseId={caseId} onRefresh={onRefresh} />
         <AcquisitionCards
-          caseId={caseId} deceasedName={deceasedName} originals={originals}
+          caseId={caseId} deceasedName={deceasedName} deceasedAddress={deceasedAddress} originals={originals}
           rows={visibleRows} properties={properties} muniProps={muniProps}
           activeId={activeId} setActiveId={setActiveId}
           itemsOf={itemsOf} rowScopeOf={rowScopeOf} officeDefault={officeDefault}
