@@ -57,6 +57,20 @@ export const CATEGORY_AUTO_GYOMU: Record<string, string | string[]> = {
   '執行': '執行通知',
 }
 
+/**
+ * 案件で「やる業務」の一覧。実務タブ・オーダーシートのセクションの出し分けに使う。
+ *   ・実施業務（intake_roles の gyomu）
+ *   ・受注区分に紐づく管理担当業務（CATEGORY_AUTO_GYOMU。遺産承継＝精算書作成＋指図書作成 など）
+ * 受注区分は受注内容タブ以外（面談登録・連携）からも入るので、intake_roles に auto 業務が無くても区分から補う。
+ * これが無いと「受注区分は遺産承継なのに遺産承継タブが出ない」になる。
+ */
+export function gyomuOfCase(c: { intake_roles?: Array<{ gyomu?: string | null }> | null; service_category?: string | null; service_category_2?: string | null; procedure_type?: string[] | null }): string[] {
+  const fromRoles = (c.intake_roles ?? []).map(r => r.gyomu).filter((g): g is string => !!g)
+  const cats = [...new Set([c.service_category, c.service_category_2, ...(c.procedure_type ?? [])].filter((k): k is string => !!k))]
+  const fromCats = cats.flatMap(k => { const g = CATEGORY_AUTO_GYOMU[k]; return g ? (Array.isArray(g) ? g : [g]) : [] })
+  return [...new Set([...fromRoles, ...fromCats])]
+}
+
 // 実施業務セレクタ（受注区分に依存せず常に全表示・初期は未選択）。
 // label=表示名、gyomus=intake_roles に入れる内部業務名（遺産承継＝精算書作成＋指図書作成のマージ）。
 // 不動産→不動産調査／金融資産→金融資産調査 は表示名だけ変更（内部キーは維持）。

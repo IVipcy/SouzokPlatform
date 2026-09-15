@@ -57,7 +57,7 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { getCaseTabVisibility, type TabVisibility } from '@/lib/caseTabs'
 import { toneOfTab, TONE_BG } from '@/lib/practiceTabTone'
-import { GYOMU_TAB } from '@/lib/serviceMaster'
+import { GYOMU_TAB, gyomuOfCase } from '@/lib/serviceMaster'
 import { getSelectableCaseStatuses, isContractProcDone, isContractDocsReceived } from '@/lib/constants'
 import { countReceiptsNeedingLink } from '@/lib/receiptLink'
 import type { TimelineReceipt, TimelineStatusEvent } from './CaseTimeline'
@@ -453,7 +453,8 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
 
   // 受注区分→選択業務 で許可される実務タブ（service_category 設定時のみ出し分け）。
   // 並行進行モデルのため段階表示は無し：選択業務に対応する全タブを最初から表示。
-  const selectedGyomu = [...new Set((caseState.intake_roles ?? []).map(r => r.gyomu).filter(Boolean))]
+  // 実施業務＋受注区分に紐づく管理担当業務（遺産承継＝精算書作成・指図書作成 等）。区分だけ入っている案件でもタブが出るように
+  const selectedGyomu = gyomuOfCase(caseState)
   const allowedPracticeTabs = caseState.service_category
     ? ([...new Set(selectedGyomu.map(g => GYOMU_TAB[g]).filter(Boolean))] as TabKey[])
     : undefined

@@ -25,7 +25,7 @@ import MeetingMemoViewer, { type MemoLite } from './MeetingMemoViewer'
 import { NestedSectionContext } from '@/components/ui/InlineFields'
 import BackToTopButton from '@/components/ui/BackToTopButton'
 import { PROCEDURE_TABS } from './practiceTabs'
-import { GYOMU_TAB } from '@/lib/serviceMaster'
+import { GYOMU_TAB, gyomuOfCase } from '@/lib/serviceMaster'
 import type { TabKey } from './CaseTabs'
 import type { ReactNode } from 'react'
 import type { TimelineReceipt } from './CaseTimeline'
@@ -156,7 +156,7 @@ export default function OrderSheet({
   )
 
   // 受注区分→選択業務 で実務セクションを出し分け（service_category 未設定の旧案件は全表示）
-  const selectedGyomu = [...new Set((caseData.intake_roles ?? []).map(r => r.gyomu).filter(Boolean))]
+  const selectedGyomu = gyomuOfCase(caseData)
   const allowedTabs = caseData.service_category
     ? new Set(selectedGyomu.map(g => GYOMU_TAB[g]).filter(Boolean) as TabKey[])
     : null
