@@ -59,6 +59,7 @@ import { getCaseTabVisibility, type TabVisibility } from '@/lib/caseTabs'
 import { toneOfTab, TONE_BG } from '@/lib/practiceTabTone'
 import { GYOMU_TAB, gyomuOfCase } from '@/lib/serviceMaster'
 import { getSelectableCaseStatuses, isContractProcDone, isContractDocsReceived } from '@/lib/constants'
+import { fetchCaseRelations, type RelatedCase } from '@/lib/caseRelations'
 import { countReceiptsNeedingLink } from '@/lib/receiptLink'
 import type { TimelineReceipt, TimelineStatusEvent } from './CaseTimeline'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow, FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow, FinancialJasdecResultRow, DivisionDetailRow, AgreementDispatchRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow, CaseFileRow, AssetInventoryRow, CaseOtherAssetRow } from '@/types'
@@ -191,6 +192,19 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
 
   // prop側でdata更新があった場合はstateに反映
   useEffect(() => { setCaseState(caseDataProp) }, [caseDataProp])
+
+  // 関連案件（migration 287）。ヘッダーのチップと案件管理タブで同じものを使うのでここで1回読む
+  const [relations, setRelations] = useState<RelatedCase[]>([])
+  const [relationsTick, setRelationsTick] = useState(0)
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      const r = await fetchCaseRelations(createClient(), caseDataProp.id)
+      if (alive) setRelations(r)
+    })()
+    return () => { alive = false }
+  }, [caseDataProp.id, relationsTick])
+  const reloadRelations = () => setRelationsTick(t => t + 1)
 
   const handleSaved = () => {
     router.refresh()
@@ -600,6 +614,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         caseMembers={caseMembers}
         allMembers={allMembers}
         reopenCount={reopenCount}
+        relatedCases={relations}
       />
 
       {/* 実務タブでタスクを完了するバー（タスク詳細から ?task= で来たとき） */}
@@ -835,7 +850,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} contractDocuments={contractDocuments} managerAssigned={managerAssigned} contractProcDone={contractProcDone} salesMemberId={salesMemberId} canRequestReview={isCaseManager} />
       )}
       {effectiveTab === 'ownerSales' && (
-        <OwnerSalesTab caseData={caseState} patchCase={patchCase} />
+        <OwnerSalesTab caseData={caseState} patchCase={patchCase} relations={relations} currentMemberId={currentMemberId} onRelationsChanged={reloadRelations} />
       )}
       {effectiveTab === 'assignees' && (
         <AssigneesTab caseData={caseState} caseMembers={caseMembers} allMembers={allMembers} onRefresh={handleSaved} />

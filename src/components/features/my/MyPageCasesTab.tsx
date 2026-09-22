@@ -59,6 +59,8 @@ export type MyCaseRow = {
   hasOverdueTask?: boolean
   /** 案件再オープン回数 (progress_reports.kind='case_reopen' の件数)。>0 かつ status=対応中 なら「再オープン中」バッジ */
   reopenCount?: number
+  /** 関連案件の数（案件管理タブで結んだもの。migration 287）。>0 なら「関連 n」 */
+  relatedCount?: number
   /** 週次報告状況 */
   weeklyStatus?: '未対応' | '依頼中' | '確認済'
   /** 最終更新日 */
@@ -340,6 +342,11 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                   {(c.reopenCount ?? 0) > 0 && c.status === '対応中' && (
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300 whitespace-nowrap" title={`業務完了/納品完了後に再オープンされた案件（${c.reopenCount}回）`}>
                       再オープン中{(c.reopenCount ?? 0) > 1 ? ` (${c.reopenCount})` : ''}
+                    </span>
+                  )}
+                  {(c.relatedCount ?? 0) > 0 && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-brand-50 text-brand-700 border border-brand-200 whitespace-nowrap" title={`関連案件が ${c.relatedCount} 件あります（案件管理タブ）`}>
+                      関連 {c.relatedCount}
                     </span>
                   )}
                 </div>

@@ -1,15 +1,21 @@
 'use client'
 
 import {
-  Section, FieldGrid, Field, InlineEdit, InlineSelect, InlineDate,
+  Section, FieldGrid, Field, FieldRow, InlineEdit, InlineSelect, InlineDate,
 } from '@/components/ui/InlineFields'
 import { LOCATIONS, DIFFICULTY_LEVELS } from '@/lib/constants'
 import type { CaseRow } from '@/types'
+import type { RelatedCase } from '@/lib/caseRelations'
 import TabHeader from './TabHeader'
+import RelatedCasesField from './RelatedCasesField'
 
 type Props = {
   caseData: CaseRow
   patchCase: (patch: Partial<CaseRow>) => Promise<void>
+  /** 関連案件（migration 287）。親（案件詳細）が読んで渡す */
+  relations?: RelatedCase[]
+  currentMemberId?: string | null
+  onRelationsChanged?: () => void
 }
 
 /**
@@ -17,7 +23,7 @@ type Props = {
  *   案件番号・保管場所・受注日など案件そのものの情報。
  * ※ 担当者（受注/管理）は案件ヘッダーへ移設。受注内容（手続区分 等）は「受注内容」タブ。
  */
-export default function OwnerSalesTab({ caseData, patchCase }: Props) {
+export default function OwnerSalesTab({ caseData, patchCase, relations = [], currentMemberId = null, onRelationsChanged }: Props) {
   const save = async (field: keyof CaseRow, value: unknown) => {
     await patchCase({ [field]: value === '' ? null : value } as Partial<CaseRow>)
   }
@@ -40,6 +46,10 @@ export default function OwnerSalesTab({ caseData, patchCase }: Props) {
           <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => save('expected_completion_date', v || null)} />
           <Field label="完了日" value={caseData.completion_date ?? '未完了'} mono />
           <Field label="案件作成日" value={caseData.created_at ? caseData.created_at.slice(0, 10) : null} mono />
+          {/* 関連案件：同じ家の別案件（兄弟が別々に依頼・二次相続・先に受けた不動産案件 等）。向きなしで結ぶ */}
+          <FieldRow label="関連案件" fullWidth hint="同じ家の別案件（兄弟が別々に依頼した・二次相続・先に受けた不動産案件 等）を結びます。相手の案件からも同じ関連として見え、案件ヘッダーと案件一覧にも出ます。">
+            <RelatedCasesField caseId={caseData.id} relations={relations} currentMemberId={currentMemberId} onChanged={() => onRelationsChanged?.()} />
+          </FieldRow>
         </FieldGrid>
       </Section>
     </div>

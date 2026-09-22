@@ -12,6 +12,7 @@ import type { LpCaseRow } from '@/components/features/cases/LpCasesTable'
 import { CONSULT_STATUSES, REFERRAL_STATUSES } from '@/lib/constants'
 import { advanceTotal } from '@/lib/advancePayment'
 import { overdueSeverity, calDaysOverdue } from '@/lib/overdue'
+import { fetchRelatedCounts } from '@/lib/caseRelations'
 
 // 案件分類（constants の定義に一元化）
 // 管理案件一覧 = 対応中（稼働中）のみ。完了はこの一覧には出さない（バッジ数＝表示と一致させる）。
@@ -81,7 +82,7 @@ export default async function CasesPage() {
   const supabase = await createClient()
   const today = new Date()
 
-  const [{ data: casesRaw }, { data: tasksRaw }, { data: reportsRaw }, { data: teamsRaw }] = await Promise.all([
+  const [{ data: casesRaw }, { data: tasksRaw }, { data: reportsRaw }, { data: teamsRaw }, relatedCounts] = await Promise.all([
     supabase
       .from('cases')
       .select('*, clients(id,name,furigana,phone,mobile_phone), case_members(role, members(id,name,team_id)), case_referrals(partner_type, content, referral_reason)')
@@ -90,6 +91,7 @@ export default async function CasesPage() {
     supabase.from('tasks').select('id,case_id,title,status,sort_order,task_kind,due_date,priority'),
     supabase.from('progress_reports').select('case_id,status,confirmed_date,requested_date,kind'),
     supabase.from('teams').select('id,name'),
+    fetchRelatedCounts(supabase),   // 関連案件の数（migration 287）
   ])
 
   const cases = (casesRaw ?? []) as CaseRowRaw[]
@@ -233,6 +235,7 @@ export default async function CasesPage() {
       progressSystemTotal: prog?.totalSystem ?? 0,
       hasOverdueTask: prog?.hasOverdue ?? false,
       reopenCount: reopenCountByCase.get(c.id) ?? 0,
+      relatedCount: relatedCounts.get(c.id) ?? 0,
       weeklyStatus: weeklyStatusOf(c.id),
       // 案件の色＝出ているアラートの一番重い色（要注意/要確認バナーと同じ判定）
       flag: MANAGEMENT_ACTIVE.has(c.status) ? computeCaseFlag(c, hits) : null,

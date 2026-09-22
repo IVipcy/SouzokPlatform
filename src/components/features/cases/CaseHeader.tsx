@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import { MilestoneAxis, type TimelineStatusEvent } from './CaseTimeline'
 import type { TabKey } from './CaseTabs'
 import type { CaseRow, CaseReferralRow, TaskRow, CaseMemberRow, MemberRow } from '@/types'
+import type { RelatedCase } from '@/lib/caseRelations'
 
 type Props = {
   caseData: CaseRow
@@ -44,6 +45,8 @@ type Props = {
   allMembers?: MemberRow[]
   /** 案件再オープン回数 (progress_reports.kind='case_reopen' の件数)。>0 かつ 作業進行中 なら「再オープン中」バッジを出す */
   reopenCount?: number
+  /** 関連案件（案件管理タブで結んだもの）。あるときだけチップで出す。押すと相手の案件へ */
+  relatedCases?: RelatedCase[]
 }
 
 const FOLLOWUP_STATUSES = new Set(['受注', '対応中'])
@@ -57,7 +60,7 @@ function needsFollowup(status: string, latestDate: string | null): boolean {
   return diffDays >= 14
 }
 
-export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory, selectableStatuses, onStatusChange, onJumpToReferral, showReceiptsAction, receiptCount = 0, receiptTotal = 0, showDocsAction, showDocumentCreateAction, docCount = 0, highlightTabs, onActivateTab, caseMembers = [], allMembers = [], reopenCount = 0 }: Props) {
+export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory, selectableStatuses, onStatusChange, onJumpToReferral, showReceiptsAction, receiptCount = 0, receiptTotal = 0, showDocsAction, showDocumentCreateAction, docCount = 0, highlightTabs, onActivateTab, caseMembers = [], allMembers = [], reopenCount = 0, relatedCases = [] }: Props) {
   const statusColor = CASE_STATUSES.find(s => s.key === caseData.status)?.color ?? '#6B7280'
   const taxFiling = caseData.tax_filing_required === '要'
   const followupNeeded = needsFollowup(caseData.status, latestCommunicationDate)
@@ -189,6 +192,20 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                     </span>
                   )}
                 </MetaRow>
+
+                {/* 関連案件（案件管理タブで結んだもの）。押すと相手の案件へ */}
+                {relatedCases.length > 0 && (
+                  <MetaRow label="関連案件">
+                    {relatedCases.map(r => (
+                      <Link key={r.relationId} href={`/cases/${r.other.id}`} title={`${r.other.case_number}｜${r.other.deal_name}${r.other.client_name ? `（${r.other.client_name}）` : ''}${r.note ? `｜${r.note}` : ''}`}
+                        className="inline-flex items-center gap-1 max-w-[220px] text-[11px] leading-none px-2 py-1 rounded-md bg-brand-50 text-brand-700 border border-brand-100 font-medium hover:bg-brand-100">
+                        <span className="font-mono text-brand-500">{r.other.case_number}</span>
+                        <span className="truncate">{r.other.deal_name}</span>
+                        {r.note && <span className="text-brand-500 flex-none">・{r.note}</span>}
+                      </Link>
+                    ))}
+                  </MetaRow>
+                )}
 
                 {/* 手続き区分 */}
                 <MetaRow label="手続き区分">
