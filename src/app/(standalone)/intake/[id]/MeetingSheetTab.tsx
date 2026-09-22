@@ -105,20 +105,21 @@ const ROW_EXTRACT_SCHEMA: Record<string, (Omit<RowExtractSchema, 'table'> & { ta
     ],
     fixedValues: { asset_type: '預貯金', acquirer: '自社' },
   }],
+  // 証券・信託は1区画（オーダーシートと同じ）。証券会社の行と株主名簿管理人（信託銀行等）の行を同じメモから拾う
   assets_securities: [{
-    key: 'securities', label: '証券一覧', table: 'financial_assets', dedupeKey: 'institution_name',
+    key: 'securities', label: '証券会社一覧', table: 'financial_assets', dedupeKey: 'institution_name',
     fields: [
       { key: 'institution_name', label: '証券会社名' },
       { key: 'branch_name', label: '支店' },
       { key: 'balance_amount', label: '評価額', type: 'number' },
+      { key: 'notes', label: '備考（聞いた銘柄など）' },
     ],
     fixedValues: { asset_type: '証券', acquirer: '自社' },
-  }],
-  assets_trust: [{
-    key: 'trusts', label: '信託一覧', table: 'financial_assets', dedupeKey: 'institution_name',
+  }, {
+    key: 'trusts', label: '株主名簿管理人（信託銀行等）一覧', table: 'financial_assets', dedupeKey: 'institution_name',
     fields: [
       { key: 'institution_name', label: '信託銀行名' },
-      { key: 'balance_amount', label: '残高', type: 'number' },
+      { key: 'notes', label: '備考' },
     ],
     fixedValues: { asset_type: '信託銀行', acquirer: '自社' },
   }],
@@ -155,10 +156,10 @@ function SavedMemos({ memos, onDelete, readOnly }: { memos: MeetingMemoRow[]; on
 }
 
 // ③オーダーシートへ引き継ぐ、手書きメモ（読み取り専用・セクション別）。
-export const SEC_LABEL: Record<string, string> = { memoPhoto: '面談メモ（写真）', clientInfo: '依頼者情報', order: '提案内容・手続き内容', deceased: '相続人調査', assets_re: '財産調査（不動産）', assets_deposit: '財産調査（預金）', assets_securities: '財産調査（証券）', assets_trust: '財産調査（信託）', assets_insurance: '財産調査（生命保険）', referral: '他事業者紹介' }
+export const SEC_LABEL: Record<string, string> = { memoPhoto: '面談メモ（写真）', clientInfo: '依頼者情報', order: '提案内容・手続き内容', deceased: '相続人調査', assets_re: '財産調査（不動産）', assets_deposit: '財産調査（預金）', assets_securities: '財産調査（証券・信託）', assets_insurance: '財産調査（生命保険）', referral: '他事業者紹介' }
 
 /** 白紙メモの帯（＝セクション）の並び順。SEC_LABEL からラベルを引く。 */
-export const WB_ORDER = ['clientInfo', 'order', 'deceased', 'assets_re', 'assets_deposit', 'assets_securities', 'assets_trust', 'assets_insurance', 'referral'] as const
+export const WB_ORDER = ['clientInfo', 'order', 'deceased', 'assets_re', 'assets_deposit', 'assets_securities', 'assets_insurance', 'referral'] as const
 
 /** 「AIで項目に反映」に対応しているセクション（他事業者紹介はメモのみ＝非対応）。 */
 export const isExtractable = (sec: string) => !!EXTRACT_SCHEMA[sec] || !!ROW_EXTRACT_SCHEMA[sec]
@@ -455,12 +456,14 @@ type Props = {
   onRefresh?: () => void
 }
 
-// 任意追加の金融種別
-const OPTIONAL_FIN: { kind: string; label: string; section: string; cols: FinCol[] }[] = [
-  { kind: '証券', label: '証券', section: 'assets_securities', cols: [{ key: 'institution_name', label: '証券会社' }, { key: 'branch_name', label: '支店' }, { key: 'balance_amount', label: '残高（評価額）', money: true }] },
-  { kind: '信託銀行', label: '信託', section: 'assets_trust', cols: [{ key: 'institution_name', label: '信託銀行名' }, { key: 'balance_amount', label: '残高（評価額）', money: true }] },
+// 任意追加の金融種別。証券・信託はオーダーシートと同じく1区画（'証券' が代表。中で 証券／信託銀行 の2表を出す）
+const OPTIONAL_FIN: { kind: string; label: string; section: string; cols: FinCol[]; kinds?: string[] }[] = [
+  { kind: '証券', label: '証券・信託', section: 'assets_securities', kinds: ['証券', '信託銀行'], cols: [] },
   { kind: '生命保険', label: '生命保険', section: 'assets_insurance', cols: [{ key: 'institution_name', label: '保険会社名' }] },
 ]
+const SEC_COLS: FinCol[] = [{ key: 'institution_name', label: '証券会社' }, { key: 'branch_name', label: '支店' }, { key: 'balance_amount', label: '残高（評価額）', money: true }, { key: 'notes', label: '備考（聞いた銘柄など）' }]
+const TRUST_COLS: FinCol[] = [{ key: 'institution_name', label: '信託銀行名' }, { key: 'notes', label: '備考' }]
+const HOLDING_KNOWN_OPTIONS = ['分かる', '分からない', '持っていない'] as const
 
 // currentMemberId は面談メモ（写真）の保存者として使う。
 export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensureCaseId, memos, setMemos, caseClients, heirs, properties, financialAssets, otherAssets = [], onRefresh, currentMemberId }: Props) {
@@ -470,7 +473,7 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
   // ここに その他財産／相続債務／その他費用 を含めていなかったため、
   // 入力したあとに開き直すとセクションごと消えて見えていた。
   const [extraFin, setExtraFin] = useState<Set<string>>(() => new Set([
-    ...OPTIONAL_FIN.filter(f => financialAssets.some(a => a.asset_type === f.kind)).map(f => f.kind),
+    ...OPTIONAL_FIN.filter(f => (f.kinds ?? [f.kind]).some(k => financialAssets.some(a => a.asset_type === k)) || (f.kind === '証券' && !!caseData.securities_holding_known)).map(f => f.kind),
     ...OTHER_ASSET_KINDS.filter(k => otherAssets.some(o => o.kind === k.kind)).map(k => k.kind),
   ]))
   // その他財産／相続債務／その他費用 を種別ごとに分けておく。
@@ -486,6 +489,22 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
   const mainFurigana = cl?.furigana || (caseClients.find(c => c.priority === 'main') ?? caseClients[0])?.furigana
 
   const clearAi = (key: string) => setAiFilled(prev => { if (!prev.has(key)) return prev; const n = new Set(prev); n.delete(key); return n })
+  // 株の保有先が分かるか（オーダーシートの証券・信託と同じ）。「分からない」なら実務の証券・信託に「ほふり照会」を立てる
+  const holdingKnown = caseData.securities_holding_known ?? null
+  const setHoldingKnown = async (v: string) => {
+    const cid = ensureCaseId ? await ensureCaseId() : caseData.id
+    await patchCase({ securities_holding_known: v || null } as Partial<CaseRow>)
+    const sb = createClient()
+    const { data } = await sb.from('financial_institutions').select('id, jasdec_company_known, jasdec_request_date').eq('case_id', cid).eq('kind', 'ほふり').maybeSingle()
+    const jasdec = data as { id: string; jasdec_company_known: string | null; jasdec_request_date: string | null } | null
+    if (v === '分からない') {
+      if (!jasdec) await sb.from('financial_institutions').insert({ case_id: cid, kind: 'ほふり', name: '証券保管振替機構（ほふり）', jasdec_company_known: '不明', freeze_required: false, form_required: false, search_required: false, sort_order: 0 })
+      else if (jasdec.jasdec_company_known === '調査不要') await sb.from('financial_institutions').update({ jasdec_company_known: '不明' }).eq('id', jasdec.id)
+    } else if (jasdec && !jasdec.jasdec_request_date) {
+      await sb.from('financial_institutions').update({ jasdec_company_known: '調査不要' }).eq('id', jasdec.id)
+    }
+    onRefresh?.()
+  }
 
   // 財産の種類を足したとき、新しいセクションは「種類を追加」ボタンより上に生まれる。
   // そのままだと画面外に増えるので「押しても何も起きない」ように見える。追加したセクションまで送る。
@@ -605,7 +624,36 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
       {OPTIONAL_FIN.filter(f => extraFin.has(f.kind)).map(f => (
         <div key={f.kind}>
           {sec(f.section, `財産調査（${f.label}）`, '任意', (
-            <FinMini caseId={caseData.id} kind={f.kind} addLabel={`${f.label}を追加`} assets={financialAssets} onRefresh={onRefresh} ensureCaseId={ensureCaseId} cols={f.cols} />
+            f.kind === '証券' ? (
+              /* オーダーシートの証券・信託と同じ型：①保有先が分かるか ②証券会社（1行1社） ③株主名簿管理人（分かっている場合だけ）。銘柄は実務で */
+              <div className="space-y-3">
+                <FieldGrid>
+                  <FieldRow label="保有先" fullWidth hint="どこの証券会社に口座があるか分かっていますか。分からなければ、ほふり（証券保管振替機構）に開示請求して口座のある証券会社をまとめて確認します。">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                      {HOLDING_KNOWN_OPTIONS.map(o => (
+                        <label key={o} className="inline-flex items-center gap-1.5 text-[13px] cursor-pointer">
+                          <input type="radio" name="ms_securities_holding_known" checked={holdingKnown === o} onChange={() => void setHoldingKnown(o)} className="w-4 h-4 accent-brand-600" />
+                          <span className={holdingKnown === o ? 'text-gray-800 font-semibold' : 'text-gray-600'}>{o === '分かる' ? '分かる（下の表に入れる）' : o === '分からない' ? '分からない → ほふり照会をする' : '株は持っていない'}</span>
+                        </label>
+                      ))}
+                      {holdingKnown === '分からない' && <span className="w-full text-[12px] text-gray-500">実務タブの証券・信託に「ほふり照会」が立ちます。開示結果で判明した証券会社はそこから調査先に追加します</span>}
+                    </div>
+                  </FieldRow>
+                </FieldGrid>
+                {holdingKnown !== '持っていない' && (<>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1.5"><span className="w-[3px] h-3.5 bg-brand-600" /><span className="text-[13px] font-semibold text-gray-700">証券会社</span><span className="text-[12px] text-gray-500">1行1社。面談で聞いた銘柄は備考に</span></div>
+                    <FinMini caseId={caseData.id} kind="証券" addLabel="証券会社を追加" assets={financialAssets} onRefresh={onRefresh} ensureCaseId={ensureCaseId} cols={SEC_COLS} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1.5"><span className="w-[3px] h-3.5 bg-brand-600" /><span className="text-[13px] font-semibold text-gray-700">株主名簿管理人（信託銀行等）</span><span className="text-[12px] text-gray-500">配当の通知などで分かっている場合だけ</span></div>
+                    <FinMini caseId={caseData.id} kind="信託銀行" addLabel="株主名簿管理人を追加" assets={financialAssets} onRefresh={onRefresh} ensureCaseId={ensureCaseId} cols={TRUST_COLS} />
+                  </div>
+                </>)}
+              </div>
+            ) : (
+              <FinMini caseId={caseData.id} kind={f.kind} addLabel={`${f.label}を追加`} assets={financialAssets} onRefresh={onRefresh} ensureCaseId={ensureCaseId} cols={f.cols} />
+            )
           ), runExtract(f.section), false, { key: 'assets', label: '財産のメモ（不動産・預金・証券などで共通。OS/実務の財産調査に反映されます）' })}
         </div>
       ))}

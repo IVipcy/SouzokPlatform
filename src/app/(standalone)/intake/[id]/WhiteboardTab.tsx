@@ -34,8 +34,7 @@ const SECTION_HINT: Record<string, string> = {
   deceased: '被相続人の 氏名／ふりがな／生年月日／死亡日／住所／本籍　　相続人（氏名・続柄）　※家系図を描いてもOK（図から相続人一覧に起こします）',
   assets_re: '物件種別／所在地／地番（土地）・家屋番号（建物）／評価額',
   assets_deposit: '金融機関名／支店／口座番号／残高',
-  assets_securities: '証券会社名／支店／評価額',
-  assets_trust: '信託銀行名／残高',
+  assets_securities: '保有先が分かるか／証券会社名／支店／評価額／株主名簿管理人（信託銀行）',
   assets_insurance: '保険会社名／受取人／金額',
   referral: '紹介先／紹介内容／依頼者の反応',
 }
