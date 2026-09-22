@@ -5,9 +5,9 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Bell, X, CheckCheck, ChevronRight, Trash2 } from 'lucide-react'
-import { useAlertCenter, type NotificationItem } from '@/components/providers/AlertCenterProvider'
-import { ALERT_SEVERITY_STYLE, type AlertItem } from '@/lib/alerts'
+import { Bell, X, CheckCheck, ChevronRight, Trash2, Check, RotateCcw } from 'lucide-react'
+import { useAlertCenter, type NotificationItem, type AlertWithState } from '@/components/providers/AlertCenterProvider'
+import { ALERT_SEVERITY_STYLE } from '@/lib/alerts'
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
@@ -68,8 +68,14 @@ function notificationHref(n: NotificationItem): string | null {
 }
 
 export default function MyAlertCenter({ variant = 'default' }: { variant?: 'default' | 'sidebar' | 'sidebarCollapsed' } = {}) {
-  const { alerts, notifications, unreadCount, totalCount, markRead, markAllRead, removeOne } = useAlertCenter()
+  const { newAlerts, doneAlerts, notifications, unreadCount, totalCount, markRead, markAllRead, removeOne, ackAlert, unackAlert } = useAlertCenter()
   const [open, setOpen] = useState(false)
+  // 新着＝未対応のアラート＋未読の通知／完了済＝対応済のアラート＋既読の通知
+  const [tab, setTab] = useState<'new' | 'done'>('new')
+  const unreadNotes = notifications.filter(n => !n.is_read)
+  const readNotes = notifications.filter(n => n.is_read)
+  const shownAlerts = tab === 'new' ? newAlerts : doneAlerts
+  const shownNotes = tab === 'new' ? unreadNotes : readNotes
 
   // トリガーボタン。variant によって見た目を切り替える（マイページ通常／サイドバー下部）。
   const trigger = variant === 'sidebarCollapsed' ? (
@@ -139,15 +145,24 @@ export default function MyAlertCenter({ variant = 'default' }: { variant?: 'defa
               </button>
             </header>
 
-            <div className="max-h-[72vh] overflow-y-auto p-3">
-              {alerts.length === 0 && notifications.length === 0 ? (
-                <div className="py-10 text-center text-[13px] text-gray-400">対応すべきことはありません</div>
+            <div className="px-3 pt-3 flex items-center gap-1.5">
+              {([['new', '新着', newAlerts.length + unreadNotes.length], ['done', '完了済', doneAlerts.length + readNotes.length]] as const).map(([k, label, n]) => (
+                <button key={k} type="button" onClick={() => setTab(k)}
+                  className={`px-3 py-1.5 text-[12.5px] font-semibold border rounded-md ${tab === k ? 'bg-brand-600 border-brand-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                  {label}<span className={`ml-1.5 font-mono ${tab === k ? 'text-white/80' : 'text-gray-400'}`}>{n}</span>
+                </button>
+              ))}
+              <span className="ml-auto text-[11px] text-gray-400">{tab === 'new' ? '新しく出たものが上' : '対応済にしたもの・既読の通知'}</span>
+            </div>
+            <div className="max-h-[68vh] overflow-y-auto p-3">
+              {shownAlerts.length === 0 && shownNotes.length === 0 ? (
+                <div className="py-10 text-center text-[13px] text-gray-400">{tab === 'new' ? '対応すべきことはありません' : '完了済はありません'}</div>
               ) : (
                 <ul className="space-y-1.5">
-                  {/* アラート（やること・重大度順） */}
-                  {alerts.map(a => <li key={a.id}><AlertRow a={a} onNavigate={() => setOpen(false)} /></li>)}
+                  {/* アラート（やること。初めて出た順が新しいものから） */}
+                  {shownAlerts.map(a => <li key={a.id}><AlertRow a={a} onNavigate={() => setOpen(false)} onAck={() => ackAlert(a.id)} onUnack={() => unackAlert(a.id)} /></li>)}
                   {/* 通知（履歴。既読/削除可） */}
-                  {notifications.map(n => (
+                  {shownNotes.map(n => (
                     <li key={n.id}>
                       <NotificationRow n={n} onRead={() => markRead(n.id)} onRemove={() => removeOne(n.id)} onNavigate={() => setOpen(false)} />
                     </li>
@@ -162,19 +177,31 @@ export default function MyAlertCenter({ variant = 'default' }: { variant?: 'defa
   )
 }
 
-function AlertRow({ a, onNavigate }: { a: AlertItem; onNavigate: () => void }) {
+function AlertRow({ a, onNavigate, onAck, onUnack }: { a: AlertWithState; onNavigate: () => void; onAck: () => void; onUnack: () => void }) {
   const sv = ALERT_SEVERITY_STYLE[a.severity]
+  // 初出から1日以内なら NEW。描画中に Date.now() を呼ばないよう、初回の値を保持する
+  const [isNew] = useState(() => Date.now() - new Date(a.firstSeenAt).getTime() < 86_400_000)
   const inner = (
-    <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg hover:bg-gray-50 border border-gray-100">
-      <span className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${sv.dot}`} />
+    <div className={`flex items-start gap-2.5 px-3 py-2.5 rounded-lg hover:bg-gray-50 border border-gray-100 ${a.ackedAt ? 'opacity-70' : ''}`}>
+      <span className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${a.ackedAt ? 'bg-gray-300' : sv.dot}`} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 mb-0.5 min-w-0">
           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${sv.chip}`}>{a.category}</span>
           {a.caseLabel && <span className="text-[10.5px] px-1.5 py-0.5 rounded border border-brand-200 bg-brand-50 text-brand-700 truncate" title={a.caseLabel}>{a.caseLabel}</span>}
+          {!a.ackedAt && isNew && <span className="text-[10px] font-bold px-1.5 py-0.5 bg-amber-100 text-amber-800">NEW</span>}
+          <span className="ml-auto text-[10.5px] text-gray-400 flex-none">{relativeTime(a.firstSeenAt)}</span>
         </div>
         <div className="text-[13px] font-semibold text-gray-900 truncate">{a.title}</div>
         {a.body && <div className="text-[12px] text-gray-500 mt-0.5 line-clamp-2">{a.body}</div>}
       </div>
+      {/* 対応済にする／新着に戻す。行のリンクとは別に押せるようにする */}
+      {a.ackedAt ? (
+        <button type="button" onClick={e => { e.preventDefault(); e.stopPropagation(); onUnack() }} title="新着に戻す"
+          className="flex-none inline-flex items-center gap-1 px-2 py-1 mt-0.5 text-[11px] text-gray-500 border border-gray-200 bg-white rounded hover:bg-gray-50"><RotateCcw className="w-3 h-3" />新着に戻す</button>
+      ) : (
+        <button type="button" onClick={e => { e.preventDefault(); e.stopPropagation(); onAck() }} title="対応済にして完了済タブへ"
+          className="flex-none inline-flex items-center gap-1 px-2 py-1 mt-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200 bg-white rounded hover:bg-emerald-50"><Check className="w-3 h-3" />対応済</button>
+      )}
       {a.href && <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0 mt-1" />}
     </div>
   )

@@ -69,15 +69,15 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
       <Section title="メイン依頼者の住所">
         {caseData.client_id && client ? (
           <FieldGrid>
+            <InlineEdit label="住所1（都道府県〜番地まで）" value={client.address} onSave={v => saveClientField('address', v)} required hint="都道府県・市区町村・町名・番地まで。建物名・部屋番号は住所2に" />
+            <InlineEdit label="住所2（建物名・部屋番号）" value={client.address2} onSave={v => saveClientField('address2', v)} />
             <InlineEdit
               label="郵便番号"
               value={client.postal_code}
-              hint="郵便番号7桁を入れて「住所を取得」を押すと住所が入ります（番地・建物は自分で足してください）"
+              hint="住所1（町名まで）を入れて「住所1から郵便番号を取得」を押すと入ります。手で入れてもかまいません"
               onSave={v => saveClientField('postal_code', v.replace(/[^0-9]/g, ''))}
-              action={(zip) => <PostalLookupButton zip={zip} onResolved={addr => saveClientField('address', addr)} className="inline-flex items-center gap-1 h-7 px-2.5 rounded text-[11.5px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap" />}
+              action={() => <PostalLookupButton address={client.address} onResolved={zip => saveClientField('postal_code', zip)} className="inline-flex items-center gap-1 h-7 px-2.5 rounded text-[11.5px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap" />}
             />
-            <InlineEdit label="依頼者住所（住所1）" value={client.address} onSave={v => saveClientField('address', v)} required hint="都道府県〜番地まで。建物名・部屋番号は住所2に" />
-            <InlineEdit label="住所2（建物名・部屋番号）" value={client.address2} onSave={v => saveClientField('address2', v)} />
             {/* 振込名義人（カナ）＝入金CSV突合のキー。本人振込なら依頼者ふりがなをカタカナで自動入力。
                 「検討中」段階では入金が発生しないため表示しない（受注後に表示）。 */}
             {caseData.status !== '検討中' && (
@@ -117,7 +117,7 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
             onSave={v => saveCaseField('mailing_destination', v)}
           />
           {mailingMode === '依頼者住所' ? (
-            <Field label="郵送先住所（メイン依頼者・自動）" value={[client?.postal_code, client?.address].filter(Boolean).join('　') || '住所未登録（下のメイン依頼者の住所・連絡先で入力）'} />
+            <Field label="郵送先住所（メイン依頼者・自動）" value={[client?.postal_code ? `〒${client.postal_code.slice(0, 3)}-${client.postal_code.slice(3)}` : '', client?.address, client?.address2].filter(Boolean).join('　') || '住所未登録（下のメイン依頼者の住所・連絡先で入力）'} />
           ) : mailingMode === 'その他' ? (
             <InlineEdit label="郵送先住所（その他）" value={caseData.mailing_address_other} onSave={v => saveCaseField('mailing_address_other', v)} fullWidth />
           ) : null}

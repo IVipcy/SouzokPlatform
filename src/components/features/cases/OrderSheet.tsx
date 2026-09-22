@@ -140,8 +140,11 @@ export default function OrderSheet({
   ) : null)
 
   // 面談メモ（原本）：白紙メモタブで保存した画像を、オーダーシート入力中いつでも開けるようにする。
+  // 面談メモ（写真）のサムネイル。ボタンだけだと気づかれないので、写真は一覧の先頭に並べて押すと拡大
+  const [memoOpenId, setMemoOpenId] = useState<string | null>(null)
+  const memoPhotos = meetingMemos.filter(m => m.section === 'memoPhoto')
   const memoViewerEl = meetingMemos.length > 0 ? (
-    <button type="button" onClick={() => setMemoViewerOpen(true)}
+    <button type="button" onClick={() => { setMemoOpenId(null); setMemoViewerOpen(true) }}
       className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[13px] font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition-colors">
       <FileText className="w-4 h-4" />面談メモ（原本）
     </button>
@@ -308,6 +311,7 @@ export default function OrderSheet({
         </nav>
 
         <fieldset disabled={ro} className="flex-1 min-w-0 space-y-5 border-0 p-0 m-0">
+          {memoPhotos.length > 0 && <MemoPhotoStrip memos={memoPhotos} onOpen={id => { setMemoOpenId(id); setMemoViewerOpen(true) }} />}
           {osSections.map((s, i) => (
             <OSSection key={s.title} title={s.title} id={sectionId(s, i)}>
               {/* 依頼者情報は作業内容欄が不要（依頼者の属性入力のみ）／受注内容はOrderContentTab側でgyomu="order"のフリー欄を持つため二重表示回避 */}
@@ -341,7 +345,7 @@ export default function OrderSheet({
       )}
 
       {reeditModalEl}
-      <MeetingMemoViewer memos={meetingMemos} open={memoViewerOpen} onClose={() => setMemoViewerOpen(false)} />
+      <MeetingMemoViewer memos={meetingMemos} open={memoViewerOpen} initialId={memoOpenId} onClose={() => setMemoViewerOpen(false)} />
       <BackToTopButton />
     </div>
   )
@@ -365,3 +369,39 @@ function OSSection({ title, children, id }: { title: string; children: React.Rea
   )
 }
 
+// 面談メモ（写真）のサムネイル。面談シートで添付した写真が案件詳細のオーダーシートでも見えるようにする
+function MemoPhotoStrip({ memos, onOpen }: { memos: MemoLite[]; onOpen: (id: string) => void }) {
+  const [urls, setUrls] = useState<Record<string, string>>({})
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      const supabase = createClient()
+      const next: Record<string, string> = {}
+      for (const m of memos) {
+        if (!m.image_path) continue
+        const { data } = await supabase.storage.from(m.image_bucket || 'meeting-memos').createSignedUrl(m.image_path, 3600)
+        if (data?.signedUrl) next[m.id] = data.signedUrl
+      }
+      if (alive) setUrls(next)
+    })()
+    return () => { alive = false }
+  }, [memos])
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl px-4 py-3">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-[13px] font-semibold text-gray-700">面談メモ（写真）</span>
+        <span className="text-[11.5px] text-gray-400">面談シートで添付したもの。押すと拡大</span>
+      </div>
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {memos.map(m => (
+          <button key={m.id} type="button" onClick={() => onOpen(m.id)} className="flex-none w-28 h-20 border border-gray-200 rounded overflow-hidden bg-gray-50 hover:border-brand-400" title={m.created_at?.slice(0, 10) ?? ''}>
+            {urls[m.id]
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img src={urls[m.id]} alt="面談メモ" className="w-full h-full object-cover" />
+              : <span className="text-[11px] text-gray-400">読み込み中…</span>}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}

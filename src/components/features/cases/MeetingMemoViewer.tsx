@@ -23,13 +23,15 @@ export type MemoLite = {
 const fmtDate = (s: string | null) => (s ? s.slice(0, 10).replace(/-/g, '/') : '')
 
 export default function MeetingMemoViewer({
-  memos, open, onClose, onDeleted,
+  memos, open, onClose, onDeleted, initialId = null,
 }: {
   memos: MemoLite[]
   open: boolean
   onClose: () => void
   /** 削除を許可する場合に渡す（渡さなければ削除ボタンは出さない） */
   onDeleted?: (id: string) => void
+  /** 開いたときに最初に出すメモ（サムネイルを押したとき） */
+  initialId?: string | null
 }) {
   // 新しいものを先頭に
   const list = useMemo(
@@ -44,7 +46,7 @@ export default function MeetingMemoViewer({
 
   const cur = list[Math.min(idx, Math.max(0, list.length - 1))]
 
-  useEffect(() => { if (open) { setIdx(0); setZoom(1) } }, [open])
+  useEffect(() => { if (open) { const i = initialId ? list.findIndex(m => m.id === initialId) : -1; setIdx(i >= 0 ? i : 0); setZoom(1) } }, [open, initialId, list])
 
   // 署名URLを取得（1時間）
   useEffect(() => {
@@ -103,7 +105,7 @@ export default function MeetingMemoViewer({
           {list.length > 1 && (
             <select value={idx} onChange={e => { setIdx(Number(e.target.value)); setZoom(1); scrollRef.current?.scrollTo({ top: 0 }) }}
               className="text-[12px] rounded-md border-0 px-2 py-1 bg-white/15 text-white">
-              {list.map((m, i) => <option key={m.id} value={i} className="text-gray-900">{fmtDate(m.created_at) || `メモ${i + 1}`}</option>)}
+              {list.map((m, i) => <option key={m.id} value={i} className="text-gray-900">{`${fmtDate(m.created_at) || `メモ${i + 1}`}${m.section === 'memoPhoto' ? '（写真）' : m.section === 'whiteboard' ? '（白紙メモ）' : ''}`}</option>)}
             </select>
           )}
           <button type="button" onClick={() => setZoom(z => Math.max(0.5, z - 0.25))} className="p-1.5 rounded text-white hover:bg-white/15" title="縮小"><ZoomOut className="w-4 h-4" /></button>

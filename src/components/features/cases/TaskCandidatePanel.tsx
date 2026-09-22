@@ -42,13 +42,17 @@ type Props = {
 // 生成候補：実施タスク行（roleIdx付き）or 区分非依存（経理/相続税）。
 // ready=生成時に着手OK（起点タスク）／readyOnReceipt=受領次第OK（受信簿で受領したら着手OKに昇格）
 type Candidate = { key: string; gyomu: string; title: string; roleIdx?: number; rid?: string; ready?: boolean; readyOnReceipt?: boolean; custom?: boolean; work?: string
+  /** その他業務：オーダーシートで決めた担当区分・優先度・期限・外出 */
+  roleKind?: 'assistant' | 'manager' | 'sales' | 'touki'; priority?: string | null; due?: string | null; outing?: boolean
   /** 開いた時点では既定でチェックを外す候補（今やらなくてよいもの）。チェックすれば生成できる。 */
   offByDefault?: boolean }
 
 // 候補の担当区分（生成時の task_kind と同じ判定）。バッジ表示に使う。
 function kindOfCandidate(c: Candidate): 'case' | 'system' | 'touki_team' {
   if (TOUKI_TEAM_TASK_TITLES.has(c.title)) return 'touki_team'
-  if (c.custom || MANAGER_GYOMU.has(c.gyomu) || MANAGER_TASK_TITLES.has(c.title)) return 'system'
+  // その他業務はオーダーシートで決めた担当区分（既定＝管理担当）
+  if (c.custom) return c.roleKind === 'assistant' ? 'case' : c.roleKind === 'touki' ? 'touki_team' : 'system'
+  if (MANAGER_GYOMU.has(c.gyomu) || MANAGER_TASK_TITLES.has(c.title)) return 'system'
   return 'case'
 }
 
@@ -223,7 +227,7 @@ export default function TaskCandidatePanel({ caseId, intakeRoles, serviceCategor
       if (!r.custom) activeGyomus.add(r.gyomu)
       // その他（自由入力）＝名もなき業務。業務名＝タスク名、内容(note)＝作業内容。管理担当タスクとして生成。
       if (r.custom) {
-        out.push({ key: `custom:${idx}`, gyomu: 'その他', title: r.sagyou, rid: `custom:${r.gyomu}`, custom: true, work: r.note })
+        out.push({ key: `custom:${idx}`, gyomu: 'その他', title: r.sagyou, rid: `custom:${r.gyomu}`, custom: true, work: r.note, roleKind: r.role_kind ?? 'manager', priority: r.priority ?? null, due: r.due ?? null, outing: !!r.outing })
         return
       }
       // 戸籍の「到着確認・チェック」は請求先ごとの「戸籍読込」に置き換えるためスキップ（戸籍収集の展開で生成）。
@@ -356,9 +360,11 @@ export default function TaskCandidatePanel({ caseId, intakeRoles, serviceCategor
     // 管理業務(MANAGER_GYOMU)＝管理担当タスク(system)、それ以外＝事務管理タスク(case)。
     // どちらも phase=業務名を持たせ、実務タブ／進捗ボードに業務単位で集約される。
     const rows = picked.map((c, i) => {
-      const isTouki = TOUKI_TEAM_TASK_TITLES.has(c.title)
-      const isManager = !isTouki && (c.custom || MANAGER_GYOMU.has(c.gyomu) || MANAGER_TASK_TITLES.has(c.title))
-      const kind: 'case' | 'system' | 'touki_team' = isTouki ? 'touki_team' : isManager ? 'system' : 'case'
+      const kind = kindOfCandidate(c)
+      const isTouki = kind === 'touki_team'
+      const isManager = kind === 'system'
+      // その他業務はオーダーシートで決めた担当区分（管理担当／受注担当）へ割当
+      const sysRole = c.custom ? (c.roleKind === 'sales' ? 'sales' : 'manager') : 'manager'
       return {
         case_id: caseId,
         task_kind: kind,
@@ -366,16 +372,17 @@ export default function TaskCandidatePanel({ caseId, intakeRoles, serviceCategor
         // その他は業務名を phase に（業務バッジ表示用）、通常は業務名。
         phase: c.custom ? c.title : c.gyomu,
         // 管理担当タスクはカテゴリ列を持たせず、業務は phase バッジで表す（名もなきタスクと混在するため）。
-        category: isManager ? null : c.gyomu,
+        category: isManager ? null : (c.custom ? 'その他' : c.gyomu),
         status: '着手前',
-        priority: '通常',
+        priority: c.custom ? (c.priority || '通常') : '通常',
+        due_date: c.custom ? (c.due || null) : null,
         source_rid: ridByKey[c.key] ?? null,
-        work_role: isTouki ? 'assistant' : isManager ? 'manager' : 'assistant',
-        assign_role: isManager ? 'manager' : null,
+        work_role: isTouki ? 'assistant' : isManager ? sysRole : 'assistant',
+        assign_role: isManager ? sysRole : null,
         // その他は入力した内容を作業内容(procedure_text)に。それ以外はテンプレ流し込みなし。
         procedure_text: c.custom ? (c.work?.trim() || null) : null,
         // タスクは作った時点で常に着手OK（着手前で寝かせる運用はやめた）。
-        ext_data: { ready_reason: '着手OK', ready_on_receipt: false },
+        ext_data: { ready_reason: '着手OK', ready_on_receipt: false, ...(c.custom && c.outing ? { outing: true } : {}) },
         sort_order: existingTasks.length + i,
       }
     })

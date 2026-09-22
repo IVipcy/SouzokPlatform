@@ -126,18 +126,18 @@ export default function EditClientModal({ isOpen, onClose, caseData, onSaved }: 
               <FormField label="氏名 *" value={form.name} onChange={v => setForm(p => ({ ...p, name: v }))} />
               <FormField label="ふりがな" value={form.furigana} onChange={v => setForm(p => ({ ...p, furigana: v }))} />
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <FormField label="続柄" value={form.relationship_to_deceased} onChange={v => setForm(p => ({ ...p, relationship_to_deceased: v }))} placeholder="長男、配偶者など" />
+            <FormField label="住所1（都道府県〜番地まで）" value={form.address} onChange={v => setForm(p => ({ ...p, address: v }))} address />
+            <FormField label="住所2（建物名・部屋番号）" value={form.address2} onChange={v => setForm(p => ({ ...p, address2: v }))} />
+            <div className="grid grid-cols-2 gap-2 items-end">
               <FormField
                 label="郵便番号"
                 value={form.postal_code}
                 onChange={v => setForm(p => ({ ...p, postal_code: v.replace(/[^0-9]/g, '') }))}
-                placeholder="1234567（7桁→「住所を取得」）"
+                placeholder="住所1から取得 または 7桁を入力"
               />
-              <FormField label="続柄" value={form.relationship_to_deceased} onChange={v => setForm(p => ({ ...p, relationship_to_deceased: v }))} placeholder="長男、配偶者など" />
+              <div className="pb-1"><PostalLookupButton address={form.address} onResolved={zip => setForm(p => ({ ...p, postal_code: zip }))} /></div>
             </div>
-            <div><PostalLookupButton zip={form.postal_code} onResolved={addr => setForm(p => ({ ...p, address: addr }))} /></div>
-            <FormField label="住所1（番地まで）" value={form.address} onChange={v => setForm(p => ({ ...p, address: v }))} address />
-            <FormField label="住所2（建物名・部屋番号）" value={form.address2} onChange={v => setForm(p => ({ ...p, address2: v }))} />
             <div className="grid grid-cols-2 gap-2">
               <FormField label="電話番号" value={form.phone} onChange={v => setForm(p => ({ ...p, phone: v }))} />
               <FormField label="メール" value={form.email} onChange={v => setForm(p => ({ ...p, email: v }))} type="email" />

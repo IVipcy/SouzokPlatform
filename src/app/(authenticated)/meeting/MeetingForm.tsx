@@ -1127,15 +1127,15 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
           {/* メイン依頼者の住所（書類・請求で使う正本） */}
           <div className="mt-6 max-w-[800px]">
             <SectionHeader Icon={User} title="メイン依頼者の住所・郵送・特徴" sub="メイン依頼者の住所と郵送先・特徴を登録" />
+            <Card label="依頼者住所（都道府県〜番地まで）"><Input value={data.address} onChange={v => update('address', v)} placeholder="愛知県名古屋市中区栄…" /></Card>
             <Card label="郵便番号">
               <Input
                 value={data.postalCode}
                 onChange={v => update('postalCode', v.replace(/[^0-9]/g, ''))}
-                placeholder="4600008（7桁入力→「住所を取得」）"
+                placeholder="住所から取得 または 7桁を入力"
               />
-              <PostalLookupButton zip={data.postalCode} onResolved={addr => update('address', addr)} />
+              <PostalLookupButton address={data.address} onResolved={zip => update('postalCode', zip)} />
             </Card>
-            <Card label="依頼者住所"><Input value={data.address} onChange={v => update('address', v)} placeholder="愛知県名古屋市中区栄…" /></Card>
             {/* 振込名義人（カナ）＝入金CSV突合キー。最大3つ。1つ目だけ「依頼者と同じ」ボタン。
                 「検討中」段階では入金が発生しないため表示しない（受注後に入力）。 */}
             {data.caseStatus !== '検討中' && (
@@ -1213,11 +1213,11 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
                 : <span className="text-gray-400 text-[13px]">生年月日と死亡日を入力すると自動計算されます</span>}
             </div>
           </Card>
+          <Card label="被相続人住所（都道府県〜番地まで）"><Input value={data.deceasedAddress} onChange={v => update('deceasedAddress', v)} placeholder="被相続人の最後の住所" /></Card>
           <Card label="被相続人郵便番号">
-            <Input value={data.deceasedPostalCode} onChange={v => update('deceasedPostalCode', v.replace(/[^0-9]/g, ''))} placeholder="1000131（7桁入力→「住所を取得」）" />
-            <PostalLookupButton zip={data.deceasedPostalCode} onResolved={addr => update('deceasedAddress', addr)} />
+            <Input value={data.deceasedPostalCode} onChange={v => update('deceasedPostalCode', v.replace(/[^0-9]/g, ''))} placeholder="住所から取得 または 7桁を入力" />
+            <PostalLookupButton address={data.deceasedAddress} onResolved={zip => update('deceasedPostalCode', zip)} />
           </Card>
-          <Card label="被相続人住所"><Input value={data.deceasedAddress} onChange={v => update('deceasedAddress', v)} placeholder="被相続人の最後の住所" /></Card>
           <Card label="被相続人本籍"><Input value={data.deceasedRegisteredAddress} onChange={v => update('deceasedRegisteredAddress', v)} placeholder="被相続人の本籍" /></Card>
           <Card label="被相続人外字有無">
             <label className="flex items-center gap-2 cursor-pointer text-[13px] text-gray-700">

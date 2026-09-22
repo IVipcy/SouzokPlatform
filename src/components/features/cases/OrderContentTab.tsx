@@ -12,6 +12,7 @@ import {
 } from '@/lib/serviceMaster'
 import { partsForCase, activePartKeys, partRank, buildParts, type ServicePart } from '@/lib/serviceParts'
 import { DEFAULT_ROLES, type RoleRow } from './ProcedureIntakeSection'
+import type { RoleKind } from '@/components/features/tasks/NewTaskFields'
 import TabHeader from './TabHeader'
 import { WorkContentField } from './WorkContentField'
 import type { CaseRow } from '@/types'
@@ -27,10 +28,16 @@ type Props = {
   hideOrderMemo?: boolean
 }
 
-// その他（自由入力）の1行 → intake_roles の custom ロールへ変換。業務名＝タスク名、内容＝作業内容。
-type CustomEntry = { name: string; detail: string }
+// その他（自由入力）の1行 → intake_roles の custom ロールへ変換。
+// ここで入れたものは作業着手準備の「候補から選択」でそのままタスクになるので、タスク追加モーダルと同じ項目を持つ
+// （担当区分・タスク名・作業内容・優先度・期限・外出）。業務名＝タスク名、内容＝作業内容。
+type CustomEntry = { name: string; detail: string; roleKind: RoleKind; priority: string; due: string; outing: boolean }
 const customToRoles = (list: CustomEntry[]): RoleRow[] =>
-  list.filter(c => c.name.trim()).map(c => ({ gyomu: c.name.trim(), sagyou: c.name.trim(), note: c.detail.trim(), owner: '自社', custom: true }))
+  list.filter(c => c.name.trim()).map(c => ({ gyomu: c.name.trim(), sagyou: c.name.trim(), note: c.detail.trim(), owner: '自社', custom: true, role_kind: c.roleKind, priority: c.priority || '通常', due: c.due || null, outing: c.outing }))
+const ROLE_KIND_OPTIONS: Array<{ key: RoleKind; label: string }> = [
+  { key: 'manager', label: '管理担当' }, { key: 'sales', label: '受注担当' }, { key: 'assistant', label: '事務管理' }, { key: 'touki', label: '相続登記チーム' },
+]
+const emptyCustom = (): CustomEntry => ({ name: '', detail: '', roleKind: 'manager', priority: '通常', due: '', outing: false })
 
 /**
  * 受注内容タブ。
@@ -43,7 +50,7 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
   const [parts, setParts] = useState<ServicePart[]>(() => partsForCase(caseData))
   // 通常業務（非custom）と その他（custom）を分けて保持。保存時に両方を結合して intake_roles に入れる。
   const [roles, setRoles] = useState<RoleRow[]>(() => (caseData.intake_roles ?? DEFAULT_ROLES).filter(r => !r.custom))
-  const [custom, setCustom] = useState<CustomEntry[]>(() => (caseData.intake_roles ?? []).filter(r => r.custom).map(r => ({ name: r.gyomu, detail: r.note })))
+  const [custom, setCustom] = useState<CustomEntry[]>(() => (caseData.intake_roles ?? []).filter(r => r.custom).map(r => ({ name: r.gyomu, detail: r.note, roleKind: (r.role_kind ?? 'manager') as RoleKind, priority: r.priority ?? '通常', due: r.due ?? '', outing: !!r.outing })))
 
   const selectedKeys = activePartKeys(parts)
   const isReferralOnly = selectedKeys.includes(REFERRAL_ONLY_CATEGORY)
@@ -163,39 +170,47 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
             </FieldRow>
 
             {!isReferralOnly && (
-              <FieldRow label="その他業務" labelNote={<span className="text-[10.5px] font-normal text-gray-400">（自由追加）</span>} hint="タスク追加の候補に出ます。業務名＝タスク名、内容＝作業内容になります。">
-                <div className="space-y-1.5">
-                  {custom.map((c, i) => (
-                    <div key={i} className="flex flex-col sm:flex-row gap-1.5">
-                      <input
-                        type="text"
-                        value={c.name}
-                        onChange={e => setCustom(prev => prev.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))}
-                        onBlur={() => saveCustom(custom)}
-                        placeholder="業務名（→タスク名）"
-                        className="w-full sm:w-[220px] px-2.5 py-1.5 text-[13px] rounded-md focus:outline-none"
-                      />
-                      <input
-                        type="text"
-                        value={c.detail}
-                        onChange={e => setCustom(prev => prev.map((x, idx) => idx === i ? { ...x, detail: e.target.value } : x))}
-                        onBlur={() => saveCustom(custom)}
-                        placeholder="内容（→作業内容）"
-                        className="flex-1 px-2.5 py-1.5 text-[13px] rounded-md focus:outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => saveCustom(custom.filter((_, idx) => idx !== i))}
-                        className="w-7 flex-none inline-flex items-center justify-center text-gray-300 hover:text-red-500 transition-colors"
-                        title="削除"
-                      >
-                        <Trash2 className="w-4 h-4" strokeWidth={1.75} />
-                      </button>
-                    </div>
-                  ))}
+              <FieldRow label="その他業務" labelNote={<span className="text-[10.5px] font-normal text-gray-400">（自由追加）</span>} hint="ここに入れたものは、作業着手準備の「候補から選択」でそのままタスクになります。タスク追加と同じ項目（担当区分・タスク名・作業内容・優先度・期限・外出）を入れておいてください。">
+                <div className="space-y-2">
+                  {custom.map((c, i) => {
+                    const set = (p: Partial<CustomEntry>) => setCustom(prev => prev.map((x, idx) => idx === i ? { ...x, ...p } : x))
+                    const commit = () => saveCustom(custom)
+                    return (
+                      <div key={i} className="border border-gray-200 bg-white px-2.5 py-2 space-y-1.5">
+                        <div className="flex flex-col sm:flex-row gap-1.5">
+                          <select value={c.roleKind} onChange={e => { const v = e.target.value as RoleKind; setCustom(prev => { const next = prev.map((x, idx) => idx === i ? { ...x, roleKind: v } : x); void saveCustom(next); return next }) }}
+                            style={{ fontFamily: 'inherit' }} className="w-full sm:w-[150px] px-2 py-1.5 text-[13px] rounded-md bg-gray-50 border border-gray-200 focus:outline-none" title="担当区分">
+                            {ROLE_KIND_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+                          </select>
+                          <input type="text" value={c.name} onChange={e => set({ name: e.target.value })} onBlur={commit}
+                            placeholder="タスク名" className="flex-1 px-2.5 py-1.5 text-[13px] rounded-md focus:outline-none" />
+                          <button type="button" onClick={() => saveCustom(custom.filter((_, idx) => idx !== i))}
+                            className="w-7 flex-none inline-flex items-center justify-center text-gray-300 hover:text-red-500 transition-colors" title="削除">
+                            <Trash2 className="w-4 h-4" strokeWidth={1.75} />
+                          </button>
+                        </div>
+                        <textarea value={c.detail} onChange={e => set({ detail: e.target.value })} onBlur={commit} rows={2}
+                          placeholder="作業内容（何をどうするか）" className="w-full px-2.5 py-1.5 text-[13px] rounded-md focus:outline-none resize-y" />
+                        <div className="flex flex-wrap items-center gap-3 text-[12px] text-gray-600">
+                          <span className="inline-flex items-center gap-1">優先度
+                            <select value={c.priority} onChange={e => { const v = e.target.value; setCustom(prev => { const next = prev.map((x, idx) => idx === i ? { ...x, priority: v } : x); void saveCustom(next); return next }) }}
+                              style={{ fontFamily: 'inherit' }} className="px-2 py-1 text-[12.5px] rounded-md bg-gray-50 border border-gray-200 focus:outline-none">
+                              {['通常', '急ぎ', '超急ぎ'].map(o => <option key={o} value={o}>{o}</option>)}
+                            </select>
+                          </span>
+                          <span className="inline-flex items-center gap-1">期限
+                            <input type="date" value={c.due} onChange={e => set({ due: e.target.value })} onBlur={commit} className="px-2 py-1 text-[12.5px] rounded-md bg-gray-50 border border-gray-200 focus:outline-none" />
+                          </span>
+                          <label className="inline-flex items-center gap-1 cursor-pointer">
+                            <input type="checkbox" checked={c.outing} onChange={e => { const v = e.target.checked; setCustom(prev => { const next = prev.map((x, idx) => idx === i ? { ...x, outing: v } : x); void saveCustom(next); return next }) }} className="w-3.5 h-3.5 accent-brand-600" />外出
+                          </label>
+                        </div>
+                      </div>
+                    )
+                  })}
                   <button
                     type="button"
-                    onClick={() => setCustom(prev => [...prev, { name: '', detail: '' }])}
+                    onClick={() => setCustom(prev => [...prev, emptyCustom()])}
                     className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 bg-brand-50 rounded-md px-2.5 py-1.5"
                   >
                     <Plus className="w-3.5 h-3.5" strokeWidth={2.25} /> 行を追加

@@ -227,7 +227,7 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
                 <col style={{ width: 240 }} />
                 <col style={{ width: 110 }} />
                 <col style={{ width: 100 }} />
-                <col style={{ width: 110 }} />
+                <col style={{ width: 130 }} />
                 <col />
                 <col style={{ width: 216 }} />
               </colgroup>
@@ -256,13 +256,13 @@ export default function DocsTab({ caseData, documents, documentReceipts = [], ta
                     <td className="px-3 py-2">
                       {row.file ? (
                         <span className="inline-flex items-center gap-1.5">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200"><Check className="w-3 h-3" strokeWidth={2.5} />アップ済</span>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 whitespace-nowrap"><Check className="w-3 h-3" strokeWidth={2.5} />アップ済</span>
                           <OpenStorageFile bucket={row.file.bucket} path={row.file.path} name={row.file.name} label="開く" />
                         </span>
                       ) : row.uploadedAt ? (
-                        <button type="button" onClick={() => toggleUploaded(row.realItemId, false)} title="クリックで未アップに戻す" className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100"><Check className="w-3 h-3" strokeWidth={2.5} />アップ済</button>
+                        <button type="button" onClick={() => toggleUploaded(row.realItemId, false)} title="クリックで未アップに戻す" className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 whitespace-nowrap"><Check className="w-3 h-3" strokeWidth={2.5} />アップ済</button>
                       ) : (
-                        <button type="button" onClick={() => toggleUploaded(row.realItemId, true)} disabled={!row.realItemId} title="クリックでアップ済にする" className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 hover:bg-amber-100 disabled:opacity-50"><CloudOff className="w-3 h-3" strokeWidth={2} />未アップ</button>
+                        <button type="button" onClick={() => toggleUploaded(row.realItemId, true)} disabled={!row.realItemId} title="クリックでアップ済にする" className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 hover:bg-amber-100 disabled:opacity-50 whitespace-nowrap"><CloudOff className="w-3 h-3" strokeWidth={2} />未アップ</button>
                       )}
                     </td>
                     <td className="px-3 py-2">

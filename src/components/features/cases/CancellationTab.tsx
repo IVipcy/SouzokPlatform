@@ -79,7 +79,7 @@ export default function CancellationTab({ caseId, caseData, financialAssets, fin
                   <th className="px-2.5 py-2 text-left font-semibold w-24">優先度</th>
                   <th className="px-2.5 py-2 text-left font-semibold">{st.kind === '預貯金' ? '金融機関名' : st.kind === '証券' ? '証券会社' : '信託銀行名'}</th>
                   <th className="px-2.5 py-2 text-left font-semibold w-24">解約有無</th>
-                  <th className="px-2.5 py-2 text-left font-semibold">備考</th>
+                  <th className="px-2.5 py-2 text-left font-semibold">備考（送金先）</th>
                 </tr>
               </thead>
               <tbody>
@@ -97,7 +97,7 @@ export default function CancellationTab({ caseId, caseData, financialAssets, fin
                         {cancelOptionsOf(st.kind).map(o => <option key={o} value={o}>{o}</option>)}
                       </select>
                     </td>
-                    <TextCell value={r.cancellation_restrictions} onSave={v => save(r.id, 'cancellation_restrictions', v)} placeholder="例：相続人全員の同意が必要 等" />
+                    <TextCell value={r.cancellation_restrictions} onSave={v => save(r.id, 'cancellation_restrictions', v)} placeholder="送金先の口座・特記事項（例：相続人全員の同意が必要 等）" />
                   </tr>
                 ))}
               </tbody>
@@ -111,7 +111,7 @@ export default function CancellationTab({ caseId, caseData, financialAssets, fin
                 <div className="space-y-2.5">
                   <div><div className="text-[13px] font-medium text-slate-600 mb-1">優先度</div><PriorityCell value={r.cancel_priority} onChange={v => save(r.id, 'cancel_priority', v)} /></div>
                   <div><div className="text-[13px] font-medium text-slate-600 mb-1">解約有無</div><select value={r.cancellation_required ?? ''} onChange={e => save(r.id, 'cancellation_required', e.target.value)} className="w-full h-10 px-3 text-[13px] border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500"><option value="">—</option>{cancelOptionsOf(st.kind).map(o => <option key={o} value={o}>{o}</option>)}</select></div>
-                  <div><div className="text-[13px] font-medium text-slate-600 mb-1">備考</div><input type="text" defaultValue={r.cancellation_restrictions ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_restrictions ?? '')) save(r.id, 'cancellation_restrictions', e.target.value) }} placeholder="例：相続人全員の同意が必要 等" className="w-full h-10 px-3 text-[13px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white" /></div>
+                  <div><div className="text-[13px] font-medium text-slate-600 mb-1">備考（送金先）</div><input type="text" defaultValue={r.cancellation_restrictions ?? ''} onBlur={e => { if (e.target.value !== (r.cancellation_restrictions ?? '')) save(r.id, 'cancellation_restrictions', e.target.value) }} placeholder="送金先の口座・特記事項（例：相続人全員の同意が必要 等）" className="w-full h-10 px-3 text-[13px] bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand-500 focus:bg-white" /></div>
                 </div>
               </div>
             ))}

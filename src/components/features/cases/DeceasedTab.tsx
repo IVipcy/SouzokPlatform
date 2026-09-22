@@ -12,7 +12,6 @@ import { toWareki } from '@/lib/wareki'
 import type { CaseRow, HeirRow, KosekiRequestRow, ContractDocumentRow, CaseClientRow, TaskRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
-import PostalLookupButton from '@/components/ui/PostalLookupButton'
 import InheritanceDiagramV2 from './InheritanceDiagramV2'
 import HeirValidationBanner from './HeirValidationBanner'
 import { PracticeTabHeader } from './TabContextPanel'
@@ -120,7 +119,6 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
   // 前妻・前夫の行（登録があるときだけ「誰との子か」を聞く）
   const formerSpouseHeirs = heirs.filter(h => isFormerSpouse(h.relationship_type ?? h.relationship))
   // 相続人住所の自動入力用の郵便番号（DBには保存せず、住所欄の補助入力として使う）
-  const [heirPostal, setHeirPostal] = useState('')
   const diagramRef = useRef<HTMLDivElement>(null)
   const [savingDiagram, setSavingDiagram] = useState(false)
 
@@ -131,7 +129,6 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
   const startAdd = () => {
     setEditingHeirId(null)
     setHeirForm(emptyHeirForm())
-    setHeirPostal('')
     setShowAddHeir(true)
   }
 
@@ -156,7 +153,6 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       email: mainClient?.email ?? caseData.clients?.email ?? '',
       is_client: true,
     })
-    setHeirPostal(caseData.clients?.postal_code ?? '')
     setShowAddHeir(true)
   }
 
@@ -256,13 +252,11 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
       name_unknown: !!heir.name_unknown,
     })
     // 郵便番号は heirs に保存しないので、依頼者の郵便番号を編集時の初期値に載せる
-    setHeirPostal(isMainClientHeir ? (caseData.clients?.postal_code ?? '') : '')
     setShowAddHeir(true)
   }
 
   const cancelEdit = () => {
     setShowAddHeir(false)
-    setHeirPostal('')
     setEditingHeirId(null)
     setHeirForm(emptyHeirForm())
     setAutoSavedAt(null)
@@ -450,7 +444,16 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
               </FieldRow>
               {/* 被相続人の郵便番号は廃止。住所は戸籍・住民票から転記するので、
                   郵便番号から引く場面が無く、欄だけが残っていた（列は残すので既存の値は消えない）。 */}
-              <InlineEdit label="被相続人住所（住所1）" value={caseData.deceased_address} onSave={v => saveCaseField('deceased_address', v)} address hint="都道府県〜番地まで。建物名・部屋番号は住所2に" />
+              <InlineEdit label="被相続人住所 住所1（都道府県〜番地まで）" value={caseData.deceased_address} onSave={v => saveCaseField('deceased_address', v)} address hint="都道府県・市区町村・町名・番地まで。建物名・部屋番号は住所2に"
+                action={
+                  <button
+                    type="button"
+                    disabled={!(caseData.clients?.address ?? '').trim()}
+                    title={(caseData.clients?.address ?? '').trim() ? '依頼者の住所1・住所2をそのまま入れる' : '依頼者の住所が未入力です'}
+                    onClick={async () => { await patchCase({ deceased_address: caseData.clients?.address ?? null, deceased_address2: caseData.clients?.address2 ?? null } as Partial<CaseRow>) }}
+                    className="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-1.5 py-0.5 rounded border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >依頼者と同じ</button>
+                } />
               <InlineEdit label="住所2（建物名・部屋番号）" value={caseData.deceased_address2} onSave={v => saveCaseField('deceased_address2', v)} />
               <InlineEdit
                 label="被相続人本籍"
@@ -769,18 +772,6 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
               {/* オーダーシートでは詳細（郵便番号/住所/本籍）を隠し、実務タブで入力。エクセルR50-52 */}
               {!orderSheetMode && (
               <div className="grid grid-cols-1 gap-3 mb-3">
-                <FormField label="郵便番号（→「住所を取得」で反映）">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={heirPostal}
-                      onChange={e => setHeirPostal(e.target.value.replace(/[^0-9]/g, ''))}
-                      placeholder="1234567"
-                      className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:border-brand-400 transition"
-                    />
-                    <PostalLookupButton zip={heirPostal} onResolved={addr => setAndSave({ address: addr })} className="flex-none inline-flex items-center gap-1 h-7 px-2.5 rounded text-[11.5px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap" />
-                  </div>
-                </FormField>
                 <FormField label="住所">
                   <input
                     type="text"

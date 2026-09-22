@@ -19,8 +19,8 @@ const ACCOUNT_TYPES = ['普通', '定期', '当座', '積立', '貯蓄', 'その
 /** 口座種別の選択肢。ゆうちょ銀行だけ「通常」（通常貯金）が入る */
 const accountTypesFor = (institutionName: string | null | undefined) =>
   (institutionName ?? '').includes('ゆうちょ') ? ['通常', ...ACCOUNT_TYPES] : ACCOUNT_TYPES
-/** 証券会社の全店調査を「要」にするときの確認 */
-const SEC_SURVEY_CONFIRM = '証券会社の全店調査を「要」にしますか？\n\n証券会社の全店調査は回答まで2〜3か月かかり、その間この証券会社の調査は先に進めません。\n保有先が分かっていれば不要です。分からない場合は、ほふり照会（実務タブの証券・信託）で口座のある証券会社をまとめて確認できます。'
+/** 株主名簿管理人（信託銀行等）の全銘柄調査を「要」にするときの確認（回答まで2〜3か月） */
+const TRUST_SURVEY_CONFIRM = '全銘柄調査を「要」にしますか？\n\n信託銀行の全銘柄調査は回答まで2〜3か月かかり、その間この管理人の調査は先に進めません。\n配当の通知などで銘柄が分かっていれば不要です。'
 
 type Kind = '預貯金' | '証券' | '信託銀行'
 type ColType = 'text' | 'req' | 'cancel' | 'accountType' | 'acquirer'
@@ -50,12 +50,13 @@ const COLUMNS: Record<Kind, Col[]> = {
   '証券': [
     { key: 'institution_name', label: '証券会社名', type: 'text' },
     { key: 'branch_name', label: '支店', type: 'text', width: 'w-28' },
-    { key: 'all_branch_survey', label: '全店調査', type: 'req', width: 'w-24' },  // 「要」は確認つき（回答まで2〜3か月）
+    { key: 'all_branch_survey', label: '全店調査', type: 'req', width: 'w-24' },
     { key: 'balance_cert_required', label: '残高証明', type: 'req', width: 'w-24' },
   ],
   // 株主名簿管理人（信託銀行等）。配当の通知などで面談時に分かっている場合だけ。1行1管理人
   '信託銀行': [
     { key: 'institution_name', label: '名称（信託銀行等）', type: 'text' },
+    { key: 'all_branch_survey', label: '全銘柄調査', type: 'req', width: 'w-24' },  // 「要」は確認つき（回答まで2〜3か月）。列は全店調査と共用
     { key: 'share_cert_required', label: '所有株式数証明', type: 'req', width: 'w-28' },
     { key: 'unclaimed_dividend_required', label: '未受領配当金', type: 'req', width: 'w-28' },
   ],
@@ -230,9 +231,9 @@ export default function FinancialAssetsTable({ caseId, kind, assets, onRefresh, 
     commit(r.id, 'transaction_periods', list)
   // 取引明細を「要」にした時点で、空の1本目を用意する（毎回「追加」を押さずに済むように）
   const selectCol = async (r: FinancialAssetRow, key: keyof FinancialAssetRow, v: string) => {
-    // 証券会社の全店調査は時間がかかる。「要」にする前に一度止める（OKしたときだけ保存）
-    if (kind === '証券' && key === 'all_branch_survey' && v === '要' && (r.all_branch_survey ?? '') !== '要') {
-      if (!window.confirm(SEC_SURVEY_CONFIRM)) return
+    // 信託銀行の全銘柄調査は時間がかかる。「要」にする前に一度止める（OKしたときだけ保存）。証券の全店調査は止めない
+    if (kind === '信託銀行' && key === 'all_branch_survey' && v === '要' && (r.all_branch_survey ?? '') !== '要') {
+      if (!window.confirm(TRUST_SURVEY_CONFIRM)) return
     }
     await commit(r.id, key, v)
     if (key === 'transaction_detail_required' && v === '要' && txPeriodsOf(r).length === 0) {
