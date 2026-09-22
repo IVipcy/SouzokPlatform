@@ -24,6 +24,8 @@ import HelpHint from '@/components/ui/HelpHint'
 import { SeverityLegend } from '@/components/ui/TaskSeverityHelp'
 import OfficeManagerDashboard, { type OfficeRow } from './OfficeManagerDashboard'
 import HourenSouTable, { type HourenSouItem } from '@/components/features/my/HourenSouTable'
+import VisitReservationsPanel from './VisitReservationsPanel'
+import type { VisitData } from '@/lib/visitReservations'
 import type { CaseReportStatus } from '@/types'
 import TaskListClient, { isTaskInRoleScope, type CaseInfo, type TaskJump } from '@/components/features/tasks/TaskListClient'
 import { bizDaysOverdue } from '@/lib/overdue'
@@ -89,7 +91,7 @@ function TabBtn({ v, label, icon: Icon, count, current, onSelect, sev, alwaysCou
 
 export default function OfficeDashboardTabs({
   startRows, currentMemberId, currentMemberName, mailTaskIds, hourenSou,
-  tasks, caseMap, allMembers, receipts, financeBlockedCaseIds, freezeAssetsByCase, originalsWaitByTask = {}, today,
+  tasks, caseMap, allMembers, receipts, financeBlockedCaseIds, freezeAssetsByCase, originalsWaitByTask = {}, today, visits = null,
 }: {
   startRows: OfficeRow[]
   currentMemberId: string | null
@@ -104,6 +106,8 @@ export default function OfficeDashboardTabs({
   freezeAssetsByCase: Record<string, Array<{ institution_name?: string | null; freeze_confirmed?: boolean | null }>>
   originalsWaitByTask?: Record<string, { missing: string[]; note: string }>
   today: string
+  /** 来店予約一覧（来店カレンダーのシート。migration 289）。タスク→金融資産調査のサブタブに出す */
+  visits?: VisitData | null
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -208,6 +212,7 @@ export default function OfficeDashboardTabs({
           receipts={receipts} financeBlockedCaseIds={financeBlockedCaseIds} freezeAssetsByCase={freezeAssetsByCase} originalsWaitByTask={originalsWaitByTask}
           roleScope="assistant" jump={jump}
           mailTaskIds={mailIdSet}
+          financeSubPanel={visits ? { label: '来店予約一覧', count: visits.rows.length, node: <VisitReservationsPanel data={visits} today={today} currentMemberId={currentMemberId} /> } : undefined}
         />
       )}
 

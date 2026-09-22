@@ -21,6 +21,7 @@ import TabHeader from './TabHeader'
 import { TabContextChips, TabContextPanel, ProgressChip, type TabContextTarget } from './TabContextPanel'
 import type { CaseRow, RealEstatePropertyRow, FinancialAssetRow, FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow, FinancialJasdecResultRow, ContractDocumentRow, RealEstateAcquisitionRow, TaskRow, AssetInventoryRow, CaseOtherAssetRow, HeirRow } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
+import { sameBank } from '@/lib/bankName'
 
 // この業務のタスク（task.phase）。チップの件数とパネルの一覧で同じ
 const ASSET_GYOMUS = ['金融資産', '不動産', '目録']
@@ -115,10 +116,10 @@ export default function AssetsTab({ caseData, properties, financialAssets, finan
   const [sub, setSub] = useState<string>(() => {
     if (!focus) return 'realestate'
     if (properties.some(p => municipalityOf(p) === focus)) return 'realestate'
-    const asset = financialAssets.find(a => (a.institution_name ?? '').trim() === focus)
+    const asset = financialAssets.find(a => (a.institution_name ?? '').trim() === focus) ?? financialAssets.find(a => sameBank(a.institution_name, focus))
     if (asset) return asset.asset_type === '証券' || asset.asset_type === '信託銀行' || asset.asset_type === '信託' ? 'securities' : 'deposit'
-    // 口座を持たない調査先（証券会社・ほふり・株主名簿管理人）は調査先の種別で選ぶ
-    const inst = financialInstitutions.find(i => i.name.trim() === focus)
+    // 口座を持たない調査先（証券会社・ほふり・株主名簿管理人）は調査先の種別で選ぶ。表記ゆれ（来店予約のシートの名前）も吸収
+    const inst = financialInstitutions.find(i => i.name.trim() === focus) ?? financialInstitutions.find(i => sameBank(i.name, focus))
     if (inst) return inst.kind === '預金' ? 'deposit' : 'securities'
     return 'realestate'
   })

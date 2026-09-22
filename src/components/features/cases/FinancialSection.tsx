@@ -42,6 +42,7 @@ import type {
   FinancialAssetRow, FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow, FinancialJasdecResultRow, CaseRow, TaskRow, ContractDocumentRow,
 } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
+import { sameBank } from '@/lib/bankName'
 
 type Kind = '預貯金' | '証券' | '信託銀行' | '証券・信託'
 /** 実務タブの種別 → 調査先の種別。「証券・信託」は証券会社・株主名簿管理人・ほふりを1つのタブで扱う
@@ -87,7 +88,12 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
   const allInstitutions = useMemo(() => rawInstitutions.map(i => (localEdits[i.id] ? { ...i, ...localEdits[i.id] } : i)), [rawInstitutions, localEdits])
 
   const institutions = useMemo(() => allInstitutions.filter(i => KINDS_OF[kind].includes(i.kind)).sort((a, b) => a.sort_order - b.sort_order || collator.compare(a.name, b.name)), [allInstitutions, kind])
-  const [sub, setSub] = useState<string>(() => (focus && institutions.some(i => i.name.trim() === focus)) ? (institutions.find(i => i.name.trim() === focus)?.id ?? 'top') : 'top')
+  // focus（タスク詳細・来店予約一覧から）は名前で当てる。完全一致が無ければ表記ゆれ（全角半角・空白・「銀行」の有無）を吸収して当てる
+  const [sub, setSub] = useState<string>(() => {
+    if (!focus) return 'top'
+    const hit = institutions.find(i => i.name.trim() === focus) ?? institutions.find(i => sameBank(i.name, focus))
+    return hit?.id ?? 'top'
+  })
   const [tab, setTab] = useState<'procedure' | 'accounts' | 'requests' | 'holdings'>('procedure')
   const [addOpen, setAddOpen] = useState(false)
   const [requestOpen, setRequestOpen] = useState(false)

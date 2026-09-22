@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { loadTaskListData } from '@/lib/loadTaskListData'
 import OfficeDashboardTabs, { type HourenSouRow } from '@/components/features/dashboard/OfficeDashboardTabs'
 import type { OfficeRow } from '@/components/features/dashboard/OfficeManagerDashboard'
+import { loadVisitReservations } from '@/lib/visitReservations'
 
 // 事務管理担当ダッシュボード。
 //   ① ファイル化待ち／作業着手待ち … status=作業着手準備 の案件を、ファイル化の済／未で2タブに割る
@@ -28,7 +29,7 @@ export default async function OfficeDashboardPage() {
 
   // 作業着手準備→作業進行中 の着手ゲート：前受金入金（前受金invoiceが入金済）＋ファイル化。
   //   ※オーダーシート最終化・タスク出しは受注→作業着手準備 の前段で済ませる想定に変更（着手条件から除外）。
-  const [invRes, teamsRes, mailRes, reportRes, memberRes, taskData] = await Promise.all([
+  const [invRes, teamsRes, mailRes, reportRes, memberRes, taskData, visits] = await Promise.all([
     caseIds.length ? supabase.from('invoices').select('case_id, invoice_type, status').in('case_id', caseIds) : Promise.resolve({ data: [] }),
     supabase.from('teams').select('id, name'),
     // 郵便タブ：到着物受信簿の「対応」で作った／結んだタスクのID。
@@ -46,6 +47,8 @@ export default async function OfficeDashboardPage() {
       : Promise.resolve({ data: [] }),
     supabase.from('members').select('id, name'),
     loadTaskListData(),
+    // 来店予約一覧（来店カレンダーのシート）。読めなくても他のタブは出す
+    loadVisitReservations(supabase, today).catch(e => ({ configured: true, sheetUrl: '', csvUrl: '', columns: {}, headers: [], detected: {}, rows: [], error: `シートを読めませんでした: ${e instanceof Error ? e.message : ''}` })),
   ])
 
   const invs = (invRes.data ?? []) as Array<{ case_id: string; invoice_type: string; status: string }>
@@ -105,6 +108,7 @@ export default async function OfficeDashboardPage() {
       freezeAssetsByCase={taskData.freezeAssetsByCase}
       originalsWaitByTask={taskData.originalsWaitByTask}
       today={today}
+      visits={visits}
     />
   )
 }

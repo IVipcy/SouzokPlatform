@@ -76,6 +76,11 @@ type Props = {
    * しきい値も業務ではなく郵便のもの（1営業日の超過で赤）を使う。
    */
   mailTaskIds?: Set<string>
+  /**
+   * 業務タブ「金融資産調査」の中に足すサブタブ（事務管理ダッシュボードの来店予約一覧）。
+   * 渡すと「タスク｜{label}」の切替が出て、選ぶとタスクの表の代わりに node を出す。
+   */
+  financeSubPanel?: { label: string; count: number; node: React.ReactNode }
 }
 
 /** ダッシュボードのバナー →「すべて」タブを指定条件で絞った状態にする指示 */
@@ -172,7 +177,7 @@ function Chip({ label, note, tone, on, onClick }: {
 /** 郵便タブのキー。業務タブのキー（heirs/realestate/…）とぶつからない名前にする。 */
 const MAIL_TAB = 'mail'
 
-export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [], roleScope = 'assistant', financeBlockedCaseIds = [], freezeAssetsByCase = {}, originalsWaitByTask = {}, embedded = false, jump = null, caseScope = false, mailTaskIds }: Props) {
+export default function TaskListClient({ tasks, caseMap, allMembers, currentMemberId: serverMemberId, receipts = [], roleScope = 'assistant', financeBlockedCaseIds = [], freezeAssetsByCase = {}, originalsWaitByTask = {}, embedded = false, jump = null, caseScope = false, mailTaskIds, financeSubPanel }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentMemberId = useCurrentMember(serverMemberId)
@@ -186,6 +191,9 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   // 業務タブ（戸籍／不動産調査／…／その他）。'all'＝すべて。
   // 以前は工程(KOTEI)で絞らせていたが、実務と対応しない中間の括りだったので置き換えた。
   const [taskTab, setTaskTab] = useState<string>('all')
+  // 金融資産調査タブの中のサブタブ（タスク／来店予約一覧）。他のタブでは効かない
+  const [financeSub, setFinanceSub] = useState<'tasks' | 'panel'>('tasks')
+  const showFinancePanel = !!financeSubPanel && taskTab === 'finance' && financeSub === 'panel'
   // 遅れ・優先度の絞り込み。業務タブを切り替えても外れない（どのタブでも同じ条件で見たいため）。
   const [sevFilter, setSevFilter] = useState<SevFilter>('all')
   const [priFilter, setPriFilter] = useState<Set<string>>(() => new Set())
@@ -597,6 +605,19 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         </div>}
       </div>
 
+      {/* 金融資産調査タブのサブタブ（事務管理ダッシュボードだけ）。来店予約一覧はタスクではなく来店カレンダーの行 */}
+      {financeSubPanel && taskTab === 'finance' && (
+        <div className="flex items-center gap-1 mt-4 -mb-2">
+          {([['tasks', 'タスク'], ['panel', financeSubPanel.label]] as const).map(([k, label]) => (
+            <button key={k} type="button" onClick={() => setFinanceSub(k)}
+              className={`inline-flex items-center gap-1.5 h-8 px-3 text-[12.5px] font-semibold border ${financeSub === k ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>
+              {label}
+              {k === 'panel' && <span className={`font-mono text-[11px] px-1.5 py-0.5 rounded-full ${financeSub === k ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>{financeSubPanel.count}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+      {showFinancePanel ? financeSubPanel!.node : (
       <>
       {/* 一括操作バー（選択数 > 0 時のみ） */}
       {selectedIds.size > 0 && (
@@ -630,6 +651,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         caseScope={caseScope}
       />
       </>
+      )}
 
       {editTask && (
         <EditTaskModal
