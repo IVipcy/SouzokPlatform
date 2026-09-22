@@ -13,13 +13,14 @@
 // オーダーシート（受注前の想定物件）は今までどおり1つの簡易表。登記の項目はまだ分からないため。
 
 import { useState, type ReactNode } from 'react'
-import { Trash2, Plus } from 'lucide-react'
+import { Trash2, Plus, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { PROPERTY_TYPES, LAND_CATEGORIES, BUILDING_KINDS } from '@/lib/constants'
 import { isLandProperty, isBuildingProperty } from '@/lib/registrationTax'
 import { ACQUIRERS, acquirerLabel } from '@/lib/acquirer'
 import { MoneyInput } from './FinancialAssetsTable'
+import ToukiTxtImportModal from './ToukiTxtImportModal'
 import type { RealEstatePropertyRow } from '@/types'
 
 type Props = {
@@ -34,14 +35,17 @@ type Props = {
   showConfirmed?: boolean
   /** 所在地の予測住所リスト（被相続人の住所・本籍など）。自由入力も可。 */
   addressSuggestions?: string[]
+  /** 被相続人名（登記情報 txt の所有者と照合する）。渡すと「登記情報（txt）を取り込む」が出る */
+  deceasedName?: string | null
 }
 
 /** 不動産を表形式でインライン編集・行追加（財産調査／オーダーシート） */
 // showConfirmed（評価額確定の依頼列）は廃止。呼び出し側の互換のため Props には残す。
-export default function RealEstateTable({ caseId, properties, onRefresh, orderSheetMode = false, municipalityFilter, addressSuggestions = [] }: Props) {
+export default function RealEstateTable({ caseId, properties, onRefresh, orderSheetMode = false, municipalityFilter, addressSuggestions = [], deceasedName }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<RealEstatePropertyRow[]>(properties)
   const [busy, setBusy] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const addrOptions = [...new Set([...addressSuggestions, ...rows.map(r => r.address ?? '')].map(s => s.trim()).filter(Boolean))]
   // 市区町村でフィルタ中は列を出さない（タブ名が市区町村のため）。
   // オーダーシートでは所在地だけ入力し、市区町村は所在地から自動抽出するため列を隠す。
@@ -191,6 +195,26 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
   // ── 財産調査：土地／建物で表を分ける ──
   return (
     <div className="space-y-4">
+      {/* 登記情報（txt）の取り込み。手で写す代わりに、リーガル等の「最新の記載事項」txt から物件を作る／更新する */}
+      {deceasedName !== undefined && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <button type="button" onClick={() => setImportOpen(true)}
+            className="inline-flex items-center gap-1.5 h-8 px-3 text-[12.5px] font-bold text-white bg-brand-600 hover:bg-brand-700">
+            <FileText className="w-3.5 h-3.5" />登記情報（txt）を取り込む
+          </button>
+          <span className="text-[11.5px] text-gray-500">リーガル等の「最新の記載事項」txt を複数まとめて。所在・地番／家屋番号・地目／種類・地積／構造・床面積・持分・抵当権・管轄法務局が入ります（下の表は手でも足せます）</span>
+        </div>
+      )}
+      {importOpen && (
+        <ToukiTxtImportModal caseId={caseId} municipality={municipalityFilter ?? null} properties={rows} deceasedName={deceasedName ?? null}
+          onClose={() => setImportOpen(false)}
+          onDone={async () => {
+            // この表は props と同期していない（行の追加は自分で setRows する）ので、取り込み後は読み直す
+            const { data } = await supabase.from('real_estate_properties').select('*').eq('case_id', caseId).order('created_at').order('id')
+            if (data) setRows(data as RealEstatePropertyRow[])
+            onRefresh?.()
+          }} />
+      )}
       <div className="hidden sm:block space-y-4">
         <PropertyTable
           title="土地" kind="land" rows={landRows}

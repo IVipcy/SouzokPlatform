@@ -499,7 +499,7 @@ export default function RealEstateSection({ caseId, properties, acquisitions, on
                   // 判明した物件＝この市区町村の物件一覧。Step4 読込結果の中に出す（読んで分かった場所で分かったことを入れる）。
                   // 読込タスクから着地したときはここを光らせる。
                   <div className={focusIsRead ? flashCls('muni') : ''}>
-                    <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} municipalityFilter={muniKey} addressSuggestions={addressSuggestions} />
+                    <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} municipalityFilter={muniKey} addressSuggestions={addressSuggestions} deceasedName={caseData?.deceased_name ?? null} />
                   </div>
                 )} />
             </div>

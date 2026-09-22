@@ -964,6 +964,10 @@ export type RealEstatePropertyRow = {
   registration_cost: number | null                 // 相続登記 確定費用＝登録免許税（migration 148）
   registration_check_name: string | null           // 相続登記 申請時ダブルチェック（migration 148）
   registration_check_at: string | null
+  // 登記情報（txt）の取り込み（migration 290）
+  property_number?: string | null                  // 不動産番号
+  registry_imported_at?: string | null             // 登記情報から取り込んだ日時
+  co_owners?: string | null                        // 被相続人以外の共有者
   created_at: string
 }
 
