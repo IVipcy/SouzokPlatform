@@ -12,7 +12,7 @@ import { deliverableLinkLabel } from '@/lib/deliverables'
 import { READY_REASON_DOC } from '@/lib/taskReadiness'
 import { applyReceiptLinkDates, receiptItemLanding, receiptTaskDefaults } from '@/lib/receiptLinks'
 import NewTaskFields, { emptyNewTask, type NewTaskValue } from '@/components/features/tasks/NewTaskFields'
-import ReturnUnlockPanel, { type UnlockCandidate } from './ReturnUnlockPanel'
+import { type UnlockCandidate } from './ReturnUnlockPanel'
 import Modal from '@/components/ui/Modal'
 import FloatingWindow from '@/components/ui/FloatingWindow'
 import Button from '@/components/ui/Button'
@@ -355,8 +355,9 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   const [mode, setMode] = useState<Record<string, 'task' | 'none'>>({})
   const [forms, setForms] = useState<Record<string, NewTaskValue>>({})
   const [prep, setPrep] = useState<Record<string, ItemPrep>>({})
-  // 原本の返却で「請求できるようになった請求」のうち、タスクを作ると選ばれたもの
-  const [unlockPicked, setUnlockPicked] = useState<UnlockCandidate[]>([])
+  // 原本の返却で「請求できるようになった請求」のうち、タスクを作ると選ばれたもの。
+  // 案内（ReturnUnlockPanel）は出さないことにしたので今は常に空（仕組みは残す。原本待ちのタスクは手元が戻れば自動で着手OKになる）
+  const [unlockPicked] = useState<UnlockCandidate[]>([])
 
   const items = (receipt.items ?? []).slice().sort((a, b) => a.sort_order - b.sort_order)
 
@@ -401,9 +402,12 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
   /** タスクを作る必要がない到着物（区分=契約/その他の契約書類）。既定を「タスクなし」にする。 */
   const isTaskFree = (it: { linked_kind: string | null; linked_id: string | null }): boolean =>
     it.linked_kind === 'contract_doc' && !contractGyomuFor(it)
+  /** 原本の返却（出払い中の同梱・金融の印鑑証明が戻った）。手元の数が戻るだけなので既定は「作らない」 */
+  const isReturn = (it: { return_enclosure_id?: string | null; return_fin_request_id?: string | null }): boolean =>
+    !!it.return_enclosure_id || !!it.return_fin_request_id
 
-  const modeOf = (it: { id: string; linked_kind: string | null; linked_id: string | null }) =>
-    mode[it.id] ?? (isTaskFree(it) ? 'none' : 'task')
+  const modeOf = (it: { id: string; linked_kind: string | null; linked_id: string | null; return_enclosure_id?: string | null; return_fin_request_id?: string | null }) =>
+    mode[it.id] ?? (isTaskFree(it) || isReturn(it) ? 'none' : 'task')
   const formOf = (id: string) => forms[id] ?? emptyNewTask()
   const patchForm = (id: string, p: Partial<NewTaskValue>) =>
     setForms(prev => ({ ...prev, [id]: { ...(prev[id] ?? emptyNewTask()), ...p } }))
@@ -561,8 +565,6 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
           <div className="py-6 text-center text-[12px] text-gray-400">到着物がありません</div>
         ) : (
           <div className="space-y-3 max-h-[30rem] overflow-y-auto">
-            {/* 原本の返却が含まれるとき：戻った原本で請求できるようになった請求 */}
-            <ReturnUnlockPanel caseId={receipt.case_id} items={items} onChange={setUnlockPicked} />
             {items.map(it => {
               const m = modeOf(it)
               const f = formOf(it.id)
@@ -575,7 +577,10 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
                     {kindLabel && <span className="text-[10px] px-1.5 py-0.5 rounded-full border border-brand-200 bg-brand-50 text-brand-700 font-semibold">{kindLabel}</span>}
                   </div>
                   <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden mb-3">
-                    {([['task', p?.existing ? '既にあるタスクを結ぶ' : 'このタスクを作る'], ['none', 'タスクなしで完了']] as const).map(([k, label]) => (
+                    {(isReturn(it)
+                      ? ([['task', 'タスクを作る'], ['none', '作らない']] as const)
+                      : ([['task', p?.existing ? '既にあるタスクを結ぶ' : 'このタスクを作る'], ['none', 'タスクなしで完了']] as const)
+                    ).map(([k, label]) => (
                       <button key={k} type="button" onClick={() => setMode(prev => ({ ...prev, [it.id]: k }))}
                         className={`px-3.5 py-1.5 text-[12.5px] font-semibold transition ${m === k ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
                         {label}
@@ -606,7 +611,7 @@ function ReceiptStartModal({ receipt, currentMemberId, onClose, onDone }: {
                         </div>
                       </>
                     )
-                  ) : (
+                  ) : isReturn(it) ? null : (
                     <p className="text-[11.5px] text-gray-400">
                       {isTaskFree(it)
                         ? '契約書類なのでタスクは作らず、対応済にします。到着日は登録した時点で契約手続きタブに入っています。'

@@ -490,10 +490,10 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
               <table className="w-full border-collapse" style={{ minWidth: 640 }}>
                 <thead>
                   <tr>
-                    {/* オーダーシート（受注担当ざっくり）では詳細列(生年月日/住所)を隠し、実務タブ（管理担当詳細化）で表示。エクセルR42-44
+                    {/* 生年月日・住所の列は置かない（編集で開く。住所はオーダーシートの郵送先情報一覧で使う）。
                         本籍は持たせない。転籍のたびに変わるので人に1つ持たせると必ず古くなる。
                         戸籍請求ごとに、その請求の本籍を戸籍タブで手入力する。 */}
-                    {['相続人', '依頼者', '同居', '死亡', ...(orderSheetMode ? [] : ['生年月日', '住所']), ''].map((h, hi) => (
+                    {['相続人', '依頼者', '同居', '死亡', ''].map((h, hi) => (
                       <th key={hi} className="text-left px-3 py-2 text-[11px] font-medium text-gray-600 tracking-[0.04em] bg-gray-50 border-b border-gray-300">{h}</th>
                     ))}
                   </tr>
@@ -548,29 +548,6 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
                           <span className={heir.is_deceased ? 'text-gray-700 font-semibold' : 'text-gray-400'}>死亡</span>
                         </label>
                       </td>
-                      {!orderSheetMode && (
-                        <>
-                          <td className="px-3 py-2.5 text-[13px] font-mono text-gray-600">
-                            {heir.birth_date ? (
-                              <>
-                                {heir.birth_date}
-                                {toWareki(heir.birth_date) && <div className="text-[11px] text-gray-400">{toWareki(heir.birth_date)}</div>}
-                              </>
-                            ) : '—'}
-                          </td>
-                          {/* 住所はその場で直せるようにする。納品の郵送先・原本受領証の宛先にそのまま使うため、
-                              編集フォームを開かずに埋められる形にしておく。 */}
-                          <td className="px-3 py-1.5">
-                            <input
-                              type="text"
-                              defaultValue={heir.address ?? ''}
-                              onBlur={e => saveHeirField(heir.id, 'address', e.target.value)}
-                              placeholder="住所を入力"
-                              className="w-full px-1.5 py-1 text-[12.5px] text-gray-700 bg-transparent border border-transparent hover:border-gray-200 focus:border-brand-500 focus:bg-white rounded outline-none transition-colors"
-                            />
-                          </td>
-                        </>
-                      )}
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
                           <button

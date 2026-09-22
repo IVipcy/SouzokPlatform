@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, Fragment } from 'react'
 import { Trash2, Plus, Check, CloudOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { REQUIRED_CONTRACT_DOCS, REQUIRED_CONTRACT_DOC_CATEGORY } from '@/lib/constants'
+import { REQUIRED_CONTRACT_DOCS, REQUIRED_CONTRACT_DOC_CATEGORY, POA_KINDS, isPoaDoc } from '@/lib/constants'
 import type { ContractDocumentRow, CaseRow } from '@/types'
 import { sealCertificateStatus } from '@/lib/financialWorkflow'
 import type { TimelineReceipt } from './CaseTimeline'
@@ -241,7 +241,25 @@ function Cell({ value, onCommit, placeholder }: { value: string | null; onCommit
 }
 
 // 書類名セル。契約書/委任状/本人確認書類/印鑑証明書 を候補に出しつつ フリー入力も可（datalist）。
+// 委任状の行は 認印／実印／登記用 の3択にする（自動作成された「委任状」は「種類を選ぶ」として出し、選び直せる）。
 function DocNameCell({ value, onCommit }: { value: string | null; onCommit: (v: string) => void }) {
+  if (isPoaDoc(value)) {
+    const v = value ?? ''
+    const known = (POA_KINDS as readonly string[]).includes(v)
+    return (
+      <td className="px-2.5 py-1.5">
+        <select
+          value={v}
+          onChange={e => { if (e.target.value && e.target.value !== v) onCommit(e.target.value) }}
+          style={{ fontFamily: 'inherit' }}
+          className={`input-flat w-full px-2.5 py-1.5 text-[14px] outline-none ${known ? 'text-gray-800' : 'text-amber-700'}`}
+        >
+          {!known && <option value={v}>{v === '委任状' ? '委任状（種類を選ぶ）' : v}</option>}
+          {POA_KINDS.map(k => <option key={k} value={k}>{k}</option>)}
+        </select>
+      </td>
+    )
+  }
   return (
     <td className="px-2.5 py-1.5">
       <input
@@ -253,7 +271,8 @@ function DocNameCell({ value, onCommit }: { value: string | null; onCommit: (v: 
         className="input-flat w-full px-2.5 py-1.5 text-[14px] text-gray-800 outline-none"
       />
       <datalist id="contract-doc-names">
-        {DEFAULT_DOCS.map(d => <option key={d} value={d} />)}
+        {DEFAULT_DOCS.filter(d => !isPoaDoc(d)).map(d => <option key={d} value={d} />)}
+        {POA_KINDS.map(d => <option key={d} value={d} />)}
       </datalist>
     </td>
   )

@@ -384,12 +384,32 @@ function TopTable({ layout, institutions, evalOf, accountsOf, holdings, requests
   const spanL = 'border-l border-[#e8ecf1]', spanR = 'border-r border-[#e8ecf1]'
   const holdingAmt = (h: SecuritiesHoldingRow) => h.amount ?? ((h.quantity ?? 0) * (h.unit_price ?? 0))
   if (layout === 'securities') {
+    // 銘柄ごとの株数の突き合わせ：証券会社側の合計 と 株主名簿管理人（信託銀行）側の合計。
+    // 両方に同じ銘柄があって数が違えば、その数量セルを黄色にする（どちらかが古い・特別口座の分が抜けている等）。
+    const brandKey = (h: SecuritiesHoldingRow) => ((h.code ?? '').trim() || (h.brand_name ?? '').replace(/\s+/g, '').trim())
+    const sumBy = (kind: FinancialInstitutionRow['kind']) => {
+      const m = new Map<string, number>()
+      for (const h of holdings) {
+        const inst = institutions.find(x => x.id === h.institution_id)
+        if (!inst || inst.kind !== kind || h.quantity == null) continue
+        const k = brandKey(h); if (!k) continue
+        m.set(k, (m.get(k) ?? 0) + h.quantity)
+      }
+      return m
+    }
+    const secSum = sumBy('証券'), adminSum = sumBy('株主名簿管理人')
+    const mismatchOf = (h: SecuritiesHoldingRow): string | null => {
+      const k = brandKey(h); if (!k) return null
+      const a = secSum.get(k), b = adminSum.get(k)
+      if (a == null || b == null || a === b) return null
+      return `株数が合いません：証券会社の合計 ${a.toLocaleString('ja-JP')} ／ 株主名簿管理人 ${b.toLocaleString('ja-JP')}`
+    }
     // ほふりは先頭、次に証券会社、最後に株主名簿管理人
     const order = (i: FinancialInstitutionRow) => (i.kind === 'ほふり' ? 0 : i.kind === '証券' ? 1 : 2)
     const list = [...institutions].sort((a, b) => order(a) - order(b))
     return (
       <div>
-        <SectionHeading title="調査先の一覧" hint="1行＝1銘柄。調査先・次の対応・進行中のタスクは調査先ごとに1つ。銘柄の株主名簿管理人から、信託銀行を調査先に足せます。" className="mb-1.5 pb-1.5 border-b border-gray-200" />
+        <SectionHeading title="調査先の一覧" hint="1行＝1銘柄。調査先・次の対応・進行中のタスクは調査先ごとに1つ。銘柄の株主名簿管理人から、信託銀行を調査先に足せます。同じ銘柄が証券会社と株主名簿管理人の両方にあって株数が合わないときは、数量が黄色になります。" className="mb-1.5 pb-1.5 border-b border-gray-200" />
         <div className="overflow-x-auto">
           <table className="w-full text-[13px] border-collapse" style={{ minWidth: 980 }}>
             <thead>
@@ -445,7 +465,9 @@ function TopTable({ layout, institutions, evalOf, accountsOf, holdings, requests
                       {idx === 0 && <td rowSpan={n} className={`${bankTd} ${bankBorder} ${spanR} font-medium text-gray-800`}>{i.name}{kindTag}</td>}
                       <td className={`${bankTd} ${spanL} text-gray-800`}>{h.brand_name || <span className="text-gray-300">—</span>}{h.code && <span className="ml-1.5 text-[11px] text-gray-400">{h.code}</span>}</td>
                       <td className={`${bankTd} text-gray-600 text-[12px]`}>{h.kind ?? '—'}</td>
-                      <td className={`${bankTd} text-right tabular-nums`}>{h.quantity != null ? h.quantity.toLocaleString('ja-JP') : '—'}</td>
+                      {(() => { const mm = mismatchOf(h); return (
+                        <td className={`${bankTd} text-right tabular-nums ${mm ? 'bg-amber-100 text-amber-900 font-semibold' : ''}`} title={mm ?? undefined}>{h.quantity != null ? h.quantity.toLocaleString('ja-JP') : '—'}</td>
+                      ) })()}
                       <td className={`${bankTd} text-right tabular-nums`}>{holdingAmt(h) ? yen(holdingAmt(h)) : '—'}</td>
                       <td className={`${bankTd} ${spanR} text-[12px]`}>{i.kind === '株主名簿管理人' ? <span className="text-gray-300">—</span> : h.admin_status === '対象外' ? <span className="text-gray-400">対象外</span> : h.administrator ? <span className="text-gray-700">{h.administrator}{adminInst ? <span className="ml-1 text-emerald-700">✓</span> : <span className="ml-1 text-amber-700">未追加</span>}</span> : <span className="text-amber-700">未特定</span>}</td>
                       {idx === 0 && <td rowSpan={n} className={`${bankTd} ${bankBorder} ${spanL} text-gray-700`}>{nextCell}</td>}

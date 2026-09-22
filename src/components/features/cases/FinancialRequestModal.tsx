@@ -46,7 +46,29 @@ export default function FinancialRequestModal({ isOpen, onClose, institution, ac
   const [requestDate, setRequestDate] = useState('')
   const [sealSent, setSealSent] = useState(false)   // 依頼者の印鑑登録証明書の原本を同封（来店なら持参）
   const [balanceLines, setBalanceLines] = useState<BalanceLine[]>([{ id: 1, recent: false, date: defaultBalanceDate ?? '', accountIds: allIds }])
-  const [historyLines, setHistoryLines] = useState<HistoryLine[]>([])
+  // 取引履歴の初期値：オーダーシート（口座の「取引明細の取得期間」）に入っている期間をそのまま行にする。
+  // 同じ期間を持つ口座はひとつの行にまとめ、その口座だけを対象にする。
+  const [historyLines, setHistoryLines] = useState<HistoryLine[]>(() => {
+    if (noAccounts) return []
+    const m = new Map<string, HistoryLine>()
+    let seq = 1
+    for (const a of accounts) {
+      for (const p of a.transaction_periods ?? []) {
+        if (!p.start || !p.end) continue
+        const k = `${p.start}~${p.end}`
+        const cur = m.get(k)
+        if (cur) cur.accountIds.push(a.id)
+        else m.set(k, { id: seq++, start: p.start, end: p.end, accountIds: [a.id] })
+      }
+    }
+    return [...m.values()]
+  })
+  // 「5年分」＝相続開始日−5年 〜 相続開始日（相続開始日が未入力なら押せない）
+  const fiveYears = (() => {
+    if (!defaultBalanceDate) return null
+    const d = new Date(`${defaultBalanceDate}T00:00:00Z`); d.setUTCFullYear(d.getUTCFullYear() - 5)
+    return { start: d.toISOString().slice(0, 10), end: defaultBalanceDate }
+  })()
   const [saving, setSaving] = useState(false)
 
   const validBalance = balanceLines.filter(l => (l.recent || l.date) && (noAccounts || l.accountIds.length > 0))
@@ -179,7 +201,7 @@ export default function FinancialRequestModal({ isOpen, onClose, institution, ac
           <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border-b border-gray-200">
             <span className="w-4 h-4 rounded-full bg-brand-600 text-white text-[10px] font-bold flex items-center justify-center">3</span>
             <span className="text-[12px] font-semibold text-gray-700">{isAdmin ? '未受領配当金明細書（任意）' : isSec ? '取引資料（任意）' : '取引履歴'}</span>
-            <span className="text-[10.5px] text-gray-400">{isAdmin ? '未払いの配当がありそうなときだけ、期間を入れて足す' : isSec ? '入出金の確認が要るときだけ、顧客勘定元帳を足す' : '取得期間ごとに対象口座を選ぶ'}</span>
+            <span className="text-[10.5px] text-gray-400">{isAdmin ? '未払いの配当がありそうなときだけ、期間を入れて足す' : isSec ? '入出金の確認が要るときだけ、顧客勘定元帳を足す' : 'オーダーシートの取得期間が最初から入っています。「5年分」で相続開始日まで5年'}</span>
           </div>
           <div className="px-3 py-2 space-y-2">
             {historyLines.map((l, i) => (
@@ -189,6 +211,9 @@ export default function FinancialRequestModal({ isOpen, onClose, institution, ac
                   <input type="date" value={l.start} onChange={e => setHistoryLines(prev => prev.map(x => (x.id === l.id ? { ...x, start: e.target.value } : x)))} className={inp} />
                   <span className="text-gray-400 text-[11px]">〜</span>
                   <input type="date" value={l.end} onChange={e => setHistoryLines(prev => prev.map(x => (x.id === l.id ? { ...x, end: e.target.value } : x)))} className={inp} />
+                  <button type="button" disabled={!fiveYears} onClick={() => { if (fiveYears) setHistoryLines(prev => prev.map(x => (x.id === l.id ? { ...x, start: fiveYears.start, end: fiveYears.end } : x))) }}
+                    title={fiveYears ? `相続開始日まで5年（${fiveYears.start}〜${fiveYears.end}）` : '相続開始日が未入力です'}
+                    className={`px-2 py-0.5 text-[11px] font-semibold border ${fiveYears && l.start === fiveYears.start && l.end === fiveYears.end ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-brand-700 border-brand-300 hover:bg-brand-50'} disabled:opacity-40 disabled:cursor-not-allowed`}>5年分</button>
                   <button type="button" onClick={() => setHistoryLines(prev => prev.filter(x => x.id !== l.id))} className="ml-auto text-gray-300 hover:text-red-500" title="この期間を外す"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
                 <AccountPicker kind="h" line={l} />

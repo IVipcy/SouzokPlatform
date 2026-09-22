@@ -38,7 +38,7 @@ type ItemDraft = {
 }
 
 // 郵送種別（〒の種類）。封筒＝1受信単位。
-export const POSTAL_TYPES = ['普通郵便', '速達', '簡易書留', '赤レタパ', '青レタパ'] as const
+export const POSTAL_TYPES = ['普通郵便', '速達', '簡易書留', '赤レタパ', '青レタパ', '手渡し'] as const
 
 type Props = {
   isOpen: boolean
@@ -73,6 +73,8 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null)
   const [receivedDate, setReceivedDate] = useState(todayYmd)
   const [postalType, setPostalType] = useState('')
+  // 手渡し（来所・持参）は「到着」ではなく「受領」。日付の呼び名と差出人欄の言い方を変える（保存先は同じ）
+  const isHandover = postalType === '手渡し'
   const [storageTeamId, setStorageTeamId] = useState('')  // 原本格納先チーム（案件選択時に管理担当のチームを初期選択）
   const [location, setLocation] = useState(defaultLocation ?? '')  // 拠点
   const [parcelMode, setParcelMode] = useState(false)  // 受注/管理宛の郵送物一式（中身は本人が開封）
@@ -252,7 +254,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
       return
     }
     if (!receivedDate) {
-      setError('到着日を入力してください')
+      setError(isHandover ? '受領日を入力してください' : '到着日を入力してください')
       return
     }
     // 郵送物一式（受注/管理宛）：中身を開けず1行だけ仮登録して到着連絡（タスクは作らない）
@@ -502,7 +504,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
         {/* 到着日 ＋ 〒の種類（封筒単位） */}
         <div className="flex flex-wrap gap-4">
           <div>
-            <label className="block text-[12px] font-semibold text-gray-500 mb-1">到着日 <span className="text-red-500">*</span></label>
+            <label className="block text-[12px] font-semibold text-gray-500 mb-1">{isHandover ? '受領日' : '到着日'} <span className="text-red-500">*</span></label>
             <input
               type="date"
               value={receivedDate}
@@ -511,7 +513,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
             />
           </div>
           <div>
-            <label className="block text-[12px] font-semibold text-gray-500 mb-1">〒の種類</label>
+            <label className="block text-[12px] font-semibold text-gray-500 mb-1">〒の種類<span className="ml-1 font-normal text-gray-400">手渡し＝来所・持参で受け取ったもの</span></label>
             <select
               value={postalType}
               onChange={e => setPostalType(e.target.value)}
@@ -625,7 +627,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
                 type="text"
                 value={bulkFrom}
                 onChange={e => setBulkFrom(e.target.value)}
-                placeholder="差出人（例: 山田 一郎）"
+                placeholder={isHandover ? '誰から受け取ったか（例: 山田 一郎）' : '差出人（例: 山田 一郎）'}
                 className="flex-1 min-w-[160px] px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md bg-white outline-none focus:border-brand-400"
               />
               <Button variant="secondary" size="sm" onClick={applyBulk} disabled={!bulkQty && !bulkFrom.trim()}>
@@ -699,7 +701,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
                       type="text"
                       value={it.received_from}
                       onChange={e => updateItem(it.key, { received_from: e.target.value })}
-                      placeholder="差出人（例: 名古屋市区役所）"
+                      placeholder={isHandover ? '誰から受け取ったか（例: 山田 一郎）' : '差出人（例: 名古屋市区役所）'}
                       className="w-full min-w-0 px-2.5 py-1.5 text-[13px] border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
                     />
                     <button

@@ -6,7 +6,8 @@
 //   ・手元の数は到着物タブの原本の出入りと同じ（契約時受領＋届いたもの − 出払い中 − 納品）。入れた分はその場で減る
 //   ・写し（本人確認書類の写し）は数えない。数だけ入れる
 //   ・戸籍のように手元の行が複数（届いた通ごと）あるときは、古いものから順に充てる（どれを出したかは原本の出入りに残る）
-//   ・一覧に無い物が要るときだけ「＋ ほかの資料を手元から足す」
+//   ・最初に出る行は「委任状」だけ。ほかの決まった資料（本人確認書類の写し・印鑑登録証明書・戸籍…）は
+//     「＋ ほかの資料を手元から足す」の先頭に並び、押すと行になる（数を 0 にすると消える）。一覧に無い物も同じ入口から
 // 行はこの部品が直接 request_enclosures に書く（1つの要る資料＝doc_name が同じ行の集まり）。親には onChanged で知らせる。
 
 import { useState } from 'react'
@@ -39,13 +40,16 @@ export default function EnclosureRows({ caseId, refKind, refId, refLabel, stock,
   const supabase = createClient()
   const [moreOpen, setMoreOpen] = useState(false)
   const mine = enclosures.filter(e => e.ref_kind === refKind && e.ref_id === refId)
-  const items = requiredEnclosuresFor(refKind, { shokumujo })
+  const allItems = requiredEnclosuresFor(refKind, { shokumujo })
   const ctx = { deceasedName }
-  const itemNames = new Set(items.map(i => i.name))
+  const itemNames = new Set(allItems.map(i => i.name))
+  // 最初から出す行＝委任状だけ。ほかは「足す」で選んだもの（＝この請求に行があるもの）だけ出す
+  const items = allItems.filter(i => i.key === 'poa' || mine.some(e => e.doc_name === i.name))
+  const hiddenItems = allItems.filter(i => !items.includes(i))
 
   /** この要る資料に当たる原本の行（古い順＝stock の並び） */
   const rowsFor = (item: RequiredEnclosure) => stock.filter(s => matchStockForRequired(item, s, ctx))
-  const coveredKeys = new Set(items.flatMap(i => rowsFor(i).map(s => s.key)))
+  const coveredKeys = new Set(allItems.flatMap(i => rowsFor(i).map(s => s.key)))
 
   const insertRows = async (rows: Array<{ doc_name: string; form: '原本' | '写し'; stock_key: string | null; quantity: number }>) => {
     if (rows.length === 0) return true
@@ -115,6 +119,9 @@ export default function EnclosureRows({ caseId, refKind, refId, refLabel, stock,
     if (await insertRows([{ doc_name: s.name, form: s.copy ? '写し' : '原本', stock_key: s.key, quantity: 1 }])) onChanged()
   }
   const morePick = stock.filter(s => !coveredKeys.has(s.key) && !extras.some(e => e.stock_key === s.key) && (s.copy || s.onHand > 0))
+  /** 決まった資料のうち、まだ行にしていないもの（手元にあるか写しのものだけ選べる） */
+  const moreRequired = hiddenItems.map(i => ({ item: i, onHand: rowsFor(i).reduce((s, r) => s + r.onHand, 0) }))
+  const addRequired = async (item: RequiredEnclosure) => { setMoreOpen(false); await setRequiredQty(item, 1) }
 
   // ほかの請求に出ている分だけ言う（この請求で入れた分は「出払い中」と言わない）
   const mineIds = new Set(mine.map(e => e.id))
@@ -182,9 +189,20 @@ export default function EnclosureRows({ caseId, refKind, refId, refLabel, stock,
           <button type="button" onClick={() => setMoreOpen(v => !v)} className="inline-flex items-center gap-1 px-2 py-0.5 text-[12px] text-gray-500 border border-dashed border-gray-300 hover:border-brand-400 hover:text-brand-700"><Plus className="w-3 h-3" />ほかの資料を手元から足す</button>
           {moreOpen && (
             <div className="absolute z-20 mt-1 min-w-[280px] max-w-[460px] bg-white border border-gray-300 shadow-lg p-1.5 text-[12.5px]">
-              {morePick.length === 0 ? (
+              {moreRequired.length === 0 && morePick.length === 0 ? (
                 <div className="px-2 py-1.5 text-gray-400">足せる資料がありません</div>
-              ) : morePick.map(s => (
+              ) : null}
+              {moreRequired.map(({ item, onHand }) => {
+                const ok = item.copy || onHand > 0
+                return (
+                  <button key={`req-${item.key}`} type="button" disabled={!ok} onClick={() => void addRequired(item)} className="w-full text-left px-2 py-1.5 hover:bg-brand-50 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
+                    <span className="flex-1 truncate">{item.name}{item.note ? <span className="ml-1 text-[11px] text-gray-400">{item.note}</span> : null}</span>
+                    <span className="flex-none text-[11px] text-gray-500">{item.copy ? '写し' : ok ? `手元 ${onHand}` : '手元にありません'}</span>
+                  </button>
+                )
+              })}
+              {moreRequired.length > 0 && morePick.length > 0 && <div className="my-1 border-t border-gray-100" />}
+              {morePick.map(s => (
                 <button key={s.key} type="button" onClick={() => void addExtra(s)} className="w-full text-left px-2 py-1.5 hover:bg-brand-50 flex items-center gap-2">
                   <span className="flex-1 truncate">{s.name}{s.person ? `（${s.person}）` : ''}</span>
                   <span className="flex-none text-[11px] text-gray-500">{s.copy ? '写し' : `手元 ${s.onHand}`}</span>

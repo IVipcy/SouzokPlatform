@@ -288,10 +288,11 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
       })
       if (he) { showToast(`相続人一覧への追加に失敗: ${he.message}`, 'error'); return }
     }
-    // オーダーシート（戸籍の取得計画）の見立てを、請求範囲の初期値にする。役所ごとに書き換えられる。
+    // オーダーシート（戸籍の取得計画）の見立てを初期値にする（請求範囲・取得方法・住所関係書類）。役所ごとに書き換えられる。
     const { data: planRow } = await supabase
-      .from('koseki_plans').select('range_text').eq('case_id', caseId).eq('person_name', person).maybeSingle()
-    const plan = planRow as { range_text: string | null } | null
+      .from('koseki_plans').select('range_text, acquisition_authority, address_doc').eq('case_id', caseId).eq('person_name', person).maybeSingle()
+    const plan = planRow as { range_text: string | null; acquisition_authority: string | null; address_doc: string | null } | null
+    const docTypes = ['戸籍', ...(plan?.address_doc === '住民票' || plan?.address_doc === '戸籍の附票' ? [plan.address_doc] : [])].join('・')
     const { data, error } = await supabase.from('koseki_requests')
       .insert({
         case_id: caseId, sort_order: requests.length,
@@ -300,7 +301,10 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
         target_person: form.target_person || null,
         request_to: form.request_to || null,
         range_text: plan?.range_text ?? null,
+        doc_types: docTypes, doc_form: '謄本',
+        acquisition_authority: plan?.acquisition_authority ?? null,
         submit_to: KOSEKI_SUBMIT_TO_DEFAULT,
+        request_reason: defaultKosekiPurpose(caseData.service_category, caseData.service_category_2),
       })
       .select('id').single()
     if (error || !data) { showToast(`追加に失敗: ${error?.message ?? ''}`, 'error'); return }

@@ -227,6 +227,11 @@ export const isContractProcDone = (
 // 契約時に必ずもらう契約書類5点（デフォルト表示・ナビの受領判定の対象）。
 export const REQUIRED_CONTRACT_DOCS = ['契約書', '料金表', '委任状', '本人確認書類の写し', '印鑑登録証明書'] as const
 
+// 委任状の種類。契約書類の行は「委任状」のままにせず、この3つから選ぶ（行を足せば複数種類を持てる）。
+// 同梱する資料の「委任状」は3種どれでも拾う（lib/originals.ts は名前に「委任状」を含むかで見る）。
+export const POA_KINDS = ['委任状（認印）', '委任状（実印）', '委任状（登記用）'] as const
+export const isPoaDoc = (name: string | null | undefined): boolean => (name ?? '').includes('委任状')
+
 // 契約手続きで自動作成する5点の初期区分。
 //   契約書・料金表・委任状     … こちらで保管する（区分＝契約）
 //   本人確認書類の写し         … お預かりはするが写しなので返さない（区分＝契約）
@@ -251,7 +256,7 @@ export const isContractDocsReceived = (
   docs: { name?: string | null; category?: string | null; status?: string | null; arrival_date?: string | null }[],
 ): boolean => {
   const required = new Set<string>(REQUIRED_CONTRACT_DOCS)
-  const contract = docs.filter(d => d.category === '契約' || required.has((d.name ?? '').trim()))
+  const contract = docs.filter(d => d.category === '契約' || required.has((d.name ?? '').trim()) || isPoaDoc(d.name))
   return contract.length > 0 && contract.every(d => !!d.arrival_date || d.status === '不要')
 }
 

@@ -652,7 +652,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                 <ArrowRightCircle className="w-5 h-5" strokeWidth={2.25} />
               </span>
               <div className="flex-1 min-w-0">
-                <div className="text-[14px] font-bold text-brand-800">この作業は「{landing.label}」タブで行います</div>
+                <div className="text-[14px] font-bold text-brand-800">この作業は「{landing.label}」で行います</div>
                 <div className="text-[12px] text-brand-700/80 leading-relaxed">
                   該当の行が開いた状態で移動します。そこで入力すると、このタスクはその場で完了します。
                 </div>
@@ -661,7 +661,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                 href={taskLandingUrl(caseData.id, task.id, landing, { imgs: refImageIds })}
                 className="flex-none inline-flex items-center gap-1.5 h-10 px-4 rounded-lg text-[13.5px] font-bold text-white bg-brand-600 hover:bg-brand-700 shadow-sm"
               >
-                <ExternalLink className="w-4 h-4" strokeWidth={2.25} />{landing.label}タブを開く
+                <ExternalLink className="w-4 h-4" strokeWidth={2.25} />{landing.label}を開く
               </Link>
             </div>
           )}
