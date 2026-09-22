@@ -31,11 +31,14 @@ export type TextAnno = {
   leader?: { x: number; y: number } | null
 }
 
-/** 赤枠。意味は1つ＝「次に請求する箇所」（転籍先の本籍・従前戸籍など）。色は固定 */
+/** 枠。種類は2つ＝「次の請求先」（赤。転籍先の本籍・従前戸籍など）と「現在住所」（青。住民票・附票で分かった今の住所）。
+ *  枠の上に種類の文言を出すので、見る人が色を覚えていなくても分かる。kind 未指定は古いデータ＝次の請求先 */
+export type RectKind = 'next' | 'address'
 export type RectAnno = {
   id: string
   type: 'rect'
   color: string
+  kind?: RectKind
   /** 左上（割合）と大きさ（割合） */
   x: number
   y: number
@@ -46,11 +49,61 @@ export type RectAnno = {
 export type Anno = PenAnno | TextAnno | RectAnno
 
 export const RECT_COLOR = '#DC2626'
-/** 赤枠の最小の大きさ（割合）。これより小さいドラッグは誤操作とみなして置かない */
+export const RECT_KINDS: Array<{ key: RectKind; label: string; color: string; use: string }> = [
+  { key: 'next', label: '次の請求先', color: '#DC2626', use: '次に請求する箇所（転籍先の本籍・従前戸籍など）' },
+  { key: 'address', label: '現在住所', color: '#2563EB', use: '住民票・附票で分かった今の住所' },
+]
+export const rectKindOf = (a: RectAnno): RectKind => a.kind ?? 'next'
+export const rectDef = (a: RectAnno) => RECT_KINDS.find(k => k.key === rectKindOf(a)) ?? RECT_KINDS[0]
+/** 枠の最小の大きさ（割合）。これより小さいドラッグは誤操作とみなして置かない */
 export const RECT_MIN = 0.015
-/** 赤枠の線の太さ（画像幅に対する割合） */
+/** 枠の線の太さ（画像幅に対する割合） */
 export const RECT_LINE = 0.0045
-export const RECT_USE = '次に請求する箇所（転籍先の本籍・従前戸籍など）'
+/** 枠の上に出す文言の文字サイズ（画像幅に対する割合） */
+export const RECT_LABEL_FONT = 0.016
+export const RECT_USE = RECT_KINDS[0].use
+
+// ── 回転 ──
+/** 回した後の大きさ（90/270 は縦横が入れ替わる） */
+export function rotatedSize(nw: number, nh: number, rotation: number): { w: number; h: number } {
+  return ((rotation % 180) + 180) % 180 === 90 ? { w: nh, h: nw } : { w: nw, h: nh }
+}
+/** 画像を rotation（時計回り）で回して、表示枠 w×h（回した後の大きさ）いっぱいに描く */
+export function drawImageRotated(ctx: CanvasRenderingContext2D, img: CanvasImageSource, rotation: number, w: number, h: number) {
+  const r = ((rotation % 360) + 360) % 360
+  ctx.save()
+  ctx.translate(w / 2, h / 2)
+  ctx.rotate((r * Math.PI) / 180)
+  if (r === 90 || r === 270) ctx.drawImage(img, -h / 2, -w / 2, h, w)
+  else ctx.drawImage(img, -w / 2, -h / 2, w, h)
+  ctx.restore()
+}
+/**
+ * 書き込みを画像と一緒に回す。座標は「表示の向き」の割合で持っているので、回す前後で座標を付け替える。
+ *   dir=90（右に90°）：(x,y) → (1-y, x)   dir=-90（左に90°）：(x,y) → (y, 1-x)   dir=180：(1-x, 1-y)
+ *   aspect＝回す前の 幅÷高さ。幅に対する割合（テキスト箱の幅・文字サイズ・線の太さ）は 90°回すと幅の基準が変わるので掛け直す
+ */
+export function rotateAnnos(annos: Anno[], dir: 90 | -90 | 180, aspect: number): Anno[] {
+  const pt = (x: number, y: number): [number, number] => dir === 90 ? [1 - y, x] : dir === -90 ? [y, 1 - x] : [1 - x, 1 - y]
+  const k = dir === 180 ? 1 : aspect
+  return annos.map(a => {
+    if (a.type === 'rect') {
+      if (dir === 90) return { ...a, x: 1 - (a.y + a.h), y: a.x, w: a.h, h: a.w }
+      if (dir === -90) return { ...a, x: a.y, y: 1 - (a.x + a.w), w: a.h, h: a.w }
+      return { ...a, x: 1 - (a.x + a.w), y: 1 - (a.y + a.h) }
+    }
+    if (a.type !== 'text') {
+      const pts: number[] = []
+      for (let i = 0; i + 1 < a.points.length; i += 2) { const [x, y] = pt(a.points[i], a.points[i + 1]); pts.push(x, y) }
+      return { ...a, points: pts, width: a.width * k }
+    }
+    // テキスト箱は横書きのまま。左上の点だけ回して、はみ出さないように寄せる
+    const w = Math.min(1, a.w * k)
+    const [x, y] = pt(a.x, a.y)
+    const leader = a.leader ? (() => { const [lx, ly] = pt(a.leader.x, a.leader.y); return { x: lx, y: ly } })() : a.leader
+    return { ...a, x: Math.max(0, Math.min(1 - w, x)), y: Math.max(0, Math.min(1, y)), w, font: a.font != null ? a.font * k : a.font, leader }
+  })
+}
 
 /**
  * 蛍光ペンの色（下の文字が読める濃さで塗る）。
@@ -179,11 +232,25 @@ export function drawAnnotations(
       continue
     }
     if (a.type === 'rect') {
+      const def = rectDef(a)
       ctx.save()
-      ctx.strokeStyle = a.color
+      ctx.strokeStyle = def.color
       ctx.lineWidth = Math.max(1.5, RECT_LINE * w)
       ctx.lineJoin = 'miter'
       ctx.strokeRect(a.x * w, a.y * h, a.w * w, a.h * h)
+      // 枠の上に種類の文言（白地の帯に色文字）。上に余白が無ければ枠の中の上端に出す
+      const fpx = Math.max(9, RECT_LABEL_FONT * w)
+      ctx.font = `bold ${fpx}px sans-serif`
+      const tw = ctx.measureText(def.label).width
+      const padX = fpx * 0.35, bh = fpx * 1.35
+      const bx = a.x * w
+      const above = a.y * h - bh - fpx * 0.15
+      const by = above >= 0 ? above : a.y * h + fpx * 0.15
+      ctx.fillStyle = 'rgba(255,255,255,0.92)'
+      ctx.fillRect(bx, by, tw + padX * 2, bh)
+      ctx.fillStyle = def.color
+      ctx.textBaseline = 'middle'
+      ctx.fillText(def.label, bx + padX, by + bh / 2)
       ctx.restore()
       continue
     }

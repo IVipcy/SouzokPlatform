@@ -21,6 +21,8 @@ export type ViewerImage = {
   requestLabel?: string | null
   url?: string
   annos: Anno[]
+  /** 表示の回転（0/90/180/270） */
+  rotation?: number
   fileName: string | null
 }
 
@@ -92,7 +94,7 @@ export default function KosekiImageViewer({ images, startId, onClose, onEdit }: 
           <NavBtn dir="prev" disabled={idx === 0} onClick={() => go(-1)} />
           <div className="flex-1 min-w-0 h-full bg-white/5 rounded-lg overflow-auto flex items-start justify-center p-2">
             {cur.url
-              ? <AnnotatedImage url={cur.url} annos={cur.annos} className="max-w-full" />
+              ? <AnnotatedImage url={cur.url} annos={cur.annos} rotation={cur.rotation ?? 0} className="max-w-full" />
               : <span className="text-white/50 text-[13px] self-center">読み込み中…</span>}
           </div>
           <NavBtn dir="next" disabled={idx === images.length - 1} onClick={() => go(1)} />
@@ -113,7 +115,7 @@ export default function KosekiImageViewer({ images, startId, onClose, onEdit }: 
                 className={`w-11 h-9 rounded overflow-hidden border bg-white/10 ${
                   i === idx ? 'border-white ring-2 ring-white/70' : 'border-white/25 hover:border-white/60'}`}>
                 {v.url
-                  ? <AnnotatedImage url={v.url} annos={v.annos} className="w-full h-full object-cover" />
+                  ? <AnnotatedImage url={v.url} annos={v.annos} rotation={v.rotation ?? 0} className="w-full h-full object-cover" />
                   : <span className="block w-full h-full" />}
               </button>
             </div>

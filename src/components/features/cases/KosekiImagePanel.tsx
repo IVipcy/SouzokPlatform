@@ -9,14 +9,15 @@
 // サムネイルは画像＋書き込みを canvas で重ねて描くので、拡大表示と同じ絵になる。
 
 import { useState, useRef } from 'react'
-import { Upload, Pencil, Trash2, Download, FolderInput, PictureInPicture2 } from 'lucide-react'
+import { Upload, Pencil, Trash2, Download, FolderInput, PictureInPicture2, RotateCcw, RotateCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import ImageAnnotator from './ImageAnnotator'
 import AnnotatedImage from './AnnotatedImage'
-import { drawAnnotations, type Anno } from '@/lib/imageAnnotations'
+import { drawAnnotations, drawImageRotated, rotatedSize, rotateAnnos, type Anno } from '@/lib/imageAnnotations'
+import { isPdfFile, pdfToPngFiles } from '@/lib/pdfToImages'
 import { useKosekiImages, KOSEKI_BUCKET as BUCKET, type KosekiImageRow } from '@/lib/useKosekiImages'
 import { REQUEST_KIND_BADGE, kosekiRequestLabel } from '@/lib/constants'
 import type { KosekiRequestRow } from '@/types'
@@ -82,8 +83,16 @@ export default function KosekiImagePanel({ caseId, targetPerson, requests = [], 
     if (!files || files.length === 0) return
     setBusy(true)
     const created: KosekiImageRow[] = []
-    for (const file of Array.from(files)) {
-      if (!file.type.startsWith('image/')) { showToast(`${file.name} は画像ではありません`, 'error'); continue }
+    // PDF は1ページ1枚の PNG にしてから、画像と同じ流れで入れる
+    const list: File[] = []
+    for (const f of Array.from(files)) {
+      if (isPdfFile(f)) {
+        try { list.push(...(await pdfToPngFiles(f))) }
+        catch (e) { showToast(`${f.name} を画像にできませんでした: ${e instanceof Error ? e.message : ''}`, 'error') }
+      } else list.push(f)
+    }
+    for (const file of list) {
+      if (!file.type.startsWith('image/')) { showToast(`${file.name} は画像でも PDF でもありません`, 'error'); continue }
       // 保存先のキーは英数字だけにする。ファイル名をそのまま使うと
       // 「戸籍.png」のような日本語で Invalid key になりアップロードできない。
       // 元のファイル名は koseki_images.file_name に持つので画面表示は変わらない。
@@ -106,12 +115,30 @@ export default function KosekiImagePanel({ caseId, targetPerson, requests = [], 
     if (created.length > 0) setAskEdit(created)
   }
 
-  const saveAnnotations = async (row: KosekiImageRow, annos: Anno[]) => {
+  const saveAnnotations = async (row: KosekiImageRow, annos: Anno[], rotation: number = row.rotation ?? 0) => {
     const { error } = await supabase.from('koseki_images')
-      .update({ annotations: annos, updated_at: new Date().toISOString() }).eq('id', row.id)
+      .update({ annotations: annos, rotation, updated_at: new Date().toISOString() }).eq('id', row.id)
     if (error) { showToast(`保存に失敗: ${error.message}`, 'error'); return }
-    setRows(prev => prev.map(r => (r.id === row.id ? { ...r, annotations: annos } : r)))
+    setRows(prev => prev.map(r => (r.id === row.id ? { ...r, annotations: annos, rotation } : r)))
     showToast('書き込みを保存しました', 'success')
+  }
+
+  // 拡大表示から左右90°。書き込みも一緒に回して、その場で保存する
+  const rotateRow = async (row: KosekiImageRow, dir: 90 | -90) => {
+    const url = urls[row.id]
+    if (!url) return
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    await new Promise<void>(res => { img.onload = () => res(); img.onerror = () => res(); img.src = url })
+    if (!img.naturalWidth) return
+    const cur = rotatedSize(img.naturalWidth, img.naturalHeight, row.rotation ?? 0)
+    const annos = rotateAnnos(row.annotations ?? [], dir, cur.w / cur.h)
+    const rotation = ((((row.rotation ?? 0) + dir) % 360) + 360) % 360
+    const { error } = await supabase.from('koseki_images').update({ annotations: annos, rotation, updated_at: new Date().toISOString() }).eq('id', row.id)
+    if (error) { showToast(`保存に失敗: ${error.message}`, 'error'); return }
+    const next = { ...row, annotations: annos, rotation }
+    setRows(prev => prev.map(r => (r.id === row.id ? next : r)))
+    setPreview(p => (p && p.id === row.id ? next : p))
   }
 
   const del = async (row: KosekiImageRow) => {
@@ -130,10 +157,11 @@ export default function KosekiImagePanel({ caseId, targetPerson, requests = [], 
     img.crossOrigin = 'anonymous'
     img.onload = () => {
       const cv = document.createElement('canvas')
-      cv.width = img.naturalWidth; cv.height = img.naturalHeight
+      const nat = rotatedSize(img.naturalWidth, img.naturalHeight, row.rotation ?? 0)
+      cv.width = nat.w; cv.height = nat.h
       const ctx = cv.getContext('2d')
       if (!ctx) return
-      ctx.drawImage(img, 0, 0)
+      drawImageRotated(ctx, img, row.rotation ?? 0, cv.width, cv.height)
       drawAnnotations(ctx, row.annotations ?? [], cv.width, cv.height)
       cv.toBlob(blob => {
         if (!blob) return
@@ -157,10 +185,10 @@ export default function KosekiImagePanel({ caseId, targetPerson, requests = [], 
         <span className="text-[11px] text-gray-400">{rows.length}枚</span>
         {targetPerson !== undefined && (
           <>
-            <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={e => startUpload(e.target.files)} />
+            <input ref={fileRef} type="file" accept="image/*,application/pdf,.pdf" multiple className="hidden" onChange={e => startUpload(e.target.files)} />
             <button type="button" onClick={() => fileRef.current?.click()} disabled={busy}
               className="ml-auto inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700 border border-brand-300 rounded px-2 py-1 disabled:opacity-50">
-              <Upload className="w-3.5 h-3.5" />{busy ? 'アップロード中…' : '画像を追加'}
+              <Upload className="w-3.5 h-3.5" />{busy ? 'アップロード中…' : '画像・PDFを追加'}
             </button>
           </>
         )}
@@ -168,7 +196,7 @@ export default function KosekiImagePanel({ caseId, targetPerson, requests = [], 
 
       {rows.length === 0 && !grouped ? (
         <p className="text-[11.5px] text-gray-400 py-3 text-center">
-          {targetPerson !== undefined ? '「画像を追加」から戸籍のスキャンを登録できます' : '戸籍の画像がまだありません'}
+          {targetPerson !== undefined ? '「画像・PDFを追加」から戸籍のスキャン（PNG・JPG・PDF。PDFは1ページ1枚）を登録できます' : '戸籍の画像がまだありません'}
         </p>
       ) : grouped ? (
         // 請求（役所）ごとに仕切る。どの請求で届いた戸籍かを読めるようにするため。
@@ -234,7 +262,7 @@ export default function KosekiImagePanel({ caseId, targetPerson, requests = [], 
           ))}
         </div>
       )}
-      {!compact && <p className="mt-1.5 text-[11px] text-gray-400">元の画像には書き込みません。書いた内容は別に保存され、いつでも消せます。</p>}
+      {!compact && <p className="mt-1.5 text-[11px] text-gray-400">元の画像には書き込みません。書いた内容・回転は別に保存され、いつでも消せます。PDF は1ページ1枚の画像として入ります。</p>}
 
       {/* どの請求で届いたぶんかを選ぶ（アップロード時） */}
       <Modal isOpen={!!askRequest} onClose={() => setAskRequest(null)} title="どの請求で届いた戸籍ですか" maxWidth="max-w-sm"
@@ -292,9 +320,15 @@ export default function KosekiImagePanel({ caseId, targetPerson, requests = [], 
 
       {/* 拡大表示 */}
       <Modal isOpen={!!preview} onClose={() => setPreview(null)} title={preview?.file_name ?? '戸籍の画像'} maxWidth="max-w-5xl"
-        footer={<><Button variant="secondary" onClick={() => setPreview(null)}>閉じる</Button>
+        footer={<>
+          {/* 回転はその場で保存（スキャンの向き直しは書き込みとは別の作業） */}
+          <button type="button" onClick={() => { if (preview) void rotateRow(preview, -90) }} title="左に90°回して保存"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[12px] font-semibold border border-gray-200 bg-white text-gray-600 hover:border-brand-300"><RotateCcw className="w-3.5 h-3.5" />左90°</button>
+          <button type="button" onClick={() => { if (preview) void rotateRow(preview, 90) }} title="右に90°回して保存"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[12px] font-semibold border border-gray-200 bg-white text-gray-600 hover:border-brand-300 mr-auto"><RotateCw className="w-3.5 h-3.5" />右90°</button>
+          <Button variant="secondary" onClick={() => setPreview(null)}>閉じる</Button>
           <Button variant="primary" onClick={() => { const p = preview; setPreview(null); if (p) setEditing(p) }}>書き込む</Button></>}>
-        {preview && <AnnotatedImage url={urls[preview.id]} annos={preview.annotations ?? []} />}
+        {preview && <AnnotatedImage url={urls[preview.id]} annos={preview.annotations ?? []} rotation={preview.rotation ?? 0} />}
       </Modal>
 
       {editing && (
@@ -303,9 +337,10 @@ export default function KosekiImagePanel({ caseId, targetPerson, requests = [], 
           onClose={() => setEditing(null)}
           imageUrl={urls[editing.id] ?? ''}
           initial={editing.annotations ?? []}
+          initialRotation={editing.rotation ?? 0}
           title={`${editing.target_person ? `${editing.target_person}の戸籍 — ` : ''}${editing.file_name ?? '画像'}`}
           targetPerson={editing.target_person ?? requests.find(r => r.id === editing.koseki_request_id)?.target_person ?? null}
-          onSave={annos => saveAnnotations(editing, annos)}
+          onSave={(annos, rotation) => saveAnnotations(editing, annos, rotation)}
         />
       )}
     </div>
@@ -329,7 +364,7 @@ function Thumb({ row, url, className, onOpen, onEdit, onDelete, onDownload, onMo
       {highlight && <span className="absolute left-1 top-1 z-10 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-400 text-amber-950">見る</span>}
       <button type="button" onClick={onOpen} className="block w-full h-full">
         {url
-          ? <AnnotatedImage url={url} annos={row.annotations ?? []} className="w-full object-cover" />
+          ? <AnnotatedImage url={url} annos={row.annotations ?? []} rotation={row.rotation ?? 0} className="w-full object-cover" />
           : <span className="flex items-center justify-center h-full text-[11px] text-gray-300">読み込み中</span>}
       </button>
       {hasAnno && <span className="absolute right-1 top-1 w-2 h-2 rounded-sm bg-amber-500" title="書き込みあり" />}

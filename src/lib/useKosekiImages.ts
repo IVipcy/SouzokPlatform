@@ -19,6 +19,8 @@ export type KosekiImageRow = {
   image_bucket: string
   file_name: string | null
   annotations: Anno[] | null
+  /** 表示の回転（0/90/180/270。migration 288）。書き込みは回した後の向きの座標 */
+  rotation?: number | null
   sort_order: number
 }
 

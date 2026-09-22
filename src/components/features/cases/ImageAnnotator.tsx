@@ -19,20 +19,20 @@
 // 打ち込みやすさのため HTML の入力欄を重ねて出し、確定したら canvas 側で描く。
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Undo2, Trash2, Type, X, Move, Plus, Square } from 'lucide-react'
+import { Undo2, Trash2, Type, X, Move, Plus, Square, RotateCcw, RotateCw } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import {
   MARKER_COLORS, MARKER_BLUE_NOTE, MARKER_WIDTH, TEXT_BOX_W, TEXT_FONT, TEXT_COLOR,
   TEXT_BOX_MIN_W, TEXT_DEFAULT, TEXT_TARGET_LINE, fontOf, fontForWidth,
-  RECT_COLOR, RECT_MIN, RECT_USE,
-  drawAnnotations, textBoxHeight, textFontPx, getMeasureCtx, newId,
-  type Anno, type PenAnno, type TextAnno, type RectAnno,
+  RECT_MIN, RECT_KINDS, rectDef,
+  drawAnnotations, drawImageRotated, rotatedSize, rotateAnnos, textBoxHeight, textFontPx, getMeasureCtx, newId,
+  type Anno, type PenAnno, type TextAnno, type RectAnno, type RectKind,
   TEXT_PRESETS, textForPreset, textBoxWidthForPreset, type TextPreset,
 } from '@/lib/imageAnnotations'
 
-// 道具。赤枠は「次に請求する箇所」を囲む専用（色は選ばせない。意味を1つに固定する）
-type Tool = { kind: 'marker'; color: string } | { kind: 'rect' } | { kind: 'text'; preset: TextPreset } | { kind: 'erase' }
+// 道具。枠は2種（次の請求先＝赤／現在住所＝青）。色は選ばせない（意味と色を固定する）
+type Tool = { kind: 'marker'; color: string } | { kind: 'rect'; rectKind: RectKind } | { kind: 'text'; preset: TextPreset } | { kind: 'erase' }
 
 function ToolBtn({ on, onClick, children, label }: { on: boolean; onClick: () => void; children: React.ReactNode; label: string }) {
   return (
@@ -51,17 +51,20 @@ function ColorDot({ css, on, onClick, label }: { css: string; on: boolean; onCli
   )
 }
 
-export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onSave, title, targetPerson = null }: {
+export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, initialRotation = 0, onSave, title, targetPerson = null }: {
   isOpen: boolean
   /** この画像の対象者。テキスト枠の「田玉正二・住」などに入る */
   targetPerson?: string | null
   onClose: () => void
   imageUrl: string
   initial: Anno[]
-  onSave: (annos: Anno[]) => Promise<void> | void
+  /** 表示の回転（0/90/180/270）。左右90°のボタンで変えて、保存で一緒に返す */
+  initialRotation?: number
+  onSave: (annos: Anno[], rotation: number) => Promise<void> | void
   title?: string
 }) {
   const [annos, setAnnos] = useState<Anno[]>(initial)
+  const [rotation, setRotation] = useState(initialRotation)
   const [history, setHistory] = useState<Anno[][]>([])
   const [tool, setTool] = useState<Tool>({ kind: 'marker', color: MARKER_COLORS[0].css })
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -89,12 +92,22 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
       if (!alive) return
       imgRef.current = img
       const maxW = wrapRef.current?.clientWidth ?? 800
-      const w = Math.min(maxW, img.naturalWidth)
-      setSize({ w, h: Math.round((img.naturalHeight / img.naturalWidth) * w) })
+      const nat = rotatedSize(img.naturalWidth, img.naturalHeight, rotation)
+      const w = Math.min(maxW, nat.w)
+      setSize({ w, h: Math.round((nat.h / nat.w) * w) })
     }
     img.src = imageUrl
     return () => { alive = false }
-  }, [isOpen, imageUrl])
+  }, [isOpen, imageUrl, rotation])
+
+  // 左右90°。画像だけでなく書き込みも一緒に回す（座標は表示の向きで持っている）
+  const rotate = (dir: 90 | -90) => {
+    if (size.w === 0) return
+    setHistory(h => [...h.slice(-29), annos])
+    setAnnos(prev => rotateAnnos(prev, dir, size.w / size.h))
+    setRotation(r => (((r + dir) % 360) + 360) % 360)
+    setSelectedId(null); setEditingId(null)
+  }
 
   const redraw = useCallback(() => {
     const cv = canvasRef.current
@@ -109,11 +122,11 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
     if (!ctx) return
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, size.w, size.h)
-    ctx.drawImage(img, 0, 0, size.w, size.h)
+    drawImageRotated(ctx, img, rotation, size.w, size.h)
     const live: Anno[] = [...annos, ...(drawingRef.current ? [drawingRef.current] : []), ...(rectDraftRef.current ? [rectDraftRef.current.rect] : [])]
     // 編集中のテキストは HTML 側で出すので canvas では描かない
     drawAnnotations(ctx, live, size.w, size.h, { skipTextIds: editingId ? new Set([editingId]) : undefined })
-  }, [annos, size, editingId])
+  }, [annos, size, editingId, rotation])
 
   useEffect(() => { redraw() }, [redraw])
 
@@ -169,7 +182,8 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
     setSelectedId(null)
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     if (tool.kind === 'rect') {
-      rectDraftRef.current = { x0: p.x, y0: p.y, rect: { id: newId(), type: 'rect', color: RECT_COLOR, x: p.x, y: p.y, w: 0, h: 0 } }
+      const def = RECT_KINDS.find(k => k.key === tool.rectKind) ?? RECT_KINDS[0]
+      rectDraftRef.current = { x0: p.x, y0: p.y, rect: { id: newId(), type: 'rect', color: def.color, kind: def.key, x: p.x, y: p.y, w: 0, h: 0 } }
       return
     }
     drawingRef.current = {
@@ -221,6 +235,13 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
     setHistory(h => [...h.slice(-29), annos])
     patchText(id, patch)
   }
+  /** 枠の種類を切り替える（色も種類の色に揃える） */
+  const editRectKind = (id: string, kind: RectKind) => {
+    setHistory(h => [...h.slice(-29), annos])
+    const def = RECT_KINDS.find(k => k.key === kind) ?? RECT_KINDS[0]
+    setAnnos(prev => prev.map(a => (a.id === id && a.type === 'rect' ? { ...a, kind, color: def.color } : a)))
+  }
+  const rectKindOfRect = (a: RectAnno): RectKind => a.kind ?? 'next'
   /** 「対象者（　）：…」の行を1行足す。人数ぶん並べたいときに使う */
   const addTargetLine = (a: TextAnno) =>
     editText(a.id, { text: `${a.text}${a.text.endsWith('\n') ? '' : '\n'}${TEXT_TARGET_LINE}` })
@@ -278,7 +299,7 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
     setSaving(true)
     // 中身が空のテキスト箱は捨てる（誤クリックで箱だけ残るのを防ぐ）
     const cleaned = annos.filter(a => a.type !== 'text' || (a.text ?? '').trim() !== '')
-    await onSave(cleaned)
+    await onSave(cleaned, rotation)
     setSaving(false)
     onClose()
   }
@@ -302,10 +323,17 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
                 onClick={() => setTool({ kind: 'marker', color: c.css })} />
             ))}
             <span className="w-px h-5 bg-gray-200" />
-            <button type="button" onClick={() => setTool({ kind: 'rect' })} title={`赤枠：${RECT_USE}`}
-              className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[12px] font-semibold border transition ${tool.kind === 'rect' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-red-600 border-red-200 hover:border-red-400'}`}>
-              <Square className="w-3.5 h-3.5" strokeWidth={2.5} />赤枠
-            </button>
+            {/* 枠は2種。押した種類の色で囲み、枠の上にその文言が出る */}
+            {RECT_KINDS.map(k => {
+              const on = tool.kind === 'rect' && tool.rectKind === k.key
+              return (
+                <button key={k.key} type="button" onClick={() => setTool({ kind: 'rect', rectKind: k.key })} title={`${k.label}：${k.use}`}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[12px] font-semibold border transition"
+                  style={on ? { background: k.color, borderColor: k.color, color: '#fff' } : { background: '#fff', borderColor: `${k.color}66`, color: k.color }}>
+                  <Square className="w-3.5 h-3.5" strokeWidth={2.5} />{k.label}
+                </button>
+              )
+            })}
             {/* テキスト枠は3種類（住民票・附票／現在戸籍／一連戸籍）。中身は対象者名入りで最初から決まっている */}
             {TEXT_PRESETS.map(tp => (
               <ToolBtn key={tp.key} on={tool.kind === 'text' && tool.preset === tp.key} onClick={() => setTool({ kind: 'text', preset: tp.key })} label={tp.use}><Type className="w-3.5 h-3.5" />{tp.label}</ToolBtn>
@@ -314,6 +342,16 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
             <button type="button" onClick={undo} disabled={history.length === 0}
               className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[12px] font-semibold border border-gray-200 bg-white text-gray-600 hover:border-brand-300 disabled:opacity-40">
               <Undo2 className="w-3.5 h-3.5" />戻す
+            </button>
+            <span className="w-px h-5 bg-gray-200" />
+            {/* 回転。スキャンが横向き・逆さのときに直す。保存で向きも一緒に保存される */}
+            <button type="button" onClick={() => rotate(-90)} title="左に90°回す（保存で向きも保存）"
+              className="inline-flex items-center gap-1 px-2 py-1.5 rounded-md text-[12px] font-semibold border border-gray-200 bg-white text-gray-600 hover:border-brand-300">
+              <RotateCcw className="w-3.5 h-3.5" />左90°
+            </button>
+            <button type="button" onClick={() => rotate(90)} title="右に90°回す（保存で向きも保存）"
+              className="inline-flex items-center gap-1 px-2 py-1.5 rounded-md text-[12px] font-semibold border border-gray-200 bg-white text-gray-600 hover:border-brand-300">
+              <RotateCw className="w-3.5 h-3.5" />右90°
             </button>
             <span className="ml-auto text-[11px] text-gray-400">
               {tool.kind === 'text' ? 'クリックで枠を置く。置いたあとは ドラッグで移動／右下の■で大きさ／○で引き出し線'
@@ -332,11 +370,13 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
                 {c.key === 'blue' && <span className="text-gray-400">（{MARKER_BLUE_NOTE}）</span>}
               </span>
             ))}
-            <span className="inline-flex items-center gap-1">
-              <span className="w-3 h-3 rounded-sm border-2" style={{ borderColor: RECT_COLOR }} />
-              <span className="font-semibold text-gray-700">赤枠</span>
-              <span>{RECT_USE}</span>
-            </span>
+            {RECT_KINDS.map(k => (
+              <span key={k.key} className="inline-flex items-center gap-1">
+                <span className="w-3 h-3 rounded-sm border-2" style={{ borderColor: k.color }} />
+                <span className="font-semibold text-gray-700">{k.label}</span>
+                <span>{k.use}</span>
+              </span>
+            ))}
           </div>
         </div>
 
@@ -361,13 +401,13 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
               return (
                 <div key={a.id} className="absolute" style={{ left, top, width: w, height: h }}>
                   <div
-                    className={`absolute inset-0 ${tool.kind === 'erase' ? 'cursor-pointer' : 'cursor-move'} ${isSelected ? 'ring-2 ring-red-500/60' : ''}`}
-                    style={{ touchAction: 'none' }}
+                    className={`absolute inset-0 ${tool.kind === 'erase' ? 'cursor-pointer' : 'cursor-move'}`}
+                    style={{ touchAction: 'none', boxShadow: isSelected ? `0 0 0 2px ${rectDef(a).color}99` : undefined }}
                     onPointerDown={e => { if (tool.kind === 'erase') return; startDrag(e, a, 'move') }}
                     onPointerMove={moveDrag}
                     onPointerUp={endDrag}
                     onPointerCancel={endDrag}
-                    title={`赤枠：${RECT_USE}。ドラッグで移動`}
+                    title={`${rectDef(a).label}：${rectDef(a).use}。ドラッグで移動`}
                   />
                   {isSelected && (
                     <>
@@ -378,15 +418,20 @@ export default function ImageAnnotator({ isOpen, onClose, imageUrl, initial, onS
                         onPointerDown={e => e.stopPropagation()}
                       >
                         <Move className="w-3 h-3 text-gray-300" />
-                        <span className="px-1 text-[11px] text-red-600 font-semibold whitespace-nowrap">次に請求する箇所</span>
+                        {/* 種類はここで切り替えられる（置いてから「現在住所だった」と気づいたとき用） */}
+                        {RECT_KINDS.map(k => (
+                          <button key={k.key} type="button" onClick={() => editRectKind(a.id, k.key)}
+                            className="px-1 text-[11px] font-semibold whitespace-nowrap rounded"
+                            style={rectKindOfRect(a) === k.key ? { color: '#fff', background: k.color } : { color: k.color }}>{k.label}</button>
+                        ))}
                         <span className="w-px h-3.5 bg-gray-200 mx-0.5" />
-                        <button type="button" title="この赤枠を削除"
+                        <button type="button" title="この枠を削除"
                           onClick={() => { push(annos.filter(x => x.id !== a.id)); setSelectedId(null) }}
                           className="px-1 text-gray-400 hover:text-red-500"><X className="w-3 h-3" /></button>
                       </div>
                       <div
                         className="absolute w-3 h-3 bg-white border-2 rounded-sm cursor-nwse-resize"
-                        style={{ borderColor: a.color, left: w - 6, top: h - 6, touchAction: 'none', zIndex: 5 }}
+                        style={{ borderColor: rectDef(a).color, left: w - 6, top: h - 6, touchAction: 'none', zIndex: 5 }}
                         title="ドラッグで大きさを変える"
                         onPointerDown={e => startDrag(e, a, 'resize')}
                         onPointerMove={moveDrag}

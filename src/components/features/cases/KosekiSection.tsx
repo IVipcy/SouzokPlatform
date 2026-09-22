@@ -160,7 +160,7 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
       for (const r of [...mine].sort((a, b) => rank(a) - rank(b))) {
         out.push({
           id: r.id, person, requestLabel: reqLabelOf(r.koseki_request_id),
-          url: kosekiImageUrls[r.id], annos: r.annotations ?? [], fileName: r.file_name,
+          url: kosekiImageUrls[r.id], annos: r.annotations ?? [], rotation: r.rotation ?? 0, fileName: r.file_name,
         })
       }
     }
@@ -169,11 +169,11 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
     return out
   })()
   const editImage = editImageId ? kosekiImages.find(r => r.id === editImageId) ?? null : null
-  const saveImageAnnotations = async (id: string, annos: Anno[]) => {
+  const saveImageAnnotations = async (id: string, annos: Anno[], rotation: number) => {
     const { error } = await supabase.from('koseki_images')
-      .update({ annotations: annos, updated_at: new Date().toISOString() }).eq('id', id)
+      .update({ annotations: annos, rotation, updated_at: new Date().toISOString() }).eq('id', id)
     if (error) { showToast(`保存に失敗: ${error.message}`, 'error'); return }
-    setKosekiImages(prev => prev.map(r => (r.id === id ? { ...r, annotations: annos } : r)))
+    setKosekiImages(prev => prev.map(r => (r.id === id ? { ...r, annotations: annos, rotation } : r)))
     showToast('書き込みを保存しました', 'success')
   }
   const memberId = useCurrentMember(null)
@@ -844,9 +844,10 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
           onClose={() => setEditImageId(null)}
           imageUrl={kosekiImageUrls[editImage.id] ?? ''}
           initial={editImage.annotations ?? []}
+          initialRotation={editImage.rotation ?? 0}
           title={`${editImage.target_person ? `${editImage.target_person}の戸籍 — ` : ''}${editImage.file_name ?? '画像'}`}
           targetPerson={editImage.target_person ?? requests.find(r => r.id === editImage.koseki_request_id)?.target_person ?? null}
-          onSave={annos => saveImageAnnotations(editImage.id, annos)}
+          onSave={(annos, rotation) => saveImageAnnotations(editImage.id, annos, rotation)}
         />
       )}
     </div>

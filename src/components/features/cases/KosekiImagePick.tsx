@@ -82,7 +82,7 @@ export function KosekiImagePicker({ caseId, selected, onChange, defaultRequestId
           return (
             <button key={r.id} type="button" onClick={() => toggle(r.id)} title={captionOf(r, reqs)}
               className={`relative aspect-[3/4] rounded border overflow-hidden bg-gray-50 text-left ${on ? 'border-brand-500 ring-2 ring-brand-300' : 'border-gray-200 opacity-70 hover:opacity-100'}`}>
-              {urls[r.id] ? <AnnotatedImage url={urls[r.id]} annos={r.annotations ?? []} className="w-full h-full object-cover" /> : <span className="block w-full h-full" />}
+              {urls[r.id] ? <AnnotatedImage url={urls[r.id]} annos={r.annotations ?? []} rotation={r.rotation ?? 0} className="w-full h-full object-cover" /> : <span className="block w-full h-full" />}
               <span className={`absolute left-1 top-1 w-4 h-4 rounded-sm text-[10px] leading-4 text-center font-bold ${on ? 'bg-brand-600 text-white' : 'bg-white/90 border border-gray-300 text-transparent'}`}>✓</span>
               <span className="absolute inset-x-0 bottom-0 px-1 py-0.5 bg-white/90 text-[9.5px] text-gray-600 truncate">{r.target_person || '—'}</span>
             </button>
@@ -111,7 +111,7 @@ export function TaskRefImages({ task, caseId, fromLabel }: {
   const mine = ids.map(id => rows.find(r => r.id === id)).filter((r): r is KosekiImageRow => !!r)
   const viewerImages: ViewerImage[] = mine.map(r => {
     const rq = r.koseki_request_id ? reqs.find(x => x.id === r.koseki_request_id) : undefined
-    return { id: r.id, person: r.target_person ?? '', requestLabel: rq ? kosekiRequestLabel(rq) : null, url: urls[r.id], annos: r.annotations ?? [], fileName: r.file_name }
+    return { id: r.id, person: r.target_person ?? '', requestLabel: rq ? kosekiRequestLabel(rq) : null, url: urls[r.id], annos: r.annotations ?? [], rotation: r.rotation ?? 0, fileName: r.file_name }
   })
 
   const save = async (next: string[]) => {
@@ -143,7 +143,7 @@ export function TaskRefImages({ task, caseId, fromLabel }: {
             <div key={r.id} className="relative group w-[76px]">
               <button type="button" onClick={() => setViewerId(r.id)} title={captionOf(r, reqs)}
                 className="block w-[76px] h-[100px] rounded border border-gray-300 overflow-hidden bg-gray-50 hover:border-brand-500">
-                {urls[r.id] ? <AnnotatedImage url={urls[r.id]} annos={r.annotations ?? []} className="w-full h-full object-cover" /> : <span className="block w-full h-full" />}
+                {urls[r.id] ? <AnnotatedImage url={urls[r.id]} annos={r.annotations ?? []} rotation={r.rotation ?? 0} className="w-full h-full object-cover" /> : <span className="block w-full h-full" />}
               </button>
               <span className="block mt-0.5 text-[10px] text-gray-500 truncate" title={captionOf(r, reqs)}>{captionOf(r, reqs)}</span>
               <button type="button" title="このタスクから外す（画像は消えません）" onClick={() => void save(ids.filter(x => x !== r.id))}
