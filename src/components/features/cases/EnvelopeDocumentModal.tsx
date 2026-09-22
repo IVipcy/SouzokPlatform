@@ -10,6 +10,7 @@ import { User } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import { showToast } from '@/components/ui/Toast'
 import { ENVELOPE_VARIANTS } from '@/lib/envelopeVariants'
+import { joinAddressLines } from '@/lib/address'
 import type { CaseRow, TaskRow, HeirRow } from '@/types'
 
 type Props = {
@@ -43,7 +44,7 @@ export default function EnvelopeDocumentModal({ isOpen, onClose, caseData, defau
     const out: RecipientOption[] = []
     for (const h of heirs) {
       out.push({
-        id: h.id, name: h.name, address: h.address ?? null,
+        id: h.id, name: h.name, address: joinAddressLines(h.address, h.address2) || null,
         postal_code: h.is_applicant ? (caseData.clients?.postal_code ?? null) : null,
         isApplicant: h.is_applicant, isFallback: false,
       })
@@ -53,7 +54,7 @@ export default function EnvelopeDocumentModal({ isOpen, onClose, caseData, defau
       out.push({
         id: 'client',
         name: caseData.clients?.name || '（依頼者）',
-        address: caseData.clients?.address ?? null,
+        address: joinAddressLines(caseData.clients?.address, caseData.clients?.address2) || null,
         postal_code: caseData.clients?.postal_code ?? null,
         isApplicant: true, isFallback: true,
       })

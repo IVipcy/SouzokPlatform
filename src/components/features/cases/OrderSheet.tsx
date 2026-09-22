@@ -22,6 +22,7 @@ import { WorkContentField, workContentPlaceholder } from './WorkContentField'
 import HintNote from '@/components/ui/HintNote'
 import OrderSheetGuided from './OrderSheetGuided'
 import MeetingMemoViewer, { type MemoLite } from './MeetingMemoViewer'
+import MailingAddressList from './MailingAddressList'
 import { NestedSectionContext } from '@/components/ui/InlineFields'
 import BackToTopButton from '@/components/ui/BackToTopButton'
 import { PROCEDURE_TABS } from './practiceTabs'
@@ -182,6 +183,8 @@ export default function OrderSheet({
     { title: '依頼者情報', gate: 'clientInfo', node: <ClientInfoTab caseData={caseData} clientCommunications={clientCommunications} patchCase={patchCase} patchClient={patchClient} onRefresh={onRefresh} orderSheetMode caseClients={caseClients} /> },
     { title: '受注内容', workContentKey: 'order', node: <OrderContentTab caseData={caseData} patchCase={patchCase} orderSheetMode hideOrderMemo={guided} /> },
     { title: '相続人調査', gate: 'deceased', node: <DeceasedTab caseData={caseData} heirs={heirs} kosekiRequests={kosekiRequests} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} caseClients={caseClients} /> },
+    // 郵送先情報一覧はどの受注区分でも出す（gate なし）。相続人一覧の住所をここで直す（別の表は持たない）
+    { title: '郵送先情報一覧', node: <MailingAddressList caseData={caseData} heirs={heirs} patchClient={patchClient} onRefresh={onRefresh} /> },
     // 財産調査は「不動産 → 金融資産 → その他財産 → 相続債務 → その他費用」の順に並べる。
     // 合計だけのページは作らない（1枚使うほどの中身が無いため）。最初の財産ページの先頭に1つ置く。
     // その他財産・相続債務・その他費用は金融資産ではないので、金融ブロックから出して別に置く。
