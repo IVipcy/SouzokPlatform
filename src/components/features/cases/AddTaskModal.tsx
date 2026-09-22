@@ -23,11 +23,17 @@ type Props = {
   defaultPhase?: string
   /** 「候補から選択」タブの中身。渡すとタブが出る（案件詳細から開いたときだけ）。 */
   candidates?: React.ReactNode
+  /** 開いたときの初期値（案件報告の「ネクストアクションの追加」など）。開くたびに入れ直す */
+  initial?: Partial<NewTaskValue>
 }
 
-export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, defaultPhase, candidates }: Props) {
+export default function AddTaskModal({ isOpen, onClose, caseId, onSaved, defaultPhase, candidates, initial }: Props) {
   const currentMemberId = useCurrentMember(null)
   const [form, setForm] = useState<NewTaskValue>(emptyNewTask)
+  // 開いた瞬間に初期値を入れる（閉じている間は入れない）。effect ではなく描画中の同期で行う
+  const [openedWith, setOpenedWith] = useState<Partial<NewTaskValue> | null>(null)
+  if (isOpen && initial && openedWith !== initial) { setOpenedWith(initial); setForm({ ...emptyNewTask(), ...initial }) }
+  if (!isOpen && openedWith) setOpenedWith(null)
   // 実務タブのどこの作業か。入れておくとタスクからその場所へ直接飛べる（任意）
   const [target, setTarget] = useState<TaskTarget>(emptyTarget)
   // 候補を渡されたときだけ2タブ。左＝新規作成／右＝候補から選択。

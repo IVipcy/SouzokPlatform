@@ -6,16 +6,10 @@ import { useRouter } from 'next/navigation'
 import { Send, Loader2, ClipboardCheck, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { PROGRESS_REPORT_PHASES, PROGRESS_REPORT_STATES, PROGRESS_REPORT_STATE_URGENT } from '@/lib/constants'
+import { isUrgentReportState } from '@/lib/constants'
+import ProgressReportComposeFields, { emptyProgressReportDraft, type ProgressReportDraft } from '@/components/features/cases/ProgressReportComposeFields'
+import type { MemberRow } from '@/types'
 
-// 案件詳細の報告モーダルと同じ配色。状態は受注担当が最初に見るところなので揃える。
-const STATE_CHIP: Record<string, string> = {
-  '問題なし順調に進行中': 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  '確認事項あり': 'bg-blue-50 text-blue-700 border-blue-200',
-  '困りごとありHELP': 'bg-amber-50 text-amber-700 border-amber-200',
-  '至急！！': 'bg-red-100 text-red-700 border-red-300',
-}
-const stateChip = (s: string) => STATE_CHIP[s] ?? 'bg-gray-50 text-gray-500 border-gray-200'
 
 export type ManagerProgressRow = {
   case_id: string
@@ -58,12 +52,12 @@ export default function ProgressReportManagerTab({ rows, currentMemberId }: Prop
   const router = useRouter()
   const [filter, setFilter] = useState<'all' | '未対応' | '依頼中' | '確認済'>('未対応')
   const [busy, setBusy] = useState<string | null>(null)
-  // モーダル: どの案件を報告するか / その場で確認ポイント入力
+  // モーダル: どの案件を報告するか。中身は案件詳細の報告ウィンドウと同じ部品
   const [modalRow, setModalRow] = useState<ManagerProgressRow | null>(null)
-  const [modalPoint, setModalPoint] = useState('')
-  // 案件詳細の報告モーダルと同じ項目（フェーズ・状態）を持たせる
-  const [modalPhase, setModalPhase] = useState('')
-  const [modalState, setModalState] = useState<string>(PROGRESS_REPORT_STATES[0])
+  const [draft, setDraft] = useState<ProgressReportDraft>(() => emptyProgressReportDraft(currentMemberId))
+  const patchDraft = (p: Partial<ProgressReportDraft>) => setDraft(prev => ({ ...prev, ...p }))
+  // 案件の現状（最終連絡日・完了予定日）とメンバー一覧は開いたときに読む
+  const [snap, setSnap] = useState<{ lastContact: string | null; expected: string | null; members: MemberRow[] }>({ lastContact: null, expected: null, members: [] })
 
   const counts = {
     未対応: rows.filter(r => r.status === '未対応').length,
@@ -73,10 +67,19 @@ export default function ProgressReportManagerTab({ rows, currentMemberId }: Prop
   const filtered = filter === 'all' ? rows : rows.filter(r => r.status === filter)
 
   const openReportModal = (row: ManagerProgressRow) => {
-    setModalPoint('')
-    setModalPhase('')
-    setModalState(PROGRESS_REPORT_STATES[0])
+    setDraft(emptyProgressReportDraft(currentMemberId))
+    setSnap({ lastContact: null, expected: null, members: [] })
     setModalRow(row)
+    ;(async () => {
+      const supabase = createClient()
+      const [cs, cc, mem] = await Promise.all([
+        supabase.from('cases').select('expected_completion_date').eq('id', row.case_id).maybeSingle(),
+        supabase.from('client_communications').select('communicated_at').eq('case_id', row.case_id).order('communicated_at', { ascending: false }).limit(1),
+        supabase.from('members').select('*').eq('is_active', true).order('name'),
+      ])
+      const last = ((cc.data ?? []) as Array<{ communicated_at: string | null }>)[0]?.communicated_at ?? null
+      setSnap({ lastContact: last ? last.slice(0, 10) : null, expected: (cs.data as { expected_completion_date: string | null } | null)?.expected_completion_date ?? null, members: (mem.data ?? []) as MemberRow[] })
+    })()
   }
 
   const submitReport = async () => {
@@ -91,34 +94,39 @@ export default function ProgressReportManagerTab({ rows, currentMemberId }: Prop
         confirmer_id: null,
         status: '依頼中',
         requested_date: today,
-        review_point: modalPoint.trim() || null,
+        review_point: draft.point.trim() || null,
         kind: 'progress_check',
-        phase: modalPhase || null,
-        report_state: modalState,
+        phase: draft.phase || null,
+        report_state: draft.state,
+        last_contact_date: snap.lastContact,
+        expected_completion_date: snap.expected,
+        next_action: draft.nextAction.trim() || null,
+        next_action_assignee_id: draft.nextAssigneeId || null,
+        next_action_due: draft.nextDue || null,
       })
-      // kind/phase/report_state 列が無い環境向けフォールバック（案件詳細側と同じ）
-      if (error && /kind|phase|report_state/i.test(error.message ?? '')) {
+      // 新しい列が無い環境向けフォールバック（案件詳細側と同じ）
+      if (error && /kind|phase|report_state|next_action|last_contact|expected_completion/i.test(error.message ?? '')) {
         const retry = await supabase.from('progress_reports').insert({
           case_id: modalRow.case_id,
           requester_id: currentMemberId,
           confirmer_id: null,
           status: '依頼中',
           requested_date: today,
-          review_point: modalPoint.trim() || null,
+          review_point: draft.point.trim() || null,
         })
         error = retry.error
       }
       if (error) throw error
       // 受注担当へ通知（案件詳細から送ったときと同じ本文にする）
       if (modalRow.sales_member_id) {
-        const urgent = modalState === PROGRESS_REPORT_STATE_URGENT
-        const meta = [modalPhase, modalState].filter(Boolean).join('・')
+        const urgent = isUrgentReportState(draft.state)
+        const meta = [draft.phase, draft.state].filter(Boolean).join('・')
         await supabase.from('notifications').insert({
           member_id: modalRow.sales_member_id,
           type: 'progress_review_requested',
           case_id: modalRow.case_id,
           title: `${urgent ? '【至急】' : ''}案件報告が届きました`,
-          body: `${modalRow.case_number} ${modalRow.deal_name}：${meta ? `[${meta}] ` : ''}${modalPoint.trim() || '案件報告をお願いします'}`,
+          body: `${modalRow.case_number} ${modalRow.deal_name}：${meta ? `[${meta}] ` : ''}${draft.point.trim() || '案件報告をお願いします'}`,
         })
       }
       showToast('案件報告を送信しました', 'success')
@@ -215,7 +223,7 @@ export default function ProgressReportManagerTab({ rows, currentMemberId }: Prop
       {/* 案件報告モーダル: 「報告する」押下で開く。確認ポイント任意入力→送信で progress_reports insert */}
       {modalRow && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => !busy && setModalRow(null)}>
-          <div className="bg-white rounded-xl shadow-xl w-[520px] max-w-[92vw]" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-xl shadow-xl w-[520px] max-w-[92vw] max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-3 border-b border-gray-200 flex items-center gap-2">
               <ClipboardCheck className="w-4 h-4 text-brand-600" strokeWidth={2.25} />
               <h4 className="text-[14px] font-bold text-brand-900 flex-1">案件報告</h4>
@@ -223,7 +231,7 @@ export default function ProgressReportManagerTab({ rows, currentMemberId }: Prop
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="px-5 py-4 space-y-3">
+            <div className="px-5 py-4 space-y-3 overflow-y-auto">
               <div className="text-[12px] text-gray-500">
                 <span className="font-mono text-gray-400">{modalRow.case_number}</span>
                 <span className="ml-2 font-semibold text-gray-800">{modalRow.deal_name}</span>
@@ -234,47 +242,7 @@ export default function ProgressReportManagerTab({ rows, currentMemberId }: Prop
                   {modalRow.sales_name || '受注担当 未設定'}
                 </span>
               </div>
-              <div>
-                <label className="block text-[12px] font-semibold text-gray-700 mb-1">フェーズ</label>
-                <select
-                  value={modalPhase}
-                  onChange={e => setModalPhase(e.target.value)}
-                  className="w-full text-[13px] border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand-400"
-                >
-                  <option value="">フェーズを選択</option>
-                  {PROGRESS_REPORT_PHASES.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[12px] font-semibold text-gray-700 mb-1">状態</label>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {PROGRESS_REPORT_STATES.map(st => {
-                    const on = modalState === st
-                    return (
-                      <button
-                        key={st}
-                        type="button"
-                        onClick={() => setModalState(st)}
-                        className={`px-2 py-2 rounded-lg text-[12px] font-semibold border-[1.5px] transition-colors ${on ? stateChip(st) + ' ring-2 ring-offset-1 ' + (st === PROGRESS_REPORT_STATE_URGENT ? 'ring-red-300' : 'ring-brand-200') : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
-                      >
-                        {st}
-                      </button>
-                    )
-                  })}
-                </div>
-                {modalState === PROGRESS_REPORT_STATE_URGENT && (
-                  <p className="mt-1 text-[11px] text-red-600">受注担当の要注意バナーに出ます。すぐ見てほしいときだけ選んでください。</p>
-                )}
-              </div>
-              <label className="block">
-                <span className="block text-[12px] font-semibold text-gray-700 mb-1">確認ポイント（任意）</span>
-                <textarea
-                  value={modalPoint}
-                  onChange={e => setModalPoint(e.target.value)}
-                  placeholder="受注担当に見てほしいポイントを記入（任意）"
-                  className="w-full border border-gray-200 rounded-md px-2.5 py-2 text-[13px] focus:outline-none focus:border-brand-400 min-h-[96px]"
-                />
-              </label>
+              <ProgressReportComposeFields value={draft} onChange={patchDraft} lastContactDate={snap.lastContact} expectedCompletionDate={snap.expected} allMembers={snap.members} currentMemberId={currentMemberId} />
               <p className="text-[11px] text-gray-400">送信後、受注担当が案件詳細画面で内容を確認します。確認はチームの誰でも押せます。</p>
             </div>
             <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2">

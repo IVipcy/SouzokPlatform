@@ -10,6 +10,8 @@ import Button from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { CASE_REPORT_STATUS_LABEL, caseReportSeverity, caseReportOverdueDays } from '@/lib/caseReports'
+import { reportStateLabel, reportStateChip } from '@/lib/constants'
+import ProgressReportConfirmBody from './ProgressReportConfirmBody'
 import { useCurrentMember } from '@/lib/useCurrentMember'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { koteiOf, koteiRank, koteiLabel, KOTEI_ORDER, KOTEI_GYOMU, KOTEI_COLOR } from '@/lib/kotei'
@@ -31,14 +33,8 @@ const KIND_CHIP: Record<ProgressReportKind, string> = {
   case_reopen: 'bg-purple-100 text-purple-700 border-purple-300',
   delivery_confirm: 'bg-emerald-100 text-emerald-700 border-emerald-300',
 }
-// 案件報告の状態バッジ配色（緑=順調／青=確認事項／琥珀=HELP／赤=至急）
-const STATE_CHIP: Record<string, string> = {
-  '問題なし順調に進行中': 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  '確認事項あり': 'bg-blue-50 text-blue-700 border-blue-200',
-  '困りごとありHELP': 'bg-amber-50 text-amber-700 border-amber-200',
-  '至急！！': 'bg-red-100 text-red-700 border-red-300',
-}
-const stateChip = (s: string | null | undefined) => (s && STATE_CHIP[s]) || 'bg-gray-50 text-gray-500 border-gray-200'
+// 案件報告の状態バッジ配色は lib/constants（reportStateChip。旧名も読み替える）
+const stateChip = reportStateChip
 
 // 進捗メモの業務区分（保存値 or タスクのphaseで補完。"PhaseN:"接頭辞除去）
 const noteGyomu = (n: CaseActivityRow): string => (n.gyomu ?? n.tasks?.phase ?? '').replace(/^Phase\d+[:：]\s*/, '').trim()
@@ -71,7 +67,7 @@ type Props = {
  * 進捗報告と進捗メモを縦に並べて両方表示する（旧・内部タブ分けは解消）。
  * 進捗確認の依頼は「この案件の管理担当」だけが、確認者＝受注担当に対して出せる。
  */
-export default function HistoryTab({ caseData, allMembers, currentMemberId: serverMemberId, canRequestReview = false, tasks = [], section, openReportId, autoOpenPending = false }: Props) {
+export default function HistoryTab({ caseData, allMembers, currentMemberId: serverMemberId, salesMemberId = null, canRequestReview = false, tasks = [], section, openReportId, autoOpenPending = false }: Props) {
   const taskStatusMap = new Map(tasks.map(t => [t.id, t.status]))
   const currentMemberId = useCurrentMember(serverMemberId)
   const [newNote, setNewNote] = useState('')
@@ -382,7 +378,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
                       <td className="px-3 py-2.5 text-[12px] text-gray-700">{pr.phase || <span className="text-gray-300">—</span>}</td>
                       <td className="px-3 py-2.5">
                         {pr.report_state
-                          ? <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-semibold border ${stateChip(pr.report_state)}`}>{pr.report_state}</span>
+                          ? <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-semibold border ${stateChip(pr.report_state)}`}>{reportStateLabel(pr.report_state)}</span>
                           : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-3 py-2.5 text-[12px] text-gray-700">{memberName(pr.requester_id)}</td>
@@ -633,6 +629,7 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
         isOpen={!!confirmTarget}
         onClose={() => { setConfirmTarget(null); setConfirmComment('') }}
         title={confirmTarget ? KIND_LABEL[(confirmTarget.kind ?? 'progress_check') as ProgressReportKind] : '案件報告'}
+        maxWidth={confirmTarget && (confirmTarget.kind ?? 'progress_check') === 'progress_check' ? 'max-w-2xl' : undefined}
         footer={confirmTarget ? (() => {
           const kind = (confirmTarget.kind ?? 'progress_check') as ProgressReportKind
           const isApproval = kind === 'work_complete' || kind === 'delivery_confirm'
@@ -657,16 +654,18 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
               ) : (
                 <>
                   {kind === 'progress_check' && (
-                    <Button variant="secondary" onClick={() => openTaskModal(confirmTarget)} disabled={confirmSaving} leftIcon={<ListPlus className="w-3.5 h-3.5" strokeWidth={2} />}>確認してタスク化</Button>
+                    <Button variant="secondary" onClick={() => openTaskModal(confirmTarget)} disabled={confirmSaving} leftIcon={<ListPlus className="w-3.5 h-3.5" strokeWidth={2} />}>ネクストアクションの追加</Button>
                   )}
-                  <Button variant="primary" onClick={() => handleConfirm(confirmTarget)} loading={confirmSaving} leftIcon={<Check className="w-3.5 h-3.5" strokeWidth={2.25} />}>確認した</Button>
+                  <Button variant="primary" onClick={() => handleConfirm(confirmTarget)} loading={confirmSaving} leftIcon={<Check className="w-3.5 h-3.5" strokeWidth={2.25} />}>{kind === 'progress_check' ? '確認完了' : '確認した'}</Button>
                 </>
               )}
             </>
           )
         })() : undefined}
       >
-        {confirmTarget && (
+        {confirmTarget && (confirmTarget.kind ?? 'progress_check') === 'progress_check' ? (
+          <ProgressReportConfirmBody report={confirmTarget} caseData={caseData} allMembers={allMembers} comment={confirmComment} onComment={setConfirmComment} showCaseLink={false} />
+        ) : confirmTarget && (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <span className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-[11px] font-semibold border ${KIND_CHIP[(confirmTarget.kind ?? 'progress_check') as ProgressReportKind]}`}>
@@ -703,6 +702,14 @@ export default function HistoryTab({ caseData, allMembers, currentMemberId: serv
         caseId={caseData.id}
         allMembers={allMembers}
         onSaved={finalizeTaskizeFlow}
+        initial={taskModalPr ? {
+          // 報告の「次回報告までの対応」をそのままタスクに。担当者が受注担当なら受注担当タスク、報告者（管理担当）なら管理担当タスク
+          title: taskModalPr.next_action ?? '',
+          work: taskModalPr.next_action ?? '',
+          dueDate: taskModalPr.next_action_due ?? '',
+          roleKind: taskModalPr.next_action_assignee_id && taskModalPr.next_action_assignee_id === salesMemberId ? 'sales'
+            : taskModalPr.next_action_assignee_id && taskModalPr.next_action_assignee_id === taskModalPr.requester_id ? 'manager' : 'assistant',
+        } : undefined}
       />
       </>)}
 

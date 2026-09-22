@@ -1368,7 +1368,13 @@ export type ProgressReportRow = {
   confirm_comment: string | null // 確認コメント（確認時。migration 132）
   kind: ProgressReportKind       // 種類 (migration 202)。default='progress_check'
   phase: string | null           // フェーズ（案件報告=progress_check のみ。migration 217）
-  report_state: string | null    // 状態（問題なし順調に進行中/確認事項あり/困りごとありHELP/至急！！。migration 217）
+  report_state: string | null    // 状態（順調/確認事項あり/相談・対応依頼/要至急対応。旧名は reportStateLabel で読み替え。migration 217）
+  // 案件の現状（報告時点の値）と次回報告までの対応（migration 291）
+  last_contact_date?: string | null
+  expected_completion_date?: string | null
+  next_action?: string | null
+  next_action_assignee_id?: string | null
+  next_action_due?: string | null
   created_at: string
   updated_at: string
 }

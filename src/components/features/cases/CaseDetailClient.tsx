@@ -588,7 +588,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   }
 
   return (
-    <CaseComposeProvider caseData={caseState} allMembers={allMembers} currentMemberId={currentMemberId} salesMemberId={salesMemberId} canRequestReview={isCaseManager}>
+    <CaseComposeProvider caseData={caseState} allMembers={allMembers} currentMemberId={currentMemberId} salesMemberId={salesMemberId} canRequestReview={isCaseManager} latestCommunicationDate={latestCommunicationDate}>
     <div>
       <CaseHeader
         caseData={caseState}

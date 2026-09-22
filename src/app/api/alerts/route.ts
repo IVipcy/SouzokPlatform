@@ -6,7 +6,7 @@ import { evaluateCaseAlerts, ALERT_DAYS } from '@/lib/alertRules'
 import { caseReportSeverity } from '@/lib/caseReports'
 import { PREPAY_THANKS_TITLE, prepayThanksSeverity } from '@/lib/prepayThanks'
 import { overdueSeverity, bizDaysOverdue } from '@/lib/overdue'
-import { CONTRACT_PENDING_STATUSES, PROGRESS_REPORT_STATE_URGENT } from '@/lib/constants'
+import { CONTRACT_PENDING_STATUSES, isUrgentReportState } from '@/lib/constants'
 import { toukiSeverity, toukiOverdueDays } from '@/lib/toukiRequests'
 
 function ymd(d: Date): string {
@@ -182,7 +182,7 @@ export async function GET() {
     const c = cases.find(x => x.id === r.case_id)
     const since = (r.requested_date ?? '').slice(0, 10) || null
     const days = since ? bizDaysOverdue(since, todayStr) : null
-    const urgent = r.report_state === PROGRESS_REPORT_STATE_URGENT
+    const urgent = isUrgentReportState(r.report_state)
     const sev = urgent ? 'high' : (days != null && days >= ALERT_DAYS.reportAnswer ? 'mid' : 'info')
     push({
       id: `review-${r.case_id}`, severity: sev,

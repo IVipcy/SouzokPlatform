@@ -1146,8 +1146,21 @@ export const PASSBOOK_STATUSES = ['即日預かり', '送付', '紛失'] as cons
 // === 不動産: 評価方法 ===
 // 案件報告(progress_check)のフェーズ・状態（migration 217）
 export const PROGRESS_REPORT_PHASES = ['戸籍', '財産調査', '目録作成', '協議中', '協議書作成', '登記', '解約'] as const
-export const PROGRESS_REPORT_STATE_URGENT = '至急！！'
-export const PROGRESS_REPORT_STATES = ['問題なし順調に進行中', '確認事項あり', '困りごとありHELP', PROGRESS_REPORT_STATE_URGENT] as const
+// 状態の呼び名（2026-09-22 に言い換え。旧：問題なし順調に進行中／困りごとありHELP／至急！！）。
+// 既存の行は書き換えず、表示と判定は reportStateLabel で新しい名前に読み替える。
+export const PROGRESS_REPORT_STATE_URGENT = '要至急対応'
+export const PROGRESS_REPORT_STATES = ['順調', '確認事項あり', '相談・対応依頼', PROGRESS_REPORT_STATE_URGENT] as const
+const LEGACY_REPORT_STATE: Record<string, string> = { '問題なし順調に進行中': '順調', '困りごとありHELP': '相談・対応依頼', '至急！！': PROGRESS_REPORT_STATE_URGENT }
+export const reportStateLabel = (s: string | null | undefined): string => (s ? (LEGACY_REPORT_STATE[s] ?? s) : '')
+export const isUrgentReportState = (s: string | null | undefined): boolean => reportStateLabel(s) === PROGRESS_REPORT_STATE_URGENT
+// 状態バッジの配色（緑=順調／青=確認事項／琥珀=相談／赤=至急）
+const REPORT_STATE_CHIP: Record<string, string> = {
+  '順調': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  '確認事項あり': 'bg-blue-50 text-blue-700 border-blue-200',
+  '相談・対応依頼': 'bg-amber-50 text-amber-700 border-amber-200',
+  [PROGRESS_REPORT_STATE_URGENT]: 'bg-red-100 text-red-700 border-red-300',
+}
+export const reportStateChip = (s: string | null | undefined): string => REPORT_STATE_CHIP[reportStateLabel(s)] ?? 'bg-gray-50 text-gray-500 border-gray-200'
 
 export const PROPERTY_EVALUATION_METHODS = ['固定資産評価額', '路線価'] as const
 
