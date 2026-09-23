@@ -13,8 +13,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import {
   verifyStationRequest,
+  rejectReplay,
+  validateStationPayload,
   mapPayloadToDb,
-  type StationCasePayload,
 } from '@/lib/stationIntegration'
 
 function jsonError(code: string, message: string, status: number) {
@@ -49,18 +50,26 @@ export async function PUT(
     return jsonError(authResult.code, authResult.message, authResult.status)
   }
 
-  // JSONパース
-  let payload: StationCasePayload
+  const supabase = await createServiceRoleClient()
+
+  // リプレイ防止（署名が通った要求だけ記録する。同じ X-Request-Id／署名の再送は 401）
+  const replay = await rejectReplay(supabase, req.headers.get('x-request-id'), req.headers.get('x-signature') ?? '')
+  if (!replay.ok) {
+    return jsonError(replay.code, replay.message, replay.status)
+  }
+
+  // JSONパース → 型検証（型違いは 400 で項目名を返す。DBエラーの 500 にしない）
+  let parsed: unknown
   try {
-    payload = JSON.parse(rawBody)
+    parsed = JSON.parse(rawBody)
   } catch {
     return jsonError('INVALID_JSON', 'Request body is not valid JSON', 400)
   }
-
-  // 必須項目
-  if (!payload.case_number || typeof payload.case_number !== 'string') {
-    return jsonError('MISSING_FIELD', 'case_number is required', 400)
+  const validated = validateStationPayload(parsed)
+  if (!validated.ok) {
+    return NextResponse.json({ error: { code: validated.code, message: validated.message, field: validated.field } }, { status: 400 })
   }
+  const payload = validated.payload
 
   // URL のパラメータと body の case_number の一致確認
   if (urlCaseNumber !== payload.case_number) {
@@ -70,8 +79,6 @@ export async function PUT(
       400
     )
   }
-
-  const supabase = await createServiceRoleClient()
 
   // マッピング
   const { caseFields, clientFields } = mapPayloadToDb(payload)

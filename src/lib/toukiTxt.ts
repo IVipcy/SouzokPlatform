@@ -108,8 +108,11 @@ export function parseToukiTxt(text: string, fileName: string): ParsedTouki {
     if (!t) continue
     const toks = t.split(/\s+/)
     if (toks.length < 2) continue
-    const fr = fraction(toks[toks.length - 1])
-    const nameToks = fr ? toks.slice(1, -1) : toks.slice(1)
+    // 持分は末尾とは限らない（「住所　持分2分の1　山田太郎」の並びもある）。分数に読める語を行のどこからでも1つ抜く
+    let fr: ReturnType<typeof fraction> = null
+    let frIdx = -1
+    for (let i = 1; i < toks.length; i++) { const f = fraction(toks[i]); if (f) { fr = f; frIdx = i; break } }
+    const nameToks = toks.slice(1).filter((_, i) => i + 1 !== frIdx)
     const name = nameToks.join('').trim()
     if (!name) continue
     out.owners.push({ address: toks[0], name, num: fr?.num ?? 1, den: fr?.den ?? 1 })

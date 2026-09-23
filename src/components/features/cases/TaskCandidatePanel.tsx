@@ -232,13 +232,18 @@ export default function TaskCandidatePanel({ caseId, intakeRoles, serviceCategor
     const activeGyomus = new Set<string>()
 
     // 納品は実施業務に無くても常に候補に出す（納品タブは常に出るのに、候補が無くて手で作っていた）
-    const rolesAll: RoleRow[] = intakeRoles.some(r => r.gyomu === '納品') ? intakeRoles : [...intakeRoles, ...(defaultRolesForGyomu('納品') as RoleRow[])]
+    // 足した行は intake_roles に無い「合成行」。行番号（roleIdx）で intake_roles を更新すると穴（null）が書かれて
+    // 次回オーダーシートが落ちるので、合成行は固定の rid を持たせ、行番号では書き戻さない（addPicked 側で roles[idx] の有無を見る）。
+    const rolesAll: RoleRow[] = intakeRoles.some(r => r.gyomu === '納品')
+      ? intakeRoles
+      : [...intakeRoles, ...(defaultRolesForGyomu('納品') as RoleRow[]).map(r => ({ ...r, rid: r.rid ?? `delivery:${(r.sagyou ?? '').trim()}` }))]
     rolesAll.forEach((r, idx) => {
       if (!r.sagyou?.trim() || r.owner === '不要') return
       if (!r.custom) activeGyomus.add(r.gyomu)
       // その他（自由入力）＝名もなき業務。業務名＝タスク名、内容(note)＝作業内容。管理担当タスクとして生成。
       if (r.custom) {
-        out.push({ key: `custom:${idx}`, gyomu: 'その他', title: r.sagyou, rid: `custom:${r.gyomu}`, custom: true, work: r.note, roleKind: r.role_kind ?? 'manager', priority: r.priority ?? null, due: r.due ?? null, outing: !!r.outing })
+        // rid に行番号も含める。同じ業務名で2行入れると衝突して片方が作れなかった
+        out.push({ key: `custom:${idx}`, gyomu: 'その他', title: r.sagyou, rid: r.rid ?? `custom:${r.gyomu}:${idx}`, custom: true, work: r.note, roleKind: r.role_kind ?? 'manager', priority: r.priority ?? null, due: r.due ?? null, outing: !!r.outing })
         return
       }
       // 戸籍の「到着確認・チェック」は請求先ごとの「戸籍読込」に置き換えるためスキップ（戸籍収集の展開で生成）。
@@ -354,7 +359,8 @@ export default function TaskCandidatePanel({ caseId, intakeRoles, serviceCategor
     let rolesChanged = false
     const ridByKey: Record<string, string> = {}
     for (const c of picked) {
-      if (c.roleIdx != null) {
+      // roles[c.roleIdx] が無い＝合成行（納品の既定行など）。intake_roles には書き戻さず、固定 rid を使う
+      if (c.roleIdx != null && roles[c.roleIdx]) {
         let rid = roles[c.roleIdx]?.rid
         if (!rid) { rid = crypto.randomUUID(); roles[c.roleIdx] = { ...roles[c.roleIdx], rid }; rolesChanged = true }
         ridByKey[c.key] = rid

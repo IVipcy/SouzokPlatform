@@ -11,6 +11,7 @@ import { showToast } from '@/components/ui/Toast'
 import { deliverableLinkLabel } from '@/lib/deliverables'
 import { READY_REASON_DOC } from '@/lib/taskReadiness'
 import { applyReceiptLinkDates, receiptItemLanding, receiptTaskDefaults } from '@/lib/receiptLinks'
+import { revertReceiptItemReturns } from '@/lib/originals'
 import NewTaskFields, { emptyNewTask, type NewTaskValue } from '@/components/features/tasks/NewTaskFields'
 import { type UnlockCandidate } from './ReturnUnlockPanel'
 import Modal from '@/components/ui/Modal'
@@ -705,6 +706,10 @@ function ReceiptRow({
     // 3. この受信で作成した受領書類(case_documents)を削除
     const docIds = its.map(i => i.case_document_id).filter((v): v is string => !!v)
     if (docIds.length > 0) await supabase.from('case_documents').delete().in('id', docIds)
+    // 3'. 「原本の返却」として登録していた分を巻き戻す（同梱の戻った数・金融の印鑑証明の返却日）。
+    //     戻さないと、誤登録した返却で「出払い中」が減ったまま直せない
+    const { error: revertErr } = await revertReceiptItemReturns(supabase, its)
+    if (revertErr) showToast(`原本の返却の巻き戻しに失敗: ${revertErr}`, 'error')
     // 4. 受信レコード削除（items・item_tasksはカスケード）
     const { error } = await supabase.from('document_receipts').delete().eq('id', receipt.id)
     setBusyKind(null)

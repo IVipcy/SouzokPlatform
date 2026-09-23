@@ -12,7 +12,7 @@
 //
 // 1タブ＝1請求＝1枚。請求先を足したいときは戸籍タブの「＋ 請求を追加」でタブを足す。
 
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import FloatingWindow from '@/components/ui/FloatingWindow'
 import { showToast } from '@/components/ui/Toast'
 import {
@@ -28,6 +28,7 @@ import {
 import { KOSEKI_REQUEST_TYPES, KOSEKI_DOC_FORMS, defaultKosekiPurpose, includesJuminhyo, kosekiBundleNote } from '@/lib/constants'
 import { siblingRequestsOf } from '@/lib/kosekiSiblings'
 import { createClient } from '@/lib/supabase/client'
+import { todayJstYmd } from '@/lib/today'
 import type { CaseRow, TaskRow, HeirRow, KosekiRequestRow, RequestEnclosureRow } from '@/types'
 
 type Props = {
@@ -67,8 +68,11 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
   const [variant, setVariant] = useState<KosekiVariant>(defaultKosekiVariant(caseData.contract_type))
   // 請求日・通数はカード（Step3 の通数・Step4 の請求日）から。無ければ今日・1通。作ったらカードへ書き戻す
   const first = kosekiRequests[0]
-  const [requestDate, setRequestDate] = useState<string>(first?.request_date ?? new Date().toISOString().slice(0, 10))
-  const [copyCount, setCopyCount] = useState<number>(first?.copy_count ?? 1)
+  const [requestDate, setRequestDate] = useState<string>(() => first?.request_date ?? todayJstYmd())
+  // 通数は請求（カード）ごと。まとめて出すときも人ごとに違うので、1つの数を全員に書き戻さない
+  const [copyCounts, setCopyCounts] = useState<Record<string, number>>({})
+  const countOf = (q: KosekiRequestRow | null) => (q ? (copyCounts[q.id] ?? q.copy_count ?? 1) : 1)
+  const setCountOf = (q: KosekiRequestRow, n: number) => setCopyCounts(prev => ({ ...prev, [q.id]: n > 0 ? n : 1 }))
   // 事業部。同じ拠点でも事業部で電話が変わる（共同ビルの第一／第二）ため、拠点とセットで決まる。
   // 拠点はカード（Step1の拠点）が持つので、ここでは事業部だけ選ぶ。
   const [division, setDivision] = useState<string>(IKIIKI_DEFAULT_BRANCH.division)
@@ -97,11 +101,11 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
   useEffect(() => {
     if (!isOpen) return
     setVariant(defaultKosekiVariant(caseData.contract_type))
-    setRequestDate(first?.request_date ?? new Date().toISOString().slice(0, 10))
-    setCopyCount(first?.copy_count ?? 1)
+    setRequestDate(first?.request_date ?? todayJstYmd())
+    setCopyCounts({})
     setPick(0)
     setBundleNote(true)
-  }, [isOpen, caseData.contract_type, first?.id, first?.request_date, first?.copy_count])
+  }, [isOpen, caseData.contract_type, first?.id, first?.request_date])
 
   // 拠点が変わったら、その拠点にある事業部の先頭に寄せる（無い事業部が残らないように）
   useEffect(() => {
@@ -136,6 +140,8 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
       // 同封小為替＝費用予算。封筒に入れる小為替はこの金額。
       // 返金・確定費用は戸籍が届いた後の数字なので、出す時点ではまだ存在しない。
       kogawase: q?.cost_budget ?? null,
+      // 提出先（この戸籍の行き先）。欄のある様式に書く。書かないとひな型の記入例が残る
+      submitTo: (q?.submit_to ?? '').trim(),
       others,
     }
   }
@@ -168,9 +174,10 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
               hittousha: d.hittousha,
               targetName: d.targetName,
               requestTypes: d.requestTypes,
-              copyCount: Number(copyCount) || 1,
+              copyCount: countOf(q),
               kogawaseAmount: d.kogawase,
               notes: d.notes,
+              submitTo: d.submitTo,
             }],
             rowIndex: 0,
             taskId: defaultTaskId ?? null,
@@ -195,11 +202,10 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
         made += 1
       }
       if (made === 0) return
-      // 作った日をカードの請求日に、通数を Step3 に書き戻す（請求書と実務タブの請求日を同じにする）
+      // 作った日をカードの請求日に、通数を Step3 に書き戻す（請求書と実務タブの請求日を同じにする）。通数は行ごと
       const supabase = createClient()
-      const n = Number(copyCount) || 1
       await Promise.all(targets.map(q => supabase.from('koseki_requests')
-        .update({ request_date: requestDate || q.request_date, copy_count: n }).eq('id', q.id)))
+        .update({ request_date: requestDate || q.request_date, copy_count: countOf(q) }).eq('id', q.id)))
       onGenerated?.()
       showToast(made > 1 ? `戸籍請求書を${made}枚生成しました（同じ封筒に入れてください）。請求日をカードに入れました` : '戸籍請求書を生成しました。請求日をカードに入れました', 'success')
       onClose()
@@ -252,12 +258,14 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
             <input type="date" value={requestDate} onChange={e => setRequestDate(e.target.value)}
               className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-brand-400" />
           </div>
-          <div>
-            <label className={lab}>通数</label>
-            <input type="text" inputMode="numeric" value={copyCount ? String(copyCount) : ''}
-              onChange={e => { const n = Number(toDigits(e.target.value)); setCopyCount(n > 0 ? n : 1) }}
-              className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 text-right focus:outline-none focus:border-brand-400" />
-          </div>
+          {!bundleMode && (
+            <div>
+              <label className={lab}>通数</label>
+              <input type="text" inputMode="numeric" value={k ? String(countOf(k)) : ''} disabled={!k}
+                onChange={e => { if (k) setCountOf(k, Number(toDigits(e.target.value))) }}
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 text-right focus:outline-none focus:border-brand-400" />
+            </div>
+          )}
           <div>
             <label className={lab}>事業部</label>
             <select value={division} onChange={e => setDivision(e.target.value)} className={sel}>
@@ -277,7 +285,19 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
           {bundleMode && (
             <div className="mb-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900">
               <div className="font-bold">同じ{doc.municipality}への{targets.length}件をまとめて出します（1人1枚）</div>
-              <div className="text-amber-800 mt-0.5">{targets.map(q => (q.target_person ?? '').trim() || '対象者未設定').join('　／　')}</div>
+              {/* 通数は人ごとに違うので、1人ずつ確認して直せるようにする（カードの Step3 にそれぞれ書き戻す） */}
+              <div className="mt-1.5 grid grid-cols-[minmax(0,1fr)_5rem_1.5rem] gap-x-2 gap-y-1 items-center text-amber-900">
+                <span className="text-[11px] text-amber-700">対象者</span><span className="text-[11px] text-amber-700 text-right">通数</span><span />
+                {targets.map(q => (
+                  <Fragment key={q.id}>
+                    <span className="truncate">{(q.target_person ?? '').trim() || '対象者未設定'}</span>
+                    <input type="text" inputMode="numeric" value={String(countOf(q))}
+                      onChange={e => setCountOf(q, Number(toDigits(e.target.value)))}
+                      className="w-full text-sm border border-amber-300 rounded px-2 py-1 text-right bg-white focus:outline-none focus:border-brand-400" />
+                    <span className="text-[12px]">通</span>
+                  </Fragment>
+                ))}
+              </div>
             </div>
           )}
           {kosekiRequests.length > 1 && !bundleMode && (
@@ -308,7 +328,8 @@ export default function KosekiRequestDocumentModal({ isOpen, onClose, caseData, 
                   ほか {targets.map(q => (q.target_person ?? '').trim() || '対象者未設定').filter(n => n !== doc.targetName).join('・')} の分も、それぞれの請求カードの内容で同じ様式で出します。
                 </div>
               )}
-              <ConfRow label="通数" value={`${Number(copyCount) || 1}通`} />
+              <ConfRow label="通数" value={`${countOf(k)}通`} />
+              <ConfRow label="提出先" value={doc.submitTo} />
               <ConfRow label="同封小為替" value={doc.kogawase == null ? '' : `¥${doc.kogawase.toLocaleString('ja-JP')}`} />
               <ConfRow label="同梱する資料" value={enclosures.filter(e => e.ref_kind === 'koseki' && e.ref_id === k.id).map(e => `${e.doc_name} ${e.quantity}${e.form === 'その他' ? '' : `（${e.form}）`}`).join('・')} />
               <ConfRow label="拠点" value={agentOfficeLabel} />

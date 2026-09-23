@@ -175,13 +175,19 @@ export async function POST(request: NextRequest) {
     CELL_MAP.mynaNoteMarks.forEach(addr => setCell(ws, addr, mynaNotes ? '○' : null))
     if (!mynaNotes) CELL_MAP.mynaNoteTexts.forEach(addr => setCell(ws, addr, null))
     setCell(ws, CELL_MAP.purpose, preset.purpose)
-    if (notes) setCell(ws, CELL_MAP.notesFreeInput, notes)
-    if (kogawaseAmount !== null && kogawaseAmount !== undefined) {
-      setCell(ws, CELL_MAP.kogawaseAmount, kogawaseAmount)
-    }
+    // 備考・小為替は値が無ければ空にする（ひな型の記入例を残さない）
+    setCell(ws, CELL_MAP.notesFreeInput, notes || null)
+    setCell(ws, CELL_MAP.kogawaseAmount, kogawaseAmount !== null && kogawaseAmount !== undefined ? kogawaseAmount : null)
 
-    // 物件ブロック（最大5件）
-    properties.slice(0, 5).forEach((p, i) => {
+    // 物件ブロック（最大5件）。まず5ブロック全部を空にしてから埋める。
+    // 使わないブロックにひな型の記入例（●●市△△町…）が残ったまま役所へ出ないように
+    for (const block of CELL_MAP.propertyBlocks) {
+      setCell(ws, block.landAddress, null)
+      setCell(ws, block.buildingAddress, null)
+      setCell(ws, block.kaokuBango, null)
+      setCell(ws, block.neighborNeed, null)
+    }
+    ;(properties ?? []).slice(0, 5).forEach((p, i) => {
       const block = CELL_MAP.propertyBlocks[i]
       if (!block) return
       setCell(ws, block.landAddress, p.landAddress)

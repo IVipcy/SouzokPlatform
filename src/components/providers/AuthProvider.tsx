@@ -26,19 +26,8 @@ export function useAuth() {
   return useContext(AuthContext)
 }
 
-export function useHasRole(...roles: string[]) {
-  const user = useAuth()
-  if (!user) return false
-  if (user.roles.includes('manager')) return true
-  return roles.some(r => user.roles.includes(r))
-}
-
-export function useHasPermission(permission: string) {
-  const user = useAuth()
-  if (!user) return false
-  if (user.roles.includes('manager')) return true
-  return user.permissions.includes(permission)
-}
+// useHasRole / useHasPermission は「管理担当なら何でも true」の近道が入っていて、
+// どこからも使われていなかったので消した（2026-09-23 監査 S4）。役割の判定は下の useIsManager 等で。
 
 // 管理担当系アカウントか（凍結確認など管理担当限定操作の判定用）。
 export function useIsManager() {

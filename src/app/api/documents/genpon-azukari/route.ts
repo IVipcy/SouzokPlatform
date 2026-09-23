@@ -19,6 +19,7 @@ import ExcelJS from 'exceljs'
 import { repairXlsx } from '@/lib/xlsxRepair'
 import { createClient } from '@/lib/supabase/server'
 import { OFFICE_PROFILES, type OfficeKind } from '@/lib/officeProfiles'
+import { todayJstYmd } from '@/lib/today'
 
 export const maxDuration = 60
 
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest) {
     .from('cases').select('case_number, deal_name, contract_type, clients(name)').eq('id', caseId).single()
   if (!caseData) return NextResponse.json({ error: '案件データの取得に失敗しました' }, { status: 404 })
 
-  const receivedDate = body.receivedDate || new Date().toISOString().slice(0, 10)
+  const receivedDate = body.receivedDate || todayJstYmd()
   const client = caseData.clients as { name?: string } | null
   const addressee = (body.addressee ?? '').trim() || (client?.name ?? '')
   const sender = senderOf(body.sender ?? 'gyosei')

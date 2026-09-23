@@ -7,7 +7,12 @@
 //
 // サーバー／クライアント両方から使う（'use client' は付けない）。
 
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { normalizePersonName } from '@/lib/personName'
 import type { ContractDocumentRow, RequestEnclosureRow, OriginalDocOverrideRow } from '@/types'
+
+/** 氏名を突き合わせ用に丸める（区切りの空白を全部落とし、全角英数・異体の幅を NFKC で揃える）。「山田 太郎」「山田　太郎」「山田太郎」を同じ人にする */
+const nameKey = (v: string | null | undefined) => normalizePersonName(v).replace(/[\s　]/g, '').normalize('NFKC')
 
 export const ENCLOSURE_FORMS = ['原本', '写し', 'その他'] as const
 export type EnclosureForm = typeof ENCLOSURE_FORMS[number]
@@ -108,7 +113,10 @@ export function buildOriginalStock(input: {
   const finOuts = (input.finRequests ?? []).filter(r => r.seal_original_sent && !r.seal_original_returned_date)
   if (finOuts.length > 0) {
     const nameOf = new Map((input.institutions ?? []).map(i => [i.id, i.name]))
-    let row = rows.find(r => r.key.startsWith('contract:') && isSealDoc(r.name))
+    // 印鑑証明の行は契約時受領だけでなく、受信簿で届いたもの・手で足したものも同じ1行として扱う。
+    // 契約行に限ると、受信簿で届いた案件で仮行（seal:case）がもう1本できて手元の数が倍になる。契約行があればそれを優先
+    let row = rows.find(r => r.key.startsWith('contract:') && isSealDoc(r.name) && !r.copy)
+      ?? rows.find(r => isSealDoc(r.name) && !r.copy)
     if (!row) {
       push(stockKey('seal', 'case'), '印鑑登録証明書（依頼者）', null, '契約手続きの受領書類', input.sealCopies ?? 0, true)
       row = rows[rows.length - 1]
@@ -169,21 +177,109 @@ const NOT_KOSEKI_RE = /附票|住民票|除票/
 export function matchStockForRequired(item: RequiredEnclosure, s: Pick<StockRow, 'name' | 'copy'>, ctx: { deceasedName?: string | null }): boolean {
   if (!!item.copy !== s.copy) return false
   const n = s.name
-  const dn = (ctx.deceasedName ?? '').trim()
+  // 氏名は表記ゆれ（空白の有無・全角半角）を吸収して比べる。「山田太郎の戸籍」を被相続人「山田　太郎」の戸籍と判定できないと、
+  // 被相続人の戸籍が相続人の戸籍に分類されてゲートが解けない
+  const dn = nameKey(ctx.deceasedName)
+  const nk = nameKey(n)
+  const hasDeceased = !!dn && nk.includes(dn)
   const isKoseki = KOSEKI_RE.test(n) && !NOT_KOSEKI_RE.test(n)
   switch (item.key) {
     case 'poa': return n.includes('委任状')
     case 'idcopy': return n.includes('本人確認')
     case 'seal': return n.includes('印鑑')
     case 'koseki_any': return isKoseki
-    case 'koseki_deceased': return isKoseki && !!dn && n.includes(dn)
-    case 'koseki_heir': return isKoseki && !(!!dn && n.includes(dn))
+    case 'koseki_deceased': return isKoseki && hasDeceased
+    case 'koseki_heir': return isKoseki && !hasDeceased
     case 'legal_info': return n.includes('法定相続情報')
     default: return false
   }
 }
 export function requiredEnclosuresFor(kind: 'koseki' | 're' | 'fin' | 'cancel', ctx: { shokumujo?: boolean }): RequiredEnclosure[] {
   return REQUIRED_ENCLOSURES[kind].filter(i => !(i.onlyWhen === 'not_shokumujo' && ctx.shokumujo))
+}
+
+/**
+ * この請求（ref_kind + ref_id）が既に同梱している通数を、要る資料の名前ごとに数える（原本ゲートの ctx.ownQty）。
+ * 自分で同梱した委任状は手元から減っているが「その請求には入っている」ので、自分自身を原本待ちで止めない。
+ */
+export function ownEnclosureQty(enclosures: Array<Pick<RequestEnclosureRow, 'ref_kind' | 'ref_id' | 'doc_name' | 'form' | 'quantity'>>, refKind: RequestEnclosureRow['ref_kind'], refId: string): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const e of enclosures) {
+    if (e.ref_kind !== refKind || e.ref_id !== refId || e.form !== '原本') continue
+    out[e.doc_name] = (out[e.doc_name] ?? 0) + (e.quantity ?? 0)
+  }
+  return out
+}
+
+/** ownQtyForRid に渡す材料。rid が請求の集まり（市区町村・調査先）を指すので、その中の請求IDに解くのに使う */
+export type OwnQtyContext = {
+  /** 不動産の請求（ref_id はこれの id）。re-muni:{市区町村} は target_municipality で絞る */
+  acquisitions?: Array<{ id: string; target_municipality: string | null }>
+  /** 金融の請求（ref_id はこれの id）。fin:{調査先名} は調査先の名前で絞る */
+  finRequests?: Array<{ id: string; institution_id: string }>
+  institutions?: Array<{ id: string; name: string }>
+}
+
+/**
+ * タスクの source_rid（koseki:{請求id} / re-muni:{市区町村} / fin:{調査先名}）から、その請求（群）が既に同梱している通数（要る資料名 → 通数）。
+ * 原本ゲートの ctx.ownQty に渡す。請求のタスクでなければ空。
+ */
+export function ownQtyForRid(rid: string | null | undefined, enclosures: Array<Pick<RequestEnclosureRow, 'ref_kind' | 'ref_id' | 'doc_name' | 'form' | 'quantity'>>, ctx: OwnQtyContext = {}): Record<string, number> {
+  const r = rid ?? ''
+  let refKind: RequestEnclosureRow['ref_kind'] | null = null
+  let ids: string[] = []
+  const m = r.match(/^(koseki|re-muni|fin):(.+)$/)
+  if (!m) return {}
+  const key = m[2].trim()
+  if (m[1] === 'koseki') { refKind = 'koseki'; ids = [key] }
+  else if (m[1] === 're-muni') { refKind = 're'; ids = (ctx.acquisitions ?? []).filter(a => (a.target_municipality ?? '').trim() === key).map(a => a.id) }
+  else {
+    refKind = 'fin'
+    const instIds = new Set((ctx.institutions ?? []).filter(i => i.name.trim() === key).map(i => i.id))
+    ids = (ctx.finRequests ?? []).filter(f => instIds.has(f.institution_id)).map(f => f.id)
+  }
+  const out: Record<string, number> = {}
+  for (const id of ids) for (const [name, n] of Object.entries(ownEnclosureQty(enclosures, refKind, id))) out[name] = (out[name] ?? 0) + n
+  return out
+}
+
+/**
+ * 請求行を消すときに、その請求の同梱行（request_enclosures）も消す。
+ * ref_id に外部キーが無いので、請求だけ消すと同梱行が残り「出払い中」が永久に戻らない。
+ * 請求（戸籍・不動産・金融・解約）の削除の直前に呼ぶ。戻ってきた分（returned_qty）も一緒に消えるので、
+ * 手元の数は「同梱しなかった」状態に戻る。
+ */
+export async function deleteRequestEnclosures(supabase: SupabaseClient, refIds: string[]): Promise<{ error: string | null }> {
+  const ids = [...new Set(refIds.filter(Boolean))]
+  if (ids.length === 0) return { error: null }
+  const { error } = await supabase.from('request_enclosures').delete().in('ref_id', ids)
+  return { error: error?.message ?? null }
+}
+
+/**
+ * 受信（到着物）を消すときに、その到着物が「原本の返却」だったぶんを巻き戻す。
+ *   同梱の返却 … returned_qty から到着物の通数を引く（0 未満にはしない）。0 になったら返却日も消す
+ *   金融の請求の印鑑証明 … 返却日を空に戻す
+ * 消し忘れると、誤登録した返却で「出払い中」が減ったまま直せない。
+ */
+export async function revertReceiptItemReturns(
+  supabase: SupabaseClient,
+  items: Array<{ quantity: number | null; return_enclosure_id?: string | null; return_fin_request_id?: string | null }>,
+): Promise<{ error: string | null }> {
+  const errors: string[] = []
+  for (const it of items) {
+    if (it.return_enclosure_id) {
+      const { data: cur } = await supabase.from('request_enclosures').select('returned_qty').eq('id', it.return_enclosure_id).maybeSingle()
+      if (!cur) continue   // 請求ごと消えていれば戻す先が無い
+      const next = Math.max(0, ((cur as { returned_qty?: number | null }).returned_qty ?? 0) - (it.quantity ?? 1))
+      const { error } = await supabase.from('request_enclosures').update({ returned_qty: next, ...(next === 0 ? { returned_on: null } : {}) }).eq('id', it.return_enclosure_id)
+      if (error) errors.push(error.message)
+    } else if (it.return_fin_request_id) {
+      const { error } = await supabase.from('financial_requests').update({ seal_original_returned_date: null }).eq('id', it.return_fin_request_id)
+      if (error) errors.push(error.message)
+    }
+  }
+  return { error: errors.length > 0 ? errors.join(' / ') : null }
 }
 
 /** 受信簿の「原本の返却」で選べるもの＝出払い中の同梱と、金融の請求に出した印鑑証明 */

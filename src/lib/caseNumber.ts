@@ -10,6 +10,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ORDER_ROUTE_CODES } from '@/lib/constants'
+import { todayJstYmd, jstDayRange } from '@/lib/today'
 
 export const PENDING_ROUTE_CODE = 'XX'
 
@@ -95,25 +96,58 @@ export async function issueCaseNumber(
   now: Date = new Date(),
 ): Promise<{ number: string | null; error: string | null }> {
   const code = routeCodeOf(orderRoute) ?? PENDING_ROUTE_CODE
-  const head = `${String(now.getFullYear()).slice(2)}${String(now.getMonth() + 1).padStart(2, '0')}`
-
-  // その日に振られた番号の最大連番+1 から探す（末尾4桁で判定）
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-  const { data: todayCases } = await supabase.from('cases').select('case_number').gte('created_at', startOfDay)
-  let seq = (todayCases ?? []).reduce((max: number, c: { case_number: string | null }) => {
-    const n = parseInt(String(c.case_number ?? '').slice(-4), 10)
-    return Number.isFinite(n) && n > max ? n : max
-  }, 0) + 1
+  const { head, startSeq } = await nextSeqForToday(supabase, now)
+  let seq = startSeq
 
   let lastError = '不明なエラー'
   for (let attempt = 0; attempt < 30; attempt++) {
     const next = `${head}${code}${String(seq).padStart(4, '0')}`
-    const { error } = await supabase.from('cases').update({ case_number: next }).eq('id', caseId).is('case_number', null)
-    if (!error) return { number: next, error: null }
+    // 更新できた行を返してもらう。0行（既に番号がある）なのに「振れた」と返していたので、行の有無を見る
+    const { data, error } = await supabase.from('cases').update({ case_number: next }).eq('id', caseId).is('case_number', null).select('id')
+    if (!error) return (data ?? []).length > 0 ? { number: next, error: null } : { number: null, error: null }
     lastError = error.message
     if (error.code === '23505') { seq += 1; continue }   // 同じ番号が既にある → 次の連番へ
     break
   }
   console.error('案件番号の採番に失敗', lastError)
   return { number: null, error: lastError }
+}
+
+/** 当日の YYMM と、その日に振られた番号の最大連番+1（末尾4桁で判定。件数+1だと削除で番号が再利用され重複する） */
+async function nextSeqForToday(supabase: SupabaseClient, now: Date): Promise<{ head: string; startSeq: number }> {
+  const ymd = todayJstYmd(now)
+  const head = `${ymd.slice(2, 4)}${ymd.slice(5, 7)}`
+  const { data: todayCases } = await supabase.from('cases').select('case_number').gte('created_at', jstDayRange(ymd).start)
+  const startSeq = (todayCases ?? []).reduce((max: number, c: { case_number: string | null }) => {
+    const n = parseInt(String(c.case_number ?? '').slice(-4), 10)
+    return Number.isFinite(n) && n > max ? n : max
+  }, 0) + 1
+  return { head, startSeq }
+}
+
+/**
+ * 番号を振りながら案件を1件 insert する（面談結果登録の新規・面談シートの下書き作成）。
+ * 以前は同じ採番ロジックが3か所に複製されていた。一意制約(case_number)に当たったら連番を上げて再試行。
+ * @param select insert 後に返してほしい列（既定 'id'）
+ */
+export async function insertCaseWithNumber<T = { id: string }>(
+  supabase: SupabaseClient,
+  payload: Record<string, unknown>,
+  orderRoute: string | null | undefined,
+  select = 'id',
+  now: Date = new Date(),
+): Promise<{ data: T | null; error: string | null }> {
+  const code = routeCodeOf(orderRoute) ?? PENDING_ROUTE_CODE
+  const { head, startSeq } = await nextSeqForToday(supabase, now)
+  let seq = startSeq
+  let lastError = '不明なエラー'
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const caseNumber = `${head}${code}${String(seq).padStart(4, '0')}`
+    const { data, error } = await supabase.from('cases').insert({ ...payload, case_number: caseNumber }).select(select).single()
+    if (!error && data) return { data: data as T, error: null }
+    lastError = error?.message ?? lastError
+    if (error?.code === '23505') { seq += 1; continue }   // 番号重複 → 次の連番で再試行
+    break
+  }
+  return { data: null, error: lastError }
 }

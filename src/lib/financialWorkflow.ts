@@ -8,6 +8,8 @@
 //
 // 進捗％は出さない（工程数が郵送・来店で違い、％が実態と合わないため）。
 
+import { isSurveyBanActive } from '@/lib/financialBan'
+import { todayJstYmd } from '@/lib/today'
 import type {
   FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow, CaseRow,
 } from '@/types'
@@ -46,15 +48,16 @@ export function canonicalAdministratorName(value: string): string {
   return value.replace(/株式会社/g, '').replace(/（証券代行部）/g, '').trim()
 }
 
+// 日付の足し引き。UTC の 0 時で計算し、日本時間の日付文字列に戻す（UTC 0 時＝JST 9 時なので同じ日）
 const addMonths = (ymd: string, months: number) => {
   const d = new Date(`${ymd}T00:00:00Z`)
   d.setUTCMonth(d.getUTCMonth() + months)
-  return d.toISOString().slice(0, 10)
+  return todayJstYmd(d)
 }
 const subtractDays = (ymd: string, days: number) => {
   const d = new Date(`${ymd}T00:00:00Z`)
   d.setUTCDate(d.getUTCDate() - days)
-  return d.toISOString().slice(0, 10)
+  return todayJstYmd(d)
 }
 const daysBetween = (a: string, b: string) => Math.round((new Date(`${b}T00:00:00Z`).getTime() - new Date(`${a}T00:00:00Z`).getTime()) / 86400000)
 
@@ -84,19 +87,8 @@ export function sealOriginalStatus(
 }
 
 // ── 調査禁止（お客様の「まだ調べないで」） ──────────────────────
-export function isSurveyOnHold(i: Pick<FinancialInstitutionRow, 'survey_prohibited_designation' | 'survey_prohibited_method' | 'survey_prohibited_start' | 'survey_prohibited_end' | 'prohibition_released_at'>, today: string): boolean {
-  if ((i.survey_prohibited_designation ?? '') !== '指定あり') return false
-  if (i.prohibition_released_at) return false
-  if ((i.survey_prohibited_method ?? '') === '期間指定') {
-    const end = i.survey_prohibited_end ?? ''
-    const start = i.survey_prohibited_start ?? ''
-    if (!end && !start) return true
-    if (end && today > end) return false
-    if (start && today < start) return false
-    return true
-  }
-  return true   // 連絡待ちで未解除
-}
+// 判定は financialBan.isSurveyBanActive の1か所。ここは同じものを同じ名前で出すだけ（候補・バッジ・次の対応がずれないように）
+export const isSurveyOnHold = isSurveyBanActive
 
 // ── 請求・明細の状況（入力値から） ───────────────────────────────
 export type ItemStatus = '請求準備中' | '請求中' | '取得済' | '要確認' | '再請求中'

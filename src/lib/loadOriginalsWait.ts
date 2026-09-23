@@ -2,7 +2,7 @@
 // 対象の案件だけ原本管理の材料を読み、buildOriginalStock → originalsGate。
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { buildOriginalStock, type StockReceiptItem, type StockFinRequest, type StockRow } from '@/lib/originals'
+import { buildOriginalStock, type StockReceiptItem, type StockFinRequest, type StockRow, type OwnQtyContext } from '@/lib/originals'
 import { gateKindOfRid, originalsWaitForTasks, type OriginalsGate } from '@/lib/originalsGate'
 import type { TaskRow, ContractDocumentRow, RequestEnclosureRow, OriginalDocOverrideRow } from '@/types'
 
@@ -13,7 +13,7 @@ export async function loadOriginalsWaitByTask(supabase: SupabaseClient, tasks: T
   const caseIds = [...new Set(targets.map(t => t.case_id))]
   if (caseIds.length === 0) return {}
 
-  const [cd, rc, en, ov, fr, fi, cs, kr] = await Promise.all([
+  const [cd, rc, en, ov, fr, fi, cs, kr, ra] = await Promise.all([
     supabase.from('contract_documents').select('*').in('case_id', caseIds),
     supabase.from('document_receipts').select('id, case_id, received_date, is_parcel, items:document_receipt_items(id, item_name, quantity, received_from, return_enclosure_id, return_fin_request_id)').in('case_id', caseIds),
     supabase.from('request_enclosures').select('*').in('case_id', caseIds),
@@ -22,6 +22,8 @@ export async function loadOriginalsWaitByTask(supabase: SupabaseClient, tasks: T
     supabase.from('financial_institutions').select('id, case_id, name').in('case_id', caseIds),
     supabase.from('cases').select('id, deceased_name, seal_cert_copies').in('id', caseIds),
     supabase.from('koseki_requests').select('id, case_id, acquisition_authority').in('case_id', caseIds),
+    // 不動産の請求：re-muni:{市区町村} のタスクを、その市区町村の請求（同梱の ref_id）に解くのに使う
+    supabase.from('real_estate_acquisitions').select('id, case_id, target_municipality').in('case_id', caseIds),
   ])
 
   const by = <T extends { case_id: string }>(rows: T[] | null | undefined) => {
@@ -39,15 +41,22 @@ export async function loadOriginalsWaitByTask(supabase: SupabaseClient, tasks: T
   for (const r of rcRows) for (const it of r.items ?? []) (itemsBy[r.case_id] ??= []).push({ ...it, received_date: r.received_date, is_parcel: r.is_parcel })
   const caseRows = (cs.data ?? []) as Array<{ id: string; deceased_name: string | null; seal_cert_copies: number | null }>
   const krBy = by((kr.data ?? []) as Array<{ id: string; case_id: string; acquisition_authority: string | null }>)
+  const raBy = by((ra.data ?? []) as Array<{ id: string; case_id: string; target_municipality: string | null }>)
 
   const stockByCase: Record<string, StockRow[]> = {}
-  const ctxByCase: Record<string, { deceasedName: string | null; kosekiAuthority?: Record<string, string | null> }> = {}
+  const ctxByCase: Record<string, { deceasedName: string | null; kosekiAuthority?: Record<string, string | null>; enclosures?: RequestEnclosureRow[]; ownQtyCtx?: OwnQtyContext }> = {}
   for (const c of caseRows) {
     stockByCase[c.id] = buildOriginalStock({
       contractDocs: cdBy[c.id] ?? [], receiptItems: itemsBy[c.id] ?? [], enclosures: enBy[c.id] ?? [], overrides: ovBy[c.id] ?? [],
       finRequests: frBy[c.id] ?? [], institutions: fiBy[c.id] ?? [], sealCopies: c.seal_cert_copies,
     })
-    ctxByCase[c.id] = { deceasedName: c.deceased_name, kosekiAuthority: Object.fromEntries((krBy[c.id] ?? []).map(k => [k.id, k.acquisition_authority])) }
+    ctxByCase[c.id] = {
+      deceasedName: c.deceased_name,
+      kosekiAuthority: Object.fromEntries((krBy[c.id] ?? []).map(k => [k.id, k.acquisition_authority])),
+      // 自分の請求が同梱している分は「手元にある」と数える（自分自身を原本待ちで止めない）
+      enclosures: enBy[c.id] ?? [],
+      ownQtyCtx: { acquisitions: raBy[c.id] ?? [], finRequests: frBy[c.id] ?? [], institutions: fiBy[c.id] ?? [] },
+    }
   }
   const gates = originalsWaitForTasks(targets, stockByCase, ctxByCase)
   const out: OriginalsWaitByTask = {}

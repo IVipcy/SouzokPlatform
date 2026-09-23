@@ -169,8 +169,8 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : '不明なエラー'
+    // 例外文言にはテンプレのサーバー内パスやDBの制約名が混ざるので、利用者には固定文言だけ返す
     console.error('[keiyaku] error:', e)
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: '契約書の作成に失敗しました。もう一度お試しいただき、続く場合は管理者に連絡してください' }, { status: 500 })
   }
 }

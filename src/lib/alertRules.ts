@@ -48,7 +48,7 @@ export const ALERT_DAYS = {
   advanceSend: 3,         // 請求書作成→郵送して入金待ちにする
   tasksGenerate: 2,       // 作業進行中→事務管理タスク生成
   contractDocs: 5,        // 受注→契約関連書類の回収
-  reportAnswer: 3,        // 案件報告→受注担当の確認
+  // 案件報告→受注担当の確認 は報連相（要対応）と同じ REPORT_KAKUNIN_BIZ_DAYS／REPORT_CHUI_BIZ_DAYS（caseReports.ts）
   parcelOpen: 1,          // 到着連絡→開封
   inactivityMid: 5,       // 最終接触→未対応（要確認）
   inactivityHigh: 10,     // 最終接触→未対応（要注意）
@@ -114,6 +114,12 @@ export type CaseAlertContext = {
 
 const dayOf = (v: string | null | undefined) => (v ? v.slice(0, 10) : null)
 
+/** 報連相（要対応）放置の理由文。案件担当向け（evaluateCaseAlerts）とチーム向け（caseStateAlerts）で同じ文にする */
+export const hourensouOverdueReason = (sev: AlertSeverity, n: number) =>
+  sev === 'high'
+    ? `要対応の報連相が${REPORT_CHUI_BIZ_DAYS}営業日以上そのままです（${n}件）`
+    : `要対応の報連相が${REPORT_KAKUNIN_BIZ_DAYS}営業日そのままです（${n}件）`
+
 /**
  * その案件に出ているアラートを全部返す。深刻度の重い順。
  * 3つの画面（バナー／案件チップ／ベル）はすべてこの結果を使う。
@@ -128,7 +134,8 @@ export function evaluateCaseAlerts(c: CaseAlertInput, ctx: CaseAlertContext, tod
 
   if (c.has_complaint && active) {
     out.push({ key: 'claim', category: 'クレーム', severity: 'claim', audience: 'both',
-      reason: '依頼者からのクレームがあります。最優先で対応してください', tab: 'complaints' })
+      // クレームは「案件報告」タブの 不満・クレーム サブタブにある（'complaints' というタブは無く、案件進捗に着地していた）
+      reason: '依頼者からのクレームがあります。最優先で対応してください', tab: 'progress&sub=complaints' })
   }
 
   if (ctx.taskOverdue) {
@@ -151,13 +158,10 @@ export function evaluateCaseAlerts(c: CaseAlertInput, ctx: CaseAlertContext, tod
   }
 
   // 報連相（要対応）の放置。情報共有はここに来ない（アラートに出さない）。
+  // 自分が担当でない同じチームの案件ぶんは caseStateAlerts.computeTeamHourensouAlerts（同じ文言）で出す。
   if (ctx.reportActionOverdue) {
-    const n = ctx.reportActionCount ?? 1
     out.push({ key: 'report_action_overdue', category: '報連相 未回答', severity: ctx.reportActionOverdue, audience: 'both',
-      reason: ctx.reportActionOverdue === 'high'
-        ? `要対応の報連相が${REPORT_CHUI_BIZ_DAYS}営業日以上そのままです（${n}件）`
-        : `要対応の報連相が${REPORT_KAKUNIN_BIZ_DAYS}営業日そのままです（${n}件）`,
-      tab: 'progress' })
+      reason: hourensouOverdueReason(ctx.reportActionOverdue, ctx.reportActionCount ?? 1), tab: 'progress' })
   }
 
   if (ctx.billOverdue) {
@@ -348,8 +352,9 @@ export const ALERT_CATALOG: Array<{
     group: '連絡・確認が止まっている',
     items: [
       { label: 'クレーム', severity: 'claim', when: 'クレームが登録されている' },
-      { label: '案件報告：至急', severity: 'high', when: '至急の報告が未確認' },
-      { label: '案件報告 未回答', severity: 'mid', when: `報告が未確認のまま${ALERT_DAYS.reportAnswer}営業日` },
+      { label: '案件報告：至急', severity: 'high', when: '「要至急対応」の報告が未確認' },
+      { label: '案件報告 未回答', severity: 'mid', when: `報告が未確認のまま${REPORT_KAKUNIN_BIZ_DAYS}営業日／${REPORT_CHUI_BIZ_DAYS}営業日で赤。同じチーム全員に出る` },
+      { label: '報連相 未回答', severity: 'mid', when: `要対応の報連相が未回答のまま${REPORT_KAKUNIN_BIZ_DAYS}営業日／${REPORT_CHUI_BIZ_DAYS}営業日で赤。同じチーム全員に出る` },
       { label: '到着物あり（未開封）', severity: 'mid', when: `到着連絡から${ALERT_DAYS.parcelOpen}営業日` },
       { label: '週次報告の漏れ', severity: 'mid', when: '直近7日に確認済の報告がない' },
       { label: '面談メモ未記載', severity: 'mid', when: '面談日を過ぎて未入力' },

@@ -12,6 +12,9 @@ import CreateCaseModal from './CreateCaseModal'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import { createClient } from '@/lib/supabase/client'
 import { cascadeDeleteCase } from '@/lib/caseDelete'
+import { canDeleteCaseLocally } from '@/lib/caseDeletePermission'
+import { useAuth } from '@/components/providers/AuthProvider'
+import { todayJstYmd } from '@/lib/today'
 import { useRouter } from 'next/navigation'
 import { useResizableColumns, ResizeHandle } from '@/lib/useResizableColumns'
 import type { CaseRow, MemberRow } from '@/types'
@@ -39,6 +42,10 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
   const [displayMode, setDisplayMode] = useState<'list' | 'kanban'>('list')
   const createModal = useModal()
   const [deleteCase, setDeleteCase] = useState<CaseWithMembers | null>(null)
+  const authUser = useAuth()
+  // 削除できる案件だけゴミ箱を出す（受注以降はシステム管理者のみ。DB側のポリシーと同じルール）
+  const canDelete = (c: CaseWithMembers) =>
+    canDeleteCaseLocally(authUser, { status: c.status, intake_draft: (c as { intake_draft?: boolean | null }).intake_draft, memberIds: c.case_members?.map(cm => cm.members?.id).filter(Boolean) as string[] })
 
   const handleDeleteCase = async () => {
     if (!deleteCase) return
@@ -48,7 +55,7 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
     router.refresh()
   }
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayJstYmd()
 
   // Compute badge counts based on full case list (not affected by other toggles)
   const mineCount = useMemo(() => {
@@ -243,7 +250,7 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
 
       {/* Content */}
       {displayMode === 'list' ? (
-        <ListView filtered={filtered} taskCounts={taskCounts} router={router} onDelete={setDeleteCase} taskDueDatesMap={taskDueDatesMap} showUrgent={filterUrgent} />
+        <ListView filtered={filtered} taskCounts={taskCounts} router={router} onDelete={setDeleteCase} canDelete={canDelete} taskDueDatesMap={taskDueDatesMap} showUrgent={filterUrgent} />
       ) : (
         <KanbanView cases={filtered} taskCounts={taskCounts} router={router} />
       )}
@@ -266,15 +273,16 @@ export default function CaseListClient({ cases, taskCounts, currentMemberId, tas
 }
 
 // ─── List View ───
-function ListView({ filtered, taskCounts, router, onDelete, taskDueDatesMap, showUrgent }: {
+function ListView({ filtered, taskCounts, router, onDelete, canDelete, taskDueDatesMap, showUrgent }: {
   filtered: (CaseRow & { case_members: Array<{ role: string; members: MemberRow }> })[]
   taskCounts: Record<string, { total: number; completed: number }>
   router: ReturnType<typeof useRouter>
   onDelete: (c: CaseRow & { case_members: Array<{ role: string; members: MemberRow }> }) => void
+  canDelete: (c: CaseRow & { case_members: Array<{ role: string; members: MemberRow }> }) => boolean
   taskDueDatesMap: Record<string, Array<{ due_date: string | null; status: string }>>
   showUrgent: boolean
 }) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayJstYmd()
 
   // 列幅（リサイズ可能・localStorage保存）
   const { widths, startResize } = useResizableColumns('caseListColWidths', {
@@ -374,13 +382,15 @@ function ListView({ filtered, taskCounts, router, onDelete, taskDueDatesMap, sho
                   </td>
                   <td className="px-3.5 py-3"><span className="text-[13px] font-mono text-gray-400">{c.order_date ?? '—'}</span></td>
                   <td className="px-3.5 py-3">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onDelete(c) }}
-                      className="w-6 h-6 rounded flex items-center justify-center text-gray-300 hover:bg-red-50 hover:text-red-500 transition"
-                      title="削除"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
-                    </button>
+                    {canDelete(c) && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onDelete(c) }}
+                        className="w-6 h-6 rounded flex items-center justify-center text-gray-300 hover:bg-red-50 hover:text-red-500 transition"
+                        title="削除"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+                      </button>
+                    )}
                   </td>
                 </tr>
               )

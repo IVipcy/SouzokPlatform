@@ -52,7 +52,7 @@ export async function fetchCaseAlertContexts(
     supabase.from('cases').select('id,tax_filing_required').in('id', caseIds),
     supabase.from('heirs').select('case_id,is_deceased,is_legal_heir').in('case_id', caseIds),
     supabase.from('real_estate_properties').select('case_id,appraisal_value,confirmed').in('case_id', caseIds),
-    supabase.from('financial_assets').select('case_id,balance_amount').in('case_id', caseIds),
+    supabase.from('financial_assets').select('case_id,balance_amount,balance_confirmed').in('case_id', caseIds),
   ])
   const taskRows = preloaded.tasks ?? (tasksRes.data ?? [])
   const reportRows = preloaded.reports ?? (reportsRes.data ?? [])
@@ -135,8 +135,9 @@ export async function fetchCaseAlertContexts(
     for (const p of (propsRes.data ?? []) as Array<{ case_id: string; appraisal_value: number | null; confirmed: boolean | null }>) {
       if (p.confirmed && p.appraisal_value) total.set(p.case_id, (total.get(p.case_id) ?? 0) + p.appraisal_value)
     }
-    for (const f of (finRes.data ?? []) as Array<{ case_id: string; balance_amount: number | null }>) {
-      if (f.balance_amount) total.set(f.case_id, (total.get(f.case_id) ?? 0) + f.balance_amount)
+    // 「確定した財産」なので、口座も残高確定（balance_confirmed）したものだけ足す
+    for (const f of (finRes.data ?? []) as Array<{ case_id: string; balance_amount: number | null; balance_confirmed: boolean | null }>) {
+      if (f.balance_confirmed && f.balance_amount) total.set(f.case_id, (total.get(f.case_id) ?? 0) + f.balance_amount)
     }
     for (const id of undecided) {
       const t = total.get(id) ?? 0

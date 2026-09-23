@@ -8,8 +8,8 @@
 //
 // サーバー／クライアント両方から使う（'use client' は付けない）。
 
-import { REQUIRED_ENCLOSURES, matchStockForRequired, type RequiredEnclosure, type StockRow } from '@/lib/originals'
-import type { TaskRow } from '@/types'
+import { REQUIRED_ENCLOSURES, matchStockForRequired, ownQtyForRid, type OwnQtyContext, type RequiredEnclosure, type StockRow } from '@/lib/originals'
+import type { TaskRow, RequestEnclosureRow } from '@/types'
 
 export type GateKind = 'koseki' | 're' | 'fin'
 
@@ -84,12 +84,13 @@ export function gateKindsAffectedBy(originalName: string): GateKind[] {
 
 /**
  * 着手前の請求タスクごとに「足りない原本」を出す。無いタスクは含めない。
- * stockByCase … 案件ID → 原本管理の行。ctxByCase … 案件ID → 被相続人名・戸籍請求の取得方法
+ * stockByCase … 案件ID → 原本管理の行。ctxByCase … 案件ID → 被相続人名・戸籍請求の取得方法・
+ *   その案件の同梱（enclosures）と rid を請求IDに解く材料（ownQty。自分が同梱した分は手元と数える）
  */
 export function originalsWaitForTasks(
   tasks: Array<Pick<TaskRow, 'id' | 'case_id' | 'status' | 'source_rid'>>,
   stockByCase: Record<string, StockRow[]>,
-  ctxByCase: Record<string, { deceasedName: string | null; kosekiAuthority?: Record<string, string | null> }>,
+  ctxByCase: Record<string, { deceasedName: string | null; kosekiAuthority?: Record<string, string | null>; enclosures?: RequestEnclosureRow[]; ownQtyCtx?: OwnQtyContext }>,
 ): Record<string, OriginalsGate> {
   const out: Record<string, OriginalsGate> = {}
   for (const t of tasks) {
@@ -100,7 +101,8 @@ export function originalsWaitForTasks(
     const ctx = ctxByCase[t.case_id]
     if (!stock || !ctx) continue
     const shokumujo = kind === 'koseki' ? (ctx.kosekiAuthority?.[(t.source_rid ?? '').slice('koseki:'.length)] === '職務上請求') : false
-    const g = originalsGate(kind, stock, { deceasedName: ctx.deceasedName, shokumujo })
+    const ownQty = ctx.enclosures ? ownQtyForRid(t.source_rid, ctx.enclosures, ctx.ownQtyCtx) : undefined
+    const g = originalsGate(kind, stock, { deceasedName: ctx.deceasedName, shokumujo, ownQty })
     if (!g.ok) out[t.id] = g
   }
   return out

@@ -35,7 +35,8 @@ export default function AssetEstimateSection({ caseId, patchCase, ensureCaseId, 
   useEffect(() => {
     let alive = true
     ;(async () => {
-      if (!caseId) { if (alive) setLoaded(true); return }
+      // 案件未作成の面談シートは caseId が 'new' や空で来る。uuid でなければ取りに行かない（毎回コンソールにエラーが出ていた）
+      if (!caseId || !/^[0-9a-f-]{36}$/i.test(caseId)) { if (alive) setLoaded(true); return }
       const { data } = await createClient().from('case_asset_estimates').select('*').eq('case_id', caseId).order('sort_order').order('created_at')
       if (!alive) return
       setRows((data ?? []) as Row[])

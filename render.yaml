@@ -15,5 +15,10 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
+      # 相続ステーション連携①の受信認証（値はダッシュボードで設定。無いと連携APIが常に 503）
+      - key: INBOUND_API_KEY
+        sync: false
+      - key: INBOUND_HMAC_SECRET
+        sync: false
       - key: NODE_ENV
         value: production

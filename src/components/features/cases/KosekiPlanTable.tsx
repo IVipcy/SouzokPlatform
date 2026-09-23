@@ -39,6 +39,9 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
   // 対象者＝被相続人＋相続人。名前で対応づける（実務タブの請求対象者と同じキー）。
   // 依頼者は戸籍請求の起点（この人の戸籍から出す）なので、ここで分かるようにバッジを出す。
   // 色は戸籍画像のマーカーと同じ3区分（被相続人＝黄／相続人＝緑／亡くなっている相続人＝水色）。
+  // 行のキーは正規化した氏名（姓名の区切りを全角スペース1つに揃えたもの）。生の文字列で結ぶと、
+  // 相続人の名前の空白を直しただけで行が空になり、保存すると別の行が生える
+  const keyOf = (name: string) => normalizePersonName(name)
   const people: { name: string; role: string; isClient?: boolean; kind: PersonRoleKind; dead?: boolean }[] = [
     ...(caseData.deceased_name ? [{ name: caseData.deceased_name, role: '被相続人', kind: roleKindOf({ isDeceasedPerson: true }) }] : []),
     // 前妻など相続人でない人は戸籍の取得計画に出さない。相関図のために登録しているだけで、
@@ -58,7 +61,8 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
       const { data } = await createClient().from('koseki_plans').select('*').eq('case_id', caseId)
       if (!alive) return
       const map: Record<string, KosekiPlanRow> = {}
-      for (const p of (data ?? []) as KosekiPlanRow[]) map[p.person_name.trim()] = p
+      // 同じ人の行が表記ゆれで2本あるときは、中身の入っている方（先に読んだ方）を残す
+      for (const p of (data ?? []) as KosekiPlanRow[]) { const k = normalizePersonName(p.person_name); if (!map[k]) map[k] = p }
       setPlans(map)
       setLoading(false)
     })()
@@ -67,12 +71,16 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
 
   // 1マス変えるたびに保存（人ごとに1行。無ければ作る）
   const save = async (name: string, field: 'range_text' | 'address_doc' | 'note' | 'acquisition_authority' | 'priority', value: string) => {
-    const key = name.trim()
+    const key = keyOf(name)
     const v = value.trim() || null
+    const existing = plans[key]
     setPlans(prev => ({ ...prev, [key]: { ...(prev[key] ?? {} as KosekiPlanRow), person_name: key, [field]: v } as KosekiPlanRow }))
     const supabase = createClient()
-    const { error } = await supabase.from('koseki_plans')
-      .upsert({ case_id: caseId, person_name: key, [field]: v }, { onConflict: 'case_id,person_name' })
+    // 既にその人の行があれば id で更新（person_name も正規化した名前に揃える）。
+    // 生の名前で upsert すると、空白の違う古い行と別に新しい行ができる
+    const { error } = existing?.id
+      ? await supabase.from('koseki_plans').update({ person_name: key, [field]: v }).eq('id', existing.id)
+      : await supabase.from('koseki_plans').upsert({ case_id: caseId, person_name: key, [field]: v }, { onConflict: 'case_id,person_name' })
     if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
     // 取得方法・取得範囲・備考は、同じ人の未請求の戸籍請求カードで空のものにも入れる
     // （オーダーシートで決めた値がカードに出ない、をなくす）。名前は表記ゆれをそろえて一致させる。手で入れてあるカードは上書きしない。
@@ -99,7 +107,7 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
    */
   const setAuthorityForAll = async (value: string) => {
     if (!value) return
-    const names = people.map(p => p.name.trim()).filter(Boolean)
+    const names = [...new Set(people.map(p => keyOf(p.name)).filter(Boolean))]
     if (names.length === 0) return
     setPlans(prev => {
       const next = { ...prev }
@@ -107,8 +115,14 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
       return next
     })
     const supabase = createClient()
-    const { error } = await supabase.from('koseki_plans')
-      .upsert(names.map(n => ({ case_id: caseId, person_name: n, acquisition_authority: value })), { onConflict: 'case_id,person_name' })
+    // 行がある人は id で更新、無い人だけ作る（save と同じ理由）
+    const withRow = names.filter(n => plans[n]?.id)
+    const withoutRow = names.filter(n => !plans[n]?.id)
+    const results = await Promise.all([
+      ...withRow.map(n => supabase.from('koseki_plans').update({ person_name: n, acquisition_authority: value }).eq('id', plans[n].id)),
+      ...(withoutRow.length > 0 ? [supabase.from('koseki_plans').upsert(withoutRow.map(n => ({ case_id: caseId, person_name: n, acquisition_authority: value })), { onConflict: 'case_id,person_name' })] : []),
+    ])
+    const error = results.find(r => r.error)?.error
     if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
     const { error: reqErr } = await supabase.from('koseki_requests')
       .update({ acquisition_authority: value })
@@ -153,7 +167,7 @@ export default function KosekiPlanTable({ caseId, caseData, heirs }: Props) {
         </thead>
         <tbody>
           {people.map((p, i) => {
-            const plan = plans[p.name.trim()]
+            const plan = plans[keyOf(p.name)]
             return (
               <tr key={p.name} className={`border-b border-gray-100 last:border-b-0 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                 {/* どれから手を付けてほしいかの見立て。事務管理がタスクを作るときに見る */}

@@ -270,11 +270,24 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         const name = client ? (client.name ?? '').trim() : dn
         if (name) rows = [{ case_id: caseState.id, target_person: name, acquirer: '自社', request_to: officeOf(name), range_text: null, doc_types: '戸籍', doc_form: '謄本', acquisition_authority: null, notes: null, sort_order: 0 }]
       }
-      if (rows.length > 0) {
-        const { error } = await supabase.from('koseki_requests').insert(rows)
-        if (error) { showToast(`戸籍請求の初期作成に失敗: ${error.message}`, 'error'); return }
+      // 1件も作れない（計画も依頼者も被相続人も無い）ときはフラグを立てない。立てると以後永久に自動生成されない
+      if (rows.length === 0) return
+      // 先にフラグを「まだ立っていない行だけ」条件付きで立てる。2タブで同時に開いたとき、
+      // 更新できた側だけが作る（0行なら向こうが作っているので何もしない）
+      const { data: claimed, error: claimErr } = await supabase.from('cases')
+        .update({ koseki_seeded_at: new Date().toISOString() })
+        .eq('id', caseState.id)
+        .is('koseki_seeded_at', null)
+        .select('id')
+      if (claimErr) { showToast(`戸籍請求の初期作成に失敗: ${claimErr.message}`, 'error'); return }
+      if (!claimed || claimed.length === 0) return
+      const { error } = await supabase.from('koseki_requests').insert(rows)
+      if (error) {
+        // 作れなかったらフラグを戻す（次に開いたときにもう一度作れるように）
+        await supabase.from('cases').update({ koseki_seeded_at: null }).eq('id', caseState.id)
+        showToast(`戸籍請求の初期作成に失敗: ${error.message}`, 'error')
+        return
       }
-      await supabase.from('cases').update({ koseki_seeded_at: new Date().toISOString() }).eq('id', caseState.id)
       handleSaved()
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -54,7 +54,9 @@ export async function getCurrentUser(): Promise<UserWithRoles | null> {
     .select('roles(key)')
     .eq('member_id', member.id)
 
-  const roles = memberRoles?.map((mr: any) => mr.roles?.key).filter(Boolean) ?? []
+  type RoleRef = { roles: { key?: string } | { key?: string }[] | null }
+  const keyOf = (r: RoleRef['roles']): string | undefined => (Array.isArray(r) ? r[0]?.key : r?.key)
+  const roles: string[] = ((memberRoles ?? []) as unknown as RoleRef[]).map(mr => keyOf(mr.roles)).filter((k): k is string => !!k)
 
   // Get permissions for those roles
   const { data: rolePermissions } = await supabase
@@ -62,10 +64,11 @@ export async function getCurrentUser(): Promise<UserWithRoles | null> {
     .select('permission, roles!inner(key)')
     .eq('allowed', true)
 
-  const permissions = rolePermissions
-    ?.filter((rp: any) => roles.includes(rp.roles?.key))
-    .map((rp: any) => rp.permission)
-    .filter(Boolean) ?? []
+  type PermRef = RoleRef & { permission: string | null }
+  const permissions: string[] = ((rolePermissions ?? []) as unknown as PermRef[])
+    .filter(rp => roles.includes(keyOf(rp.roles) ?? ''))
+    .map(rp => rp.permission)
+    .filter((p): p is string => !!p)
 
   return {
     id: user.id,
@@ -82,15 +85,10 @@ export async function getCurrentUser(): Promise<UserWithRoles | null> {
   }
 }
 
-/**
- * Check if a user has a specific permission
- */
-export function hasPermission(user: UserWithRoles | null, permission: string): boolean {
-  if (!user) return false
-  // Admins / managers have all permissions
-  if (user.roles.includes('manager')) return true
-  return user.permissions.includes(permission)
-}
+// 注意：role_permissions（権限マトリクス）は現在どの画面からも参照していない。
+// 以前あった hasPermission は「管理担当なら何でも true」の近道が入っていて、使われた瞬間に
+// 管理担当が全許可になる罠だったので消した（2026-09-23 監査 S4）。出し分けは下の
+// primary_role ベースの関数（isSystemManager / isAssistant / canSeeMyPage …）で行う。
 
 /**
  * Check if a user has any of the specified roles

@@ -10,7 +10,7 @@ import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { cascadeDeleteCase } from '@/lib/caseDelete'
-import { issueCaseNumber } from '@/lib/caseNumber'
+import { issueCaseNumber, insertCaseWithNumber } from '@/lib/caseNumber'
 import OrderSheet from '@/components/features/cases/OrderSheet'
 import MeetingForm from '@/app/(authenticated)/meeting/MeetingForm'
 import WhiteboardTab from './WhiteboardTab'
@@ -148,35 +148,18 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
     if (ce || !client) throw new Error(ce?.message ?? '依頼者の作成に失敗しました')
     clientIdRef.current = client.id
 
-    const now = new Date()
-    const yy = String(now.getFullYear()).slice(2)
-    const mm = String(now.getMonth() + 1).padStart(2, '0')
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-    const { data: todayCases } = await supabase.from('cases').select('case_number').gte('created_at', startOfDay)
-    let seq = (todayCases ?? []).reduce((max, c) => {
-      const n = parseInt(String(c.case_number ?? '').slice(-4), 10)
-      return Number.isFinite(n) && n > max ? n : max
-    }, 0) + 1
-
-    let lastErr = '不明なエラー'
-    for (let attempt = 0; attempt < 20; attempt++) {
-      const caseNumber = `${yy}${mm}XX${String(seq).padStart(4, '0')}`
-      const { data: newCase, error } = await supabase.from('cases').insert({
-        case_number: caseNumber, client_id: client.id, deal_name: '無題', status: '検討中',
-        meeting_owner_id: currentMemberId || null, intake_draft: true,
-      }).select('*, clients(*)').single()
-      if (!error && newCase) {
-        idRef.current = (newCase as CaseRow).id
-        setCaseState(newCase as CaseRow)
-        // URLを実案件に置き換え（リロード/戻る対応・再マウントは避ける）
-        if (typeof window !== 'undefined') window.history.replaceState(null, '', `/intake/${(newCase as CaseRow).id}`)
-        return (newCase as CaseRow).id
-      }
-      lastErr = error?.message ?? lastErr
-      if (error?.code === '23505') { seq += 1; continue }
-      break
-    }
-    throw new Error(`案件の作成に失敗: ${lastErr}`)
+    // 採番は lib/caseNumber.ts に一本化。経路が未入力なので 'XX'（②で受注ルートを保存したとき実コードに直る）
+    const ins = await insertCaseWithNumber<CaseRow>(supabase, {
+      client_id: client.id, deal_name: '無題', status: '検討中',
+      meeting_owner_id: currentMemberId || null, intake_draft: true,
+    }, null, '*, clients(*)')
+    if (!ins.data) throw new Error(`案件の作成に失敗: ${ins.error ?? '不明なエラー'}`)
+    const newCase = ins.data
+    idRef.current = newCase.id
+    setCaseState(newCase)
+    // URLを実案件に置き換え（リロード/戻る対応・再マウントは避ける）
+    if (typeof window !== 'undefined') window.history.replaceState(null, '', `/intake/${newCase.id}`)
+    return newCase.id
   }, [supabase, currentMemberId])
 
   // 相続ステーションから受信しただけの案件は番号を持たない（migration 247）。

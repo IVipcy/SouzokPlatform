@@ -243,7 +243,10 @@ function Cell({ value, onCommit, placeholder }: { value: string | null; onCommit
 // 書類名セル。契約書/委任状/本人確認書類/印鑑証明書 を候補に出しつつ フリー入力も可（datalist）。
 // 委任状の行は 認印／実印／登記用 の3択にする（自動作成された「委任状」は「種類を選ぶ」として出し、選び直せる）。
 function DocNameCell({ value, onCommit }: { value: string | null; onCommit: (v: string) => void }) {
-  if (isPoaDoc(value)) {
+  // 3択セレクトにするのは「委任状」そのもの（自動作成の種類未選択）と 認印／実印／登記用 の3種だけ。
+  // 「委任状（ゆうちょ用）」のような手入力名まで isPoaDoc（部分一致）でセレクトに化けさせると、自由入力に戻せなくなる
+  const poaSelect = value === '委任状' || (POA_KINDS as readonly string[]).includes(value ?? '')
+  if (poaSelect) {
     const v = value ?? ''
     const known = (POA_KINDS as readonly string[]).includes(v)
     return (

@@ -51,7 +51,9 @@ export default function FinancialRequestModal({ isOpen, onClose, institution, ac
     if (noAccounts) return fallback
     const lines: BalanceLine[] = []
     let seq = 1
-    const onDeath = accounts.filter(a => a.balance_cert_on_death).map(a => a.id)
+    // 指定が何も無い口座（実務で足した口座など）は「相続開始日時点」の行に入れる。黙って明細から落ちていた
+    const noSpec = (a: FinancialAssetRow) => !a.balance_cert_on_death && !a.balance_cert_recent && !(a.balance_cert_dates ?? []).some(Boolean)
+    const onDeath = accounts.filter(a => a.balance_cert_on_death || noSpec(a)).map(a => a.id)
     const recent = accounts.filter(a => a.balance_cert_recent).map(a => a.id)
     if (onDeath.length > 0) lines.push({ id: seq++, recent: false, date: defaultBalanceDate ?? '', accountIds: onDeath })
     if (recent.length > 0) lines.push({ id: seq++, recent: true, date: '', accountIds: recent })

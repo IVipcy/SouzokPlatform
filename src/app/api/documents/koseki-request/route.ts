@@ -25,6 +25,8 @@ type RequestRow = {
   copyCount: number
   kogawaseAmount: number | null
   notes: string
+  /** 提出先（カードの submit_to。ひな型に欄がある様式＝行政だけ書く）。無ければ欄を空にして記入例を消す */
+  submitTo?: string | null
 }
 
 type Body = {
@@ -289,14 +291,13 @@ export async function POST(request: NextRequest) {
 
     setCell(ws, map.deceasedName, deceasedName)
 
-    if (row.kogawaseAmount !== null && row.kogawaseAmount !== undefined) {
-      setCell(ws, map.kogawaseAmount, row.kogawaseAmount)
-    }
+    // 提出先（欄のある様式だけ）。書かないとひな型の記入例が残る
+    if (map.submitTo) setCell(ws, map.submitTo, (row.submitTo ?? '').trim() || null)
 
-    if (row.notes) {
-      // 備考欄(notesStart)に流し込み（複数行はテンプレ既存レイアウトに委ねる）
-      setCell(ws, map.notesStart, row.notes)
-    }
+    // 同封小為替・備考も、値が無ければ空にする（記入例を残さない）
+    setCell(ws, map.kogawaseAmount, row.kogawaseAmount !== null && row.kogawaseAmount !== undefined ? row.kogawaseAmount : null)
+    // 備考欄(notesStart)に流し込み（複数行はテンプレ既存レイアウトに委ねる）
+    setCell(ws, map.notesStart, row.notes || null)
 
     // 出力
     const outBuffer = await wb.xlsx.writeBuffer()

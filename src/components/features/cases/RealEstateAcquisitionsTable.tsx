@@ -9,6 +9,8 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { ACQUISITION_ITEMS, RE_REQUEST_KINDS, REQUEST_KIND_HELP, isMistakenRequest } from '@/lib/constants'
+import { municipalOfficeFromAddress } from '@/lib/address'
+import { todayJstYmd } from '@/lib/today'
 
 // 請求区分の説明（列見出しの「?」）。定義は constants.ts の1か所。
 const KIND_HINT = RE_REQUEST_KINDS.map(k => `${k}：${REQUEST_KIND_HELP[k]}`).join('\n')
@@ -489,7 +491,7 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
       const where = (r.target_municipality ?? '').trim() || (r.request_to ?? '').trim() || ''
       const yr = (r.doc_year ?? r.myna_year) ? `・${r.doc_year ?? r.myna_year}` : ''
       const { data, error } = await supabase.from('contract_documents')
-        .insert({ case_id: caseId, name: `${label}（${where}${yr}）`, category: '不動産', status: 'その場で受領', arrival_date: new Date().toLocaleDateString('sv-SE'), sort_order: 0 })
+        .insert({ case_id: caseId, name: `${label}（${where}${yr}）`, category: '不動産', status: 'その場で受領', arrival_date: todayJstYmd(), sort_order: 0 })
         .select('id').single()
       if (error || !data) { showToast(`契約手続きへの追加に失敗: ${error?.message ?? ''}`, 'error'); return }
       await saveMany(r.id, { acquirer: '自社', received_at_meeting: true, contract_document_id: (data as { id: string }).id })
@@ -502,10 +504,10 @@ export default function RealEstateAcquisitionsTable({ caseId, acquisitions, prop
     await saveMany(r.id, { acquirer: acquirerValue(next), received_at_meeting: false, contract_document_id: null })
   }
 
-  // 請求先の既定値：①市区町村役場＝「{市区町村}役所」（都道府県プレフィックスは省く）、②法務局＝物件の管轄法務局（registration_office）。
-  const stripPref = (m: string) => m.replace(/^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)/, '')
+  // 請求先の既定値：①市区町村役場＝住所から役所名（市・区は「◯◯役所」、町・村は「◯◯役場」、郡は外す。lib/address.ts と戸籍請求で共用）、
+  // ②法務局＝物件の管轄法務局（registration_office）。
   const officeDefault = (muni?: string | null, propId?: string | null) => {
-    if (scope === 'municipality') { const m = stripPref((muni ?? municipalityFilter ?? '').trim()); return m ? `${m}役所` : '市区町村役所' }
+    if (scope === 'municipality') return municipalOfficeFromAddress((muni ?? municipalityFilter ?? '').trim()) ?? '市区町村役所'
     if (scope === 'property') {
       // 対象物件の管轄法務局があればそれ、無ければ同市区町村の物件から拾う（A案：局名を表示・請求先に）。
       if (propId) { const p = properties.find(x => x.id === propId); const o = (p?.registration_office ?? '').trim(); if (o) return o }

@@ -53,8 +53,8 @@ ${alerts}
 - タスク未生成：作業進行中から${ALERT_DAYS.tasksGenerate}
 - タスク期限超過：${ALERT_DAYS.taskMid}（黄）／${ALERT_CAL_DAYS.taskHigh}日・暦日（赤）
 - 入金期日超過：期日＋${ALERT_DAYS.billBase}営業日を起点に、そこから${ALERT_CAL_DAYS.billKakunin}日（黄）／${ALERT_CAL_DAYS.billChui}日（赤）。日数は暦日
-- 報連相（要対応）未回答：${REPORT_KAKUNIN_BIZ_DAYS}（黄）／${REPORT_CHUI_BIZ_DAYS}（赤）。情報共有はアラートに出さない
-- 案件報告 未回答：${ALERT_DAYS.reportAnswer}。状態が「至急！！」なら即赤
+- 報連相（要対応）未回答：${REPORT_KAKUNIN_BIZ_DAYS}（黄）／${REPORT_CHUI_BIZ_DAYS}（赤）。黄から同じチーム全員のマイページにも出る。情報共有はアラートに出さない
+- 案件報告 未回答：届いた直後は受注担当のベルに青。${REPORT_KAKUNIN_BIZ_DAYS}（黄）／${REPORT_CHUI_BIZ_DAYS}（赤）。黄から同じチーム全員のマイページにも出る。状態が「要至急対応」なら即赤
 - 到着物あり（未開封）：到着連絡から${ALERT_DAYS.parcelOpen}
 - 未対応が続いている：最後に案件を開いてから${ALERT_DAYS.inactivityMid}（黄）／${ALERT_DAYS.inactivityHigh}（赤）
 - 前受金入金御礼 未連絡：${ALERT_DAYS.prepayThanksMid}（黄）／${ALERT_DAYS.prepayThanksHigh}（赤）

@@ -18,6 +18,7 @@ import { createClient } from '@/lib/supabase/client'
 import { isIkiikiContract } from '@/lib/constants'
 import { useOriginalStock } from '@/lib/useOriginalStock'
 import { md, type StockRow } from '@/lib/originals'
+import { todayJstYmd } from '@/lib/today'
 import type { CaseRow, ContractDocumentRow, HeirRow } from '@/types'
 
 type Props = {
@@ -58,7 +59,7 @@ function AzukariBody({ caseData, heirs, defaultTaskId, onSaved, onClose }: {
   const supabase = createClient()
   const { stock, loading, reload } = useOriginalStock(caseData.id)
   const rows = stock.filter(r => !r.copy)
-  const [receivedDate, setReceivedDate] = useState(new Date().toISOString().slice(0, 10))
+  const [receivedDate, setReceivedDate] = useState(() => todayJstYmd())
   const clientName = (caseData.clients?.name ?? '').trim()
   const nameOptions = [...new Set([clientName, ...heirs.filter(h => h.is_client).map(h => (h.name ?? '').trim())].filter(Boolean))]
   const [addressee, setAddressee] = useState(nameOptions[0] ?? '')

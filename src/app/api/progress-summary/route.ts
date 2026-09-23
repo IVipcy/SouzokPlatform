@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { getCurrentUser } from '@/lib/auth'
+import { rateLimit, rateLimitMessage } from '@/lib/rateLimit'
 
 // 案件進捗ボードの要約をClaude(Sonnet 5)で生成。管理担当が開いたときにオンデマンドで1回だけ呼ぶ。
 // 入力: { items: [{kotei, name, status, note?}], dealName? }
@@ -46,12 +48,22 @@ function buildTimingBlock(t?: Timing): string {
 }
 
 export async function POST(req: NextRequest) {
+  // ミドルウェアだけに頼らず、AI を呼ぶ前にここでもログインを確かめる（課金が発生するため）
+  const user = await getCurrentUser()
+  if (!user) return NextResponse.json({ error: 'ログインが必要です' }, { status: 401 })
+  // 案件を開くたび1回なので、OCR より少なめでよい
+  const rl = rateLimit(`progress-summary:${user.memberId ?? user.id}`, { limit: 10 })
+  if (!rl.ok) return NextResponse.json({ error: rateLimitMessage(rl) }, { status: 429 })
+
   try {
     const { items, dealName, timing } = (await req.json()) as { items?: Item[]; dealName?: string; timing?: Timing }
     if (!items || items.length === 0) return NextResponse.json({ error: '進捗データがありません' }, { status: 400 })
 
     const apiKey = process.env.ANTHROPIC_API_KEY
-    if (!apiKey) return NextResponse.json({ error: 'ANTHROPIC_API_KEYが未設定です' }, { status: 500 })
+    if (!apiKey) {
+      console.error('[progress-summary] ANTHROPIC_API_KEY が未設定')
+      return NextResponse.json({ error: 'AI機能の設定が完了していません。管理者に連絡してください' }, { status: 500 })
+    }
 
     // 工程ごとにまとめて提示（工程の無いものは「その他」に寄せる）
     const byKoteiInput = new Map<string, Item[]>()
@@ -97,7 +109,8 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ overall, byKotei })
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    return NextResponse.json({ error: msg }, { status: 500 })
+    // 例外の生文言（APIキーやURLが混ざることがある）は利用者に返さず、ログにだけ残す
+    console.error('[progress-summary] error:', e)
+    return NextResponse.json({ error: '要約の生成に失敗しました。時間をおいてもう一度お試しください' }, { status: 500 })
   }
 }

@@ -136,6 +136,28 @@ export function resolveColumns(table: string[][], setting: VisitColumns): { head
 export const visitRowKey = (r: { caseNumber: string; clientName: string; bank: string; visitDate: string }) =>
   [r.caseNumber, r.clientName, r.bank, r.visitDate].map(v => norm(v)).join('|')
 
+/**
+ * 行ごとの鍵。同じ銀行・同じ日に2枠あると鍵が同じになり、片方を完了すると両方消えていたので、
+ * 同じ内容の2行目以降には「#2」「#3」を付けて区別する（1行目は従来どおりの鍵＝過去の完了記録と互換）。
+ */
+export function visitRowKeys(rows: Array<{ caseNumber: string; clientName: string; bank: string; visitDate: string }>): string[] {
+  const seen = new Map<string, number>()
+  return rows.map(r => {
+    const base = visitRowKey(r)
+    const n = (seen.get(base) ?? 0) + 1
+    seen.set(base, n)
+    return n === 1 ? base : `${base}#${n}`
+  })
+}
+
+/** 読みに行ってよい URL か。app_settings に入った URL を無条件に取りに行くと、社内アドレス等を読まされるため docs.google.com のシートだけに限る */
+export function isAllowedSheetUrl(url: string): boolean {
+  try {
+    const u = new URL(url)
+    return u.protocol === 'https:' && u.hostname === 'docs.google.com' && u.pathname.startsWith('/spreadsheets/')
+  } catch { return false }
+}
+
 export async function loadVisitReservations(supabase: SupabaseClient, today: string): Promise<VisitData> {
   const empty: VisitData = { configured: false, sheetUrl: '', csvUrl: '', columns: {}, headers: [], detected: {}, rows: [], error: null }
   const { data: st, error: stErr } = await supabase.from('app_settings').select('key, value').in('key', [VISITS_SHEET_URL_KEY, VISITS_COLUMNS_KEY])
@@ -146,9 +168,13 @@ export async function loadVisitReservations(supabase: SupabaseClient, today: str
   try { columns = JSON.parse(settings.get(VISITS_COLUMNS_KEY) || '{}') as VisitColumns } catch { columns = {} }
   if (!sheetUrl) return { ...empty, columns }
   const csvUrl = toCsvUrl(sheetUrl)
+  if (!isAllowedSheetUrl(csvUrl)) {
+    return { ...empty, configured: true, sheetUrl, csvUrl, columns, error: '来店予約のシートURLは docs.google.com のスプレッドシートだけ使えます。右上の「設定」で直してください' }
+  }
   let text = ''
   try {
-    const res = await fetch(csvUrl, { cache: 'no-store', redirect: 'follow', headers: { Accept: 'text/csv,*/*' } })
+    // 5秒で諦める。シートが重いとき事務管理ダッシュボード全体が待たされるため
+    const res = await fetch(csvUrl, { cache: 'no-store', redirect: 'follow', headers: { Accept: 'text/csv,*/*' }, signal: AbortSignal.timeout(5000) })
     const ct = res.headers.get('content-type') ?? ''
     if (!res.ok || ct.includes('text/html')) {
       return { ...empty, configured: true, sheetUrl, csvUrl, columns, error: res.status === 200 || res.status === 302 || res.status === 401 || res.status === 403
@@ -157,7 +183,8 @@ export async function loadVisitReservations(supabase: SupabaseClient, today: str
     }
     text = await res.text()
   } catch (e) {
-    return { ...empty, configured: true, sheetUrl, csvUrl, columns, error: `シートを読めませんでした: ${e instanceof Error ? e.message : ''}` }
+    const timedOut = e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError')
+    return { ...empty, configured: true, sheetUrl, csvUrl, columns, error: timedOut ? 'シートの読み込みが5秒たっても終わりませんでした。しばらくしてから開き直してください' : `シートを読めませんでした: ${e instanceof Error ? e.message : ''}` }
   }
   const table = parseCsv(text)
   const { headerRow, idx, headers, detected } = resolveColumns(table, columns)
@@ -171,7 +198,7 @@ export async function loadVisitReservations(supabase: SupabaseClient, today: str
   })).filter(r => r.bank || r.caseNumber || r.visitDate)
 
   // 「来店準備完了」を押した行を除く
-  const keys = raw.map(visitRowKey)
+  const keys = visitRowKeys(raw)
   const { data: done } = keys.length ? await supabase.from('visit_reservations_done').select('row_key').in('row_key', keys) : { data: [] }
   const doneSet = new Set(((done ?? []) as Array<{ row_key: string }>).map(d => d.row_key))
 

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { getCurrentUser } from '@/lib/auth'
+import { rateLimit, rateLimitMessage } from '@/lib/rateLimit'
 
 // 手書きメモ画像 or テキスト ＋ 項目リスト → 各項目の値を構造化抽出（Claude）。
 // 面談シートの「AIで項目に反映」から呼ばれ、返った値を各フィールドに自動入力する。
@@ -12,6 +14,12 @@ type RowGroup = { key: string; label: string; fields: Field[] }
 type ImgMediaType = 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'
 
 export async function POST(req: NextRequest) {
+  // ミドルウェアだけに頼らず、AI を呼ぶ前にここでもログインを確かめる（課金が発生するため）
+  const user = await getCurrentUser()
+  if (!user) return NextResponse.json({ error: 'ログインが必要です' }, { status: 401 })
+  const rl = rateLimit(`ocr-extract:${user.memberId ?? user.id}`, { limit: 20 })
+  if (!rl.ok) return NextResponse.json({ error: rateLimitMessage(rl) }, { status: 429 })
+
   try {
     const { image, text, fields, rowGroups } = (await req.json()) as { image?: string; text?: string; fields?: Field[]; rowGroups?: RowGroup[] }
     if (!image && !(text && text.trim())) return NextResponse.json({ error: '画像またはテキストが必要です' }, { status: 400 })
@@ -29,7 +37,10 @@ export async function POST(req: NextRequest) {
     }
 
     const apiKey = process.env.ANTHROPIC_API_KEY
-    if (!apiKey) return NextResponse.json({ error: 'ANTHROPIC_API_KEYが未設定です' }, { status: 500 })
+    if (!apiKey) {
+      console.error('[ocr-extract] ANTHROPIC_API_KEY が未設定')
+      return NextResponse.json({ error: 'AI機能の設定が完了していません。管理者に連絡してください' }, { status: 500 })
+    }
 
     const describeField = (f: Field): string => {
       const parts = [`"${f.key}"（${f.label}）`]
@@ -94,7 +105,9 @@ export async function POST(req: NextRequest) {
     const client = new Anthropic({ apiKey })
     const response = await client.messages.create({
       model: 'claude-opus-4-8',
-      max_tokens: 1024,
+      // 相続人・口座・物件の行データが多いメモだと 1024 では JSON が途中で切れて
+      // 「何も見つからない」に見えていた。余裕を持たせる
+      max_tokens: 8192,
       messages: [
         { role: 'user', content: isImage && data && mediaType
           ? [
@@ -104,6 +117,11 @@ export async function POST(req: NextRequest) {
           : [ { type: 'text', text: prompt } ] },
       ],
     })
+
+    // 上限で切れた JSON は壊れていて解釈できない。空で返すと「読めなかった」と区別がつかないので、はっきりエラーにする
+    if (response.stop_reason === 'max_tokens') {
+      return NextResponse.json({ error: '項目が多すぎて途中で切れました。メモを分けるか、項目を減らしてもう一度お試しください' }, { status: 502 })
+    }
 
     const raw = response.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map(b => b.text).join('').trim()
     // 説明文が前後に付いても JSON 本体（最初の { 〜 最後の }）を取り出す。コードフェンスも除去。
@@ -148,7 +166,8 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ values, rows })
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    return NextResponse.json({ error: msg }, { status: 500 })
+    // 例外の生文言（APIキーやURLが混ざることがある）は利用者に返さず、ログにだけ残す
+    console.error('[ocr-extract] error:', e)
+    return NextResponse.json({ error: '項目の読み取りに失敗しました。時間をおいてもう一度お試しください' }, { status: 500 })
   }
 }

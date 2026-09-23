@@ -4,7 +4,8 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { User, FileText, CheckCircle2, ChevronDown, RotateCcw, type LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { applyRouteToCaseNumber } from '@/lib/caseNumber'
+import { applyRouteToCaseNumber, insertCaseWithNumber } from '@/lib/caseNumber'
+import { MEETING_RESULT_LOCKED_MESSAGE } from '@/lib/meetingResult'
 import { seedRewardItemsFromProposal } from '@/lib/rewardFromProposal'
 import { saveMeetingSnapshot } from '@/lib/meetingSnapshot'
 
@@ -23,7 +24,7 @@ import {
   REAL_ESTATE_REGISTRATION_OPTIONS,
   TAX_ADVISOR_REFERRAL_REASONS, REAL_ESTATE_APPRAISAL_RANKS, OTHER_REFERRAL_PARTNERS,
   CONSIDERATION_DECLINE_REASONS,
-  ORDER_ROUTES, ORDER_ROUTE_CODES, PAST_CLIENT_ROUTE, isOrderRouteLocked,
+  ORDER_ROUTES, PAST_CLIENT_ROUTE, isOrderRouteLocked, AFTER_ORDER_STATUSES,
   MAIN_FUNERAL_COMPANIES, OTHER_FUNERAL_COMPANIES, TAX_ADVISOR_COMPANIES, HP_SOURCES,
   CONSIDERATION_PERIODS, PROSPECT_LEVELS, considerationDueMax, HEARING_MEMO_SAMPLE,
   CLIENT_TRAIT_OPTIONS, DIFFICULTY_LEVELS,
@@ -349,6 +350,9 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
       const { data: rows } = await createClient().from('case_referrals').select('partner_type, referral_reason, content, content_detail, appraisal_rank').eq('case_id', selectedCase.id)
       const list = (rows ?? []) as Array<{ partner_type: string; referral_reason: string | null; content: string | null; content_detail: string | null; appraisal_rank: string | null }>
       if (list.length === 0) return
+      // 触り始めた後に届いたら、フォームには入れない。そのときは「読めた」扱いにもしない
+      // （読めた扱いにすると、フォームに無い紹介を「外された」と誤って全部消してしまう）
+      if (dirtyRef.current) return
       loadedPartnersRef.current = list.map(r => r.partner_type)
       setData(prev => {
         if (dirtyRef.current) return prev
@@ -583,6 +587,20 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
       // 受注区分。古い下書きに残る「提案できず」（受注区分ではない）は落とす
       const cats = formData.serviceCategories.filter(c => (ORDER_CATEGORIES as readonly string[]).includes(c))
 
+      // 受注にするなら受注ルートは必須。空のまま受注すると案件番号が「XX」のまま固定され、どの画面からも直せなくなる
+      if (ORDER_STATUSES.has(formData.caseStatus) && !formData.orderRoute) {
+        throw new Error('受注にするには受注ルートを選んでください（案件番号の経路コードに使います）')
+      }
+      // 受注以降の案件は面談結果から戻さない（作業中の案件が検討中に巻き戻る事故を防ぐ）
+      if (!isNew) {
+        const { data: curRow } = await supabase.from('cases').select('status').eq('id', caseId).single()
+        const curStatus = (curRow as { status: string } | null)?.status ?? ''
+        const wantStatus = formData.caseStatus || getMeetingResultOption(formData.meetingResult)?.status || ''
+        if ((AFTER_ORDER_STATUSES as readonly string[]).includes(curStatus) && wantStatus && !ORDER_STATUSES.has(wantStatus)) {
+          throw new Error(MEETING_RESULT_LOCKED_MESSAGE)
+        }
+      }
+
       // 3. 案件 upsert（面談情報のみ。遺産系詳細はオーダーシートで入力）
       const casePayload = {
         client_id: clientId,
@@ -598,7 +616,8 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         meeting_type: formData.meetingType || null,
         proposal_judicial: formData.proposalJudicial || null,
         proposal_administrative: formData.proposalAdministrative || null,
-        meeting_owner_id: currentMemberId || null,
+        // 面談担当は最初に登録した人。保存し直すたびに編集者で上書きしていたので、新規のときだけ入れる（既存は空のときだけ下で埋める）
+        ...(isNew ? { meeting_owner_id: currentMemberId || null } : {}),
         service_category: cats[0] || null,
         service_category_2: cats[1] || null,
         // 受注区分パート（順序付き）。一覧/旧読み取り互換のため①②と procedure_type も併せて保持。
@@ -633,32 +652,10 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
       }
 
       if (isNew) {
-        // 採番: YYMM + 経路コード + 当日連番4桁（経路問わず当日作成順）。例: 2606LP0001
-        // 連番は「当日の既存番号の最大+1」で算出（件数+1だと削除で番号が再利用され重複するため）。
-        const now = new Date()
-        const yy = String(now.getFullYear()).slice(2)
-        const mm = String(now.getMonth() + 1).padStart(2, '0')
-        const routeCode = ORDER_ROUTE_CODES[formData.orderRoute] ?? 'XX'
-        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-        const { data: todayCases } = await supabase.from('cases').select('case_number').gte('created_at', startOfDay)
-        let seq = (todayCases ?? []).reduce((max, c) => {
-          const n = parseInt(String(c.case_number ?? '').slice(-4), 10)
-          return Number.isFinite(n) && n > max ? n : max
-        }, 0) + 1
-
-        // 一意制約(case_number)に当たったら連番を上げて自動リトライ（同時作成・削除ギャップ対策）
-        let newCaseId: string | null = null
-        let lastErrMsg = '不明なエラー'
-        for (let attempt = 0; attempt < 20; attempt++) {
-          const caseNumber = `${yy}${mm}${routeCode}${String(seq).padStart(4, '0')}`
-          const { data: newCase, error } = await supabase.from('cases').insert({ ...casePayload, case_number: caseNumber }).select('id').single()
-          if (!error && newCase) { newCaseId = newCase.id; break }
-          lastErrMsg = error?.message ?? lastErrMsg
-          if (error?.code === '23505') { seq += 1; continue }  // 番号重複 → 次の連番で再試行
-          break  // それ以外のエラーは中断
-        }
-        if (!newCaseId) throw new Error(`案件の保存に失敗: ${lastErrMsg}`)
-        caseId = newCaseId
+        // 採番は lib/caseNumber.ts に一本化（YYMM + 経路コード + 当日連番。番号重複は自動リトライ）
+        const ins = await insertCaseWithNumber<{ id: string }>(supabase, casePayload, formData.orderRoute)
+        if (!ins.data) throw new Error(`案件の保存に失敗: ${ins.error ?? '不明なエラー'}`)
+        caseId = ins.data.id
         // 受注担当＝案件作成者を自動セット
         if (currentMemberId) {
           await supabase.from('case_members').insert({ case_id: caseId, member_id: currentMemberId, role: 'sales' })
@@ -694,9 +691,14 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         if (error) throw new Error(`案件の更新に失敗: ${error.message}`)
         // 受注区分に紐づく管理業務だけ入れ替える（手で選んだ実施業務・その他業務は残す）
         {
-          const { data: cur } = await supabase.from('cases').select('intake_roles').eq('id', caseId).single()
-          const nextRoles = rolesForCategoryChange(((cur as { intake_roles: RoleRow[] | null } | null)?.intake_roles ?? []) as RoleRow[], cats)
-          await supabase.from('cases').update({ intake_roles: nextRoles }).eq('id', caseId)
+          const { data: cur } = await supabase.from('cases').select('intake_roles, meeting_owner_id').eq('id', caseId).single()
+          const curRow = cur as { intake_roles: RoleRow[] | null; meeting_owner_id: string | null } | null
+          const nextRoles = rolesForCategoryChange((curRow?.intake_roles ?? []) as RoleRow[], cats)
+          await supabase.from('cases').update({
+            intake_roles: nextRoles,
+            // 面談担当が空（LP連携で受信しただけの案件など）なら、登録した本人を入れる。入っていれば触らない
+            ...(!curRow?.meeting_owner_id && currentMemberId ? { meeting_owner_id: currentMemberId } : {}),
+          }).eq('id', caseId)
         }
         // 下書きで採番した番号は経路が未確定で XX。ここで経路が入ったら実コードに直す。
         {
@@ -944,11 +946,8 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
                 <Textarea value={data.considerationDeclineReasonDetail} onChange={v => update('considerationDeclineReasonDetail', v)} placeholder="検討／失注の具体的な事情を記入（LP案件一覧の検討中理由の右列にも表示されます）" />
               </Card>
             </>
-          ) : (
-            <Card label="面談内容詳細">
-              <Textarea value={data.meetingContentDetail} onChange={v => update('meetingContentDetail', v)} placeholder="面談で確認した内容の詳細を記入" />
-            </Card>
-          )}
+          ) : null}
+          {/* 「面談内容詳細」の欄は外した。保存されない欄で、書いた内容が黙って消えていた（申し送りは下の「その他申し送り事項」へ） */}
 
           <Card label="提案内容・手続き内容">
             <Pills multi value={data.serviceCategories} options={[...ORDER_CATEGORIES]} onChange={v => setServiceCategories(v as string[])} />
@@ -1046,13 +1045,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
               </div>
             )}
           </Card>
-          {/* 追い電話の必要性: 検討中のときだけ、面談内容詳細の上に表示 */}
-          {data.caseStatus === '検討中' && (
-            <Card label="追い電話の必要性">
-              <Pills value={data.followUpCallNeeded} options={['不要', '要']} onChange={v => update('followUpCallNeeded', v as string)} />
-              <p className="mt-1 text-[11px] text-gray-400">確度が低いので念のため一定期間追い電話が必要な場合は「要」を入れてください。</p>
-            </Card>
-          )}
+          {/* 「追い電話の必要性」は保存されない欄だったので外した（必要なら申し送りに書く） */}
           {/* ⑬ その他申し送り事項（旧・面談内容詳細）: 全ステータス共通・フォーム最下部 */}
           <Card label="その他申し送り事項"><Textarea value={data.otherNotes} onChange={v => update('otherNotes', v)} placeholder="お客様の懸念事項、顧客のパーソナリティ、お付き合い先の会社の社員 等" /></Card>
         </div>
@@ -1328,14 +1321,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
               )}
             </>
           )}
-          {/* 追い電話の必要性: 検討中のときだけ表示 */}
-          {data.caseStatus === '検討中' && (
-            <Card label="追い電話の必要性">
-              <Pills value={data.followUpCallNeeded} options={['不要', '要']} onChange={v => update('followUpCallNeeded', v as string)} />
-              <p className="mt-1 text-[11px] text-gray-400">確度が低いので念のため一定期間追い電話が必要な場合は「要」を入れてください。</p>
-            </Card>
-          )}
-          <Card label="面談内容詳細"><Textarea value={data.otherNotes} onChange={v => update('otherNotes', v)} placeholder="面談内容の詳細やメモがあれば記入" /></Card>
+          <Card label="その他申し送り事項"><Textarea value={data.otherNotes} onChange={v => update('otherNotes', v)} placeholder="お客様の懸念事項、顧客のパーソナリティ、お付き合い先の会社の社員 等" /></Card>
         </div>
       )
       case 'confirm': return (

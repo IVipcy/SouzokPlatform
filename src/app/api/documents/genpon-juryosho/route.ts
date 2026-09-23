@@ -77,18 +77,24 @@ export async function POST(request: NextRequest) {
     }
     const [addressLine1, addressLine2] = recipientAddress2.trim() ? [recipientAddress.trim(), recipientAddress2.trim()] : splitAddress(recipientAddress)
 
-    // 納品対象の書類: 受信簿(delivery_target=true) + 契約手続き(お客様預かり書類 & delivery_target=true)
-    const [{ data: receiptItems }, { data: contractDocs }] = await Promise.all([
-      supabase.from('document_receipt_items')
-        .select('id, item_name, quantity, delivery_display_name, delivery_touki_notice_date, delivery_touki_notice_number, delivery_inkan_client_names, delivery_recipient_heir_id, document_receipts!inner(case_id)')
-        .eq('document_receipts.case_id', caseId)
-        .eq('delivery_target', true),
-      supabase.from('contract_documents')
-        .select('id, name, delivery_display_name, delivery_touki_notice_date, delivery_touki_notice_number, delivery_inkan_client_names, delivery_recipient_heir_id')
-        .eq('case_id', caseId)
-        .eq('category', 'お客様預かり書類')
-        .eq('delivery_target', true),
-    ])
+    // 画面から行（lines）が来ていれば、それが載せる明細のすべて（原本管理の行。migration 284 以降はこちらが正）。
+    // 空の配列でも「この宛先には載せる物が無い」という意味なので、旧列（delivery_target）へは戻らない。
+    // 旧列を読むのは lines を渡してこない古い呼び出しのときだけ
+    const useGivenLines = Array.isArray(givenLines)
+    // 納品対象の書類（旧）: 受信簿(delivery_target=true) + 契約手続き(お客様預かり書類 & delivery_target=true)
+    const [{ data: receiptItems }, { data: contractDocs }] = useGivenLines
+      ? [{ data: [] }, { data: [] }]
+      : await Promise.all([
+        supabase.from('document_receipt_items')
+          .select('id, item_name, quantity, delivery_display_name, delivery_touki_notice_date, delivery_touki_notice_number, delivery_inkan_client_names, delivery_recipient_heir_id, document_receipts!inner(case_id)')
+          .eq('document_receipts.case_id', caseId)
+          .eq('delivery_target', true),
+        supabase.from('contract_documents')
+          .select('id, name, delivery_display_name, delivery_touki_notice_date, delivery_touki_notice_number, delivery_inkan_client_names, delivery_recipient_heir_id')
+          .eq('case_id', caseId)
+          .eq('category', 'お客様預かり書類')
+          .eq('delivery_target', true),
+      ])
 
     // 集約: 同名(displayName優先)は 通数合算+補足マージ
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -120,10 +126,10 @@ export async function POST(request: NextRequest) {
       push(d.name, d.delivery_display_name, 1, d.delivery_touki_notice_date, d.delivery_touki_notice_number, d.delivery_inkan_client_names)
     }
 
-    // 画面から行が来ていれば（原本管理の行）それを使う。同名は通数を足す
-    if (givenLines && givenLines.length > 0) {
+    // 画面から行が来ていれば（原本管理の行）それを使う。同名は通数を足す。0件なら明細は空のまま
+    if (useGivenLines) {
       bucket.clear()
-      for (const l of givenLines) push(l.name, null, l.quantity, l.toukiDate ?? null, l.toukiNumber ?? null, l.inkanNames ?? null)
+      for (const l of givenLines ?? []) push(l.name, null, l.quantity, l.toukiDate ?? null, l.toukiNumber ?? null, l.inkanNames ?? null)
     }
     // 各集約行 → DocLine (印鑑証明書は 相続人列挙で name を書き換え、権利証は sub に通知日+番号)
     const lines: DocLine[] = [...bucket.values()].map(a => {

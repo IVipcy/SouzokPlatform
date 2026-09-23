@@ -97,9 +97,11 @@ export function rotateAnnos(annos: Anno[], dir: 90 | -90 | 180, aspect: number):
       for (let i = 0; i + 1 < a.points.length; i += 2) { const [x, y] = pt(a.points[i], a.points[i + 1]); pts.push(x, y) }
       return { ...a, points: pts, width: a.width * k }
     }
-    // テキスト箱は横書きのまま。左上の点だけ回して、はみ出さないように寄せる
+    // テキスト箱は横書きのまま。左上の点だけ回して、はみ出さないように寄せる。
+    // 180°は左上が右下に移るので、箱の幅ぶん戻す（戻さないと枠の幅だけ右にずれ、即保存で元に戻せなかった）
     const w = Math.min(1, a.w * k)
-    const [x, y] = pt(a.x, a.y)
+    const [x0, y] = pt(a.x, a.y)
+    const x = dir === 180 ? x0 - w : x0
     const leader = a.leader ? (() => { const [lx, ly] = pt(a.leader.x, a.leader.y); return { x: lx, y: ly } })() : a.leader
     return { ...a, x: Math.max(0, Math.min(1 - w, x)), y: Math.max(0, Math.min(1, y)), w, font: a.font != null ? a.font * k : a.font, leader }
   })

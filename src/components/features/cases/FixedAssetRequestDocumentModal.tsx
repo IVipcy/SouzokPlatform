@@ -29,6 +29,7 @@ import {
   type OfficeBranchId,
 } from '@/lib/officeProfiles'
 import { isLandProperty, isBuildingProperty } from '@/lib/registrationTax'
+import { todayJstYmd } from '@/lib/today'
 import type { CaseRow, RealEstatePropertyRow, RealEstateAcquisitionRow } from '@/types'
 
 type Props = {
@@ -76,7 +77,7 @@ const isMuniRequest = (r: RealEstateAcquisitionRow) =>
 
 export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseData, properties, defaultTaskId, acquisition = null }: Props) {
   const [variant, setVariant] = useState<FixedAssetVariant>(defaultFixedAssetVariant(caseData.contract_type))
-  const [requestDate, setRequestDate] = useState<string>(new Date().toISOString().slice(0, 10))
+  const [requestDate, setRequestDate] = useState<string>(() => todayJstYmd())
   // 差出人の連絡先は 拠点＋事業部 で決まる（同じ拠点でも事業部で電話が変わる）
   const [officeId, setOfficeId] = useState<OfficeBranchId>(IKIIKI_DEFAULT_BRANCH.office)
   const [division, setDivision] = useState<string>(IKIIKI_DEFAULT_BRANCH.division)
@@ -91,7 +92,7 @@ export default function FixedAssetRequestDocumentModal({ isOpen, onClose, caseDa
   useEffect(() => {
     if (!isOpen) return
     setVariant(defaultFixedAssetVariant(caseData.contract_type))
-    setRequestDate(new Date().toISOString().slice(0, 10))
+    setRequestDate(todayJstYmd())
     setCopyCount(1)
     setPickId('')
   }, [isOpen, caseData.contract_type])

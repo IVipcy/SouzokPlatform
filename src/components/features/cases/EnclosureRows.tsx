@@ -178,7 +178,9 @@ export default function EnclosureRows({ caseId, refKind, refId, refLabel, stock,
               </span>
               <span className="inline-flex items-center gap-2 text-[11.5px] text-gray-500 min-w-0">
                 <span className="leading-snug">{s ? (s.copy ? '写しなので手元の数は減りません' : `同封すると手元は ${s.onHand} 通になります`) : '原本の行に結んでいないので手元の数は変わりません'}</span>
-                {!disabled && <button type="button" onClick={() => void deleteRows([e.id]).then(ok => { if (ok) onChanged() })} title="外す" className="text-gray-300 hover:text-red-500 flex-none"><X className="w-3.5 h-3.5" /></button>}
+                {/* 返却が始まった行は外せない。外すと、戻ってきた到着物が「新しく届いた原本」として二重に数えられる */}
+                {!disabled && e.returned_qty <= 0 && <button type="button" onClick={() => void deleteRows([e.id]).then(ok => { if (ok) onChanged() })} title="外す" className="text-gray-300 hover:text-red-500 flex-none"><X className="w-3.5 h-3.5" /></button>}
+                {e.returned_qty > 0 && <span className="flex-none text-gray-400">{e.returned_qty} 通 返却済（外せません）</span>}
               </span>
             </div>
           )

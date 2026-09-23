@@ -5,8 +5,9 @@ import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, canSeeMyPage } from '@/lib/auth'
 import { overdueSeverity, billOverdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
+import { todayJstYmd } from '@/lib/today'
 import OverdueDetailClient from '@/components/features/my/OverdueDetailClient'
-import { computeUrgentReportAlerts, computeParcelArrivalAlerts } from '@/lib/caseStateAlerts'
+import { computeUrgentReportAlerts, computeParcelArrivalAlerts, computeTeamHourensouAlerts } from '@/lib/caseStateAlerts'
 import { fetchCaseAlertContexts } from '@/lib/caseAlertContext'
 import { evaluateCaseAlerts, bannerOf } from '@/lib/alertRules'
 import type { TaskRow } from '@/types'
@@ -25,8 +26,7 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
   if (!canSeeMyPage(user)) redirect('/')
   const memberId = user.memberId
   const supabase = await createClient()
-  const today = new Date()
-  const todayStr = today.toISOString().slice(0, 10)
+  const todayStr = todayJstYmd()
 
   // 自分が担当する全案件
   const { data: myCaseMembers } = await supabase.from('case_members').select('case_id, role, cases(id, case_number, deal_name, status, expected_completion_date, completion_date, has_complaint, procedure_type, order_sheet_completed_at, order_received_date, order_route_detail, meeting_executed_date, client_response_due_date, meeting_date, management_started_at, manager_assign_skipped, created_at, last_opened_at, fee_total, total_revenue_estimate, tax_filing_required, client_id, clients(name))').eq('member_id', memberId)
@@ -156,19 +156,30 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
     .filter(c => (c.role === 'sales' || c.role === 'manager') && teamMemberIds.has(c.member_id))
     .map(c => c.case_id))
   const teamCaseIdArray = [...teamCaseIds]
+  const teamOnlyCaseIds = teamCaseIdArray.filter(id => !myCaseIds.includes(id))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let teamReportRows: any[] = []
+  let teamHourensou: Array<{ case_id: string; kind: string; status: string; requested_date: string | null }> = []
+  let teamOnlyCaseMeta: Array<{ id: string; case_number: string; deal_name: string }> = []
   if (teamCaseIdArray.length > 0) {
-    const { data } = await supabase.from('progress_reports')
-      .select('id, case_id, kind, report_state, status, created_at, cases(case_number, deal_name)')
-      .in('case_id', teamCaseIdArray).eq('status', '依頼中')
+    const [{ data }, { data: hr }, { data: cm }] = await Promise.all([
+      supabase.from('progress_reports')
+        .select('id, case_id, kind, report_state, status, requested_date, created_at, cases(case_number, deal_name)')
+        .in('case_id', teamCaseIdArray).eq('status', '依頼中'),
+      // 報連相（要対応・未回答）はチームの案件のうち自分が担当でないぶん（自分の案件ぶんは案件アラートに入る）
+      teamOnlyCaseIds.length ? supabase.from('case_reports').select('case_id, kind, status, requested_date').in('case_id', teamOnlyCaseIds).eq('kind', '要対応').neq('status', '確認済') : Promise.resolve({ data: [] }),
+      teamOnlyCaseIds.length ? supabase.from('cases').select('id, case_number, deal_name').in('id', teamOnlyCaseIds) : Promise.resolve({ data: [] }),
+    ])
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     teamReportRows = (data ?? []) as any[]
+    teamHourensou = (hr ?? []) as typeof teamHourensou
+    teamOnlyCaseMeta = (cm ?? []) as typeof teamOnlyCaseMeta
   }
-  const teamCaseMeta = new Map<string, { case_number: string; deal_name: string }>(
+  const teamCaseMeta = new Map<string, { case_number: string; deal_name: string }>([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    teamReportRows.map((r: any) => [r.case_id, { case_number: r.cases?.case_number ?? '', deal_name: r.cases?.deal_name ?? '' }]),
-  )
+    ...teamReportRows.map((r: any) => [r.case_id, { case_number: r.cases?.case_number ?? '', deal_name: r.cases?.deal_name ?? '' }] as const),
+    ...teamOnlyCaseMeta.map(c => [c.id, { case_number: c.case_number, deal_name: c.deal_name }] as const),
+  ])
   const caseStateAlerts = [
     // 案件アラート。判定は alertRules.ts に集約。
     // 案件アラート。バナー・案件の色とまったく同じ判定・同じ材料を使う（alertRules.ts / caseAlertContext.ts）。
@@ -188,6 +199,7 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
         }))
     })()),
     ...computeUrgentReportAlerts(teamReportRows, teamCaseMeta, todayStr),
+    ...computeTeamHourensouAlerts(teamHourensou, teamCaseMeta, todayStr),
     // 到着物あり（未開封の郵送物一式）→ 要確認(黄)。自分が受注/管理担当の案件。
     ...computeParcelArrivalAlerts(
       ((parcelRes.data ?? []) as unknown as Array<{ id: string; case_id: string; arrival_notified_at: string | null; cases: { case_number: string; deal_name: string } | null }>)

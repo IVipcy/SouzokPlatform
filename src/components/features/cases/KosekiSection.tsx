@@ -36,7 +36,7 @@ import SelectOrTextField from './SelectOrTextField'
 import KosekiRequestDocumentModal from './KosekiRequestDocumentModal'
 import EnclosureRows from './EnclosureRows'
 import { useOriginalStock } from '@/lib/useOriginalStock'
-import type { StockRow } from '@/lib/originals'
+import { deleteRequestEnclosures, type StockRow } from '@/lib/originals'
 import type { RequestEnclosureRow } from '@/types'
 import { OFFICE_BRANCH_OPTIONS } from '@/lib/officeProfiles'
 import { notifyKosekiRelationDone } from '@/lib/kosekiRelationNotify'
@@ -393,8 +393,12 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
 
   const delRequest = async (r: KosekiRequestRow) => {
     if (!confirm(`「${reqLabel(r)}」の戸籍請求を削除しますか？`)) return
+    // 同梱の行を先に消す（ref_id に外部キーが無く、残ると原本が「出払い中」のまま戻らない）
+    const enc = await deleteRequestEnclosures(supabase, [r.id])
+    if (enc.error) { showToast(`同梱する資料の削除に失敗: ${enc.error}`, 'error'); return }
     const { error } = await supabase.from('koseki_requests').delete().eq('id', r.id)
     if (error) { showToast(`削除に失敗: ${error.message}`, 'error'); return }
+    originals.reload()
     onRefresh?.()
   }
 
@@ -405,8 +409,11 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
     const label = personId === '__unset__' ? '対象者 未設定' : personId
     if (targets.length === 0) return
     if (!confirm(`「${label}」の戸籍請求${targets.length}件をすべて削除しますか？`)) return
+    const enc = await deleteRequestEnclosures(supabase, targets.map(r => r.id))
+    if (enc.error) { showToast(`同梱する資料の削除に失敗: ${enc.error}`, 'error'); return }
     const { error } = await supabase.from('koseki_requests').delete().in('id', targets.map(r => r.id))
     if (error) { showToast(`削除に失敗: ${error.message}`, 'error'); return }
+    originals.reload()
     if (sub === personId) setSub('top')
     showToast(`「${label}」の戸籍請求を削除しました`, 'success')
     onRefresh?.()

@@ -2,26 +2,26 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { ALERT_SEVERITY_ORDER, type AlertItem } from '@/lib/alerts'
-import { evaluateCaseAlerts, ALERT_DAYS } from '@/lib/alertRules'
+import { evaluateCaseAlerts, hourensouOverdueReason } from '@/lib/alertRules'
+import { fetchCaseAlertContexts } from '@/lib/caseAlertContext'
 import { caseReportSeverity } from '@/lib/caseReports'
+import { progressReportLevel, progressReportCategory, progressReportReason, progressReportHref, type ProgressReportLike } from '@/lib/caseStateAlerts'
 import { PREPAY_THANKS_TITLE, prepayThanksSeverity } from '@/lib/prepayThanks'
-import { overdueSeverity, bizDaysOverdue } from '@/lib/overdue'
-import { CONTRACT_PENDING_STATUSES, isUrgentReportState } from '@/lib/constants'
+import { overdueSeverity } from '@/lib/overdue'
 import { toukiSeverity, toukiOverdueDays } from '@/lib/toukiRequests'
+import { todayJstYmd } from '@/lib/today'
 
-function ymd(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
+// アラートセンター（ベル）の中身。
+//   ・案件アラート … 判定は alertRules.ts、材料は caseAlertContext.ts（バナー・案件色とまったく同じ）。自分が担当の案件ぶん
+//   ・タスク／到着物／登記依頼 … 自分あてのもの
+//   ・案件報告（管理担当→受注担当）と 報連相（要対応） … 自分の案件に加えて「同じチームの案件」も。
+//     届いた直後は受注担当だけに青、1営業日たったら黄・3営業日で赤にしてチーム全員に出す（放置を周りが拾えるように）
 export async function GET() {
   const user = await getCurrentUser()
   if (!user?.memberId) return NextResponse.json({ alerts: [] })
   const memberId = user.memberId
   const supabase = await createClient()
-  const today = new Date()
-  const todayStr = ymd(today)
-  const weekAgo = new Date(today); weekAgo.setDate(weekAgo.getDate() - 7)
-  const weekAgoStr = ymd(weekAgo)
+  const todayStr = todayJstYmd()
 
   // 自分が担当の案件（ロール付き）
   const { data: myCmRaw } = await supabase
@@ -34,30 +34,37 @@ export async function GET() {
     roleByCase.get(c.case_id)!.add(c.role)
   }
 
-  if (myCaseIds.length === 0) return NextResponse.json({ alerts: [] })
+  // 同じチームの案件（受注担当か管理担当が自分と同じチーム）。マイページのバナーと同じ範囲
+  const { data: memberRows } = await supabase.from('members').select('id, team_id').eq('is_active', true)
+  const membersArr = (memberRows ?? []) as Array<{ id: string; team_id: string | null }>
+  const myTeamId = membersArr.find(m => m.id === memberId)?.team_id ?? null
+  const teamMemberIds = myTeamId ? membersArr.filter(m => m.team_id === myTeamId).map(m => m.id) : [memberId]
+  const { data: teamCmRaw } = await supabase.from('case_members').select('case_id, member_id, role').in('member_id', teamMemberIds).in('role', ['sales', 'manager'])
+  const teamCaseIds = [...new Set(((teamCmRaw ?? []) as Array<{ case_id: string }>).map(c => c.case_id))]
+  const scopeIds = [...new Set([...myCaseIds, ...teamCaseIds])]
+  const myCaseSet = new Set(myCaseIds)
 
-  const [{ data: casesRaw }, { data: taskRaw }, { data: invRaw }, { data: reportRaw }, { data: reviewDoneRaw }, { data: contractDocRaw }, { data: caseTaskRaw }, { data: parcelRaw }, { data: hourensouRaw }] = await Promise.all([
-    supabase.from('cases')
-      .select('id,case_number,deal_name,status,has_complaint,expected_completion_date,completion_date,meeting_date,meeting_executed_date,client_response_due_date,order_received_date,order_sheet_completed_at,management_started_at')
-      .in('id', myCaseIds),
+  const empty = <T,>() => Promise.resolve({ data: [] as T[] })
+  const [{ data: casesRaw }, { data: taskRaw }, { data: reportRaw }, { data: reviewDoneRaw }, { data: parcelRaw }, { data: hourensouRaw }, alertCtx] = await Promise.all([
+    scopeIds.length
+      ? supabase.from('cases')
+        .select('id,case_number,deal_name,status,has_complaint,expected_completion_date,completion_date,meeting_date,meeting_executed_date,client_response_due_date,order_received_date,order_sheet_completed_at,management_started_at,last_opened_at,created_at,manager_assign_skipped')
+        .in('id', scopeIds)
+      : empty<unknown>(),
     // 自分が担当の未完了タスク
     supabase.from('tasks')
       .select('id,title,due_date,status,case_id,template_key,source_rid,task_kind,priority, task_assignees!inner(member_id)')
       .eq('task_assignees.member_id', memberId).neq('status', '完了'),
-    supabase.from('invoices').select('case_id,invoice_type,status,due_date,created_at').in('case_id', myCaseIds),
-    supabase.from('progress_reports').select('case_id,status,confirmed_date,confirmer_id,requested_date,report_state').in('case_id', myCaseIds),
+    // 案件報告（未確認）。自分の案件＋チームの案件
+    scopeIds.length ? supabase.from('progress_reports').select('id,case_id,kind,status,report_state,requested_date,created_at').in('case_id', scopeIds).eq('status', '依頼中') : empty<unknown>(),
     // 「検討状況の確認」(sys_review_status) が完了済みの案件 → 回答予定日アラートを抑制
-    supabase.from('tasks').select('case_id,status,template_key')
-      .in('case_id', myCaseIds).eq('template_key', 'sys_review_status').in('status', ['完了', 'キャンセル']),
-    // 契約手続き（契約関連書類の受領状況）→ 未回収アラート判定用
-    supabase.from('contract_documents').select('case_id,status,arrival_date').in('case_id', myCaseIds),
-    // 事務管理タスク（task_kind='case'）の有無 → 「タスク未生成」判定用
-    supabase.from('tasks').select('case_id').eq('task_kind', 'case').in('case_id', myCaseIds),
+    myCaseIds.length ? supabase.from('tasks').select('case_id,status,template_key').in('case_id', myCaseIds).eq('template_key', 'sys_review_status').in('status', ['完了', 'キャンセル']) : empty<unknown>(),
     // 受注/管理宛の郵送物一式（未開封・到着連絡済み）→ 到着物あり アラート
-    supabase.from('document_receipts').select('id, case_id, cases(case_number, deal_name)')
-      .in('case_id', myCaseIds).eq('is_parcel', true).not('arrival_notified_at', 'is', null).is('opened_at', null),
-    // 報連相（要対応の未回答）→ 1営業日で要確認・3営業日で要注意
-    supabase.from('case_reports').select('case_id,kind,status,requested_date').in('case_id', myCaseIds),
+    myCaseIds.length ? supabase.from('document_receipts').select('id, case_id, cases(case_number, deal_name)').in('case_id', myCaseIds).eq('is_parcel', true).not('arrival_notified_at', 'is', null).is('opened_at', null) : empty<unknown>(),
+    // 報連相（要対応の未回答）。チームの案件ぶん（自分の案件ぶんは alertCtx に入っている）
+    teamCaseIds.length ? supabase.from('case_reports').select('case_id,kind,status,requested_date').in('case_id', teamCaseIds).eq('kind', '要対応').neq('status', '確認済') : empty<unknown>(),
+    // 案件アラートの材料（バナー・案件色と同じ取り方）
+    fetchCaseAlertContexts(supabase, myCaseIds, todayStr),
   ])
 
   type CaseRow = {
@@ -66,69 +73,28 @@ export async function GET() {
     meeting_date: string | null; meeting_executed_date: string | null
     client_response_due_date: string | null; order_received_date: string | null
     order_sheet_completed_at: string | null; management_started_at: string | null
+    last_opened_at: string | null; created_at: string | null; manager_assign_skipped: boolean | null
   }
   const cases = (casesRaw ?? []) as CaseRow[]
+  const caseById = new Map(cases.map(c => [c.id, c]))
   const tasks = (taskRaw ?? []) as Array<{ id: string; title: string; due_date: string | null; status: string; case_id: string; template_key: string | null; source_rid: string | null; task_kind: string | null; priority: string | null }>
-  const invoices = (invRaw ?? []) as Array<{ case_id: string; invoice_type: string; status: string; due_date: string | null; created_at: string | null }>
-  const reports = (reportRaw ?? []) as Array<{ case_id: string; status: string; confirmed_date: string | null; confirmer_id: string | null; requested_date: string | null; report_state: string | null }>
-
-  // 「検討状況の確認」(sys_review_status) が完了済みの案件
+  const reports = (reportRaw ?? []) as ProgressReportLike[]
   const reviewDoneCaseIds = new Set(((reviewDoneRaw ?? []) as Array<{ case_id: string }>).map(r => r.case_id))
-
-  const advanceStatusByCase = new Map<string, string>()
-  const advanceCreatedByCase = new Map<string, string | null>()
-  for (const i of invoices) if (i.invoice_type === '前受金' && !advanceStatusByCase.has(i.case_id)) {
-    advanceStatusByCase.set(i.case_id, i.status)
-    advanceCreatedByCase.set(i.case_id, i.created_at)
-  }
-  // 管理担当がアサイン済の案件（管理担当 未アサイン の判定用）
-  const { data: mgrRaw } = await supabase.from('case_members').select('case_id').eq('role', 'manager').in('case_id', myCaseIds)
-  const managerExistsCaseIds = new Set(((mgrRaw ?? []) as Array<{ case_id: string }>).map(r => r.case_id))
-  // 契約手続き未了（受領状況が「後日郵送 / 依頼者が取得」で未到着の書類がある）案件
-  const contractDocs = (contractDocRaw ?? []) as Array<{ case_id: string; status: string | null; arrival_date: string | null }>
-  const contractPendingCaseIds = new Set(
-    contractDocs.filter(d => CONTRACT_PENDING_STATUSES.includes(d.status ?? '') && !d.arrival_date).map(d => d.case_id),
-  )
-  // 入金期日を過ぎた未入金の請求がある案件
-  const overduePayCaseIds = new Set(invoices.filter(i => i.due_date && i.due_date < todayStr && i.status !== '入金済').map(i => i.case_id))
-  const recentConfirmed = new Set(reports.filter(r => r.status === '確認済' && (r.confirmed_date ?? '') >= weekAgoStr).map(r => r.case_id))
-  // 事務管理タスク（task_kind='case'）が1件でもある案件
-  const hasCaseTasks = new Set(((caseTaskRaw ?? []) as Array<{ case_id: string }>).map(r => r.case_id))
-  // 報連相（要対応）が未回答のまま放置されている案件（最大の深刻度と件数）
-  const reportSevByCase = new Map<string, 'high' | 'mid'>()
-  const reportCntByCase = new Map<string, number>()
-  for (const r of ((hourensouRaw ?? []) as Array<{ case_id: string; kind: string; status: string; requested_date: string | null }>)) {
-    const sv = caseReportSeverity(r, todayStr)
-    if (!sv) continue
-    const s = sv === 'chui' ? 'high' : 'mid'
-    reportCntByCase.set(r.case_id, (reportCntByCase.get(r.case_id) ?? 0) + 1)
-    if (s === 'high' || reportSevByCase.get(r.case_id) !== 'high') reportSevByCase.set(r.case_id, s)
-  }
 
   const alerts: AlertItem[] = []
   const push = (a: AlertItem) => alerts.push(a)
-  // タスク系のアラートに「どの案件か」を添える（同じタスク名が並んでも見分けられるように）
-  const caseLabelOf = (caseId: string) => { const c = cases.find(x => x.id === caseId); return c ? `${c.case_number} ${c.deal_name}` : null }
+  const caseLabelOf = (caseId: string) => { const c = caseById.get(caseId); return c ? `${c.case_number} ${c.deal_name}` : null }
 
+  // ===== 案件アラート（自分が担当の案件） =====
   for (const c of cases) {
+    if (!myCaseSet.has(c.id)) continue
     const roles = roleByCase.get(c.id) ?? new Set<string>()
     const isMySales = roles.has('sales')
     const isMyManager = roles.has('manager') || roles.has('sub_manager')
     const name = `${c.case_number} ${c.deal_name}`
 
-    // 判定は alertRules.ts に集約。ここは「自分向けか」で絞って並べるだけ。
-    const hits = evaluateCaseAlerts(c, {
-      managerExists: managerExistsCaseIds.has(c.id),
-      advanceInvoiceStatus: advanceStatusByCase.get(c.id) ?? null,
-      advanceInvoiceCreatedAt: advanceCreatedByCase.get(c.id) ?? null,
-      hasCaseTasks: hasCaseTasks.has(c.id),
-      contractPending: contractPendingCaseIds.has(c.id),
-      recentWeeklyConfirmed: recentConfirmed.has(c.id),
-      responseCheckDone: reviewDoneCaseIds.has(c.id),
-      billOverdue: overduePayCaseIds.has(c.id) ? 'mid' : null,
-      reportActionOverdue: reportSevByCase.get(c.id) ?? null,
-      reportActionCount: reportCntByCase.get(c.id) ?? 0,
-    }, todayStr)
+    // 判定は alertRules.ts に集約。材料は caseAlertContext.ts（タスク期限超過・入金期日超過・御礼連絡・相続税申告 まで全部そろう）
+    const hits = evaluateCaseAlerts(c, { ...(alertCtx.get(c.id) ?? {}), responseCheckDone: reviewDoneCaseIds.has(c.id) }, todayStr)
     for (const h of hits) {
       if (h.audience === 'sales' && !isMySales) continue
       if (h.audience === 'manager' && !isMyManager) continue
@@ -140,7 +106,26 @@ export async function GET() {
     }
   }
 
-  // タスク期限超過（自分担当の未完了タスク）
+  // ===== 報連相（要対応）：自分が担当でない同じチームの案件ぶん（文言・しきい値は案件担当向けと同じ） =====
+  {
+    const byCase = new Map<string, { sev: 'high' | 'mid'; n: number }>()
+    for (const r of ((hourensouRaw ?? []) as Array<{ case_id: string; kind: string; status: string; requested_date: string | null }>)) {
+      if (myCaseSet.has(r.case_id)) continue
+      const sv = caseReportSeverity(r, todayStr)
+      if (!sv) continue
+      const s = sv === 'chui' ? 'high' : 'mid'
+      const cur = byCase.get(r.case_id)
+      if (!cur) byCase.set(r.case_id, { sev: s, n: 1 })
+      else { cur.n += 1; if (s === 'high') cur.sev = 'high' }
+    }
+    for (const [caseId, v] of byCase) {
+      const c = caseById.get(caseId)
+      push({ id: `report_action_overdue-${caseId}`, severity: v.sev, category: '報連相 未回答（チームの案件）', title: c ? `${c.case_number} ${c.deal_name}` : '報連相',
+        body: hourensouOverdueReason(v.sev, v.n), href: `/cases/${caseId}?tab=progress` })
+    }
+  }
+
+  // ===== タスク（自分担当の未完了） =====
   for (const t of tasks) {
     // 前受金の入金御礼連絡だけ早く鳴らす（1営業日=要確認／2営業日=要注意）。
     if (t.title === PREPAY_THANKS_TITLE) {
@@ -167,7 +152,7 @@ export async function GET() {
     }
   }
 
-  // 到着物あり（受注/管理宛の郵送物一式・未開封・到着連絡済み）→ 到着受信簿の該当レコードへ直行
+  // ===== 到着物あり（受注/管理宛の郵送物一式・未開封・到着連絡済み）→ 到着受信簿の該当レコードへ直行 =====
   const parcels = (parcelRaw ?? []) as unknown as Array<{ id: string; case_id: string; cases: { case_number: string; deal_name: string } | null }>
   for (const p of parcels) {
     const roles = roleByCase.get(p.case_id) ?? new Set<string>()
@@ -176,25 +161,37 @@ export async function GET() {
     push({ id: `parcel-${p.id}`, severity: 'mid', category: '到着物あり', title: nm, body: '受注/管理宛の郵送物が届いています。開封して到着受信簿で中身を再登録・紐付けしてください', href: `/documents?receipt=${p.id}` })
   }
 
-  // 案件報告（自分が確認者で報告中）。至急=赤／3営業日たっても未確認=黄／それ以外は青。
-  for (const r of reports) {
-    if (r.status !== '依頼中' || r.confirmer_id !== memberId) continue
-    const c = cases.find(x => x.id === r.case_id)
-    const since = (r.requested_date ?? '').slice(0, 10) || null
-    const days = since ? bizDaysOverdue(since, todayStr) : null
-    const urgent = isUrgentReportState(r.report_state)
-    const sev = urgent ? 'high' : (days != null && days >= ALERT_DAYS.reportAnswer ? 'mid' : 'info')
-    push({
-      id: `review-${r.case_id}`, severity: sev,
-      category: urgent ? '案件報告：至急' : sev === 'mid' ? '案件報告 未回答' : '案件報告',
-      title: c ? `${c.case_number} ${c.deal_name}` : '案件報告',
-      body: urgent ? '至急の案件報告が届いています' : days != null && sev === 'mid' ? `案件報告が届いてから${days}営業日たっています` : '案件報告が届いています',
-      href: '/my?tab=reviews',
-    })
+  // ===== 案件報告（管理担当 → 受注担当の確認待ち） =====
+  //   届いた直後（青）… その案件の受注担当だけ
+  //   1営業日（黄）／3営業日（赤）／要至急対応（赤）… 自分の案件＋同じチームの案件（手が空いた人が代わりに確認できる）
+  //   同じ案件に複数あれば一番重い1件。起点は依頼日
+  {
+    const best = new Map<string, { r: ProgressReportLike; l: NonNullable<ReturnType<typeof progressReportLevel>> }>()
+    const rank = (l: NonNullable<ReturnType<typeof progressReportLevel>>) => (l.urgent ? 3 : l.level === 'high' ? 2 : l.level === 'mid' ? 1 : 0)
+    for (const r of reports) {
+      const l = progressReportLevel(r, todayStr)
+      if (!l) continue
+      const isMySales = (roleByCase.get(r.case_id) ?? new Set<string>()).has('sales')
+      if (l.level === 'info' && !isMySales) continue
+      const cur = best.get(r.case_id)
+      if (!cur || rank(l) > rank(cur.l) || (rank(l) === rank(cur.l) && (l.days ?? 0) > (cur.l.days ?? 0))) best.set(r.case_id, { r, l })
+    }
+    for (const { r, l } of best.values()) {
+      const c = caseById.get(r.case_id)
+      const team = !myCaseSet.has(r.case_id)
+      push({
+        id: `review-${r.case_id}`, severity: l.level,
+        category: `${progressReportCategory(l)}${team ? '（チームの案件）' : ''}`,
+        title: c ? `${c.case_number} ${c.deal_name}` : l.label,
+        body: progressReportReason(l),
+        href: progressReportHref(r),
+      })
+    }
   }
 
-  // 登記依頼（管理担当 → 相続登記チーム）が止まっている：依頼中のまま1営業日で要確認・3営業日で要注意。
+  // ===== 登記依頼（管理担当 → 相続登記チーム）が止まっている：依頼中のまま1営業日で要確認・3営業日で要注意 =====
   //   依頼者（管理担当）には「返ってこない」、相続登記チームのメンバーには「未対応」として出す。
+  //   案件メンバーでない人（登記チーム・事務）にも出るよう、案件の有無で早期 return しない
   {
     const [{ data: meRow }, { data: toukiRaw }] = await Promise.all([
       supabase.from('members').select('is_touki_team').eq('id', memberId).maybeSingle(),

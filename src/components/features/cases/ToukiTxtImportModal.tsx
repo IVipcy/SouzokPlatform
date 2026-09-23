@@ -16,6 +16,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { uploadFilesToCaseFolder } from '@/lib/caseFolder'
 import { useCurrentMember } from '@/lib/useCurrentMember'
+import { todayJstYmd } from '@/lib/today'
 import { decodeToukiTxt, parseToukiTxt, deceasedShare, normKey, normName, municipalityFromAddress, type ParsedTouki } from '@/lib/toukiTxt'
 import type { RealEstatePropertyRow } from '@/types'
 
@@ -119,13 +120,16 @@ export default function ToukiTxtImportModal({ caseId, municipality, properties, 
     if (picked.length === 0 || saving) return
     setSaving(true)
     const now = new Date().toISOString()
-    const today = new Date().toLocaleDateString('sv-SE')
+    const today = todayJstYmd()
     let ok = 0
+    // 今回取り込んだ物件のID（到着日を入れる法務局カードをこの物件のものだけに絞る）
+    const touchedPropertyIds: string[] = []
     for (const it of picked) {
       const p = it.parsed
       const others = p.owners.filter(o => normName(o.name) !== normName(deceasedName))
       const patch: Record<string, unknown> = {
-        property_type: p.kind,
+        // 種別は既存物件に入っていれば残す（「マンション」を「建物」で潰していた）
+        ...(it.existing?.property_type ? {} : { property_type: p.kind }),
         address: p.address || null,
         property_number: p.propertyNumber || null,
         registry_imported_at: now,
@@ -142,6 +146,7 @@ export default function ToukiTxtImportModal({ caseId, municipality, properties, 
         if (!(it.existing.municipality ?? '').trim()) patch.municipality = municipality || municipalityFromAddress(p.address) || null
         const { error } = await supabase.from('real_estate_properties').update(patch).eq('id', it.existing.id)
         if (error) { showToast(`${p.fileName} の反映に失敗: ${error.message}`, 'error'); continue }
+        touchedPropertyIds.push(it.existing.id)
       } else {
         const muni = municipality || municipalityFromAddress(p.address) || null
         const { data, error } = await supabase.from('real_estate_properties').insert({ case_id: caseId, municipality: muni, ...patch }).select('id').single()
@@ -155,10 +160,11 @@ export default function ToukiTxtImportModal({ caseId, municipality, properties, 
       }
       ok++
     }
-    // この市区町村の法務局カードで「登記情報」が入っていて到着日が空のものに今日を入れる
-    if (markArrival && municipality) {
+    // 今回取り込んだ物件の法務局カードで「登記情報」が入っていて到着日が空のものに今日を入れる
+    // （同じ市区町村の無関係な物件のカードにまで到着日が入っていた）
+    if (markArrival && touchedPropertyIds.length > 0) {
       const { data: cards } = await supabase.from('real_estate_acquisitions').select('id, item_types, item_type, arrival_date')
-        .eq('case_id', caseId).eq('scope', 'property').eq('target_municipality', municipality).is('arrival_date', null)
+        .eq('case_id', caseId).eq('scope', 'property').in('target_property_id', touchedPropertyIds).is('arrival_date', null)
       const ids = ((cards ?? []) as Array<{ id: string; item_types: string[] | null; item_type: string | null }>)
         .filter(c => (c.item_types ?? [c.item_type ?? '']).includes('登記情報')).map(c => c.id)
       if (ids.length > 0) await supabase.from('real_estate_acquisitions').update({ arrival_date: today, receipt_done_by: memberId }).in('id', ids)

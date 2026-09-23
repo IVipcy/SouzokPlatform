@@ -21,8 +21,9 @@ export default function InsuranceRowsTable({ caseId, assets, onRefresh, ensureCa
   const [rows, setRows] = useRowsFrom(assets.filter(a => a.asset_type === '生命保険'))
   const inp = 'input-flat w-full px-2 py-1 text-[13px] text-gray-800 outline-none'
 
+  // 入力中はローカルだけ更新し、欄を離れた（blur）ときに1回書く。1文字ごとにDBへ書いていた
+  const edit = (id: string, field: 'institution_name' | 'notes', v: string) => setRows(p => p.map(r => (r.id === id ? { ...r, [field]: v } : r)))
   const save = async (id: string, field: 'institution_name' | 'notes', v: string) => {
-    setRows(p => p.map(r => (r.id === id ? { ...r, [field]: v } : r)))
     const { error } = await supabase.from('financial_assets').update({ [field]: v || (field === 'institution_name' ? '' : null) }).eq('id', id)
     if (error) showToast(`保存に失敗: ${error.message}`, 'error')
   }
@@ -45,8 +46,8 @@ export default function InsuranceRowsTable({ caseId, assets, onRefresh, ensureCa
           <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_1.5rem] gap-x-3 items-center pb-1 text-[11.5px] text-gray-400"><span>保険会社名</span><span>備考（受取人・保険金など分かれば）</span><span /></div>
           {rows.map(r => (
             <div key={r.id} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_1.5rem] gap-x-3 items-center py-1 border-t border-gray-100">
-              <input type="text" value={r.institution_name ?? ''} onChange={e => void save(r.id, 'institution_name', e.target.value)} placeholder="例：日本生命" className={inp} />
-              <input type="text" value={r.notes ?? ''} onChange={e => void save(r.id, 'notes', e.target.value)} placeholder="例：受取人 長男・証券は手元にある" className={inp} />
+              <input type="text" value={r.institution_name ?? ''} onChange={e => edit(r.id, 'institution_name', e.target.value)} onBlur={e => void save(r.id, 'institution_name', e.target.value)} placeholder="例：日本生命" className={inp} />
+              <input type="text" value={r.notes ?? ''} onChange={e => edit(r.id, 'notes', e.target.value)} onBlur={e => void save(r.id, 'notes', e.target.value)} placeholder="例：受取人 長男・証券は手元にある" className={inp} />
               <button type="button" onClick={() => void del(r.id)} title="この保険会社を外す" className="text-gray-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
             </div>
           ))}

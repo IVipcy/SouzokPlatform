@@ -10,6 +10,7 @@ import { notifyParcelArrival } from '@/lib/arrivalParcel'
 import { buildDeliverableOptions, type DeliverableOption } from '@/lib/deliverables'
 import { applyReceiptLinkDates } from '@/lib/receiptLinks'
 import { buildReturnOptions, type ReturnOption, type StockFinRequest } from '@/lib/originals'
+import { todayJstYmd } from '@/lib/today'
 
 // 再登録（開封）モード：既存の郵送物一式レコードを開いて中身を本登録し直す
 export type EditReceiptInfo = {
@@ -67,7 +68,8 @@ function newItem(): ItemDraft {
 }
 
 export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams, onSaved, defaultLocation = null, editReceipt = null, currentMemberId = null }: Props) {
-  const todayYmd = new Date().toISOString().slice(0, 10)
+  // 「今日」は日本時間で。開いたときに1回だけ決める（描画のたびに new Date() を呼ばない）
+  const [todayYmd] = useState(() => todayJstYmd())
 
   const [caseQuery, setCaseQuery] = useState('')
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null)
@@ -81,7 +83,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
   // 到着物のまとめて入力（同じ差出人から何通も届くことが多く、行ごとに打つと手間）
   const [bulkQty, setBulkQty] = useState('')
   const [bulkFrom, setBulkFrom] = useState('')
-  const [items, setItems] = useState<ItemDraft[]>([newItem()])
+  const [items, setItems] = useState<ItemDraft[]>(() => [newItem()])
   const [deliverables, setDeliverables] = useState<DeliverableOption[]>([])
   // 原本の返却の候補（出払い中の同梱・金融の請求に出した印鑑登録証明書）
   const [returnOptions, setReturnOptions] = useState<ReturnOption[]>([])
@@ -162,6 +164,14 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
       setPostalType(editReceipt.postalType ?? '')
       setParcelMode(false)
       void selectCase(editReceipt.caseId)
+      // 到着日は封筒が届いた日（受信簿の値）のまま。開封した日にすると、各タブへ書く到着日が受信簿とずれる
+      let alive = true
+      ;(async () => {
+        const { data } = await createClient().from('document_receipts').select('received_date').eq('id', editReceipt.id).maybeSingle()
+        const d = (data as { received_date?: string | null } | null)?.received_date
+        if (alive && d) setReceivedDate(d)
+      })()
+      return () => { alive = false }
     } else {
       setLocation(defaultLocation ?? '')
     }
@@ -311,11 +321,18 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
       generated_by: 'receipt',
       notes: it.received_from.trim() ? `差出人: ${it.received_from.trim()}` : null,
     }))
+    // 途中で失敗したときの後始末。新規のときは作った受信行ごと消す（明細0件の受信が受信簿に残らないように）。
+    // 再登録（開封）のときは既存の受信行は残し、この回で作った書類行だけ消す
+    const cleanup = async (docIds: string[]) => {
+      if (docIds.length > 0) await supabase.from('case_documents').delete().in('id', docIds)
+      if (!editReceipt) await supabase.from('document_receipts').delete().eq('id', receiptId)
+    }
     const { data: createdDocs, error: docErr } = await supabase
       .from('case_documents')
       .insert(docRows)
       .select('id')
     if (docErr || !createdDocs || createdDocs.length !== validItems.length) {
+      await cleanup(((createdDocs ?? []) as Array<{ id: string }>).map(d => d.id))
       setError(`到着物の作成に失敗しました: ${docErr?.message ?? ''}`)
       setSaving(false)
       return
@@ -343,7 +360,7 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
       .insert(itemRows)
 
     if (itemsErr) {
-      // 親は作られたまま残る。エラー表示
+      await cleanup((createdDocs as Array<{ id: string }>).map(d => d.id))
       setError(`項目の登録に失敗しました: ${itemsErr.message}`)
       setSaving(false)
       return
@@ -360,8 +377,11 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
       const qty = it.quantity ? Number(it.quantity) : 1
       if (it.returnRef.startsWith('ret-enc:')) {
         const encId = it.returnRef.slice(8)
-        const { data: cur } = await supabase.from('request_enclosures').select('returned_qty').eq('id', encId).maybeSingle()
-        await supabase.from('request_enclosures').update({ returned_qty: ((cur as { returned_qty?: number } | null)?.returned_qty ?? 0) + qty, returned_on: receivedDate }).eq('id', encId)
+        // 返却は同梱した通数まで（出払い中を超えて足すと、以後直せない）。画面でも止めているが保存時にももう一度止める
+        const { data: cur } = await supabase.from('request_enclosures').select('quantity, returned_qty').eq('id', encId).maybeSingle()
+        const c = cur as { quantity?: number | null; returned_qty?: number | null } | null
+        const next = Math.min(c?.quantity ?? qty, (c?.returned_qty ?? 0) + qty)
+        await supabase.from('request_enclosures').update({ returned_qty: next, returned_on: receivedDate }).eq('id', encId)
       } else if (it.returnRef.startsWith('ret-fin:')) {
         await supabase.from('financial_requests').update({ seal_original_returned_date: receivedDate }).eq('id', it.returnRef.slice(8))
       }
@@ -646,6 +666,9 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
               const groupedForRow = groupedDeliverables
                 .map(([group, opts]) => [group, opts.filter(o => !usedByOthers.has(o.value))] as const)
                 .filter(([, opts]) => opts.length > 0)
+              // 原本の返却の行：通数は出払い中の数まで（超えて足すと、以後直せない）
+              const returnMax = it.returnRef ? (returnOptions.find(o => o.value === it.returnRef)?.remaining ?? null) : null
+              const qtyOverReturn = returnMax != null && Number(it.quantity || 0) > returnMax
               return (
                 <div key={it.key} className="border border-gray-200 rounded-md p-2.5">
                   <div className="grid grid-cols-[1fr_72px_1fr_28px] gap-2 items-center">
@@ -693,9 +716,14 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
                       type="text"
                       inputMode="numeric"
                       value={it.quantity}
-                      onChange={e => updateItem(it.key, { quantity: e.target.value.replace(/[^0-9]/g, '') })}
+                      onChange={e => {
+                        const raw = e.target.value.replace(/[^0-9]/g, '')
+                        // 返却の行は出払い中の数で止める
+                        const v = returnMax != null && raw !== '' && Number(raw) > returnMax ? String(returnMax) : raw
+                        updateItem(it.key, { quantity: v })
+                      }}
                       placeholder="通数"
-                      className="w-full min-w-0 px-2.5 py-1.5 text-[13px] text-right font-mono border border-gray-300 rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none"
+                      className={`w-full min-w-0 px-2.5 py-1.5 text-[13px] text-right font-mono border rounded-md focus:border-brand-400 focus:ring-1 focus:ring-brand-300 outline-none ${qtyOverReturn ? 'border-red-400' : 'border-gray-300'}`}
                     />
                     <input
                       type="text"
@@ -714,6 +742,9 @@ export default function NewDocumentReceiptModal({ isOpen, onClose, cases, teams,
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
+                  {returnMax != null && (
+                    <p className="mt-1 text-[11px] text-gray-500">返却は出払い中の {returnMax} 通まで登録できます{qtyOverReturn ? '（超えた分は登録しません）' : ''}</p>
+                  )}
                   {/* 「その他」を選んだときだけ名称入力（紐づけなし） */}
                   {useSelect && it.otherMode && (
                     <div className="mt-2 flex items-center gap-1.5">

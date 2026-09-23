@@ -96,8 +96,11 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
   // 以前は面談情報タブからは「検討中→受注」が選べず、選べても報酬内訳などが作られなかった。
   const PRE_ORDER = new Set(['面談設定済', '検討中', '検討中（契約書待ち）'])
   const WIN_OPTIONS = ['win:即受注', 'win:面談なし受注']
+  // 「受注」の素のまま（獲得区分なし）は受注前の案件からは選ばせない（win: の2択に置き換える）。
+  // ただし現在値が「受注」のときは残す。外すと選択肢に現在値が無くて「（未設定）」に見える。
   const statusOptions = [
-    ...getSelectableCaseStatuses(!!caseData.order_sheet_completed_at, caseData.status, managerAssigned, initialTasksDone, contractProcDone).filter(s => s !== '受注'),
+    ...getSelectableCaseStatuses(!!caseData.order_sheet_completed_at, caseData.status, managerAssigned, initialTasksDone, contractProcDone)
+      .filter(s => s !== '受注' || caseData.status === '受注'),
     ...(PRE_ORDER.has(caseData.status) ? WIN_OPTIONS : []),
   ]
   const statusLabel = (s: string) => (s.startsWith('win:') ? `受注（${s.slice(4)}）` : getCaseStatusLabel(s))
@@ -105,14 +108,23 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
     if (v.startsWith('win:')) {
       const opt = getMeetingResultOption(v.slice(4))
       if (!opt) return
-      const r = await applyMeetingResult(createClient(), caseData.id, opt, { orderRoute: caseData.order_route, caseNumber: caseData.case_number })
-      if (r.error) showToast(`案件番号の更新に失敗: ${r.error}`, 'error')
-      else showToast(`受注（${opt.winType}）にしました`, 'success')
+      // 受注ルートが無いと案件番号が XX のまま固まるので先に止める
+      if (!caseData.order_route) { showToast('受注にするには先に受注ルートを選んでください（案件番号の経路コードに使います）', 'error'); return }
+      // 検討中／依頼確定待ち からは「戻り受注」になる（applyMeetingResult 側で決める）
+      const r = await applyMeetingResult(createClient(), caseData.id, opt, { orderRoute: caseData.order_route, caseNumber: caseData.case_number, currentStatus: caseData.status })
+      if (r.error) showToast(r.error, 'error')
+      else showToast(`${PRE_ORDER.has(caseData.status) && caseData.status !== '面談設定済' ? '戻り受注' : '受注'}（${opt.winType}）にしました`, 'success')
       onRefresh?.()
       return
     }
     await saveCaseField('status', v)
   }
+  // 選択肢に現在値が無いと「（未設定）」に見えるので、保存済みの値は必ず含める
+  const declineOptions = (() => {
+    const base: string[] = CONSIDERATION_DECLINE_REASONS.filter(r => caseData.status === '失注' ? r.startsWith('【失注】') : PRE_ORDER.has(caseData.status) ? r.startsWith('【検討】') : true)
+    const cur = caseData.consideration_decline_reason
+    return cur && !base.includes(cur) ? [cur, ...base] : base
+  })()
 
   return (
     <div className="space-y-3.5">
@@ -175,7 +187,7 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
           <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => saveCaseField('expected_completion_date', v || null)} />
           {/* 理由はステータスに合うものだけ（面談結果登録と同じ）。受注案件に【失注】が付けられていた */}
           <InlineSelect label="検討中・失注理由" value={caseData.consideration_decline_reason}
-            options={CONSIDERATION_DECLINE_REASONS.filter(r => caseData.status === '失注' ? r.startsWith('【失注】') : PRE_ORDER.has(caseData.status) ? r.startsWith('【検討】') : true)}
+            options={declineOptions}
             onSave={v => saveCaseField('consideration_decline_reason', v)} />
           <InlineTextarea label="理由詳細" value={caseData.consideration_decline_reason_detail} onSave={v => saveCaseField('consideration_decline_reason_detail', v)} fullWidth />
           <InlineTextarea label="ヒアリング内容メモ" value={caseData.meeting_hearing_memo} onSave={v => saveCaseField('meeting_hearing_memo', v)} fullWidth />

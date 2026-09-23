@@ -18,13 +18,18 @@ export function municipalityFromAddress(address: string | null | undefined): str
   return m ? m[1] : null
 }
 
-// 本籍の住所から戸籍請求先（◯◯役所／◯◯役場）を組み立てる。市・区は「役所」、町・村は「役場」。
-export function kosekiOfficeFromAddress(address: string | null | undefined): string | null {
+// 住所（または「都道府県＋市区町村」の文字列）から役所名（◯◯役所／◯◯役場）を組み立てる。
+// 市・区は「役所」、町・村は「役場」。郡は外す（北佐久郡軽井沢町 → 軽井沢町役場）。
+// 戸籍請求の請求先・不動産（名寄帳・評価証明）の請求先の既定値で共用する。
+export function municipalOfficeFromAddress(address: string | null | undefined): string | null {
   const muni = municipalityFromAddress(address)
   if (!muni) return null
   const suffix = /[町村]$/.test(muni) ? '役場' : '役所'
   return `${muni}${suffix}`
 }
+
+// 本籍の住所から戸籍請求先（◯◯役所／◯◯役場）。中身は municipalOfficeFromAddress と同じ（呼び名だけ戸籍側の言い方）
+export const kosekiOfficeFromAddress = municipalOfficeFromAddress
 
 // ───────── 入力ルール（都道府県から書く・数字は半角） ─────────
 /** 全角の英数字・記号を半角に。ハイフン類は半角ハイフンへ。前後の空白は削る。 */

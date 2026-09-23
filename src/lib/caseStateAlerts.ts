@@ -4,8 +4,9 @@
 // info（青）はバナーには出さない。
 
 import { bizDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
-import { evaluateCaseAlerts, bannerOf, ALERT_DAYS, type CaseAlertInput, type CaseAlertContext } from '@/lib/alertRules'
+import { evaluateCaseAlerts, bannerOf, hourensouOverdueReason, type CaseAlertInput, type CaseAlertContext } from '@/lib/alertRules'
 import { isUrgentReportState } from '@/lib/constants'
+import { REPORT_KAKUNIN_BIZ_DAYS, REPORT_CHUI_BIZ_DAYS, caseReportSeverity } from '@/lib/caseReports'
 
 export type CaseStateAlert = {
   caseId: string
@@ -63,43 +64,115 @@ export function computeParcelArrivalAlerts(
   })
 }
 
-// 案件報告(progress_check)のうち未確認(status='依頼中')のものを拾う。
-//   状態='要至急対応'（旧 至急！！）… その場で 要注意(赤)
-//   それ以外で3営業日 未回答 … 要確認(黄)
-// 「至急」以外の報告も放置されると管理担当が次に進めないので、日数で拾えるようにした。
-// 確認済(status≠依頼中)になれば消える。
+// ========== 案件報告（progress_reports。管理担当 → 受注担当の 報告→確認）==========
+//
+// 段階（2026-09-23 決定）：
+//   届いた直後            … 青（ベルだけ。受注担当本人に）
+//   1営業日 未確認        … 黄＝要確認。本人＋同じチーム全員のバナーとベルに出す（放置をチームで拾う）
+//   3営業日 未確認        … 赤＝要注意（同上）
+//   状態が「要至急対応」  … 即赤
+// 起点は依頼日（requested_date。無い古い行は created_at）。しきい値は報連相（要対応）と同じ 1／3 営業日。
+// 種類は4つ（案件報告・業務完了申請・案件再オープン・納品確認申請）とも同じ扱い。どれも受注担当の確認待ちで止まる。
+
+export const PROGRESS_REPORT_KIND_LABEL: Record<string, string> = {
+  progress_check: '案件報告', work_complete: '業務完了申請', case_reopen: '案件再オープン', delivery_confirm: '納品確認申請',
+}
+
+export type ProgressReportLike = {
+  id?: string
+  case_id: string
+  kind?: string | null
+  report_state?: string | null
+  status: string
+  requested_date?: string | null
+  created_at?: string | null
+}
+
+export type ProgressReportLevel = { level: 'info' | 'mid' | 'high'; urgent: boolean; since: string | null; days: number | null; label: string }
+
+/** 未確認の案件報告の段階。確認済（status≠依頼中）は null */
+export function progressReportLevel(r: ProgressReportLike, todayStr: string): ProgressReportLevel | null {
+  if (r.status !== '依頼中') return null
+  const since = ((r.requested_date ?? r.created_at ?? '') as string).slice(0, 10) || null
+  const days = since ? bizDaysOverdue(since, todayStr) : null
+  const urgent = isUrgentReportState(r.report_state)
+  const level: ProgressReportLevel['level'] =
+    urgent ? 'high'
+    : days != null && days >= REPORT_CHUI_BIZ_DAYS ? 'high'
+    : days != null && days >= REPORT_KAKUNIN_BIZ_DAYS ? 'mid'
+    : 'info'
+  return { level, urgent, since, days, label: PROGRESS_REPORT_KIND_LABEL[r.kind ?? 'progress_check'] ?? '案件報告' }
+}
+
+export function progressReportCategory(l: ProgressReportLevel): string {
+  return l.urgent ? `${l.label}：至急` : l.level === 'info' ? l.label : `${l.label} 未回答`
+}
+export function progressReportReason(l: ProgressReportLevel): string {
+  if (l.urgent) return `管理担当から「要至急対応」の${l.label}が届いていますが、まだ確認されていません`
+  if (l.level === 'info') return `${l.label}が届いています`
+  return `${l.label}が届いてから${l.days}営業日たっていますが、確認・回答がされていません`
+}
+export const progressReportHref = (r: ProgressReportLike) =>
+  `/cases/${r.case_id}?tab=progress&sub=report${r.id ? `&openReport=${r.id}` : ''}`
+
+/**
+ * バナー用：未確認の案件報告（黄・赤だけ。青はベルだけ）。同じ案件に複数あれば一番重い1件。
+ * 確認ボタンは案件詳細の報告欄にあり、報告した本人以外なら誰でも押せる（チームの人が代わりに確認できる）。
+ */
 export function computeUrgentReportAlerts(
-  reports: Array<{ id?: string; case_id: string; kind?: string | null; report_state?: string | null; status: string; created_at?: string | null }>,
+  reports: ProgressReportLike[],
   caseMetaById: Map<string, { case_number: string; deal_name: string }>,
   todayStr?: string,
 ): CaseStateAlert[] {
-  const out: CaseStateAlert[] = []
-  const seen = new Set<string>()
-  // 至急を先に見る（同じ案件で至急と通常が混在したとき、重い方を残す）
-  const sorted = [...reports].sort((a, b) =>
-    (isUrgentReportState(b.report_state) ? 1 : 0) - (isUrgentReportState(a.report_state) ? 1 : 0))
-  for (const r of sorted) {
-    if ((r.kind ?? 'progress_check') !== 'progress_check') continue
-    if (r.status !== '依頼中') continue
-    if (seen.has(r.case_id)) continue
-    const meta = caseMetaById.get(r.case_id)
-    if (!meta) continue
-    const since = r.created_at ? r.created_at.slice(0, 10) : null
-    const days = since && todayStr ? bizDaysOverdue(since, todayStr) : undefined
-    const urgent = isUrgentReportState(r.report_state)
-    // 至急でない報告は、3営業日たっても回答が無いときだけ出す
-    if (!urgent && (days == null || days < ALERT_DAYS.reportAnswer)) continue
-    seen.add(r.case_id)
-    out.push({
-      caseId: r.case_id, caseNumber: meta.case_number, dealName: meta.deal_name,
-      category: urgent ? '案件報告：至急' : '案件報告 未回答', severity: urgent ? 'chui' : 'kakunin',
-      since, days,
-      reason: urgent
-        ? '管理担当から「要至急対応」の案件報告が届いていますが、まだ確認されていません'
-        : `案件報告が届いてから${ALERT_DAYS.reportAnswer}営業日以上、確認・回答がされていません`,
-      // 案件詳細の報告欄へ直行する。確認ボタンはそこにあり、報告した本人以外なら誰でも押せる。
-      href: `/cases/${r.case_id}?tab=progress&sub=report${r.id ? `&openReport=${r.id}` : ''}`,
-    })
+  if (!todayStr) return []
+  const best = new Map<string, { r: ProgressReportLike; l: ProgressReportLevel }>()
+  const rank = (l: ProgressReportLevel) => (l.urgent ? 3 : l.level === 'high' ? 2 : l.level === 'mid' ? 1 : 0)
+  for (const r of reports) {
+    const l = progressReportLevel(r, todayStr)
+    if (!l || l.level === 'info') continue
+    if (!caseMetaById.has(r.case_id)) continue
+    const cur = best.get(r.case_id)
+    if (!cur || rank(l) > rank(cur.l) || (rank(l) === rank(cur.l) && (l.days ?? 0) > (cur.l.days ?? 0))) best.set(r.case_id, { r, l })
   }
-  return out
+  return [...best.values()].map(({ r, l }) => {
+    const meta = caseMetaById.get(r.case_id)!
+    return {
+      caseId: r.case_id, caseNumber: meta.case_number, dealName: meta.deal_name,
+      category: progressReportCategory(l), severity: l.level === 'high' ? 'chui' : 'kakunin',
+      since: l.since, days: l.days ?? undefined, reason: progressReportReason(l),
+      href: progressReportHref(r),
+    }
+  })
+}
+
+// ========== 報連相（case_reports の要対応）をチームの案件まで広げる ==========
+// 自分が担当の案件ぶんは alertRules（report_action_overdue）で出る。ここは「自分が担当ではない同じチームの案件」用。
+export function computeTeamHourensouAlerts(
+  rows: Array<{ case_id: string; kind: string; status: string; requested_date: string | null }>,
+  caseMetaById: Map<string, { case_number: string; deal_name: string }>,
+  todayStr: string,
+): CaseStateAlert[] {
+  const byCase = new Map<string, { sev: OverdueSeverity; n: number; since: string | null }>()
+  for (const r of rows) {
+    const sev = caseReportSeverity(r, todayStr)
+    if (!sev || !caseMetaById.has(r.case_id)) continue
+    const cur = byCase.get(r.case_id)
+    const since = r.requested_date ? r.requested_date.slice(0, 10) : null
+    if (!cur) byCase.set(r.case_id, { sev, n: 1, since })
+    else {
+      cur.n += 1
+      if (sev === 'chui') cur.sev = 'chui'
+      if (since && (!cur.since || since < cur.since)) cur.since = since
+    }
+  }
+  return [...byCase.entries()].map(([caseId, v]) => {
+    const meta = caseMetaById.get(caseId)!
+    return {
+      caseId, caseNumber: meta.case_number, dealName: meta.deal_name,
+      category: '報連相 未回答', severity: v.sev,
+      since: v.since, days: v.since ? bizDaysOverdue(v.since, todayStr) : undefined,
+      reason: hourensouOverdueReason(v.sev === 'chui' ? 'high' : 'mid', v.n),
+      href: `/cases/${caseId}?tab=progress`,
+    }
+  })
 }

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { getCurrentUser } from '@/lib/auth'
+import { rateLimit, rateLimitMessage } from '@/lib/rateLimit'
 
 // 司法書士（相続の力）の請求書画像 → 明細（種別/報酬額/登録免許税又は印紙税）＋郵送料・システム利用料 を構造化抽出。
 // 請求タブの「司法書士請求書 読込・反映」から呼ばれ、司法の報酬内訳・立替実費へ反映する。
@@ -10,6 +12,12 @@ export const runtime = 'nodejs'
 type ImgMediaType = 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'
 
 export async function POST(req: NextRequest) {
+  // ミドルウェアだけに頼らず、AI を呼ぶ前にここでもログインを確かめる（課金が発生するため）
+  const user = await getCurrentUser()
+  if (!user) return NextResponse.json({ error: 'ログインが必要です' }, { status: 401 })
+  const rl = rateLimit(`ocr-shiho-invoice:${user.memberId ?? user.id}`, { limit: 20 })
+  if (!rl.ok) return NextResponse.json({ error: rateLimitMessage(rl) }, { status: 429 })
+
   try {
     const { image } = (await req.json()) as { image?: string }
     if (!image) return NextResponse.json({ error: '画像が必要です' }, { status: 400 })
@@ -19,7 +27,10 @@ export async function POST(req: NextRequest) {
     const data = m[2]
 
     const apiKey = process.env.ANTHROPIC_API_KEY
-    if (!apiKey) return NextResponse.json({ error: 'ANTHROPIC_API_KEYが未設定です' }, { status: 500 })
+    if (!apiKey) {
+      console.error('[ocr-shiho-invoice] ANTHROPIC_API_KEY が未設定')
+      return NextResponse.json({ error: 'AI機能の設定が完了していません。管理者に連絡してください' }, { status: 500 })
+    }
 
     const prompt = [
       'これは司法書士法人が発行した相続手続きの請求書の画像です。次を読み取り、JSONのみで返してください。',
@@ -65,6 +76,8 @@ export async function POST(req: NextRequest) {
       .filter(it => it.type || it.reward || it.tax)
     return NextResponse.json({ items, expense: num(parsed.expense) })
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : '読み取りに失敗しました' }, { status: 500 })
+    // 例外の生文言（APIキーやURLが混ざることがある）は利用者に返さず、ログにだけ残す
+    console.error('[ocr-shiho-invoice] error:', e)
+    return NextResponse.json({ error: '読み取りに失敗しました。時間をおいてもう一度お試しください' }, { status: 500 })
   }
 }

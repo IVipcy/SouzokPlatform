@@ -17,7 +17,7 @@ import OverdueAttention, { type OverdueBill, type OverdueTaskItem } from '@/comp
 import { overdueSeverity, billOverdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
 import { fetchCaseAlertContexts } from '@/lib/caseAlertContext'
 import { evaluateCaseAlerts, bannerOf } from '@/lib/alertRules'
-import { computeUrgentReportAlerts, computeParcelArrivalAlerts } from '@/lib/caseStateAlerts'
+import { computeUrgentReportAlerts, computeParcelArrivalAlerts, computeTeamHourensouAlerts } from '@/lib/caseStateAlerts'
 import SystemTaskList from '@/components/features/tasks/SystemTaskList'
 import HourenSouTable, { type HourenSouItem } from '@/components/features/my/HourenSouTable'
 import MyTaskCreateButton from '@/components/features/tasks/MyTaskCreateButton'
@@ -290,11 +290,19 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
 
   // チーム案件のうち、自分が担当していない案件の案件報告を取る（チームで確認を回すため）
   const teamOnlyCaseIds = [...teamCaseIds].filter(id => !myCaseIds.has(id))
+  // 同じくチーム案件の 報連相（要対応・未回答）と、その案件名（自分の案件でないので myCases に無い）
+  let teamHourensou: Array<{ case_id: string; kind: string; status: string; requested_date: string | null }> = []
+  let teamOnlyCaseMeta: Array<{ id: string; case_number: string; deal_name: string }> = []
   if (teamOnlyCaseIds.length > 0) {
     try {
-      const { data } = await supabase.from('progress_reports')
-        .select('*, cases(case_number, deal_name)').in('case_id', teamOnlyCaseIds)
+      const [{ data }, { data: hr }, { data: cm }] = await Promise.all([
+        supabase.from('progress_reports').select('*, cases(case_number, deal_name)').in('case_id', teamOnlyCaseIds),
+        supabase.from('case_reports').select('case_id, kind, status, requested_date').in('case_id', teamOnlyCaseIds).eq('kind', '要対応').neq('status', '確認済'),
+        supabase.from('cases').select('id, case_number, deal_name').in('id', teamOnlyCaseIds),
+      ])
       teamReports = (data ?? []) as typeof teamReports
+      teamHourensou = (hr ?? []) as typeof teamHourensou
+      teamOnlyCaseMeta = (cm ?? []) as typeof teamOnlyCaseMeta
     } catch { /* migration 未適用環境では空扱い */ }
   }
 
@@ -660,6 +668,7 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
   const teamCaseMeta = new Map<string, { case_number: string; deal_name: string }>([
     ...myCases.filter(c => teamCaseIds.has(c.id)).map(c => [c.id, { case_number: c.case_number, deal_name: c.deal_name }] as const),
     ...teamReports.map(r => [r.case_id, { case_number: r.cases?.case_number ?? '', deal_name: r.cases?.deal_name ?? '' }] as const),
+    ...teamOnlyCaseMeta.map(c => [c.id, { case_number: c.case_number, deal_name: c.deal_name }] as const),
   ])
   // 到着物あり（受注/管理宛の郵送物一式・未開封）→ 要確認バナー。自分が受注/管理担当の案件が対象。
   const myAllCaseIds = [...new Set([...salesCaseIds, ...managerCaseIds])]
@@ -705,14 +714,16 @@ export default async function MyPage({ searchParams }: { searchParams: SearchPar
         href: h.href ?? (h.tab ? `/cases/${c.id}?tab=${h.tab}` : undefined),
       }]
     })),
-    // 案件報告「至急！！」（未確認）→ 要注意(赤)。受注担当の案件が対象。
-    // 案件報告のアラートはチームの案件まで広げる。受注担当が確認できないまま3営業日たったものを
-    // チーム全員の要確認バナーに出し、手が空いている人が代わりに確認できるようにする。
+    // 案件報告（未確認）。要至急対応は即赤、1営業日で黄・3営業日で赤。
+    // チームの案件まで広げ、受注担当が確認できないまま放置されたものをチーム全員の要確認バナーに出す
+    // （手が空いている人が代わりに確認できる）。
     ...computeUrgentReportAlerts(
       [...allReports.filter(r => teamCaseIds.has(r.case_id)), ...teamReports],
       teamCaseMeta,
       todayStr,
     ),
+    // 報連相（要対応）も同じくチームの案件まで。自分の案件ぶんは上の案件アラート（report_action_overdue）に入っている
+    ...computeTeamHourensouAlerts(teamHourensou, teamCaseMeta, todayStr),
     // 到着物あり（未開封）→ 要確認(黄)
     ...parcelAlerts,
   ]

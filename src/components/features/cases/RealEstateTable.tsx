@@ -129,7 +129,7 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
   const addRow = async (propertyType?: string) => {
     setBusy(true)
     const { data, error } = await supabase.from('real_estate_properties')
-      .insert({ case_id: caseId, municipality: municipalityFilter ?? null, property_type: propertyType ?? null })
+      .insert({ case_id: caseId, municipality: municipalityFilter || null, property_type: propertyType ?? null })   // 「未設定」ブロックは '' で来るので null に
       .select('*').single()
     if (error || !data) { setBusy(false); showToast(`追加に失敗しました: ${error?.message ?? ''}`, 'error'); return }
     const prop = data as RealEstatePropertyRow

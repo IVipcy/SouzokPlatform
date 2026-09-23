@@ -43,6 +43,7 @@ import type {
 } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 import { sameBank, normalizeBankName } from '@/lib/bankName'
+import { deleteRequestEnclosures } from '@/lib/originals'
 import { accountTypesFor } from '@/lib/constants'
 
 type Kind = '預貯金' | '証券' | '信託銀行' | '証券・信託'
@@ -97,6 +98,9 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
     if (seededRef.current) return
     const wanted = kind === '預貯金' ? ['預貯金'] : ['証券', '信託銀行', '信託']
     const kindOfAsset = (t: string): FinancialInstitutionRow['kind'] => (t === '預貯金' ? '預金' : t === '証券' ? '証券' : '株主名簿管理人')
+    // 調査先の読み込みが終わる前（口座は institution_id を持っているのに調査先が0件）に走ると、同名の調査先を重複作成する。
+    // そのときは何もしない（読み込めた次の描画でもう一度来る）
+    if (rawInstitutions.length === 0 && assets.some(a => a.institution_id)) return
     const todo = assets.filter(a => wanted.includes(a.asset_type) && (a.institution_name ?? '').trim() && (!a.institution_id || !rawInstitutions.some(i => i.id === a.institution_id)))
     if (todo.length === 0) return
     seededRef.current = true
@@ -122,6 +126,10 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
         await supabase.from('financial_assets').update({ institution_id: id }).eq('id', a.id)
       }
       if (created.size > 0) showToast(`オーダーシートの口座から調査先を ${created.size} 件作りました`, 'success')
+      // 来店予約一覧などから名前で着地してきたとき、いま作った調査先が着地先ならそこへ動かす（作る前は当てられなかった）
+      if (focus) {
+        for (const [key, id] of created) if (sameBank(key.split('|')[1], focus)) { setSub(id); break }
+      }
       onRefresh?.()
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -308,6 +316,9 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
   }
   const deleteRequest = async (r: FinancialRequestRow) => {
     if (!window.confirm('この請求を削除しますか？明細も一緒に消えます。')) return
+    // 同梱した原本の行（request_enclosures）を先に消す。残ると「出払い中」が永久に戻らない
+    const enc = await deleteRequestEnclosures(supabase, [r.id])
+    if (enc.error) { showToast(`同梱の原本の記録を消せませんでした: ${enc.error}`, 'error'); return }
     const { error } = await supabase.from('financial_requests').delete().eq('id', r.id)
     if (error) { showToast(`削除に失敗: ${error.message}`, 'error'); return }
     onRefresh?.()
@@ -430,7 +441,12 @@ function TopTable({ layout, institutions, evalOf, accountsOf, holdings, requests
   if (layout === 'securities') {
     // 銘柄ごとの株数の突き合わせ：証券会社側の合計 と 株主名簿管理人（信託銀行）側の合計。
     // 両方に同じ銘柄があって数が違えば、その数量セルを黄色にする（どちらかが古い・特別口座の分が抜けている等）。
-    const brandKey = (h: SecuritiesHoldingRow) => ((h.code ?? '').trim() || (h.brand_name ?? '').replace(/\s+/g, '').trim())
+    // 証券会社側は銘柄コード、信託銀行側は銘柄名だけ、ということが多い。同じ銘柄がコードと名前に割れると突合が無効になるので、
+    // 「コードと名前の両方を持つ行」から名前→コードの対応を作り、名前だけの行もコードに寄せる
+    const nameOf = (h: SecuritiesHoldingRow) => (h.brand_name ?? '').normalize('NFKC').replace(/\s+/g, '').trim()
+    const codeByName = new Map<string, string>()
+    for (const h of holdings) { const c = (h.code ?? '').trim(), n = nameOf(h); if (c && n && !codeByName.has(n)) codeByName.set(n, c) }
+    const brandKey = (h: SecuritiesHoldingRow) => ((h.code ?? '').trim() || codeByName.get(nameOf(h)) || nameOf(h))
     const sumBy = (kind: FinancialInstitutionRow['kind']) => {
       const m = new Map<string, number>()
       for (const h of holdings) {

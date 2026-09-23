@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/client'
 import { evaluateInstitution, sealCertificateStatus, pendingRid } from '@/lib/financialWorkflow'
+import { isSurveyBanActive } from '@/lib/financialBan'
+import { todayJstYmd } from '@/lib/today'
 import { normalizeTaskStatus } from '@/lib/taskReadiness'
 import type { FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow } from '@/types'
 
@@ -39,24 +41,21 @@ export function municipalityOfAddress(address: string | null | undefined): strin
   return m ? `${m[1] ?? ''}${m[2]}` : ''
 }
 
-/** 調査禁止で止まっているか（指定あり＋期間内 or 連絡待ちで未解除）。 */
+/** 調査禁止で止まっているか。判定は financialBan.isSurveyBanActive の1か所（右上の「次の対応」と同じ） */
 export function isSurveyOnHold(a: {
   survey_prohibited_designation?: string | null
   survey_prohibited_method?: string | null
   survey_prohibited_start?: string | null
   survey_prohibited_end?: string | null
   prohibition_released_at?: string | null
-}, today = new Date().toISOString().slice(0, 10)): boolean {
-  if ((a.survey_prohibited_designation ?? '') !== '指定あり') return false
-  if (a.prohibition_released_at) return false          // お客様からOKの連絡が来ている
-  if ((a.survey_prohibited_method ?? '') === '連絡待ち') return true
-  // 期間指定。終了日を過ぎていれば解ける。開始日前は「まだ禁止に入っていない」ので止めない。
-  const end = (a.survey_prohibited_end ?? '').trim()
-  const start = (a.survey_prohibited_start ?? '').trim()
-  if (!end && !start) return true                       // 指定ありなのに期間が空 → 安全側で止める
-  if (end && today > end) return false
-  if (start && today < start) return false
-  return true
+}, today = todayJstYmd()): boolean {
+  return isSurveyBanActive({
+    survey_prohibited_designation: a.survey_prohibited_designation ?? null,
+    survey_prohibited_method: a.survey_prohibited_method ?? null,
+    survey_prohibited_start: a.survey_prohibited_start ?? null,
+    survey_prohibited_end: a.survey_prohibited_end ?? null,
+    prohibition_released_at: a.prohibition_released_at ?? null,
+  }, today)
 }
 
 type LoadedCase = {
@@ -147,7 +146,7 @@ export async function loadNextCandidates(caseId: string): Promise<NextCandidate[
   // 到着待ち・回答待ちは pending に入ってこないので、自然と候補にも出ない。
   const kosekiOkForFin = state.deceasedRelationDone || state.clientRelationDone
   if (kosekiOkForFin) {
-    const today = new Date().toLocaleDateString('sv-SE')
+    const today = todayJstYmd()
     const seal = sealCertificateStatus({
       seal_cert_oldest_issue_date: cs?.seal_cert_oldest_issue_date ?? null,
       seal_cert_validity_months: cs?.seal_cert_validity_months ?? null,

@@ -47,11 +47,16 @@ export async function searchCasesForRelation(supabase: SupabaseClient, q: string
   const t = q.trim()
   if (!t) return []
   const like = `%${t.replace(/[%_,]/g, '')}%`
-  const [byCase, byClient] = await Promise.all([
+  // .or() のフィルタ文字列は「(」「)」「.」が構文に見えて壊れる（「山田(太郎)」で候補が出ない）。
+  // 列ごとに .ilike() で分けて投げ、結果を合わせる
+  const [byNumber, byName, byClient] = await Promise.all([
     supabase.from('cases').select('id, case_number, deal_name, status, clients(name)').eq('intake_draft', false)
-      .or(`case_number.ilike.${like},deal_name.ilike.${like}`).order('created_at', { ascending: false }).limit(12),
+      .ilike('case_number', like).order('created_at', { ascending: false }).limit(12),
+    supabase.from('cases').select('id, case_number, deal_name, status, clients(name)').eq('intake_draft', false)
+      .ilike('deal_name', like).order('created_at', { ascending: false }).limit(12),
     supabase.from('clients').select('id').ilike('name', like).limit(12),
   ])
+  const byCase = { data: [...(byNumber.data ?? []), ...(byName.data ?? [])] }
   const clientIds = ((byClient.data ?? []) as Array<{ id: string }>).map(c => c.id)
   let byClientCases: CaseLite[] = []
   if (clientIds.length > 0) {
