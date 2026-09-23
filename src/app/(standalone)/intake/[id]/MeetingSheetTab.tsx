@@ -12,7 +12,7 @@ import { FieldGrid, FieldRow, InlineEdit } from '@/components/ui/InlineFields'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import InheritanceDiagramV2 from '@/components/features/cases/InheritanceDiagramV2'
 import OtherAssetsTable from '@/components/features/cases/OtherAssetsTable'
-import { HEIR_RELATIONSHIPS, PROPERTY_TYPES, needsLotNumber, needsBuildingNumber, OTHER_ASSET_KINDS, isFormerSpouse } from '@/lib/constants'
+import { HEIR_RELATIONSHIPS, PROPERTY_TYPES, needsLotNumber, needsBuildingNumber, OTHER_ASSET_KINDS, isFormerSpouse, accountTypesFor } from '@/lib/constants'
 import OrderContentTab from '@/components/features/cases/OrderContentTab'
 import CaseClientsTable from '@/components/features/cases/CaseClientsTable'
 import { MoneyInput } from '@/components/features/cases/FinancialAssetsTable'
@@ -313,7 +313,7 @@ function REMini({ caseId, properties, onRefresh, ensureCaseId }: { caseId: strin
 }
 
 // ── 金融資産（種別ごと・要点列だけ） ──
-type FinCol = { key: keyof FinancialAssetRow; label: string; money?: boolean }
+type FinCol = { key: keyof FinancialAssetRow; label: string; money?: boolean; /** 選択肢（口座種別など）。行の金融機関名で変わるので関数 */ options?: (row: FinancialAssetRow) => string[] }
 function FinMini({ caseId, kind, cols, addLabel, assets, onRefresh, ensureCaseId }: { caseId: string; kind: string; cols: FinCol[]; addLabel: string; assets: FinancialAssetRow[]; onRefresh?: () => void; ensureCaseId?: () => Promise<string> }) {
   const supabase = createClient()
   // 種別で絞った配列は毎回作ると別物になるので、識別子を固定してから渡す
@@ -336,7 +336,9 @@ function FinMini({ caseId, kind, cols, addLabel, assets, onRefresh, ensureCaseId
             <label key={c.key as string} className="block"><span className="block text-[11px] text-gray-400 mb-0.5">{c.label}</span>
               {c.money
                 ? <MoneyInput value={r[c.key] as number | null} onCommit={v => saveNum(r.id, v)} />
-                : <input type="text" value={(r[c.key] as string) ?? ''} onChange={e => save(r.id, c.key as string, e.target.value)} className="w-full px-2 py-1.5 text-[13px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400" />}
+                : c.options
+                  ? <select value={(r[c.key] as string) ?? ''} onChange={e => save(r.id, c.key as string, e.target.value)} style={{ fontFamily: 'inherit' }} className="w-full px-2 py-1.5 text-[13px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400"><option value="">—</option>{c.options(r).map(o => <option key={o} value={o}>{o}</option>)}</select>
+                  : <input type="text" value={(r[c.key] as string) ?? ''} onChange={e => save(r.id, c.key as string, e.target.value)} className="w-full px-2 py-1.5 text-[13px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400" />}
             </label>
           ))}
           <div className="sm:col-span-2 flex justify-end"><button type="button" onClick={() => del(r.id)} className="inline-flex items-center gap-1 text-[12px] text-gray-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" />削除</button></div>
@@ -594,7 +596,7 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
             {/* 振込名義人＝入金CSV突合のキー。本人振込なら依頼者のふりがなをカタカナで入れる。
                 案件詳細の依頼者タブと同じボタンを、面談シートにも置く。 */}
             <InlineEdit
-              label="振込名義人 候補①（カナ）"
+              label="振込名義人（カナ）"
               value={cl?.transfer_name_kana ?? null}
               ai={aiFilled.has('transfer_name_kana')}
               onSave={v => { clearAi('transfer_name_kana'); return patchClient({ transfer_name_kana: toKatakana(v) || null }) }}
@@ -669,7 +671,7 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
       ), runExtract('assets_re'), false, { key: 'assets', label: '財産のメモ（不動産・預金・証券などで共通。OS/実務の財産調査に反映されます）' })}
 
       {sec('assets_deposit', '財産調査（預金）', '常時表示', (
-        <FinMini caseId={caseData.id} kind="預貯金" addLabel="口座を追加" assets={financialAssets} onRefresh={onRefresh} ensureCaseId={ensureCaseId} cols={[{ key: 'institution_name', label: '金融機関名' }, { key: 'branch_name', label: '支店' }, { key: 'account_number', label: '口座番号' }]} />
+        <FinMini caseId={caseData.id} kind="預貯金" addLabel="口座を追加" assets={financialAssets} onRefresh={onRefresh} ensureCaseId={ensureCaseId} cols={[{ key: 'institution_name', label: '金融機関名' }, { key: 'branch_name', label: '支店' }, { key: 'account_type', label: '口座種別', options: r => accountTypesFor(r.institution_name) }, { key: 'account_number', label: '口座番号' }]} />
       ), runExtract('assets_deposit'), false, { key: 'assets', label: '財産のメモ（不動産・預金・証券などで共通。OS/実務の財産調査に反映されます）' })}
 
       {OPTIONAL_FIN.filter(f => extraFin.has(f.kind)).map(f => (
@@ -718,7 +720,7 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
               <p className="text-[11px] text-gray-400 mb-1.5">{k.hint}</p>
               <OtherAssetsTable caseId={caseData.id} kind={k.kind} rows={otherByKind[k.kind] ?? []} onRefresh={onRefresh} ensureCaseId={ensureCaseId} />
             </>
-          ), undefined, true)}
+          ), undefined, false, { key: 'assets', label: '財産のメモ（不動産・預金・証券などで共通。OS/実務の財産調査に反映されます）' })}
         </div>
       ))}
 

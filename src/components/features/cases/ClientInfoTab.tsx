@@ -79,8 +79,8 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
               action={() => <PostalLookupButton address={client.address} onResolved={zip => saveClientField('postal_code', zip)} className="inline-flex items-center gap-1 h-7 px-2.5 rounded text-[11.5px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap" />}
             />
             {/* 振込名義人（カナ）＝入金CSV突合のキー。本人振込なら依頼者ふりがなをカタカナで自動入力。
-                「検討中」段階では入金が発生しないため表示しない（受注後に表示）。 */}
-            {caseData.status !== '検討中' && (
+                面談シートと同じく検討中から出す（面談で聞いた振込名義を入れる場所を揃える）。 */}
+            {(
               <>
                 <InlineEdit
                   label="振込名義人（カナ）"

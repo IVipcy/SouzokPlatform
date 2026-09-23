@@ -67,7 +67,7 @@ export default function OtherAssetsTable({ caseId, kind, rows: initial, heirs = 
   return (
     <div>
       <div className="overflow-x-auto">
-        <table className="w-full text-[12px] border-collapse" style={{ minWidth: detailed ? 640 : 360 }}>
+        <table className="w-full text-[12px] border-collapse" style={{ minWidth: detailed ? 640 : 480 }}>
           <thead>
             <tr className="text-[11px] text-brand-700 border-b border-brand-100">
               <th className="px-2 py-1.5 text-left font-medium">項目</th>
@@ -75,13 +75,14 @@ export default function OtherAssetsTable({ caseId, kind, rows: initial, heirs = 
               {withPayer && <th className="px-2 py-1.5 text-left font-medium w-40">立替者</th>}
               {detailed && <th className="px-2 py-1.5 text-center font-medium w-24">精算する<span className="block text-[10px] font-normal text-brand-700">遺産分割時</span></th>}
               {detailed && <th className="px-2 py-1.5 text-center font-medium w-20">根拠資料</th>}
-              {detailed && <th className="px-2 py-1.5 text-left font-medium">備考・根拠資料</th>}
+              {/* 備考は面談・オーダーシートでも書く（「名義書換料が要るらしい」等の補足の置き場が無かった） */}
+              <th className="px-2 py-1.5 text-left font-medium">{detailed ? '備考・根拠資料' : '備考'}</th>
               <th className="w-9" />
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td colSpan={detailed ? (withPayer ? 7 : 6) : 3} className="px-2 py-4 text-center text-[11.5px] text-gray-400">「行を追加」で入力してください</td></tr>
+              <tr><td colSpan={detailed ? (withPayer ? 7 : 6) : 4} className="px-2 py-4 text-center text-[11.5px] text-gray-400">「行を追加」で入力してください</td></tr>
             )}
             {rows.map(r => (
               <tr key={r.id} className="border-b border-gray-50 last:border-b-0">
@@ -119,7 +120,7 @@ export default function OtherAssetsTable({ caseId, kind, rows: initial, heirs = 
                     <input type="checkbox" checked={r.has_evidence} onChange={e => save(r.id, { has_evidence: e.target.checked })} className="w-4 h-4 accent-brand-600" />
                   </td>
                 )}
-                {detailed && (
+                {(
                   <td className="px-2 py-1.5">
                     <input type="text" value={r.note ?? ''} onChange={e => setRows(p => p.map(x => x.id === r.id ? { ...x, note: e.target.value } : x))}
                       onBlur={e => save(r.id, { note: e.target.value || null })}
