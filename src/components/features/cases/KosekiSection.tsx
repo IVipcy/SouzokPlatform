@@ -498,17 +498,20 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
       lastAddress: personEdits['case.deceased_address'] ?? caseData.deceased_address ?? '',
       lastHonseki: personEdits['case.deceased_registered_address'] ?? caseData.deceased_registered_address ?? '',
       currentAddress: (h ? personEdits[`heir.${h.id}`] : undefined) ?? h?.address ?? '',
+      // 住所2（建物名・部屋番号）。封筒・受領証の宛先に要るので、附票を読んだときにここで一緒に入れられるようにする
+      currentAddress2: (h ? personEdits[`heir2.${h.id}`] : undefined) ?? h?.address2 ?? '',
     }
   }
-  const saveTargetInfo = async (r: KosekiRequestRow, key: 'lastAddress' | 'lastHonseki' | 'currentAddress', v: string) => {
+  const saveTargetInfo = async (r: KosekiRequestRow, key: 'lastAddress' | 'lastHonseki' | 'currentAddress' | 'currentAddress2', v: string) => {
     const val = v.trim() || null
-    if (key === 'currentAddress') {
+    if (key === 'currentAddress' || key === 'currentAddress2') {
       const h = heirByName.get((r.target_person ?? '').trim())
       if (!h) { showToast('相続人一覧にこの人がいないため保存できません', 'error'); return }
-      setPersonEdits(p => ({ ...p, [`heir.${h.id}`]: v }))
-      const { error } = await supabase.from('heirs').update({ address: val }).eq('id', h.id)
+      const isA2 = key === 'currentAddress2'
+      setPersonEdits(p => ({ ...p, [`${isA2 ? 'heir2' : 'heir'}.${h.id}`]: v }))
+      const { error } = await supabase.from('heirs').update(isA2 ? { address2: val } : { address: val }).eq('id', h.id)
       if (error) { showToast(`保存に失敗: ${error.message}`, 'error'); return }
-      showToast('現在住所を相続人一覧に保存しました', 'success')
+      showToast(`現在住所${isA2 ? '（住所2）' : ''}を相続人一覧に保存しました`, 'success')
     } else {
       const col = key === 'lastAddress' ? 'deceased_address' : 'deceased_registered_address'
       setPersonEdits(p => ({ ...p, [`case.${col}`]: v }))
@@ -985,8 +988,8 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
   onCopy: () => void
   onMakeDoc: () => void
   /** 読込結果の住所欄。案件・相続人一覧の値をそのまま出す（戸籍請求には持たない） */
-  targetInfo: { lastAddress: string; lastHonseki: string; currentAddress: string }
-  onSaveTargetInfo: (key: 'lastAddress' | 'lastHonseki' | 'currentAddress', v: string) => void
+  targetInfo: { lastAddress: string; lastHonseki: string; currentAddress: string; currentAddress2: string }
+  onSaveTargetInfo: (key: 'lastAddress' | 'lastHonseki' | 'currentAddress' | 'currentAddress2', v: string) => void
   onToggleRelationDone: (on: boolean) => void
 }) {
   const wantsJuminhyo = includesJuminhyo(r.doc_types)
@@ -1371,12 +1374,19 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
           </KosekiFieldRow>
         )}
         {!isDeceasedTarget && wantsAddressDoc && (
-          <KosekiFieldRow label="現在住所" full
-            hint={targetHeir ? '相続人一覧の住所に保存されます。' : 'この人は相続人一覧にいないため保存先がありません。先に相続人として登録してください。'}>
-            {targetHeir
-              ? <TxtCell value={targetInfo.currentAddress} onCommit={v => onSaveTargetInfo('currentAddress', v)} placeholder="例：東京都世田谷区○○1-2-3" />
-              : <span className="text-[12px] text-gray-400">相続人一覧にこの人がいないため入力できません（先に相続人として登録してください）</span>}
-          </KosekiFieldRow>
+          <>
+            <KosekiFieldRow label="現在住所 住所1" full
+              hint={targetHeir ? '都道府県〜番地まで。相続人一覧の住所に保存され、封筒・受領証・納品の宛先に使われます。' : 'この人は相続人一覧にいないため保存先がありません。先に相続人として登録してください。'}>
+              {targetHeir
+                ? <TxtCell value={targetInfo.currentAddress} onCommit={v => onSaveTargetInfo('currentAddress', v)} placeholder="例：東京都世田谷区○○1-2-3" />
+                : <span className="text-[12px] text-gray-400">相続人一覧にこの人がいないため入力できません（先に相続人として登録してください）</span>}
+            </KosekiFieldRow>
+            {targetHeir && (
+              <KosekiFieldRow label="住所2（建物名・部屋番号）" full hint="マンション名・部屋番号など。無ければ空のまま。">
+                <TxtCell value={targetInfo.currentAddress2} onCommit={v => onSaveTargetInfo('currentAddress2', v)} placeholder="例：○○マンション 301号室" />
+              </KosekiFieldRow>
+            )}
+          </>
         )}
         {/* 関係戸籍が揃ったか。被相続人と、依頼者である相続人だけに聞く。
             これが立つと名寄せ請求・金融の資料請求・凍結依頼へ進める。 */}
