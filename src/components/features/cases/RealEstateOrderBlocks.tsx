@@ -240,8 +240,22 @@ export default function RealEstateOrderBlocks({ caseId, properties, acquisitions
 
   return (
     <div className="mt-4 space-y-5">
-      {munis.length === 0 && (
+      {munis.length === 0 && properties.every(p => municipalityOf(p)) && (
         <p className="text-[12px] text-gray-400">「＋ 市区町村（物件）を追加」で市区町村ブロックを作成してください。</p>
+      )}
+
+      {/* 市区町村が決まっていない物件（面談シートで所在地だけ入れたもの等）。以前はどのブロックにも出ず、消えたように見えた */}
+      {properties.some(p => !municipalityOf(p)) && (
+        <div className="border border-dashed border-amber-300 rounded-xl overflow-hidden">
+          <div className="bg-amber-50/70 px-3.5 py-2 flex items-center gap-1.5 text-[14px] font-semibold text-amber-800">
+            <MapPin className="w-4 h-4 flex-none" strokeWidth={2} />
+            <span>市区町村 未設定</span>
+            <span className="text-[11px] font-normal text-amber-700">所在地に市区町村（〜市／〜区／〜町／〜村）まで入れると、その市区町村のブロックへ移ります</span>
+          </div>
+          <div className="bg-white p-3.5">
+            <RealEstateTable caseId={caseId} properties={properties} onRefresh={onRefresh} orderSheetMode municipalityFilter="" addressSuggestions={addressSuggestions} />
+          </div>
+        </div>
       )}
 
       {munis.map(muni => {

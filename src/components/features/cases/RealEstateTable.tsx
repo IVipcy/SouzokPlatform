@@ -75,25 +75,38 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
   const ensureMuniSeed = async (muni: string) => {
     const m = muni.trim()
     if (!m) return
-    const { data: existing } = await supabase.from('real_estate_acquisitions')
-      .select('id,item_type,item_types').eq('case_id', caseId).eq('scope', 'municipality').eq('target_municipality', m).maybeSingle()
+    // 同じ市区町村の請求行は複数あってよい（名寄帳と評価証明を年度ごとに分ける等）。
+    // 以前は1行前提で探していて、2行以上あると「無い」と判定してもう1本作り、請求先も上書きしていた。
+    const { data: existingRows } = await supabase.from('real_estate_acquisitions')
+      .select('id,item_type,item_types').eq('case_id', caseId).eq('scope', 'municipality').eq('target_municipality', m)
+    const rowsM = (existingRows ?? []) as Array<{ id: string; item_types: string[] | null; item_type: string | null }>
+    const itemsOfRow = (r: { item_types: string[] | null; item_type: string | null }) => r.item_types ?? [r.item_type].filter((x): x is string => !!x)
     const office = `${m.replace(/^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)/, '')}役所`
-    if (!existing) {
+    if (rowsM.length === 0) {
       await supabase.from('real_estate_acquisitions').insert({
         case_id: caseId, scope: 'municipality', target_municipality: m,
         item_type: STANDARD_MUNI[0], item_types: STANDARD_MUNI, request_to: office, sort_order: 0,
       })
-    } else {
-      const cur = ((existing as { item_types: string[] | null; item_type: string | null }).item_types) ?? [(existing as { item_type: string | null }).item_type].filter((x): x is string => !!x)
+    } else if (rowsM.length === 1) {
+      // 1行だけのときは足りない資料をその行に足す。2行以上に分けてある市区町村は手で管理しているので触らない
+      const cur = itemsOfRow(rowsM[0])
       const merged = Array.from(new Set([...cur, ...STANDARD_MUNI]))
-      if (merged.length !== cur.length) {
-        await supabase.from('real_estate_acquisitions').update({ item_types: merged }).eq('id', (existing as { id: string }).id)
-      }
+      if (merged.length !== cur.length) await supabase.from('real_estate_acquisitions').update({ item_types: merged }).eq('id', rowsM[0].id)
     }
   }
 
   const commit = async (id: string, field: keyof RealEstatePropertyRow, value: string) => {
-    const { error } = await supabase.from('real_estate_properties').update({ [field]: value === '' ? null : value }).eq('id', id)
+    // 所在地を直したら市区町村も更新する（明示の市区町村が無い行が、所在地からブロックを移れるように）
+    const extra: Record<string, unknown> = {}
+    if (field === 'address') {
+      const cur = rows.find(r => r.id === id)
+      if (!(cur?.municipality ?? '').trim() || municipalityFilter === '') {
+        const x = value.trim().match(/^(東京都|北海道|(?:京都|大阪)府|.{2,3}県)?(.+?[市区町村])/)
+        const m = x ? `${x[1] ?? ''}${x[2]}` : ''
+        if (m) { extra.municipality = m; setRows(prev => prev.map(r => (r.id === id ? { ...r, municipality: m } : r))) }
+      }
+    }
+    const { error } = await supabase.from('real_estate_properties').update({ [field]: value === '' ? null : value, ...extra }).eq('id', id)
     if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
     // 所在地/市区町村が入力されて市区町村が判明したら、名寄帳・評価証明を自動生成（追加時は空でスキップされているため）。
     if (field === 'address' || field === 'municipality') {

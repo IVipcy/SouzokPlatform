@@ -14,9 +14,11 @@ import {
   isOrderRouteLocked,
   CONSIDERATION_DECLINE_REASONS, ORDER_ROUTES,
   getSelectableCaseStatuses, getCaseStatusLabel, REFERRAL_PARTNER_TYPES, isInitialTasksDone,
-  CONSIDERATION_PERIODS, considerationDueMax, MEETING_CATEGORIES, PROSPECT_LEVELS,
+  CONSIDERATION_PERIODS, considerationDueMax, MEETING_CATEGORIES, PROSPECT_LEVELS, getMeetingResultOption,
 } from '@/lib/constants'
-import { ORDER_CATEGORIES, KENIN_CATEGORY, KENIN_COMBO_SECONDARY, categoriesOf, seedRolesForCategories } from '@/lib/serviceMaster'
+import { ORDER_CATEGORIES, KENIN_CATEGORY, KENIN_COMBO_SECONDARY, categoriesOf, rolesForCategoryChange } from '@/lib/serviceMaster'
+import { buildParts } from '@/lib/serviceParts'
+import { applyMeetingResult } from '@/lib/meetingResult'
 import type { CaseRow, CaseMemberRow, MemberRow, CaseReferralRow, TaskRow, ContractDocumentRow } from '@/types'
 import { type RoleRow } from './ProcedureIntakeSection'
 import TabHeader from './TabHeader'
@@ -62,31 +64,54 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
     await patchCase(patch)
   }
 
-  // 受注区分①を選ぶ → 業務・作業を初期セット（区分変更時は入れ直し）。検認以外は②をクリア。
-  const selectCategory = async (cat: string | null) => {
-    const c = cat ?? ''
-    if (c === (caseData.service_category ?? '')) return
-    if (!c) { await patchCase({ service_category: null, service_category_2: null, procedure_type: null, intake_roles: [] }); return }
-    if ((caseData.intake_roles?.length ?? 0) > 0 && !confirm('受注区分を変えると、業務・担当が新しい区分の初期値で入れ直されます。よろしいですか？')) return
-    const newCat2 = c === KENIN_CATEGORY ? (caseData.service_category_2 ?? '') : ''
-    const cats = categoriesOf(c, newCat2)
-    const seeded = seedRolesForCategories(cats) as RoleRow[]
-    // 一覧表示の互換のため procedure_type(配列) にも反映
-    await patchCase({ service_category: c, service_category_2: newCat2 || null, procedure_type: cats, intake_roles: seeded })
-  }
-
-  // 検認①→手続き一式② の追加/解除
-  const toggleFull = async (on: boolean) => {
-    if ((caseData.intake_roles?.length ?? 0) > 0 && !confirm('受注区分を変えると、業務・担当が入れ直されます。よろしいですか？')) return
-    const newCat2 = on ? KENIN_COMBO_SECONDARY : ''
-    const cats = categoriesOf(caseData.service_category, newCat2)
-    const seeded = seedRolesForCategories(cats) as RoleRow[]
-    await patchCase({ service_category_2: newCat2 || null, procedure_type: cats, intake_roles: seeded })
-  }
-
   const salesMembers = caseMembers.filter(cm => cm.role === 'sales')
   const managerAssigned = caseMembers.some(cm => cm.role === 'manager')
   const initialTasksDone = isInitialTasksDone(tasks)
+
+  // 受注区分を変える（オーダーシートの受注内容と同じ処理）。
+  // 区分に紐づく管理業務だけ入れ替え、手で選んだ実施業務・その他業務は残す。パート（service_parts）も更新する。
+  // 以前は業務を全部作り直していて、オーダーシートで選んだものが消えていた。
+  const applyCategories = async (cats: string[]) => {
+    const roles = (caseData.intake_roles ?? []) as RoleRow[]
+    await patchCase({
+      service_category: cats[0] ?? null, service_category_2: cats[1] ?? null,
+      procedure_type: cats.length ? cats : null,
+      service_parts: cats.length ? buildParts(cats) : null,
+      intake_roles: rolesForCategoryChange(roles, cats),
+    } as Partial<CaseRow>)
+  }
+  const selectCategory = async (cat: string | null) => {
+    const c = cat ?? ''
+    if (c === (caseData.service_category ?? '')) return
+    const newCat2 = c === KENIN_CATEGORY ? (caseData.service_category_2 ?? '') : ''
+    await applyCategories(c ? categoriesOf(c, newCat2) : [])
+  }
+  // 検認①→手続き一式② の追加/解除
+  const toggleFull = async (on: boolean) => {
+    await applyCategories(categoriesOf(caseData.service_category, on ? KENIN_COMBO_SECONDARY : ''))
+  }
+
+  // 受注にする（即受注／面談なし受注）。面談結果登録と同じ処理（報酬内訳・案件番号の経路・獲得区分）を呼ぶ。
+  // 以前は面談情報タブからは「検討中→受注」が選べず、選べても報酬内訳などが作られなかった。
+  const PRE_ORDER = new Set(['面談設定済', '検討中', '検討中（契約書待ち）'])
+  const WIN_OPTIONS = ['win:即受注', 'win:面談なし受注']
+  const statusOptions = [
+    ...getSelectableCaseStatuses(!!caseData.order_sheet_completed_at, caseData.status, managerAssigned, initialTasksDone, contractProcDone).filter(s => s !== '受注'),
+    ...(PRE_ORDER.has(caseData.status) ? WIN_OPTIONS : []),
+  ]
+  const statusLabel = (s: string) => (s.startsWith('win:') ? `受注（${s.slice(4)}）` : getCaseStatusLabel(s))
+  const saveStatus = async (v: string) => {
+    if (v.startsWith('win:')) {
+      const opt = getMeetingResultOption(v.slice(4))
+      if (!opt) return
+      const r = await applyMeetingResult(createClient(), caseData.id, opt, { orderRoute: caseData.order_route, caseNumber: caseData.case_number })
+      if (r.error) showToast(`案件番号の更新に失敗: ${r.error}`, 'error')
+      else showToast(`受注（${opt.winType}）にしました`, 'success')
+      onRefresh?.()
+      return
+    }
+    await saveCaseField('status', v)
+  }
 
   return (
     <div className="space-y-3.5">
@@ -132,7 +157,7 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
           <InlineDate label="面談実施日" value={caseData.meeting_executed_date} onSave={v => saveCaseField('meeting_executed_date', v || null)} />
           <InlineSelect label="見込み度" value={caseData.prospect_level} options={[...PROSPECT_LEVELS]} onSave={v => saveCaseField('prospect_level', v)} />
           <InlineEdit label="顧客名（依頼者名）" value={caseData.deal_name} onSave={v => saveCaseField('deal_name', v)} />
-          <InlineSelect label="面談結果（ステータス）" value={caseData.status} options={getSelectableCaseStatuses(!!caseData.order_sheet_completed_at, caseData.status, managerAssigned, initialTasksDone, contractProcDone)} optionLabel={getCaseStatusLabel} onSave={v => saveCaseField('status', v)} />
+          <InlineSelect label="面談結果（ステータス）" value={caseData.status} options={statusOptions} optionLabel={statusLabel} onSave={v => saveStatus(v)} />
           <InlineSelect label="手続内容（受注区分）" value={caseData.service_category} options={[...ORDER_CATEGORIES]} onSave={v => selectCategory(v)} />
           {caseData.service_category === KENIN_CATEGORY && (
             <label className="col-span-2 flex items-center gap-2 cursor-pointer text-[13px] text-gray-700 px-3 py-2.5">

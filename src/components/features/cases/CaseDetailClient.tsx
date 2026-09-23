@@ -799,6 +799,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           properties={properties}
           acquisitions={acquisitions}
           financialAssets={financialAssets}
+          financialInstitutions={financialInstitutions}
           otherAssets={otherAssets}
           divisionDetails={divisionDetails}
           agreementDispatches={agreementDispatches}

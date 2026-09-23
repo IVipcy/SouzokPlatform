@@ -7,7 +7,7 @@ import { useCurrentMember } from '@/lib/useCurrentMember'
 import CheckRequestControl from './CheckRequestControl'
 import { showToast } from '@/components/ui/Toast'
 import { FieldGrid, InlineSelect, InlineEdit, InlineTextarea } from '@/components/ui/InlineFields'
-import { KOSEKI_REQUEST_REASONS, KOSEKI_REQUEST_TYPES, KOSEKI_PURPOSES, KOSEKI_RANGES, KOSEKI_AUTHORITIES } from '@/lib/constants'
+import { KOSEKI_REQUEST_REASONS, KOSEKI_REQUEST_TYPES, KOSEKI_PURPOSES, KOSEKI_PLAN_RANGES, normalizeKosekiRange, KOSEKI_AUTHORITIES } from '@/lib/constants'
 import HintTip from '@/components/ui/HintTip'
 import { ACQUIRERS, acquirerLabel } from '@/lib/acquirer'
 import { kosekiOfficeFromAddress } from '@/lib/address'
@@ -267,7 +267,7 @@ function Row({ r, odd, progressMode, open, onToggle, setLocal, commit, saveField
         <AcquirerCell value={r.acquirer} onSave={onPickAcquirer} />
         <TargetCell value={r.target_person} options={targetOptions} onPick={onPickTarget} />
         <Cell value={r.request_to} onChange={v => setLocal(r.id, 'request_to', v)} onCommit={v => commit(r.id, 'request_to', v)} placeholder="市区町村役所 等" />
-        <td className="px-2.5 py-1.5"><SelectOrTextField value={r.range_text} options={KOSEKI_RANGES} onSave={v => saveField(r.id, 'range_text', v)} placeholder="出生から死亡まで 等" /></td>
+        <td className="px-2.5 py-1.5"><SelectOrTextField value={normalizeKosekiRange(r.range_text)} options={KOSEKI_PLAN_RANGES} onSave={v => saveField(r.id, 'range_text', v)} placeholder="出生～死亡すべて 等" /></td>
         <SelectCell value={r.doc_types} options={KOSEKI_REQUEST_TYPES} onSave={v => saveField(r.id, 'doc_types', v)} />
         <SelectCell value={r.purpose} options={KOSEKI_PURPOSES} onSave={v => saveField(r.id, 'purpose', v)} />
         {/* 取得方法と、職務上請求のときだけ用紙の番号。番号は事件簿に載せるので1枚ずつ控える。 */}
@@ -385,7 +385,7 @@ function KosekiCard({ r, progressMode, setLocal, commit, saveField, onPickTarget
           </KFieldBlock>
         </div>
         <KFieldBlock label="請求先"><input type="text" value={r.request_to ?? ''} onChange={e => setLocal(r.id, 'request_to', e.target.value)} onBlur={e => commit(r.id, 'request_to', e.target.value)} placeholder="市区町村役所 等" className={inputCls} /></KFieldBlock>
-        <KFieldBlock label="範囲"><SelectOrTextField value={r.range_text} options={KOSEKI_RANGES} onSave={v => saveField(r.id, 'range_text', v)} placeholder="出生から死亡まで 等" className="h-10 px-3 text-[13px] border border-gray-200 rounded-lg" /></KFieldBlock>
+        <KFieldBlock label="範囲"><SelectOrTextField value={normalizeKosekiRange(r.range_text)} options={KOSEKI_PLAN_RANGES} onSave={v => saveField(r.id, 'range_text', v)} placeholder="出生～死亡すべて 等" className="h-10 px-3 text-[13px] border border-gray-200 rounded-lg" /></KFieldBlock>
         <div className={gridCls}>
           <KFieldBlock label="種別">
             <select value={r.doc_types ?? ''} onChange={e => saveField(r.id, 'doc_types', e.target.value)} className={selectCls}>

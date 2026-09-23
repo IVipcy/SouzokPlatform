@@ -510,8 +510,11 @@ export const KOSEKI_SUBMIT_TO_OPTIONS = [
   '自社保管',
 ] as const
 
-// オーダーシートの見立て（1行＝1人）
+// オーダーシートの見立て（1行＝1人）。請求カードの「請求範囲」も同じ3択（以前は別の文言で、写した値が空に見えていた）
 export const KOSEKI_PLAN_RANGES = ['出生～死亡すべて', '死亡のみ', '現在戸籍'] as const
+const LEGACY_KOSEKI_RANGE: Record<string, string> = { '出生から死亡まで': '出生～死亡すべて', '現在戸籍のみ': '現在戸籍' }
+/** 旧文言（出生から死亡まで／現在戸籍のみ）を今の3択に読み替える。3択に無い自由入力はそのまま */
+export const normalizeKosekiRange = (v: string | null | undefined): string | null => (v ? (LEGACY_KOSEKI_RANGE[v] ?? v) : null)
 // 「どちらでも」＝住民票でも戸籍の附票でもよい（役所で取れる方を取る）。
 // 面談の見立ての段階では決めきれないことが多いので選べるようにしてある。
 // 戸籍の取得方法。職務上請求で取った分は事件簿（法定の帳簿）に載せる必要がある。
@@ -758,6 +761,12 @@ export const TAX_ADVISOR_COMPANIES = [
 ] as const
 
 export const HP_SOURCES = ['相続遺言相談センター', '相続手続き相談プラザ', '自社公式HP'] as const
+
+// === 口座種別（オーダーシート・実務タブで同じ一覧。以前は別々に書かれ「積立」「通常」が実務で消えていた） ===
+export const ACCOUNT_TYPES = ['普通', '定期', '当座', '積立', '貯蓄', 'その他'] as const
+/** 口座種別の選択肢。ゆうちょ銀行だけ「通常」（通常貯金）が入る */
+export const accountTypesFor = (institutionName: string | null | undefined): string[] =>
+  (institutionName ?? '').includes('ゆうちょ') ? ['通常', ...ACCOUNT_TYPES] : [...ACCOUNT_TYPES]
 
 // === 顧客郵送先 ===
 export const MAILING_DESTINATIONS = ['依頼者住所', 'その他'] as const
@@ -1009,6 +1018,7 @@ export const CONSIDERATION_DECLINE_REASONS = [
   '【検討】相続人・親族に相談したい',
   '【検討】他社と比較検討したい',
   '【検討】四十九日まで未着手予定',
+  '【検討】提案できず',
   '【検討】その他（面談内容詳細に記載）',
   '【失注】費用が高い',
   '【失注】親族と相談した結果',

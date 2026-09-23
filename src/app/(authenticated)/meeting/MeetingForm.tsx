@@ -33,6 +33,7 @@ import {
   gyomuForCategories, tasksForCategories, seedRolesForCategories, kindForTask, isOptionalTask,
 } from '@/lib/serviceMaster'
 import { buildParts, partRank } from '@/lib/serviceParts'
+import { rolesForCategoryChange } from '@/lib/serviceMaster'
 import ReferralSourceLookup from '@/components/features/cases/ReferralSourceLookup'
 import PastClientLookup from '@/components/features/cases/PastClientLookup'
 import { IntakeRolesEditor, IntakeDocsEditor, clientReflectCandidates, type RoleRow } from '@/components/features/cases/ProcedureIntakeSection'
@@ -296,7 +297,6 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
       }
       if (selectedCase.clientAddress) init.address = selectedCase.clientAddress
       if (selectedCase.clientPostalCode) init.postalCode = selectedCase.clientPostalCode
-      if (selectedCase.clientNotes) init.clientTraitDetail = selectedCase.clientNotes
       // 被相続人
       if (selectedCase.deceasedName) init.deceasedName = selectedCase.deceasedName
       if (selectedCase.deceasedFurigana) init.deceasedKana = selectedCase.deceasedFurigana
@@ -523,21 +523,10 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
       // 1. メイン依頼者を clients に upsert（互換のため cases.client_id 維持）
       const mainClient = formData.clients.find(c => c.priority === 'main') ?? formData.clients[0]
       const mainName = (mainClient?.name ?? '').trim()
-      const clientPayload = {
-        name: mainName || '無題',
-        furigana: mainClient?.kana || null,
-        // 振込名義人カナ＝入金CSV突合キー。明示入力が無ければ依頼者ふりがな（本人振込前提）を採用。
-        transfer_name_kana: formData.transferNameKana.trim()
-          ? toKatakana(formData.transferNameKana)
-          : (mainClient?.kana ? toKatakana(mainClient.kana) : null),
-        transfer_name_kana_2: formData.transferNameKana2.trim() ? toKatakana(formData.transferNameKana2) : null,
-        transfer_name_kana_3: formData.transferNameKana3.trim() ? toKatakana(formData.transferNameKana3) : null,
-        phone: mainClient?.phone || null,
-        email: mainClient?.email || null,
-        relationship_to_deceased: mainClient?.relationship || null,
-        postal_code: formData.postalCode || null,
-        address: formData.address || null,
-      }
+      // この画面に出ている依頼者の項目は「顧客名」だけ。出していない項目（ふりがな・振込名義人・住所・郵便番号・
+      // 電話・メール・続柄）は書かない。書くと、面談シート・依頼者情報タブで入れた値を開いた時点の古い値や空で潰す。
+      // 続柄は案件依頼者（case_clients）側だけに持つ。
+      const clientPayload = { name: mainName || '無題' }
 
       if (isNew) {
         if (formData.pastClientId) {
@@ -561,8 +550,8 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         }
       }
 
-      // 2. 難易度（普通/難/激難）。値をそのまま保存（難しい理由の内訳はオーダーシート/実務で入力）。
-      const difficulty = formData.difficulty || null
+      // 受注区分。古い下書きに残る「提案できず」（受注区分ではない）は落とす
+      const cats = formData.serviceCategories.filter(c => (ORDER_CATEGORIES as readonly string[]).includes(c))
 
       // 3. 案件 upsert（面談情報のみ。遺産系詳細はオーダーシートで入力）
       const casePayload = {
@@ -577,44 +566,29 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
           || formData.meetingResult
           || '検討中',
         meeting_type: formData.meetingType || null,
-        proposal_note: formData.proposalNote || null,
         proposal_judicial: formData.proposalJudicial || null,
         proposal_administrative: formData.proposalAdministrative || null,
         meeting_owner_id: currentMemberId || null,
-        difficulty,
-        service_category: formData.serviceCategories[0] || null,
-        service_category_2: formData.serviceCategories[1] || null,
+        service_category: cats[0] || null,
+        service_category_2: cats[1] || null,
         // 受注区分パート（順序付き）。一覧/旧読み取り互換のため①②と procedure_type も併せて保持。
-        service_parts: formData.serviceCategories.length > 0 ? buildParts(formData.serviceCategories) : null,
-        procedure_type: formData.serviceCategories.length > 0 ? formData.serviceCategories : null,
+        service_parts: cats.length > 0 ? buildParts(cats) : null,
+        procedure_type: cats.length > 0 ? cats : null,
         client_response_due_date: formData.clientResponseDueDate || null,
         consideration_period: formData.considerationPeriod || null,
         prospect_level: formData.prospectLevel || null,
         meeting_executed_date: formData.meetingDate || null,
         order_route: formData.orderRoute || null,
         order_route_detail: formData.orderRouteDetail || null,
-        meeting_place: formData.meetingPlace || null,
-        meeting_hearing_memo: formData.hearingMemo || null,
         meeting_other_notes: formData.otherNotes || null,
         consideration_decline_reason: formData.considerationDeclineReason || null,
         consideration_decline_reason_detail: formData.considerationDeclineReasonDetail || null,
         expected_completion_date: formData.expectedCompletionDate || null,
-        intake_roles: formData.intakeRoles,
-        // 郵送・書類設定／依頼者特徴（メイン依頼者）
-        mailing_destination: formData.mailingDestination || null,
-        mailing_address_other: formData.mailingDestination === 'その他' ? (formData.mailingAddressOther || null) : null,
-        client_trait: formData.clientTrait || null,
-        client_trait_detail: formData.clientTraitDetail || null,
-        // 被相続人情報（検討中段階で契約書・委任状にプリセット）
-        deceased_name: formData.deceasedName.trim() || null,
-        deceased_furigana: formData.deceasedKana.trim() || null,
-        deceased_birth_date: formData.deceasedBirthday || null,
-        date_of_death: formData.dateOfDeath || null,
-        deceased_age: ageAtDeath(formData.deceasedBirthday, formData.dateOfDeath),
-        deceased_postal_code: formData.deceasedPostalCode.trim() || null,
-        deceased_address: formData.deceasedAddress.trim() || null,
-        deceased_registered_address: formData.deceasedRegisteredAddress.trim() || null,
-        deceased_has_special_chars: formData.deceasedHasSpecialChars,
+        // 実施業務は新規のときだけ初期値を入れる。既存案件はオーダーシートで選んだ業務を持っているので、
+        // ここでは区分に紐づく管理業務だけ入れ替える（下の rolesForCategoryChange）。
+        ...(isNew ? { intake_roles: formData.intakeRoles } : {}),
+        // ※ この画面に出ていない項目（難易度・顧客郵送先・依頼者特徴・被相続人の各項目・面談場所・ヒアリングメモ）は書かない。
+        //    書くと依頼者情報タブ・相続人調査・受注内容で入れた値を空や古い値で潰す。
         // 契約形態（検討中段階で設定 → 契約書・委任状のFMT推奨に使用）。
         // 空のときは書き込まない。①面談シートで入れた値を消してしまうため。
         // 案件を開いたときに読み込んではいるが、下書き（meeting_form_draft）が
@@ -686,6 +660,12 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
       } else {
         const { error } = await supabase.from('cases').update(casePayload).eq('id', caseId)
         if (error) throw new Error(`案件の更新に失敗: ${error.message}`)
+        // 受注区分に紐づく管理業務だけ入れ替える（手で選んだ実施業務・その他業務は残す）
+        {
+          const { data: cur } = await supabase.from('cases').select('intake_roles').eq('id', caseId).single()
+          const nextRoles = rolesForCategoryChange(((cur as { intake_roles: RoleRow[] | null } | null)?.intake_roles ?? []) as RoleRow[], cats)
+          await supabase.from('cases').update({ intake_roles: nextRoles }).eq('id', caseId)
+        }
         // 下書きで採番した番号は経路が未確定で XX。ここで経路が入ったら実コードに直す。
         {
           // 受注前なら経路コードを差し替える。受注以降は番号が外に出ているので触らない。
@@ -933,7 +913,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
           )}
 
           <Card label="提案内容・手続き内容">
-            <Pills multi value={data.serviceCategories} options={data.caseStatus === '検討中' ? [...ORDER_CATEGORIES, '提案できず'] : [...ORDER_CATEGORIES]} onChange={v => setServiceCategories(v as string[])} />
+            <Pills multi value={data.serviceCategories} options={[...ORDER_CATEGORIES]} onChange={v => setServiceCategories(v as string[])} />
           </Card>
           <Card label="提案金額">
             {/* 並びは 行政書士 → 司法書士 の順（現場の記載順に合わせる） */}

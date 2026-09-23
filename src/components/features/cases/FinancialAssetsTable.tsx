@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { accountTypesFor } from '@/lib/constants'
 import { Trash2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { evidenceDocsFor } from '@/lib/constants'
@@ -15,10 +16,6 @@ import { PriorityCell } from './PracticeTableCells'
 
 const REQ = ['要', '不要', '確認中']
 const CANCEL = ['有', '無', '確認中']
-const ACCOUNT_TYPES = ['普通', '定期', '当座', '積立', '貯蓄', 'その他']
-/** 口座種別の選択肢。ゆうちょ銀行だけ「通常」（通常貯金）が入る */
-const accountTypesFor = (institutionName: string | null | undefined) =>
-  (institutionName ?? '').includes('ゆうちょ') ? ['通常', ...ACCOUNT_TYPES] : ACCOUNT_TYPES
 /** 株主名簿管理人（信託銀行等）の全銘柄調査を「要」にするときの確認（回答まで2〜3か月） */
 const TRUST_SURVEY_CONFIRM = '全銘柄調査を「要」にしますか？\n\n信託銀行の全銘柄調査は回答まで2〜3か月かかり、その間この管理人の調査は先に進めません。\n配当の通知などで銘柄が分かっていれば不要です。'
 

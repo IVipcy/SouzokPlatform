@@ -20,6 +20,8 @@ import { useRowsFrom } from '@/lib/useRowsFrom'
 import type { CaseRow, CaseClientRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, CaseOtherAssetRow } from '@/types'
 import type { MeetingMemoRow } from './IntakeCaseClient'
 import { toKatakana } from '@/lib/kana'
+import { municipalityFromAddress } from '@/lib/address'
+import { ageAtDeath } from '@/lib/age'
 import AssetEstimateSection from '@/components/features/cases/AssetEstimateSection'
 import { gyomuOfCase, GYOMU_TAB } from '@/lib/serviceMaster'
 
@@ -223,6 +225,8 @@ function HeirsMini({ caseId, heirs, onRefresh, ensureCaseId }: { caseId: string;
     const patch: Record<string, unknown> = { [field]: v || null }
     // 続柄を「前妻/前夫」にしたら相続人フラグを落とす（離婚しているので相続人ではない）
     if (field === 'relationship_type' && isFormerSpouse(v)) patch.is_legal_heir = false
+    // 続柄は古い列（relationship）も見る箇所が残っているので、オーダーシートと同じく両方に書く
+    if (field === 'relationship_type') patch.relationship = v || null
     supabase.from('heirs').update(patch).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') })
   }
   // 同居（boolean）。相関図に「同居」バッジで出る。書類回収・連絡の起点になるため面談中に拾う。
@@ -276,7 +280,8 @@ function HeirsMini({ caseId, heirs, onRefresh, ensureCaseId }: { caseId: string;
 function REMini({ caseId, properties, onRefresh, ensureCaseId }: { caseId: string; properties: RealEstatePropertyRow[]; onRefresh?: () => void; ensureCaseId?: () => Promise<string> }) {
   const supabase = createClient()
   const [rows, setRows] = useRowsFrom(properties)
-  const save = (id: string, field: string, v: string) => { setRows(p => p.map(r => r.id === id ? { ...r, [field]: v } as RealEstatePropertyRow : r)); supabase.from('real_estate_properties').update({ [field]: v || null }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }) }
+  // 所在地を入れたら市区町村も埋める（オーダーシートの市区町村ブロックはこの値か所在地から分ける。無いとどのブロックにも出ない）
+  const save = (id: string, field: string, v: string) => { setRows(p => p.map(r => r.id === id ? { ...r, [field]: v } as RealEstatePropertyRow : r)); supabase.from('real_estate_properties').update({ [field]: v || null, ...(field === 'address' ? { municipality: municipalityFromAddress(v) || null } : {}) }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }) }
   const add = async () => { const cid = ensureCaseId ? await ensureCaseId() : caseId; const { data, error } = await supabase.from('real_estate_properties').insert({ case_id: cid }).select('*').single(); if (error || !data) { showToast('追加に失敗', 'error'); return } setRows(p => [...p, data as RealEstatePropertyRow]); onRefresh?.() }
   const del = async (id: string) => { await supabase.from('real_estate_properties').delete().eq('id', id); setRows(p => p.filter(r => r.id !== id)); onRefresh?.() }
   return (
@@ -414,7 +419,12 @@ export function createRunExtract(deps: {
           skippedRowsTotal += rows.length - fresh.length
         }
         if (fresh.length === 0) continue
-        const inserts = fresh.map(r => ({ case_id: cid, ...g.fixedValues, ...r }))
+        const inserts = fresh.map(r => {
+          const row: Record<string, unknown> = { case_id: cid, ...g.fixedValues, ...r }
+          if (g.table === 'real_estate_properties' && row.address) row.municipality = municipalityFromAddress(String(row.address)) || null
+          if (g.table === 'heirs' && row.relationship_type && !row.relationship) row.relationship = row.relationship_type
+          return row
+        })
         const { error } = await supabase.from(g.table).insert(inserts)
         if (error) { toast(`${g.label}のAI追加に失敗: ${error.message}`, 'error'); continue }
         addedRowsTotal += fresh.length
@@ -606,10 +616,10 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
             {/* 生年月日・死亡日は役所申請が和暦基準のため、②面談結果登録・実務タブと同じ和暦入力に統一。
                 DBには従来どおり西暦ISOで保存する。 */}
             <FieldRow label="被相続人生年月日">
-              <BirthdayPicker value={caseData.deceased_birth_date} onChange={v => { clearAi('deceased_birth_date'); patchCase({ deceased_birth_date: v || null }) }} />
+              <BirthdayPicker value={caseData.deceased_birth_date} onChange={v => { clearAi('deceased_birth_date'); patchCase({ deceased_birth_date: v || null, deceased_age: ageAtDeath(v, caseData.date_of_death) }) }} />
             </FieldRow>
             <FieldRow label="相続開始日（死亡日）">
-              <BirthdayPicker value={caseData.date_of_death} onChange={v => { clearAi('date_of_death'); patchCase({ date_of_death: v || null }) }} />
+              <BirthdayPicker value={caseData.date_of_death} onChange={v => { clearAi('date_of_death'); patchCase({ date_of_death: v || null, deceased_age: ageAtDeath(caseData.deceased_birth_date, v) }) }} />
             </FieldRow>
             <InlineEdit label="被相続人住所" value={caseData.deceased_address} ai={aiFilled.has('deceased_address')} onSave={v => { clearAi('deceased_address'); return patchCase({ deceased_address: v || null }) }} fullWidth />
             <InlineEdit label="被相続人本籍" value={caseData.deceased_registered_address} ai={aiFilled.has('deceased_registered_address')} onSave={v => { clearAi('deceased_registered_address'); return patchCase({ deceased_registered_address: v || null }) }} fullWidth />

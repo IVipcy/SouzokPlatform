@@ -43,13 +43,13 @@ import type {
 } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
 import { sameBank, normalizeBankName } from '@/lib/bankName'
+import { accountTypesFor } from '@/lib/constants'
 
 type Kind = '預貯金' | '証券' | '信託銀行' | '証券・信託'
 /** 実務タブの種別 → 調査先の種別。「証券・信託」は証券会社・株主名簿管理人・ほふりを1つのタブで扱う
     （ほふりの開示結果から証券会社と信託銀行の特別口座が一緒に判明し、証券会社の銘柄から株主名簿管理人への請求が生まれるため） */
 const KINDS_OF: Record<Kind, FinancialInstitutionRow['kind'][]> = { '預貯金': ['預金'], '証券': ['証券', 'ほふり'], '信託銀行': ['株主名簿管理人'], '証券・信託': ['証券', '株主名簿管理人', 'ほふり'] }
 const JASDEC_NAME = '証券保管振替機構（ほふり）'
-const ACCOUNT_TYPES = ['普通', '定期', '当座', '貯蓄', 'その他']
 const collator = new Intl.Collator('ja')
 const yen = (n: number | null) => (n == null ? '—' : `¥${Math.round(n).toLocaleString('ja-JP')}`)
 const md = (d: string | null | undefined) => (d ? d.slice(5).replace('-', '/') : '—')
@@ -656,7 +656,7 @@ function InstitutionPage({ inst, ev, accounts, requests, items, holdings, tab, s
                     return (
                       <tr key={a.id} className="border-b border-gray-100 last:border-b-0 [&>td]:align-top">
                         <td className="px-2 py-1.5"><TxtCell value={a.branch_name} onCommit={v => void saveAsset(a.id, { branch_name: v || null })} placeholder="支店" /></td>
-                        <td className="px-2 py-1.5"><SelCell value={a.account_type} options={ACCOUNT_TYPES} onChange={v => void saveAsset(a.id, { account_type: v || null })} /></td>
+                        <td className="px-2 py-1.5"><SelCell value={a.account_type} options={accountTypesFor(a.institution_name)} onChange={v => void saveAsset(a.id, { account_type: v || null })} /></td>
                         <td className="px-2 py-1.5 font-mono"><TxtCell value={a.account_number} onCommit={v => void saveAsset(a.id, { account_number: v || null })} placeholder="全桁" /></td>
                         <td className="px-2 py-1.5"><StatusChip s={b.label} />{b.count && <span className="ml-1 text-[12px] text-gray-400">{b.count}</span>}</td>
                         <td className="px-2 py-1.5"><StatusChip s={h.label} />{h.count && <span className="ml-1 text-[12px] text-gray-400">{h.count}</span>}</td>

@@ -13,7 +13,7 @@ import { useCurrentMember } from '@/lib/useCurrentMember'
 import { SectionHeading } from '@/components/ui/InlineFields'
 import { PersonRoleChip, PersonRoleLegend, roleKindOf, ROLE_COLOR } from '@/components/ui/PersonRoleChip'
 import {
-  KOSEKI_REQUEST_TYPES, KOSEKI_RANGES, KOSEKI_REQUEST_REASONS,
+  KOSEKI_REQUEST_TYPES, KOSEKI_PLAN_RANGES, normalizeKosekiRange, KOSEKI_REQUEST_REASONS,
   KOSEKI_DOC_FORMS, JUMINHYO_EXTRA_ITEMS, KOSEKI_SUBMIT_TO_DEFAULT, KOSEKI_SUBMIT_TO_OPTIONS,
   mixesKosekiAndJuminhyo, includesKoseki, includesJuminhyo,
   KOSEKI_REQUEST_KINDS, REQUEST_KIND_HELP, isMistakenRequest,
@@ -1187,7 +1187,8 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
           </KosekiFieldRow>
         </>
         <KosekiFieldRow label="請求範囲">
-          <SelCell value={r.range_text} options={[...KOSEKI_RANGES]} onChange={v => saveField(r.id, 'range_text', v)} />
+          {/* 取得計画（オーダーシート）と同じ3択。旧文言は読み替えて表示する */}
+          <SelCell value={normalizeKosekiRange(r.range_text)} options={[...KOSEKI_PLAN_RANGES]} onChange={v => saveField(r.id, 'range_text', v)} />
         </KosekiFieldRow>
         <KosekiFieldRow label="請求範囲詳細"
           hint="戸籍請求書の「備考」欄にそのまま入ります。右の ⌄ から請求の種別に合う定型文を選ぶと、この欄に入ってそのまま直せます（日付などを打ち替えてください）。">

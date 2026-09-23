@@ -33,7 +33,7 @@ import type { TimelineReceipt } from './CaseTimeline'
 import type {
   CaseRow, CaseReferralRow, CaseClientRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow,
   DivisionDetailRow, AgreementDispatchRow, ExpenseRow, TaskRow, ClientCommunicationRow, ContractDocumentRow, SagyoDocumentRow,
-  CaseOtherAssetRow,
+  CaseOtherAssetRow, FinancialInstitutionRow,
 } from '@/types'
 
 type Props = {
@@ -46,6 +46,8 @@ type Props = {
   properties: RealEstatePropertyRow[]
   acquisitions?: RealEstateAcquisitionRow[]
   financialAssets: FinancialAssetRow[]
+  /** 調査先（ほふり照会の重複作成・調査不要の判定に要る。無いと「分からない」を押すたびに増える） */
+  financialInstitutions?: FinancialInstitutionRow[]
   otherAssets?: CaseOtherAssetRow[]
   divisionDetails: DivisionDetailRow[]
   agreementDispatches?: AgreementDispatchRow[]
@@ -71,7 +73,7 @@ type Props = {
  * 「オーダーシートを完成」で order_sheet_completed_at をセット → 実務タブ解禁・対応中遷移が可能になる。
  */
 export default function OrderSheet({
-  caseData, patchCase, patchClient, onRefresh,
+  caseData, patchCase, patchClient, onRefresh, financialInstitutions = [],
   heirs, kosekiRequests, properties, acquisitions = [], financialAssets, otherAssets = [], divisionDetails, agreementDispatches = [], tasks, clientCommunications, referrals, caseClients, contractDocuments,
   sagyoDocuments = [], receipts = [], guided = false, meetingMemos = [],
 }: Props) {
@@ -192,10 +194,10 @@ export default function OrderSheet({
       <>
         {/* 資産概算（調査開始前）。合計バンド（口座の残高・物件の評価額の集計）は廃止し、区分ごとの目安を入れる区画に */}
         <AssetEstimateSection caseId={caseData.id} patchCase={patchCase} />
-        <div className="mt-3"><AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['realestate']} showOtherKinds={[]} hideSummary /></div>
+        <div className="mt-3"><AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} financialInstitutions={financialInstitutions} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['realestate']} showOtherKinds={[]} hideSummary /></div>
       </>
     ) },
-    { title: '財産（金融資産）', gate: 'assets', workContentKey: 'assets', node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} otherAssets={otherAssets} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['deposit', 'securities', 'trust', 'insurance']} showOtherKinds={[]} hideSummary /> },
+    { title: '財産（金融資産）', gate: 'assets', workContentKey: 'assets', node: <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} financialInstitutions={financialInstitutions} otherAssets={otherAssets} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['deposit', 'securities', 'trust', 'insurance']} showOtherKinds={[]} hideSummary /> },
     // その他財産は常に出す。相続債務・その他費用はあまり発生しないので、
     // 中身があるときか「＋ 追加」を押したときだけセクションを出す。
     ...OTHER_ASSET_KINDS.filter(k => otherKindVisible(k.kind)).map(k => ({
@@ -204,7 +206,7 @@ export default function OrderSheet({
       workContentKey: 'assets',
       node: (
         <>
-          <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} otherAssets={otherAssets} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={[]} showOtherKinds={[k.kind]} hideSummary />
+          <AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} financialInstitutions={financialInstitutions} otherAssets={otherAssets} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={[]} showOtherKinds={[k.kind]} hideSummary />
           {k.kind === 'その他財産' && hiddenOtherKinds.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-3">
               {hiddenOtherKinds.map(h => (

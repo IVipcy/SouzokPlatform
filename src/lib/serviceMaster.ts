@@ -435,3 +435,16 @@ export const PROCEDURE_TEMPLATE_KEY: Record<string, string> = {
 export function crossTasksFor(gyomu: string): CrossServiceRow[] {
   return CROSS_SERVICE_ROWS.filter(r => r.gyomu === gyomu)
 }
+
+/**
+ * 受注区分を変えたときの実施業務の入れ替え（オーダーシートの受注内容と同じ考え方）。
+ * 区分に紐づく管理業務（CATEGORY_AUTO_GYOMU：遺言作成／信託契約書作成／検認手続き／精算書作成 等）だけ入れ替え、
+ * 実施業務セレクタや「その他業務」で選んだ行はそのまま残す。以前の面談情報タブは全部を作り直していて、手で選んだ業務が消えていた。
+ */
+export function rolesForCategoryChange<T extends { gyomu: string }>(roles: T[], newKeys: string[]): T[] {
+  const autoValues = new Set(Object.values(CATEGORY_AUTO_GYOMU).flat())
+  const autoNew = newKeys.flatMap(k => { const g = CATEGORY_AUTO_GYOMU[k]; return g ? (Array.isArray(g) ? g : [g]) : [] })
+  const next = roles.filter(r => !(autoValues.has(r.gyomu) && !autoNew.includes(r.gyomu)))
+  for (const g of autoNew) if (!next.some(r => r.gyomu === g)) next.push(...(defaultRolesForGyomu(g) as unknown as T[]))
+  return next
+}
