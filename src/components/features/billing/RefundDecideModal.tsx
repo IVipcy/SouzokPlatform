@@ -108,7 +108,10 @@ export default function RefundDecideModal({ isOpen, onClose, request, currentMem
     if (!note.trim()) { showToast('却下理由を入力してください', 'error'); return }
     setBusy('reject')
     const supabase = createClient()
-    const patch: Record<string, unknown> = { approval_status: 'rejected', status: '完了' }
+    // status は '完了' にしない。'完了' にすると未完了だけを出す一覧から消えて、
+    // 「返金 却下」の印（請求一覧のやること列・返金依頼一覧）がどこにも出なくなる。
+    // 却下は approval_status で表し、起票者か経理が一覧の「確認して閉じる」で '完了' にする。
+    const patch: Record<string, unknown> = { approval_status: 'rejected' }
     if (isSalesStep) patch.sales_reject_note = note.trim()
     if (isLeaderStep) patch.leader_reject_note = note.trim()
     const { error } = await supabase.from('payment_check_requests').update(patch).eq('id', request.id)

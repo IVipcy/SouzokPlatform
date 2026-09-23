@@ -6,10 +6,11 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
-import { parseBankCsv, matchBankRows, type InvoiceLite, type MatchResult } from '@/lib/bankReconcile'
+import { parseBankCsv, matchBankRows, bankDateToYmd, type InvoiceLite, type MatchResult } from '@/lib/bankReconcile'
 import { autoClosePaymentChecks } from '@/lib/paymentCheck'
 import { ensureReceiptTask } from '@/lib/receiptTask'
 import { ensurePrepaymentThankYouTask } from '@/lib/prepaymentThankYouTask'
+import { todayJstYmd } from '@/lib/today'
 
 type Props = {
   isOpen: boolean
@@ -17,8 +18,9 @@ type Props = {
   onSaved: () => void
 }
 
-// 表示・突合の両方に使う入金待ち請求（InvoiceLite＋請求種別・期日）
-type InvoiceRich = InvoiceLite & { invoice_type: string; due_date: string | null }
+// 表示・突合の両方に使う入金待ち請求（InvoiceLite＋請求種別・期日＋既存の入金合計）
+// paid_before … この請求に既に入っている入金（返金を除く）。分割入金の「入金済」判定に足す。
+type InvoiceRich = InvoiceLite & { invoice_type: string; due_date: string | null; paid_before: number }
 
 // Shift-JIS / UTF-8 を自動判定してテキスト化（銀行CSVはSJISが多い）
 async function readCsvText(file: File): Promise<string> {
@@ -31,15 +33,10 @@ async function readCsvText(file: File): Promise<string> {
   return utf8
 }
 
-const today = () => new Date().toISOString().slice(0, 10)
 const yen = (n: number) => `¥${Math.round(n).toLocaleString()}`
 const mdOf = (ymd: string | null) => (ymd && ymd.length >= 10 ? `${ymd.slice(5, 7)}/${ymd.slice(8, 10)}` : '—')
-// CSVの取引日を YYYY-MM-DD へ（取れないものは null。dateカラムへ安全に入れる）
-const toDbDate = (s: string): string | null => {
-  const m = (s || '').match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/)
-  if (!m) return null
-  return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`
-}
+// 同じ請求書に2行目以降のCSV行が当たったときの理由文（未突合へ回す）
+const DUP_REASON = '同じ請求書に既に1行当たっています（二重振込の可能性）'
 
 export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Props) {
   const [invoices, setInvoices] = useState<InvoiceRich[] | null>(null)
@@ -54,7 +51,8 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
   const [leftoverDismiss, setLeftoverDismiss] = useState<Set<number>>(new Set()) // CSVのみ行→対象外
   const [groupChecked, setGroupChecked] = useState<Set<number>>(new Set())      // まとめ払い→この入金で消し込む
 
-  const todayStr = today()
+  // 「今日」は日本時間で。モーダルを開いたときに1回だけ求める（描画中に Date を読まない）
+  const [todayStr, setTodayStr] = useState('')
 
   // 入金待ちの請求を読み込む（突合の土台。CSV投入前から一覧表示）
   useEffect(() => {
@@ -62,12 +60,13 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
     let alive = true
     setLoading(true)
     ;(async () => {
+      setTodayStr(todayJstYmd())
       const supabase = createClient()
       const { data: invs } = await supabase
         .from('invoices')
-        .select('id, case_id, invoice_type, amount, status, due_date, cases(case_number, deal_name, clients(name, transfer_name_kana, transfer_name_kana_2, transfer_name_kana_3, furigana), case_clients(furigana, priority, sort_order))')
+        .select('id, case_id, invoice_type, amount, status, due_date, payments(amount, is_refund), cases(case_number, deal_name, clients(name, transfer_name_kana, transfer_name_kana_2, transfer_name_kana_3, furigana), case_clients(furigana, priority, sort_order))')
         .neq('status', '入金済')
-      const rawInv = (invs ?? []) as unknown as Array<{ id: string; case_id: string; invoice_type: string; amount: number; status: string; due_date: string | null; cases: { case_number: string | null; deal_name: string | null; clients: { name: string | null; transfer_name_kana: string | null; transfer_name_kana_2: string | null; transfer_name_kana_3: string | null; furigana: string | null } | null; case_clients: Array<{ furigana: string | null; priority: string | null; sort_order: number | null }> | null } | null }>
+      const rawInv = (invs ?? []) as unknown as Array<{ id: string; case_id: string; invoice_type: string; amount: number; status: string; due_date: string | null; payments: Array<{ amount: number; is_refund: boolean | null }> | null; cases: { case_number: string | null; deal_name: string | null; clients: { name: string | null; transfer_name_kana: string | null; transfer_name_kana_2: string | null; transfer_name_kana_3: string | null; furigana: string | null } | null; case_clients: Array<{ furigana: string | null; priority: string | null; sort_order: number | null }> | null } | null }>
       const caseIds = [...new Set(rawInv.map(i => i.case_id))]
       const salesByCase = new Map<string, string>()
       const managerByCase = new Map<string, string>()
@@ -81,6 +80,7 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
       const rich: InvoiceRich[] = rawInv.map(i => ({
         id: i.id, case_id: i.case_id, amount: i.amount, status: i.status,
         invoice_type: i.invoice_type, due_date: i.due_date,
+        paid_before: (i.payments ?? []).filter(p => !p.is_refund).reduce((s, p) => s + (p.amount ?? 0), 0),
         case_number: i.cases?.case_number ?? '', deal_name: i.cases?.deal_name ?? '',
         client_name: i.cases?.clients?.name ?? '',
         payer_kana: i.cases?.clients?.transfer_name_kana
@@ -127,19 +127,30 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
     }
   }
 
-  // 請求ID→突合結果（matched優先）。CSVのみ（invoiceIdなし）は leftover へ。
+  // 請求ID→突合結果。1つの請求書には1行だけ当てる（matched を review より優先）。
+  // 同じ請求書に2行目以降が当たったら、その行は消さずに「CSVのみ」へ回す（二重振込の見落とし防止）。
   const byInvoice = new Map<string, MatchResult>()
-  if (results) for (const r of results) {
-    if (r.invoiceId && (r.kind === 'matched' || r.kind === 'review')) {
-      const prev = byInvoice.get(r.invoiceId)
-      if (!prev || (prev.kind === 'review' && r.kind === 'matched')) byInvoice.set(r.invoiceId, r)
+  const dupIdx = new Set<number>()
+  if (results) {
+    for (const kind of ['matched', 'review'] as const) {
+      results.forEach((r, idx) => {
+        if (!r.invoiceId || r.kind !== kind) return
+        if (byInvoice.has(r.invoiceId)) dupIdx.add(idx)
+        else byInvoice.set(r.invoiceId, r)
+      })
     }
   }
   // まとめ払い（1件の入金＝複数請求の合計）。請求ごとの行にも印を付けたいので索引を作る。
   const groups = results ? results.map((r, idx) => ({ r, idx })).filter(x => x.r.kind === 'group') : []
   const groupNoByInvoice = new Map<string, number>()
   groups.forEach(({ r }, n) => (r.groupIds ?? []).forEach(id => groupNoByInvoice.set(id, n + 1)))
-  const leftover = results ? results.map((r, idx) => ({ r, idx })).filter(x => !x.r.invoiceId && x.r.kind !== 'group') : []
+  // CSVのみ：もとから該当なしの行 ＋ 同じ請求書に2行目として当たった行（候補にその請求書を残す）
+  const leftover: Array<{ r: MatchResult; idx: number }> = results
+    ? results.map((r, idx) => ({ r, idx })).flatMap(x => {
+        if (dupIdx.has(x.idx)) return [{ idx: x.idx, r: { ...x.r, invoiceId: null, kind: 'unmatched' as const, reason: DUP_REASON } }]
+        return !x.r.invoiceId && x.r.kind !== 'group' ? [x] : []
+      })
+    : []
 
   const matchedIds = [...byInvoice].filter(([, r]) => r.kind === 'matched').map(([id]) => id)
   const reviewIds = [...byInvoice].filter(([, r]) => r.kind === 'review').map(([id]) => id)
@@ -155,15 +166,23 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
     setSaving(true)
     const supabase = createClient()
     const invById = new Map(invoices.map(i => [i.id, i]))
-    let paid = 0, reviewed = 0, deposits = 0
+    let paid = 0, reviewed = 0, deposits = 0, depositsDup = 0
+    const todayYmd = todayJstYmd()
+    // この反映で積み上がる入金（同じ請求書に2本入れたときも合算して判定する）
+    const paidRunning = new Map<string, number>(invoices.map(i => [i.id, i.paid_before]))
 
     // amountOverride … まとめ払いのとき。1回の入金を請求ごとの金額に割り付けて消し込む。
     const confirmPay = async (inv: InvoiceRich, row: MatchResult['row'], by: 'ai' | 'human', amountOverride?: number, noteExtra?: string) => {
       const amount = amountOverride ?? row.amount
-      const note = `振込人:${row.name || '—'} / 摘要:${row.memo || '—'} / CSV取込${today()}${noteExtra ? ` / ${noteExtra}` : ''}`
-      const { error } = await supabase.from('payments').insert({ invoice_id: inv.id, amount, payment_date: today(), payment_method: '振込', matched_by: by, match_note: note, bank: row.bank || null })
+      const note = `振込人:${row.name || '—'} / 摘要:${row.memo || '—'} / CSV取込${todayYmd}${noteExtra ? ` / ${noteExtra}` : ''}`
+      // 入金日はCSVの取引日（銀行にお金が入った日）。取れないときだけ今日
+      const paymentDate = bankDateToYmd(row.date) ?? todayYmd
+      const { error } = await supabase.from('payments').insert({ invoice_id: inv.id, amount, payment_date: paymentDate, payment_method: '振込', matched_by: by, match_note: note, bank: row.bank || null })
       if (error) { showToast(`入金記録に失敗: ${error.message}`, 'error'); return }
-      const status = amount >= inv.amount ? '入金済' : '入金待ち'
+      // 入金済かどうかは「既存の入金＋今回」の合計で決める（分割入金で満額になったら入金済）
+      const paidTotal = (paidRunning.get(inv.id) ?? 0) + amount
+      paidRunning.set(inv.id, paidTotal)
+      const status = paidTotal >= inv.amount ? '入金済' : '入金待ち'
       await supabase.from('invoices').update({ status, needs_review: false, review_reason: null }).eq('id', inv.id)
       // 入金元の銀行を案件へ自動記録（売上表のシート分け＝振り分け）
       if (row.bank) await supabase.from('cases').update({ bank: row.bank }).eq('id', inv.case_id)
@@ -211,15 +230,20 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
       }
       const dedup = `${r.row.date}|${r.row.amount}|${r.row.name}|${r.row.memo}`
       const { error } = await supabase.from('unmatched_deposits').insert({
-        payer_name: r.row.name || null, amount: r.row.amount, deposit_date: toDbDate(r.row.date),
+        payer_name: r.row.name || null, amount: r.row.amount, deposit_date: bankDateToYmd(r.row.date),
         memo: r.row.memo || null, source_file: fileName || null, dedup_key: dedup,
         status: leftoverDismiss.has(idx) ? 'dismissed' : 'open',
       })
-      if (!error) deposits++   // 重複（unique違反）は静かにスキップ
+      if (!error) deposits++
+      else if (error.code === '23505') depositsDup++   // 同じCSVの再取込（unique違反）＝既に登録済み
+      else showToast(`CSVのみ入金の登録に失敗: ${error.message}`, 'error')
     }
 
     setSaving(false)
-    showToast(`反映しました：入金確定 ${paid}件・要確認 ${reviewed}件・CSVのみ ${deposits}件`, 'success')
+    showToast(
+      `反映しました：入金確定 ${paid}件・要確認 ${reviewed}件・CSVのみ ${deposits}件${depositsDup > 0 ? `（${depositsDup}件は既に登録済み）` : ''}`,
+      'success',
+    )
     onSaved(); closeAll()
   }
 
@@ -271,7 +295,7 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
               {invoices.map(inv => {
                 const res = byInvoice.get(inv.id)
                 const gno = groupNoByInvoice.get(inv.id)   // まとめ払いの何番目に含まれるか
-                const overdue = !!inv.due_date && inv.due_date < todayStr
+                const overdue = !!todayStr && !!inv.due_date && inv.due_date < todayStr
                 return (
                   <div key={inv.id} className={`px-3 py-2.5 grid grid-cols-[1fr_auto] gap-3 items-center ${res?.kind === 'review' ? 'bg-amber-50/50' : gno ? 'bg-indigo-50/40' : overdue && !res ? 'bg-rose-50/40' : ''}`}>
                     <div className="min-w-0">
@@ -355,6 +379,9 @@ export default function BankCsvReconcileModal({ isOpen, onClose, onSaved }: Prop
                     <div className="min-w-0">
                       <div className="text-[13px] text-brand-800">{r.row.name || '（振込人なし）'} ・ {yen(r.row.amount)}</div>
                       <div className="text-[11px] text-brand-700/70 truncate">{r.row.date || '—'} ・ 摘要: {r.row.memo || '—'}</div>
+                      {r.reason === DUP_REASON && (
+                        <div className="text-[11px] text-amber-700 mt-0.5">④ {DUP_REASON}</div>
+                      )}
                     </div>
                     <div className="flex items-center gap-1.5">
                       <select value={leftoverPick[idx] ?? ''} disabled={dismissed}

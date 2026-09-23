@@ -179,12 +179,13 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   const [{ data: casesRaw }, { data: tasksRaw }, { data: invoicesRaw }] = await Promise.all([
     supabase
       .from('cases')
-      .select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,client_id,has_complaint,last_opened_at,created_at,procedure_type,contract_type,advance_payment,fee_administrative,fee_judicial,order_sheet_completed_at,meeting_date,meeting_executed_date,client_response_due_date,management_started_at,manager_assign_skipped')
+      .select('id,case_number,deal_name,status,order_received_date,completion_date,expected_completion_date,fee_total,total_revenue_estimate,client_id,has_complaint,last_opened_at,created_at,procedure_type,contract_type,advance_payment,advance_payment_administrative,advance_payment_judicial,billing_pattern,fee_administrative,fee_judicial,order_sheet_completed_at,meeting_date,meeting_executed_date,client_response_due_date,management_started_at,manager_assign_skipped')
       .in('id', caseIdArray),
     supabase.from('tasks').select('case_id,status,due_date').in('case_id', caseIdArray),
     supabase
       .from('invoices')
-      .select('id,case_id,invoice_number,amount,status,issued_date,invoice_type,firm_type,due_date')
+      // 請求タブ（billingCaseRows）が使う列も取る。無いと実費・前受金が「—」、要確認KPIが常に0、再発行の新旧判定（created_at）も効かない
+      .select('id,case_id,invoice_number,amount,status,issued_date,invoice_type,firm_type,due_date,created_at,fee_amount,expenses_amount,advance_deduction,needs_review,review_reason,generated_file_path,receipt_issued_date,notes')
       .in('case_id', caseIdArray),
   ])
 

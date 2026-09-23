@@ -8,12 +8,13 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { feeBearerLabel } from '@/lib/billingRequests'
+import { todayJstYmd } from '@/lib/today'
+import { recordRefund } from './refundPayment'
 import RefundDecideModal, { type RefundDecideRequest } from './RefundDecideModal'
 import type { BillingRequestRow } from './BillingRequestsPanel'
 import type { RefundEntry } from './RefundListModal'
 
 const yen = (n: number) => `¥${Math.round(n).toLocaleString()}`
-const today = () => new Date().toISOString().slice(0, 10)
 
 export default function BillingRefundRequestsList({ refundReqs, refundEntries, canReconcile, currentMemberId, onChanged }: {
   refundReqs: BillingRequestRow[]
@@ -31,11 +32,20 @@ export default function BillingRefundRequestsList({ refundReqs, refundEntries, c
     if (!amt || !confirm(`${req.caseNumber} ${req.dealName} に ${yen(amt)} を返金確定しますか？（マイナス入金を記録します）`)) return
     setBusy(req.id)
     const supabase = createClient()
-    const { error } = await supabase.from('payments').insert({ invoice_id: req.invoice_id, amount: -amt, payment_date: today(), payment_method: '振込', is_refund: true, matched_by: 'human', match_note: `返金（${req.reason_category ?? '—'}・手数料${feeBearerLabel(req.fee_bearer)}）` })
-    if (error) { showToast(`返金記録に失敗: ${error.message}`, 'error'); setBusy(null); return }
-    await supabase.from('payment_check_requests').update({ status: '完了', confirmer_id: currentMemberId, confirmed_date: today() }).eq('id', req.id)
+    // 入金額を超える返金は弾き、返金後は請求書のステータスを入金合計から付け直す（共通処理）
+    const r = await recordRefund(req.invoice_id, amt, `返金（${req.reason_category ?? '—'}・手数料${feeBearerLabel(req.fee_bearer)}）`)
+    if (!r.ok) { showToast(r.message, 'error'); setBusy(null); return }
+    await supabase.from('payment_check_requests').update({ status: '完了', confirmer_id: currentMemberId, confirmed_date: todayJstYmd() }).eq('id', req.id)
     if (req.requester_id) await supabase.from('notifications').insert({ member_id: req.requester_id, type: 'billing_request_resolved', case_id: req.case_id, title: '返金を確定しました', body: `${req.caseNumber} ${req.dealName}：${yen(amt)} を返金しました。` })
     setBusy(null); showToast('返金を確定しました', 'success'); onChanged()
+  }
+
+  // 却下された依頼を一覧から下げる（起票者か経理）。却下は approval_status で残し、ここで '完了' にする
+  const closeRejected = async (req: BillingRequestRow) => {
+    setBusy(req.id)
+    const supabase = createClient()
+    await supabase.from('payment_check_requests').update({ status: '完了', confirmer_id: currentMemberId, confirmed_date: todayJstYmd() }).eq('id', req.id)
+    setBusy(null); showToast('却下された返金依頼を閉じました', 'success'); onChanged()
   }
 
   return (
@@ -87,6 +97,10 @@ export default function BillingRefundRequestsList({ refundReqs, refundEntries, c
                   )}
                   {st === 'approved' && !canReconcile && <span className="text-[11px] text-gray-400">経理の返金待ち</span>}
                   {(st === 'pending_sales' || st === 'pending_leader') && !canApprove && <span className="text-[11px] text-gray-400">承認待ち</span>}
+                  {/* 却下：起票者か経理が確認して閉じる（閉じるまでは却下の印で残る） */}
+                  {st === 'rejected' && (canReconcile || req.requester_id === currentMemberId) && (
+                    <button type="button" disabled={busy === req.id} onClick={() => closeRejected(req)} className="px-3 py-1 text-[11px] font-semibold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40">確認して閉じる</button>
+                  )}
                   {/* 旧仕様（approval_status なし）は従来どおり経理が返金 */}
                   {!st && canReconcile && (
                     <button type="button" disabled={busy === req.id} onClick={() => confirmRefund(req)} className="px-3 py-1 text-[11px] font-semibold text-white bg-rose-600 rounded-md hover:bg-rose-700 disabled:opacity-40">OK（返金確定）</button>

@@ -2,21 +2,29 @@ import { createClient } from '@/lib/supabase/server'
 import BillingClient from '@/components/features/billing/BillingClient'
 import { getCurrentUser, canReconcilePayments, isAssistant } from '@/lib/auth'
 import { isIkiikiContract } from '@/lib/constants'
+import { fetchAllRows } from '@/lib/supabaseFetchAll'
 
 export default async function BillingPage() {
   const supabase = await createClient()
   const user = await getCurrentUser()
 
   const [invoicesResult, casesResult, depositsResult, requestsResult] = await Promise.all([
-    supabase
+    // 請求書は件数が増え続ける（1回の select は1000行で切れる）ので、ページを送って全件そろえる
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    fetchAllRows<any>((from, to) => supabase
       .from('invoices')
       .select('*, cases(id, case_number, deal_name, deceased_name, status, contract_type, billing_pattern, order_route, order_route_detail, clients(*), case_members(*, members(*))), payments(*), payment_check_requests(id, status, result_note, requested_date, confirmed_date, confirmer_id, auto_closed)')
-      .order('created_at', { ascending: false }),
-    supabase
+      .order('created_at', { ascending: false })
+      .order('id')
+      .range(from, to)),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    fetchAllRows<any>((from, to) => supabase
       .from('cases')
       .select('id, case_number, deal_name')
       .eq('intake_draft', false)  // 面談シート下書きは選択肢に出さない（migration 194）
-      .order('case_number'),
+      .order('case_number')
+      .order('id')
+      .range(from, to)),
     // CSVのみ（システムに該当なし）の未処理入金
     supabase
       .from('unmatched_deposits')

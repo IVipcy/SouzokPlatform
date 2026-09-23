@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { recommendKakuteiOffice, computeKakutei, type ExpenseItem } from '@/lib/kakuteiVariants'
 import { type StampLaw } from '@/lib/ininjoVariants'
 import { KOSEKI_AGENT_OFFICES, divisionsOf, findBranch, type OfficeBranchId } from '@/lib/officeProfiles'
+import { advanceForFirm } from '@/lib/advancePayment'
 import type { CaseRow, TaskRow } from '@/types'
 
 type Props = {
@@ -64,7 +65,13 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, default
     setKenmei(`${caseData.deceased_name ? caseData.deceased_name + '様 ' : ''}相続手続き ${expenseOnly ? '立替実費' : '確定請求'}`)
     // 立替実費のみは報酬・前受金を載せない（0固定）
     setFee(expenseOnly ? 0 : ((office === 'shiho' ? caseData.fee_judicial : caseData.fee_administrative) ?? ''))
-    setAdvance(expenseOnly ? 0 : ((office === 'shiho' ? caseData.advance_payment_judicial : caseData.advance_payment_administrative) ?? ''))
+    // 前受金は共通の法人別計算（advanceForFirm）で。旧い「前受金1列」だけの案件は行政側に寄せて拾う
+    //（新列だけ見ると前受金が差し引かれず全額請求になり、別画面の請求書と食い違う）
+    setAdvance(expenseOnly ? 0 : (advanceForFirm({
+      advance_payment: caseData.advance_payment,
+      advance_payment_administrative: caseData.advance_payment_administrative,
+      advance_payment_judicial: caseData.advance_payment_judicial,
+    }, office) || ''))
     ;(async () => {
       const { data } = await createClient()
         .from('billing_expense_items')
@@ -75,7 +82,7 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, default
       const exp = (data ?? []) as Array<{ label: string | null; amount: number | null; taxable: boolean | null; quantity: number | null; unit_price: number | null }>
       setRows(exp.map(e => ({ id: NEW_ID(), name: e.label ?? '', amount: e.amount ?? 0, taxable: e.taxable === true, quantity: e.quantity, unitPrice: e.unit_price })))
     })()
-  }, [isOpen, office, expenseOnly, caseData.id, caseData.deceased_name, caseData.fee_judicial, caseData.fee_administrative, caseData.advance_payment_judicial, caseData.advance_payment_administrative])
+  }, [isOpen, office, expenseOnly, caseData.id, caseData.deceased_name, caseData.fee_judicial, caseData.fee_administrative, caseData.advance_payment, caseData.advance_payment_judicial, caseData.advance_payment_administrative])
 
   const expenses: ExpenseItem[] = rows.map(r => ({ name: r.name.trim(), amount: Number(r.amount) || 0, taxable: r.taxable, quantity: r.quantity, unitPrice: r.unitPrice }))
   const calc = computeKakutei(Number(fee) || 0, Number(advance) || 0, expenses)
@@ -105,7 +112,8 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, default
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: '生成に失敗しました' }))
-        showToast(`生成に失敗: ${err.error ?? '不明なエラー'}`, 'error')
+        // 409＝入金済の請求書が既にある（出し直し不可）。メッセージをそのまま見せる
+        showToast(res.status === 409 ? (err.error ?? '入金済の請求書があります') : `生成に失敗: ${err.error ?? '不明なエラー'}`, 'error')
         return
       }
       const blob = await res.blob()
@@ -248,7 +256,7 @@ export default function KakuteiInvoiceModal({ isOpen, onClose, caseData, default
         </section>
 
         <p className="text-[12px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-2">
-          ※ 1ファイルに「確定請求書」と「立替実費明細」の2シートを出力します。報酬・立替は税込入力、内消費税は自動計算。前受金は消費税対象外で差し引きます。発行日は空欄（手書き）です。
+          ※ 1ファイルに「確定請求書」と「立替実費明細」の2シートを出力します。報酬・立替は税込入力、内消費税は自動計算。前受金は消費税対象外で差し引きます。確定請求書の発行日は空欄（手書き）、立替実費明細には今日の日付が入ります。同じ案件・法人の確定請求書を出し直すと請求一覧の行は増えず更新されます（入金済なら出し直せません）。
         </p>
       </div>
     </Modal>

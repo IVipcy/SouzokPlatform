@@ -80,7 +80,42 @@ export function buildPaymentDetail(payments: PaymentDetailRaw[], month: string):
   const sheetMap = new Map<string, PaymentSheet>()
   const refunds: RefundRow[] = []
 
-  for (const p of payments) {
+  // 分割入金の按分。請求書全体の内訳（前受金／報酬／実費）を各行に繰り返すと
+  // Excelの内訳合計が入金額の倍になるので、入金額の比率で按分する。端数は最後の1本で調整。
+  // 月で絞る前の全入金で計算する（前月の入金と当月の入金で1枚を払い終えることがあるため）。
+  type Parts = { adv: number; reward: number; exp: number }
+  const fullPartsOf = (p: PaymentDetailRaw): Parts => {
+    const inv = p.invoices
+    if (inv?.invoice_type === '前受金') return { adv: inv?.amount ?? (p.amount ?? 0), reward: 0, exp: 0 }
+    if (inv?.invoice_type === '確定請求') return { adv: 0, reward: inv?.fee_amount ?? 0, exp: inv?.expenses_amount ?? 0 }
+    return { adv: 0, reward: 0, exp: 0 }
+  }
+  const byInvoice = new Map<string, number[]>()   // 請求書ID → payments の添字（返金を除く）
+  payments.forEach((p, idx) => {
+    const invId = p.invoices?.id as string | undefined
+    if (!invId || p.is_refund) return
+    byInvoice.set(invId, [...(byInvoice.get(invId) ?? []), idx])
+  })
+  const partsByIndex = new Map<number, Parts>()
+  for (const idxs of byInvoice.values()) {
+    const full = fullPartsOf(payments[idxs[0]])
+    const paidTotal = idxs.reduce((s, i) => s + (payments[i].amount ?? 0), 0)
+    if (idxs.length === 1 || paidTotal <= 0) { idxs.forEach(i => partsByIndex.set(i, full)); continue }
+    const acc: Parts = { adv: 0, reward: 0, exp: 0 }
+    idxs.forEach((i, n) => {
+      let part: Parts
+      if (n === idxs.length - 1) {
+        part = { adv: full.adv - acc.adv, reward: full.reward - acc.reward, exp: full.exp - acc.exp }
+      } else {
+        const ratio = (payments[i].amount ?? 0) / paidTotal
+        part = { adv: Math.round(full.adv * ratio), reward: Math.round(full.reward * ratio), exp: Math.round(full.exp * ratio) }
+      }
+      acc.adv += part.adv; acc.reward += part.reward; acc.exp += part.exp
+      partsByIndex.set(i, part)
+    })
+  }
+
+  for (const [pIdx, p] of payments.entries()) {
     const date = p.payment_date ?? ''
     if (month !== 'all' && !date.startsWith(month)) continue
 
@@ -100,15 +135,11 @@ export function buildPaymentDetail(payments: PaymentDetailRaw[], month: string):
     const firmMark: '司' | '行' | '' = inv?.firm_type === 'shiho' ? '司' : inv?.firm_type === 'gyosei' ? '行' : ''
 
     // 内訳：前受金→前受金列、確定請求→報酬(fee)+実費(expenses)。司/行で列を振り分け。
+    // 分割入金なら上で按分した分（partsByIndex）、1本払いなら請求書全体。
+    const { adv: advPart, reward: rewardPart, exp: expPart } = partsByIndex.get(pIdx) ?? fullPartsOf(p)
     let shihoAdvance = 0, shihoReward = 0, shihoExpense = 0, gyoseiAdvance = 0, gyoseiReward = 0, gyoseiExpense = 0
-    const fee = inv?.fee_amount ?? 0
-    const exp = inv?.expenses_amount ?? 0
-    if (inv?.invoice_type === '前受金') {
-      const adv = inv?.amount ?? amount
-      if (isShiho) shihoAdvance = adv; else gyoseiAdvance = adv
-    } else if (inv?.invoice_type === '確定請求') {
-      if (isShiho) { shihoReward = fee; shihoExpense = exp } else { gyoseiReward = fee; gyoseiExpense = exp }
-    }
+    if (isShiho) { shihoAdvance = advPart; shihoReward = rewardPart; shihoExpense = expPart }
+    else { gyoseiAdvance = advPart; gyoseiReward = rewardPart; gyoseiExpense = expPart }
     const breakdown = shihoAdvance + shihoReward + shihoExpense + gyoseiAdvance + gyoseiReward + gyoseiExpense
 
     const members = toArr<{ role?: string; members?: { name?: string } }>(c?.case_members)

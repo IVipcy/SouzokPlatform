@@ -8,15 +8,18 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { autoClosePaymentChecks } from '@/lib/paymentCheck'
 import { ensureReceiptTask } from '@/lib/receiptTask'
+import { ensurePrepaymentThankYouTask } from '@/lib/prepaymentThankYouTask'
+import { todayJstYmd } from '@/lib/today'
 import type { UnmatchedDepositRow } from '@/types'
 
 type PanelInvoice = {
   id: string; amount: number; status: string; case_id: string
+  // 既存の入金（返金は除いて合算）。分割入金で満額になったかの判定に使う
+  payments?: Array<{ amount: number; is_refund?: boolean | null }> | null
   cases?: { case_number?: string | null; deal_name?: string | null; case_members?: Array<{ role: string; member_id: string }> | null } | null
 }
 
 const yen = (n: number) => `¥${Math.round(n).toLocaleString()}`
-const today = () => new Date().toISOString().slice(0, 10)
 
 export default function UnmatchedDepositsPanel({ deposits, invoices, onChanged }: {
   deposits: UnmatchedDepositRow[]
@@ -36,14 +39,16 @@ export default function UnmatchedDepositsPanel({ deposits, invoices, onChanged }
     setBusy(dep.id)
     const supabase = createClient()
     const { error } = await supabase.from('payments').insert({
-      invoice_id: inv.id, amount: dep.amount, payment_date: dep.deposit_date ?? today(),
+      invoice_id: inv.id, amount: dep.amount, payment_date: dep.deposit_date ?? todayJstYmd(),
       payment_method: '振込', matched_by: 'human', match_note: `CSVのみ入金を紐付け（振込人:${dep.payer_name || '—'} / ${dep.memo || '—'}）`,
     })
     if (error) { showToast(`入金記録に失敗: ${error.message}`, 'error'); setBusy(null); return }
-    const status = dep.amount >= inv.amount ? '入金済' : '入金待ち'
+    // 入金済かどうかは「既存の入金（返金除く）＋今回」の合計で決める（分割入金で満額になったら入金済）
+    const paidBefore = (inv.payments ?? []).filter(p => !p.is_refund).reduce((s, p) => s + (p.amount ?? 0), 0)
+    const status = paidBefore + dep.amount >= inv.amount ? '入金済' : '入金待ち'
     await supabase.from('invoices').update({ status, needs_review: false, review_reason: null }).eq('id', inv.id)
     if (status === '入金済') {
-      await autoClosePaymentChecks(inv.id); await ensureReceiptTask(inv.id)
+      await autoClosePaymentChecks(inv.id); await ensureReceiptTask(inv.id); await ensurePrepaymentThankYouTask(inv.id)
       const recipients = new Set<string>((inv.cases?.case_members ?? []).filter(m => m.role === 'sales' || m.role === 'manager').map(m => m.member_id))
       if (recipients.size > 0) {
         await supabase.from('notifications').insert([...recipients].map(mid => ({

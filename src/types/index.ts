@@ -1130,6 +1130,8 @@ export type BillingExpenseItemRow = {
   quantity: number | null; unit_price: number | null; note: string | null
   // 実務タブからの取り込み元（手入力行は null。migration 152）
   source_kind: string | null; source_id: string | null
+  // どの請求書で請求済みか（null=未請求。migration 298）
+  billed_invoice_id?: string | null
   sort_order: number; created_at: string
 }
 export type SettlementIncomeItemRow = {

@@ -80,6 +80,18 @@ function findCol(headers: string[], keys: string[]): number {
 
 const toAmount = (s: string | undefined) => Number((s ?? '').replace(/[^0-9.-]/g, ''))
 
+/**
+ * CSVの取引日（"2026/08/01"・"2026-08-01"・"2026年8月1日" など）を YYYY-MM-DD へ。
+ * 取れないものは null（入金日の既定＝取り込んだ日、にはしない。呼び出し側で判断する）。
+ * 入金日は「銀行にお金が入った日」で記録する。取り込んだ日にすると前月分をまとめて入れたとき
+ * 入金明細・確定売上表の月がずれる。
+ */
+export function bankDateToYmd(s: string | null | undefined): string | null {
+  const m = (s || '').match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/)
+  if (!m) return null
+  return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`
+}
+
 // みずほ（法人口座CSV）：明細行は先頭"明細"。取引名(idx12)=振込入金 のみ入金。金額=idx19、摘要(振込人)=idx21。
 function parseMizuho(lines: string[]): BankRow[] {
   const rows: BankRow[] = []
@@ -164,9 +176,11 @@ export function matchBankRows(rows: BankRow[], invoices: InvoiceLite[]): MatchRe
     const hayAlnum = norm(`${row.memo} ${row.name}`)        // 案件番号照合用（英数）
     const hayKana = kanaKey(`${row.memo} ${row.name}`)       // 振込人カナ照合用（全角カナ）
     const amountEq = (i: InvoiceLite) => i.amount === row.amount
-    // 振込名義人カナ（最大3つ）のいずれかが摘要/振込人に部分一致するか（マスターキー）
+    // 振込名義人カナ（最大3つ）のいずれかが摘要/振込人に部分一致するか（マスターキー）。
+    // CSV側のカナが空だと k.includes('') が常に真になり、金額が同じだけの請求に「①確定」で
+    // 当たってしまう。空なら一致扱いにしない（金額一致のみ＝要確認 に流れる）。
     const payerHit = (i: InvoiceLite) =>
-      [i.payer_kana, i.payer_kana_2, i.payer_kana_3].some(raw => {
+      !!hayKana && [i.payer_kana, i.payer_kana_2, i.payer_kana_3].some(raw => {
         const k = kanaKey(raw)
         return !!k && (hayKana.includes(k) || k.includes(hayKana))
       })

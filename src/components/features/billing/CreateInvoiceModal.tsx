@@ -6,11 +6,12 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
-import { EXPENSE_CATEGORIES, inferExpenseTaxable } from '@/lib/constants'
+import { EXPENSE_NONTAX_ITEMS, EXPENSE_TAX_ITEMS, expenseItemTaxable } from '@/lib/constants'
 import { officesForContractType, type OfficeKind } from '@/lib/officeProfiles'
 import { invoiceVariantKey } from '@/lib/invoiceVariants'
 import { advanceForFirm } from '@/lib/advancePayment'
-import type { ExpenseRow } from '@/types'
+import { todayJstYmd } from '@/lib/today'
+import type { BillingExpenseItemRow } from '@/types'
 
 type CaseOption = { id: string; case_number: string; deal_name: string }
 
@@ -18,6 +19,22 @@ const FIRM_LABEL: Record<OfficeKind, string> = {
   gyosei: '行政書士法人',
   shiho: '司法書士法人',
   ikiiki: 'いきいきライフ協会',
+}
+// 立替実費（billing_expense_items）の事業区分ラベル。発行法人で絞る
+const SHIGYO_OF: Record<OfficeKind, string> = { gyosei: '行政', shiho: '司法', ikiiki: '行政' }
+const yen = (n: number) => `¥${Math.round(n).toLocaleString()}`
+
+type AdvInvoiceLite = { amount: number; status: string; firm_type: string | null }
+// その法人の前受金請求書の状況。
+//   paid   … 「入金済」の合計＝確定請求の前受金控除の既定値
+//   unpaid … 発行済だがまだ入金されていない合計（控除に入れない。モーダル内で注意を出す）
+function advByFirmOf(advInvoices: AdvInvoiceLite[], firm: OfficeKind) {
+  const mine = advInvoices.filter(i => i.status !== '未請求' && (i.firm_type ?? 'gyosei') === firm)
+  return {
+    count: mine.length,
+    paid: mine.filter(i => i.status === '入金済').reduce((s, i) => s + (i.amount ?? 0), 0),
+    unpaid: mine.filter(i => i.status !== '入金済').reduce((s, i) => s + (i.amount ?? 0), 0),
+  }
 }
 
 type Props = {
@@ -44,40 +61,34 @@ type CaseFees = {
 }
 
 export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, defaultCaseId, existingInvoiceId }: Props) {
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(() => ({
     case_id: defaultCaseId ?? '',
     invoice_type: '' as '' | '前受金' | '確定請求',  // 既定なし＝必ず選ばせる
     firm_type: 'gyosei' as OfficeKind,
     fee_amount: '',
-    issued_date: new Date().toISOString().split('T')[0],
+    issued_date: todayJstYmd(),   // 日本時間の今日（UTCだと朝9時前に前日の請求日になる）
     due_date: '',
     notes: '',
-  })
+  }))
   const isAdvance = form.invoice_type === '前受金'
   const isConfirmed = form.invoice_type === '確定請求'
-  // 選択した案件の未請求立替実費
-  const [unbilledExpenses, setUnbilledExpenses] = useState<ExpenseRow[]>([])
+  // 選択した案件の未請求立替実費。出どころは請求タブと同じ billing_expense_items（billed_invoice_id が空の行）。
+  // 案件タブで入れた実費が /billing で0件に見えないよう、旧 expenses は見ない。
+  const [unbilledExpenses, setUnbilledExpenses] = useState<BillingExpenseItemRow[]>([])
   const [selectedExpenseIds, setSelectedExpenseIds] = useState<Set<string>>(new Set())
   const [caseFees, setCaseFees] = useState<CaseFees | null>(null)
   // 案件の前受金請求書（法人別の前受金控除を出すため firm_type も保持）
   const [advInvoices, setAdvInvoices] = useState<Array<{ amount: number; status: string; firm_type: string | null }>>([])
-  // 前受金控除額（確定請求のみ）。案件の前受金請求書から自動セット
+  // 前受金控除額（確定請求のみ）。案件の「入金済」前受金請求書から自動セット
   const [advanceDeduction, setAdvanceDeduction] = useState('0')
   const [loadingCase, setLoadingCase] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  // モーダル内での新規立替実費追加用
+  // モーダル内での新規立替実費追加用（billing_expense_items へ追加。名目は定型リストから選ぶか自由入力）
   const [showExpenseForm, setShowExpenseForm] = useState(false)
   const [addingExpense, setAddingExpense] = useState(false)
-  const [newExpense, setNewExpense] = useState({
-    category: '',
-    item_name: '',
-    amount: '',
-    expense_date: new Date().toISOString().slice(0, 10),
-    notes: '',
-    taxable: true,
-  })
+  const [newExpense, setNewExpense] = useState({ item_name: '', amount: '', notes: '', taxable: false })
 
   // モーダル開時にリセット
   useEffect(() => {
@@ -87,7 +98,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
         invoice_type: '',
         firm_type: 'gyosei',
         fee_amount: '',
-        issued_date: new Date().toISOString().split('T')[0],
+        issued_date: todayJstYmd(),
         due_date: '',
         notes: '',
       })
@@ -96,7 +107,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
       setSelectedExpenseIds(new Set())
       setCaseFees(null)
       setShowExpenseForm(false)
-      setNewExpense({ category: '', item_name: '', amount: '', expense_date: new Date().toISOString().slice(0, 10), notes: '', taxable: true })
+      setNewExpense({ item_name: '', amount: '', notes: '', taxable: false })
     }
   }, [isOpen, defaultCaseId])
 
@@ -116,7 +127,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
       const supabase = createClient()
       const [{ data: caseRow }, { data: expRows }, { data: advInvRows }] = await Promise.all([
         supabase.from('cases').select('fee_administrative,fee_judicial,fee_total,advance_payment,advance_payment_administrative,advance_payment_judicial,contract_type,deceased_name').eq('id', form.case_id).single(),
-        supabase.from('expenses').select('*').eq('case_id', form.case_id).is('billed_invoice_id', null).order('expense_date', { nullsFirst: false }),
+        supabase.from('billing_expense_items').select('*').eq('case_id', form.case_id).is('billed_invoice_id', null).order('sort_order').order('created_at'),
         supabase.from('invoices').select('amount,status,firm_type').eq('case_id', form.case_id).eq('invoice_type', '前受金'),
       ])
       if (cancelled) return
@@ -128,7 +139,7 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
       if (defaultFirm === 'gyosei' || defaultFirm === 'shiho') {
         setForm(prev => ({ ...prev, firm_type: defaultFirm }))
       }
-      const exps = (expRows ?? []) as ExpenseRow[]
+      const exps = (expRows ?? []) as BillingExpenseItemRow[]
       setUnbilledExpenses(exps)
       setSelectedExpenseIds(new Set(exps.map(e => e.id)))
       setLoadingCase(false)
@@ -136,6 +147,12 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
     run()
     return () => { cancelled = true }
   }, [isOpen, form.case_id])
+
+  // 発行法人ぶんの立替実費だけを出す（司法／行政。事業区分が未設定の行はどちらでも出す）
+  const visibleExpenses = unbilledExpenses.filter(e => !e.shigyo || e.shigyo === SHIGYO_OF[form.firm_type])
+
+  // 前受金の状況（確定請求の控除に使う）。paid＝控除の既定値、unpaid＝注意書きに出す
+  const advStatus = advByFirmOf(advInvoices, form.firm_type)
 
   // 請求種別・発行法人(行/司)を選んだら、その法人ぶんの金額をオーダーシートからプリセット。
   // 前受金→その法人の前受金／確定請求→その法人の報酬。確定の前受金控除もその法人ぶんで既定化。
@@ -152,17 +169,17 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
       fee = caseFees.fee_total ?? 0
     }
     setForm(prev => ({ ...prev, fee_amount: String(fee || '') }))
-    // 前受金控除の既定値: その法人の発行済前受金請求合計（無ければ案件の前受金(法人別)）
-    const billed = advInvoices
-      .filter(i => i.status !== '未請求' && (i.firm_type ?? 'gyosei') === firm)
-      .reduce((s, i) => s + (i.amount ?? 0), 0)
-    setAdvanceDeduction(String(billed > 0 ? billed : advanceForFirm(caseFees, firm)))
+    // 前受金控除の既定値: その法人の「入金済」前受金請求書の合計。
+    // 未入金の前受金まで差し引くと、払われていない前受金が請求されないまま終わる。
+    // 前受金請求書が1枚も無い旧データだけ、案件の前受金(法人別)にフォールバック。
+    const adv = advByFirmOf(advInvoices, firm)
+    setAdvanceDeduction(String(adv.count > 0 ? adv.paid : advanceForFirm(caseFees, firm)))
   }, [form.invoice_type, form.firm_type, caseFees, advInvoices])
 
   const feeAmountNum = Number(form.fee_amount) || 0
   // 立替実費・前受金控除は確定請求のみ（前受金は金額のみ）
   const selectedExpensesTotal = isConfirmed
-    ? unbilledExpenses.filter(e => selectedExpenseIds.has(e.id)).reduce((s, e) => s + (e.amount ?? 0), 0)
+    ? visibleExpenses.filter(e => selectedExpenseIds.has(e.id)).reduce((s, e) => s + (e.amount ?? 0), 0)
     : 0
   const advanceDeductionNum = isConfirmed ? (Number(advanceDeduction) || 0) : 0
   const totalAmount = feeAmountNum + selectedExpensesTotal - advanceDeductionNum
@@ -175,44 +192,44 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
       return next
     })
   }
-  const selectAll = () => setSelectedExpenseIds(new Set(unbilledExpenses.map(e => e.id)))
+  const selectAll = () => setSelectedExpenseIds(new Set(visibleExpenses.map(e => e.id)))
   const deselectAll = () => setSelectedExpenseIds(new Set())
 
-  // モーダル内で新規立替実費を追加（即座に未請求リストへ反映）
+  // モーダル内で新規立替実費を追加（請求タブと同じ billing_expense_items へ。即座に未請求リストへ反映）
   const handleAddExpense = async () => {
     if (!form.case_id) return
-    const itemName = newExpense.item_name.trim() || newExpense.category
+    const itemName = newExpense.item_name.trim()
     const amountNum = Number(newExpense.amount)
-    if (!itemName) { showToast('費目を選択するか項目名を入力してください', 'error'); return }
+    if (!itemName) { showToast('名目を選択するか入力してください', 'error'); return }
     if (!amountNum || amountNum <= 0) { showToast('金額を入力してください', 'error'); return }
 
     setAddingExpense(true)
     try {
       const supabase = createClient()
       const { data: inserted, error: insErr } = await supabase
-        .from('expenses')
+        .from('billing_expense_items')
         .insert({
           case_id: form.case_id,
-          category: newExpense.category || null,
-          item_name: itemName,
+          shigyo: SHIGYO_OF[form.firm_type],
+          label: itemName,
           amount: amountNum,
-          expense_date: newExpense.expense_date || null,
-          notes: newExpense.notes.trim() || null,
           taxable: newExpense.taxable,
+          note: newExpense.notes.trim() || null,
+          sort_order: unbilledExpenses.length,
         })
         .select('*')
         .single()
       if (insErr || !inserted) throw insErr ?? new Error('insert returned empty')
-      const row = inserted as ExpenseRow
+      const row = inserted as BillingExpenseItemRow
       // リストに追加してチェックON
-      setUnbilledExpenses(prev => [row, ...prev])
+      setUnbilledExpenses(prev => [...prev, row])
       setSelectedExpenseIds(prev => {
         const next = new Set(prev)
         next.add(row.id)
         return next
       })
       // フォームリセット
-      setNewExpense({ category: '', item_name: '', amount: '', expense_date: new Date().toISOString().slice(0, 10), notes: '', taxable: true })
+      setNewExpense({ item_name: '', amount: '', notes: '', taxable: false })
       setShowExpenseForm(false)
       showToast('立替実費を追加しました', 'success')
     } catch (e) {
@@ -294,39 +311,47 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
     // 互換のため変数名を残す
     const newInvoice = { id: newInvoiceId }
 
-    // 選択した立替実費に billed_invoice_id をセット（確定請求のみ。前受金は実費を含めない）
-    if (isConfirmed && selectedExpenseIds.size > 0) {
+    // 選択した立替実費に billed_invoice_id をセット（確定請求のみ。前受金は実費を含めない）。
+    // 表示している法人ぶんの行だけが対象（別法人の行は選択に残っていても請求済みにしない）
+    const selExpRows = isConfirmed ? visibleExpenses.filter(e => selectedExpenseIds.has(e.id)) : []
+    if (selExpRows.length > 0) {
       const { error: updErr } = await supabase
-        .from('expenses')
+        .from('billing_expense_items')
         .update({ billed_invoice_id: newInvoice.id })
-        .in('id', Array.from(selectedExpenseIds))
+        .in('id', selExpRows.map(e => e.id))
       if (updErr) {
         // 請求書は作成済みなので continue + warn
-        console.error('expenses 更新失敗:', updErr)
-        setError(`請求書は発行しましたが、立替実費の請求済み更新に失敗: ${updErr.message}`)
+        console.error('billing_expense_items 更新失敗:', updErr)
+        showToast(`請求書は発行しましたが、立替実費の請求済み更新に失敗: ${updErr.message}`, 'error')
       }
     }
 
     // 公式フォーマット（Excelテンプレ）を生成して作成書類へ保存。メイン請求もAIルートと同じ正式様式に統一。
     // invoiceId を渡すことで invoices 行は二重作成しない。
+    // ファイル保存に失敗すると非200で返るので、その場合は伝える（一覧の「請求書」から作り直せる）。
     try {
       const firm = (form.firm_type === 'shiho' ? 'shiho' : 'gyosei') as 'gyosei' | 'shiho'
       const kenmei = `${caseFees?.deceased_name ? caseFees.deceased_name + '様 ' : ''}相続手続き ${form.invoice_type}`
+      let res: Response
       if (isAdvance) {
-        await fetch('/api/documents/invoice', {
+        res = await fetch('/api/documents/invoice', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ caseId: form.case_id, variant: invoiceVariantKey('請求書', firm), kenmei, amount: totalAmount, invoiceId: newInvoice.id }),
         })
       } else {
-        const selExp = unbilledExpenses.filter(e => selectedExpenseIds.has(e.id))
-          .map(e => ({ name: e.item_name ?? '', amount: e.amount ?? 0, taxable: e.taxable !== false }))
-        await fetch('/api/documents/kakutei', {
+        const selExp = selExpRows.map(e => ({ name: e.label ?? '', amount: e.amount ?? 0, taxable: e.taxable === true, quantity: e.quantity, unitPrice: e.unit_price }))
+        res = await fetch('/api/documents/kakutei', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ caseId: form.case_id, variant: `kakutei_${firm}`, kenmei, fee: feeAmountNum, advanceReceived: advanceDeductionNum, expenses: selExp, invoiceId: newInvoice.id }),
         })
       }
+      if (!res.ok) {
+        const err = await res.json().catch(() => null) as { error?: string } | null
+        showToast(`請求書は登録しましたが、公式Excelの保存に失敗しました${err?.error ? `（${err.error}）` : ''}。一覧の「請求書」から作り直せます`, 'error')
+      }
     } catch (e) {
       console.error('公式請求書(Excel)の生成に失敗:', e)  // invoices 行は作成済みなので致命ではない
+      showToast('請求書は登録しましたが、公式Excelの生成で通信に失敗しました。一覧の「請求書」から作り直せます', 'error')
     }
 
     setSaving(false)
@@ -453,12 +478,12 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
                 {isConfirmed && <div className="bg-white">
                   <div className="px-3 py-2 flex items-center gap-2 bg-gray-50/50">
                     <span className="text-[13px] font-medium text-gray-700 flex-1">
-                      立替実費（未請求分）
+                      立替実費（未請求分・{SHIGYO_OF[form.firm_type]}）
                       <span className="ml-1.5 text-[11px] text-gray-400 font-normal">
-                        {unbilledExpenses.length}件
+                        {visibleExpenses.length}件
                       </span>
                     </span>
-                    {unbilledExpenses.length > 0 && (
+                    {visibleExpenses.length > 0 && (
                       <div className="flex gap-1 text-[11px]">
                         <button onClick={selectAll} disabled={saving} className="text-brand-600 hover:underline">全選択</button>
                         <span className="text-gray-300">/</span>
@@ -470,13 +495,13 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
                     </span>
                   </div>
 
-                  {unbilledExpenses.length === 0 && !showExpenseForm ? (
+                  {visibleExpenses.length === 0 && !showExpenseForm ? (
                     <div className="px-3 py-3 text-center text-[12px] text-gray-400">
-                      未請求の立替実費はありません
+                      未請求の立替実費はありません（案件の請求タブ「立替実費」と同じものが出ます）
                     </div>
                   ) : (
                     <ul className="max-h-48 overflow-y-auto">
-                      {unbilledExpenses.map(e => {
+                      {visibleExpenses.map(e => {
                         const checked = selectedExpenseIds.has(e.id)
                         return (
                           <li key={e.id} className="px-3 py-1.5 flex items-center gap-2 text-[12px] hover:bg-gray-50/60">
@@ -487,16 +512,13 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
                               disabled={saving}
                               className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
                             />
-                            <span className="text-gray-400 font-mono text-[11px] w-20">
-                              {e.expense_date ?? '—'}
-                            </span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${e.taxable ? 'bg-amber-50 text-amber-700' : 'bg-gray-50 text-gray-500'}`}>{e.taxable ? '課税' : '非課税'}</span>
                             <span className={`flex-1 truncate ${checked ? 'text-gray-700' : 'text-gray-400'}`}>
-                              {e.category && <span className="text-gray-400 mr-1">[{e.category}]</span>}
-                              {e.item_name}
-                              {e.notes && <span className="text-gray-400 ml-1">({e.notes})</span>}
+                              {e.label || '（名目未設定）'}
+                              {e.note && <span className="text-gray-400 ml-1">({e.note})</span>}
                             </span>
                             <span className={`font-mono font-semibold w-24 text-right ${checked ? 'text-gray-700' : 'text-gray-300'}`}>
-                              ¥{e.amount.toLocaleString()}
+                              {yen(e.amount ?? 0)}
                             </span>
                           </li>
                         )
@@ -519,20 +541,21 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
                         </button>
                       </div>
                       <div className="grid grid-cols-12 gap-2">
-                        <div className="col-span-3">
-                          <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">費目</label>
+                        <div className="col-span-4">
+                          <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">名目（定型）</label>
                           <select
-                            value={newExpense.category}
-                            onChange={e => setNewExpense(p => ({ ...p, category: e.target.value, item_name: p.item_name || e.target.value, taxable: inferExpenseTaxable(e.target.value) }))}
+                            value={([...EXPENSE_NONTAX_ITEMS, ...EXPENSE_TAX_ITEMS] as readonly string[]).includes(newExpense.item_name) ? newExpense.item_name : ''}
+                            onChange={e => setNewExpense(p => ({ ...p, item_name: e.target.value || p.item_name, taxable: expenseItemTaxable(e.target.value) ?? p.taxable }))}
                             disabled={addingExpense}
                             className="w-full px-1.5 py-1 text-[12px] border border-gray-300 rounded focus:ring-1 focus:ring-brand-400 outline-none bg-white"
                           >
-                            <option value="">選択</option>
-                            {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                            <option value="">選択（自由入力も可）</option>
+                            <optgroup label="非課税">{EXPENSE_NONTAX_ITEMS.map(c => <option key={c} value={c}>{c}</option>)}</optgroup>
+                            <optgroup label="課税">{EXPENSE_TAX_ITEMS.map(c => <option key={c} value={c}>{c}</option>)}</optgroup>
                           </select>
                         </div>
-                        <div className="col-span-4">
-                          <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">項目名</label>
+                        <div className="col-span-5">
+                          <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">名目</label>
                           <input
                             type="text"
                             placeholder="例: 戸籍謄本 ×3通"
@@ -542,8 +565,8 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
                             className="w-full px-1.5 py-1 text-[12px] border border-gray-300 rounded focus:ring-1 focus:ring-brand-400 outline-none"
                           />
                         </div>
-                        <div className="col-span-2">
-                          <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">金額</label>
+                        <div className="col-span-3">
+                          <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">金額（税込）</label>
                           <div className="relative">
                             <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[11px] text-gray-400">¥</span>
                             <input
@@ -556,16 +579,6 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
                               className="w-full pl-4 pr-1.5 py-1 text-[12px] font-mono text-right border border-gray-300 rounded focus:ring-1 focus:ring-brand-400 outline-none"
                             />
                           </div>
-                        </div>
-                        <div className="col-span-3">
-                          <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">発生日</label>
-                          <input
-                            type="date"
-                            value={newExpense.expense_date}
-                            onChange={e => setNewExpense(p => ({ ...p, expense_date: e.target.value }))}
-                            disabled={addingExpense}
-                            className="w-full px-1.5 py-1 text-[11px] font-mono border border-gray-300 rounded focus:ring-1 focus:ring-brand-400 outline-none"
-                          />
                         </div>
                         <div className="col-span-4">
                           <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">課税区分</label>
@@ -616,17 +629,22 @@ export default function CreateInvoiceModal({ isOpen, onClose, cases, onSaved, de
                       className="w-full px-3 py-2 text-[12px] font-semibold text-brand-700 hover:bg-brand-50 border-t border-gray-100 transition flex items-center justify-center gap-1"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      立替実費を追加（戸籍代・郵送料など）
+                      立替実費を追加（戸籍代・郵送料など。案件の請求タブにも載ります）
                     </button>
                   )}
                 </div>}
 
-                {/* 前受金控除（確定請求のみ） */}
+                {/* 前受金控除（確定請求のみ）。既定＝入金済の前受金請求書の合計 */}
                 {form.invoice_type === '確定請求' && (
                   <div className="px-3 py-2.5 flex items-center gap-2 bg-white border-t border-gray-100">
                     <span className="text-[13px] font-medium text-gray-700 flex-1">
                       前受金控除（▲）
-                      <span className="ml-1.5 text-[11px] text-gray-400 font-normal">受領済の前受金を差し引きます</span>
+                      <span className="ml-1.5 text-[11px] text-gray-400 font-normal">入金済の前受金を差し引きます</span>
+                      {advStatus.unpaid > 0 && (
+                        <span className="block mt-0.5 text-[11px] text-amber-700 font-normal">
+                          前受金 {yen(advStatus.unpaid)} が未入金です（控除には入れていません）
+                        </span>
+                      )}
                     </span>
                     <div className="relative w-36">
                       <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px] text-gray-400">¥</span>

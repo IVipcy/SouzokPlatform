@@ -15,6 +15,39 @@ import { repairXlsx } from '@/lib/xlsxRepair'
 import { getKakuteiVariant, KAKUTEI_FIELDS, computeKakutei, type ExpenseItem } from '@/lib/kakuteiVariants'
 import { STAMP_FILES } from '@/lib/ininjoVariants'
 import { KOSEKI_AGENT_OFFICES, OFFICE_PROFILES, findBranch, type OfficeBranchId } from '@/lib/officeProfiles'
+import { todayJstYmd } from '@/lib/today'
+
+// 案件側の確定請求モーダルから出し直すたびに invoices 行が増えないよう、
+// 同じ 案件×確定請求×法人 の行があればそれを更新する。入金済の行があれば触らず 409 で止める。
+const PAID_INVOICE_EXISTS_MESSAGE = '入金済の請求書があります。追加請求は /billing から発行してください'
+const UPLOAD_FAILED_MESSAGE = '請求書ファイルの保存に失敗しました。時間をおいてもう一度お試しください'
+const GENERIC_ERROR_MESSAGE = '確定請求書の生成に失敗しました'
+const isYmd = (s: unknown): s is string => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s)
+const isMoney = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n >= 0
+const isOptNum = (n: unknown): n is number | null | undefined => n == null || (typeof n === 'number' && Number.isFinite(n))
+
+/** 立替実費の入力配列を項目ごとに検証して、型のそろった配列にする。壊れていれば null。 */
+function parseExpenses(raw: unknown): ExpenseItem[] | null {
+  if (raw == null) return []
+  if (!Array.isArray(raw)) return null
+  const out: ExpenseItem[] = []
+  for (const e of raw) {
+    if (!e || typeof e !== 'object') return null
+    const o = e as Record<string, unknown>
+    if (o.name != null && typeof o.name !== 'string') return null
+    if (!isMoney(o.amount ?? 0)) return null
+    if (o.taxable != null && typeof o.taxable !== 'boolean') return null
+    if (!isOptNum(o.quantity) || !isOptNum(o.unitPrice)) return null
+    out.push({
+      name: (o.name as string | undefined) ?? '',
+      amount: (o.amount as number | undefined) ?? 0,
+      taxable: (o.taxable as boolean | undefined) ?? true,
+      quantity: (o.quantity as number | null | undefined) ?? null,
+      unitPrice: (o.unitPrice as number | null | undefined) ?? null,
+    })
+  }
+  return out
+}
 
 type Body = {
   caseId: string
@@ -54,20 +87,57 @@ function cellToColRow(addr: string): { col: number; row: number } {
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as Body
-    const { caseId, variant, kenmei, fee, advanceReceived, expenses, taskId } = body
+    const { caseId, variant, kenmei, fee, taskId } = body
 
-    if (!caseId || !variant) {
+    if (!caseId || typeof caseId !== 'string' || !variant || typeof variant !== 'string') {
       return NextResponse.json({ error: 'caseId, variant は必須です' }, { status: 400 })
     }
     const def = getKakuteiVariant(variant)
     if (!def) {
       return NextResponse.json({ error: `未知のバリエーション: ${variant}` }, { status: 400 })
     }
-    if (typeof fee !== 'number' || fee < 0) {
+    // 入力を項目ごとに検証（壊れた入力で 500 やマイナス前受金を通さない）
+    if (!isMoney(fee)) {
       return NextResponse.json({ error: '報酬額を正しく入力してください' }, { status: 400 })
+    }
+    const advanceReceived = body.advanceReceived ?? 0
+    if (!isMoney(advanceReceived)) {
+      return NextResponse.json({ error: '前受金は0以上の金額で入力してください' }, { status: 400 })
+    }
+    if (kenmei != null && typeof kenmei !== 'string') {
+      return NextResponse.json({ error: '件名の形式が正しくありません' }, { status: 400 })
+    }
+    if (body.dueDate != null && body.dueDate !== '' && !isYmd(body.dueDate)) {
+      return NextResponse.json({ error: '入金期日の形式が正しくありません' }, { status: 400 })
+    }
+    if (body.invoiceId != null && typeof body.invoiceId !== 'string') {
+      return NextResponse.json({ error: '請求書IDの形式が正しくありません' }, { status: 400 })
+    }
+    const expenses = parseExpenses(body.expenses)
+    if (!expenses) {
+      return NextResponse.json({ error: '立替実費の形式が正しくありません（名目・金額・課税区分）' }, { status: 400 })
     }
 
     const supabase = await createClient()
+
+    // 更新先の invoices 行を先に決める（入金済があればファイルを作る前に止める）
+    let targetInvoiceId: string | null = body.invoiceId ?? null
+    if (!targetInvoiceId) {
+      const { data: existing, error: exErr } = await supabase
+        .from('invoices')
+        .select('id, status')
+        .eq('case_id', caseId).eq('invoice_type', '確定請求').eq('firm_type', def.office)
+        .order('created_at', { ascending: false })
+      if (exErr) {
+        console.error('[kakutei] invoices lookup failed:', exErr.message)
+        return NextResponse.json({ error: GENERIC_ERROR_MESSAGE }, { status: 500 })
+      }
+      const rows = (existing ?? []) as Array<{ id: string; status: string }>
+      if (rows.some(r => r.status === '入金済')) {
+        return NextResponse.json({ error: PAID_INVOICE_EXISTS_MESSAGE }, { status: 409 })
+      }
+      targetInvoiceId = rows[0]?.id ?? null
+    }
     const { data: caseData, error: caseErr } = await supabase
       .from('cases').select('*, clients(*)').eq('id', caseId).single()
     if (caseErr || !caseData) {
@@ -86,8 +156,11 @@ export async function POST(request: NextRequest) {
     const client = caseData.clients as { name?: string } | null
     const clientName = mainName || client?.name || ''
 
-    const items = (expenses ?? []).filter(e => e && (e.name?.trim() || e.amount > 0))
-    const c = computeKakutei(fee, advanceReceived || 0, items)
+    const items = expenses.filter(e => e.name.trim() || e.amount > 0)
+    const c = computeKakutei(fee, advanceReceived, items)
+    if (c.billAmount < 0) {
+      return NextResponse.json({ error: '前受金が小計を超えています。前受金の額を確認してください' }, { status: 400 })
+    }
 
     const templatePath = path.join(process.cwd(), 'public', 'templates', 'kakutei', `${variant}.xlsx`)
     const wb = new ExcelJS.Workbook()
@@ -183,8 +256,9 @@ export async function POST(request: NextRequest) {
     ws.getCell('H1').value = '発行日：'; ws.getCell('H1').font = font(11)
     ws.mergeCells('I1:J1')
     const issued = ws.getCell('I1')
-    issued.value = new Date()
-    issued.numFmt = 'yyyy/m/d'
+    // 日本時間の今日。Date で入れると UTC 基準で朝9時前は前日になるので文字列で書く
+    const today = todayJstYmd()
+    issued.value = today.replace(/-/g, '/')
     issued.font = font(11)
     issued.alignment = { horizontal: 'left', vertical: 'middle' }
 
@@ -341,34 +415,47 @@ export async function POST(request: NextRequest) {
     // ExcelJS は <sheetPr> の子要素を規格と違う順に書き出すバグがあり、
     // そのままだと Excel がシートを丸ごと捨てて白紙で開く。書き出し後に直す。
     const uploadBuffer = repairXlsx(Buffer.from(outBuffer as ArrayBuffer))
-    let savedPath: string | null = null
-    {
-      const { error: uploadErr } = await supabase.storage
-        .from('documents')
-        .upload(storagePath, uploadBuffer, {
-          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        })
-      if (!uploadErr) {
-        savedPath = storagePath
-        await supabase.from('documents').insert({
-          case_id: caseId,
-          task_id: taskId ?? null,
-          name: `確定請求書＋立替実費明細（${def.office === 'gyosei' ? '行政' : '司法'}）`,
-          file_path: storagePath,
-          file_type: 'Excel',
-          status: '作成済',
-          generated_by: 'ai',
-        })
-      } else {
-        console.error('[kakutei] storage upload failed:', uploadErr.message)
-      }
+    // ファイル保存に失敗したら非200で返して終わる。既にある generated_file_path を null で上書きしない
+    const { error: uploadErr } = await supabase.storage
+      .from('documents')
+      .upload(storagePath, uploadBuffer, {
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      })
+    if (uploadErr) {
+      console.error('[kakutei] storage upload failed:', uploadErr.message)
+      return NextResponse.json({ error: UPLOAD_FAILED_MESSAGE }, { status: 500 })
     }
+    const savedPath = storagePath
+    await supabase.from('documents').insert({
+      case_id: caseId,
+      task_id: taskId ?? null,
+      name: `確定請求書＋立替実費明細（${def.office === 'gyosei' ? '行政' : '司法'}）`,
+      file_path: storagePath,
+      file_type: 'Excel',
+      status: '作成済',
+      generated_by: 'ai',
+    })
 
-    // 請求一覧(invoices)にも反映（ファイルパスは案件フォルダ保存時のみ）
+    // 請求一覧(invoices)にも反映
     if (body.invoiceId) {
-      await supabase.from('invoices').update({ generated_file_path: savedPath }).eq('id', body.invoiceId)
+      // メイン請求モーダル経由＝既に行があるので、公式Excelのパスだけ追記
+      const { error: updErr } = await supabase.from('invoices').update({ generated_file_path: savedPath }).eq('id', body.invoiceId)
+      if (updErr) console.error('[kakutei] invoices update(path) failed:', updErr.message)
+    } else if (targetInvoiceId) {
+      // 出し直し：同じ 案件×確定請求×法人 の行を更新（行を増やさない）。ステータスは触らない。
+      const { data: cur } = await supabase.from('invoices').select('posted_date').eq('id', targetInvoiceId).single()
+      const { error: updErr } = await supabase.from('invoices').update({
+        amount: c.billAmount,
+        fee_amount: fee,
+        expenses_amount: c.expenseGrand,
+        advance_deduction: advanceReceived,
+        issued_date: today,
+        ...((cur as { posted_date: string | null } | null)?.posted_date ? {} : { posted_date: today }),
+        ...(body.dueDate ? { due_date: body.dueDate } : {}),
+        generated_file_path: savedPath,
+      }).eq('id', targetInvoiceId)
+      if (updErr) console.error('[kakutei] invoices update failed:', updErr.message)
     } else {
-      const today = new Date().toISOString().slice(0, 10)
       const { error: invErr } = await supabase.from('invoices').insert({
         case_id: caseId,
         invoice_type: '確定請求',
@@ -376,11 +463,11 @@ export async function POST(request: NextRequest) {
         amount: c.billAmount,
         fee_amount: fee,
         expenses_amount: c.expenseGrand,
-        advance_deduction: advanceReceived || 0,
+        advance_deduction: advanceReceived,
         status: '作成済',
         issued_date: today,
         posted_date: today,   // 計上日=請求日（発行日）
-        due_date: body.dueDate ?? null,
+        due_date: body.dueDate || null,
         generated_file_path: savedPath,
       })
       if (invErr) console.error('[kakutei] invoices insert failed:', invErr.message)
@@ -394,8 +481,8 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : '不明なエラー'
+    // 内部のパス・DB制約名などを利用者に返さない。詳細はサーバーログだけに残す
     console.error('[kakutei] error:', e)
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: GENERIC_ERROR_MESSAGE }, { status: 500 })
   }
 }

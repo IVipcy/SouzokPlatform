@@ -23,7 +23,9 @@ export type SalesReportRaw = {
   cases?: any
 }
 
-export type ExpenseItem = { case_id: string; shigyo: string | null; taxable: boolean; amount: number }
+// billed_invoice_id … どの請求書で請求したか（migration 298）。同じ案件に売上請求書が複数あるとき、
+// 請求書ごとの課税/非課税を出す紐づけに使う。未設定（旧データ）は案件合計で扱う。
+export type ExpenseItem = { case_id: string; shigyo: string | null; taxable: boolean; amount: number; billed_invoice_id?: string | null }
 export type RewardItem = { case_id: string; shigyo: string | null; amount: number; discount: number }
 export type TeamMeta = { id: string; name: string; division: string | null; bank: string | null }
 
@@ -125,10 +127,24 @@ export function buildSalesReport(
   // 案件×司法/行政 の前受金合計（前受金invoiceのfirm_type別）
   const advKey = (caseId: string, firm: 'shiho' | 'gyosei') => `${caseId}__${firm}`
   const advanceByCaseFirm = new Map<string, number>()
+  // 案件×司法/行政 の「売上を表す請求書」の枚数。2枚以上なら報酬・立替を請求書ごとの金額で出す（S11）
+  const saleCountByCaseFirm = new Map<string, number>()
   for (const inv of invoices) {
-    if (inv.invoice_type !== '前受金') continue
     const firm: 'shiho' | 'gyosei' = inv.firm_type === 'shiho' ? 'shiho' : 'gyosei'
+    if (isSaleInvoice(inv.invoice_type, inv.cases?.billing_pattern as string | null | undefined)) {
+      saleCountByCaseFirm.set(advKey(inv.case_id, firm), (saleCountByCaseFirm.get(advKey(inv.case_id, firm)) ?? 0) + 1)
+    }
+    if (inv.invoice_type !== '前受金') continue
     advanceByCaseFirm.set(advKey(inv.case_id, firm), (advanceByCaseFirm.get(advKey(inv.case_id, firm)) ?? 0) + (inv.amount ?? 0))
+  }
+
+  // 請求書ごとの立替（billed_invoice_id で紐づいた billing_expense_items。課税/非課税別）
+  const expNonTaxByInvoice = new Map<string, number>()
+  const expTaxByInvoice = new Map<string, number>()
+  for (const e of expenses) {
+    if (!e.billed_invoice_id) continue
+    const m = e.taxable ? expTaxByInvoice : expNonTaxByInvoice
+    m.set(e.billed_invoice_id, (m.get(e.billed_invoice_id) ?? 0) + (e.amount ?? 0))
   }
 
   // 案件×司法/行政 の報酬（報酬内訳 reward_items。amount − discount）
@@ -182,22 +198,41 @@ export function buildSalesReport(
     const paymentBank = (paysAll.find(p => p.bank)?.bank as string | null) || ''
     const bank = paymentBank || (inv.bank_override || '')
 
-    // 報酬(F)：報酬内訳(reward_items)を優先。無ければ請求書の金額でフォールバック
-    //   ①段階=確定請求のfee_amount／②③一括=前受金のamount
-    const rewardFromItems =
-      (rewardByCase.get(`${inv.case_id}__${shigyoLabel}`) ?? 0) +
-      (rewardByCase.get(`${inv.case_id}__共通`) ?? 0)
+    // 報酬(F)・立替(H/I)の出どころ：
+    //   案件に売上請求書が1枚だけ … 従来どおり案件の報酬内訳(reward_items)・立替(billing_expense_items)の合計。
+    //   2枚以上（追加請求など）    … 請求書ごとの金額。案件合計を各行に載せると報酬が2倍で計上されるため。
+    //     報酬＝①段階:fee_amount／②③一括:amount。立替＝billed_invoice_id で紐づいた行の課税/非課税。
+    //     紐づきが無い旧データは請求書の expenses_amount を非課税欄に置く（立替は官公署手数料が大半で、
+    //     課税に置くと存在しない内税が立つため）。
+    const multiInvoice = (saleCountByCaseFirm.get(advKey(inv.case_id, bookKey)) ?? 0) > 1
     const rewardFallback = inv.invoice_type === '前受金' ? (inv.amount ?? 0) : (inv.fee_amount ?? 0)
-    const rewardInclTax = rewardFromItems > 0 ? rewardFromItems : rewardFallback
-    const expNonTax =
-      (expNonTaxMap.get(expKey(inv.case_id, shigyoLabel)) ?? 0) +
-      (expNonTaxMap.get(expKey(inv.case_id, '共通')) ?? 0)
-    const expTaxInclTax =
-      (expTaxMap.get(expKey(inv.case_id, shigyoLabel)) ?? 0) +
-      (expTaxMap.get(expKey(inv.case_id, '共通')) ?? 0)
+    let rewardInclTax: number
+    let expNonTax: number
+    let expTaxInclTax: number
+    if (multiInvoice) {
+      rewardInclTax = rewardFallback
+      const linkedNon = expNonTaxByInvoice.get(inv.id) ?? 0
+      const linkedTax = expTaxByInvoice.get(inv.id) ?? 0
+      if (linkedNon + linkedTax > 0) { expNonTax = linkedNon; expTaxInclTax = linkedTax }
+      else { expNonTax = inv.expenses_amount ?? 0; expTaxInclTax = 0 }
+    } else {
+      const rewardFromItems =
+        (rewardByCase.get(`${inv.case_id}__${shigyoLabel}`) ?? 0) +
+        (rewardByCase.get(`${inv.case_id}__共通`) ?? 0)
+      rewardInclTax = rewardFromItems > 0 ? rewardFromItems : rewardFallback
+      expNonTax =
+        (expNonTaxMap.get(expKey(inv.case_id, shigyoLabel)) ?? 0) +
+        (expNonTaxMap.get(expKey(inv.case_id, '共通')) ?? 0)
+      expTaxInclTax =
+        (expTaxMap.get(expKey(inv.case_id, shigyoLabel)) ?? 0) +
+        (expTaxMap.get(expKey(inv.case_id, '共通')) ?? 0)
+    }
     const expTotal = expNonTax + expTaxInclTax
     const total = rewardInclTax + expTotal
-    const advance = advanceByCaseFirm.get(advKey(inv.case_id, bookKey)) ?? 0
+    // 前受金(P)：同じ案件×法人の前受金請求書の合計。ただし「この行そのもの」は除く。
+    // ②③一括では売上を表す請求書が前受金なので、除かないと自分を自分から引いて差引請求が¥0になる。
+    const advance = Math.max(0,
+      (advanceByCaseFirm.get(advKey(inv.case_id, bookKey)) ?? 0) - (inv.invoice_type === '前受金' ? (inv.amount ?? 0) : 0))
     // 立替実費差引額（L/M/N）：立て替えたが今回請求から差し引く分
     const dedNonTax = inv.deduct_expense_nontax ?? 0
     const dedTaxIncl = inv.deduct_expense_tax ?? 0

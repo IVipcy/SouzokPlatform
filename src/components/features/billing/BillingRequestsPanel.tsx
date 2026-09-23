@@ -7,6 +7,8 @@ import { Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { feeBearerLabel, resolutionOf } from '@/lib/billingRequests'
+import { todayJstYmd } from '@/lib/today'
+import { recordRefund } from './refundPayment'
 
 export type BillingRequestRow = {
   id: string
@@ -34,7 +36,7 @@ export type BillingRequestRow = {
 }
 
 const yen = (n: number) => `¥${Math.round(n).toLocaleString()}`
-const today = () => new Date().toISOString().slice(0, 10)
+const today = () => todayJstYmd()
 
 export default function BillingRequestsPanel({ requests, currentMemberId, onChanged }: {
   requests: BillingRequestRow[]
@@ -53,12 +55,13 @@ export default function BillingRequestsPanel({ requests, currentMemberId, onChan
   }
 
   // 返金確定＝マイナス入金を記録し、依頼を完了に。
+  // 入金額を超える返金は弾き、返金後は請求書のステータスを入金合計から付け直す（共通処理）
   const doRefund = async (req: BillingRequestRow, amount: number, reasonNote: string) => {
     if (!amount || amount <= 0) { showToast('返金額が不正です', 'error'); return }
     setBusy(req.id)
     const supabase = createClient()
-    const { error } = await supabase.from('payments').insert({ invoice_id: req.invoice_id, amount: -amount, payment_date: today(), payment_method: '振込', is_refund: true, matched_by: 'human', match_note: reasonNote })
-    if (error) { showToast(`返金記録に失敗: ${error.message}`, 'error'); setBusy(null); return }
+    const r = await recordRefund(req.invoice_id, amount, reasonNote)
+    if (!r.ok) { showToast(r.message, 'error'); setBusy(null); return }
     await supabase.from('payment_check_requests').update({ status: '完了', confirmer_id: currentMemberId, confirmed_date: today() }).eq('id', req.id)
     await notifyRequester(req, '返金を確定しました', `${req.caseNumber} ${req.dealName}：${yen(amount)} を返金しました。`)
     setBusy(null); showToast('返金を確定しました', 'success'); onChanged()

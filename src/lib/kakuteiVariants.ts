@@ -77,12 +77,17 @@ export function computeKakutei(fee: number, advanceReceived: number, expenses: E
   const taxItems = expenses.filter(e => e.taxable && e.amount > 0)
   const nonTaxSubtotal = nonTaxItems.reduce((s, e) => s + e.amount, 0)
   const taxSubtotal = taxItems.reduce((s, e) => s + e.amount, 0)
-  const feeTax = innerTax(fee)
-  const taxExpTax = innerTax(taxSubtotal)
   const subtotal = fee + taxSubtotal + nonTaxSubtotal       // R26 小計（税込）
   const taxableBase = fee + taxSubtotal                     // R27 10%対象額
-  const taxTotal = feeTax + taxExpTax                       // R28 内消費税計
+  // 内消費税は「10%対象額の合計」から1回だけ丸める。行ごとに丸めて足すと ¥1 ずれる
+  // （例: 報酬 55,555 と立替 5,555 → 個別丸め 5,050+505=5,555 / 合計丸め round(61,110/11)=5,555 は一致するが
+  //   端数の組み合わせで合わない）。報酬の内税を先に出し、立替の内税は差額で最終行として調整する。
+  const taxTotal = innerTax(taxableBase)                    // R28 内消費税計
+  const feeTax = innerTax(fee)
+  const taxExpTax = taxSubtotal > 0 ? taxTotal - feeTax : 0
+  // 立替が無いときは報酬側で全額を持つ（差額を捨てない）
+  const feeTaxAdj = taxSubtotal > 0 ? feeTax : taxTotal
   const billAmount = subtotal - advanceReceived             // R29 請求額
   const expenseGrand = nonTaxSubtotal + taxSubtotal         // 立替合計（明細シート）
-  return { nonTaxItems, taxItems, nonTaxSubtotal, taxSubtotal, feeTax, taxExpTax, subtotal, taxableBase, taxTotal, billAmount, expenseGrand }
+  return { nonTaxItems, taxItems, nonTaxSubtotal, taxSubtotal, feeTax: feeTaxAdj, taxExpTax, subtotal, taxableBase, taxTotal, billAmount, expenseGrand }
 }

@@ -135,7 +135,7 @@ export function evaluateCaseAlerts(c: CaseAlertInput, ctx: CaseAlertContext, tod
   if (c.has_complaint && active) {
     out.push({ key: 'claim', category: 'クレーム', severity: 'claim', audience: 'both',
       // クレームは「案件報告」タブの 不満・クレーム サブタブにある（'complaints' というタブは無く、案件進捗に着地していた）
-      reason: '依頼者からのクレームがあります。最優先で対応してください', tab: 'progress&sub=complaints' })
+      reason: '依頼者からのクレームがあります。最優先で対応してください', tab: 'progress&sub=complaint' })
   }
 
   if (ctx.taskOverdue) {

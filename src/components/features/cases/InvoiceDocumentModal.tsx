@@ -12,6 +12,8 @@ import { type StampLaw } from '@/lib/ininjoVariants'
 import { KOSEKI_AGENT_OFFICES, divisionsOf, findBranch, type OfficeBranchId } from '@/lib/officeProfiles'
 import { advanceForFirm } from '@/lib/advancePayment'
 import { billingPatternOf } from '@/lib/constants'
+import { toWareki } from '@/lib/wareki'
+import { todayJstYmd } from '@/lib/today'
 import type { CaseRow, TaskRow } from '@/types'
 
 type Props = {
@@ -44,6 +46,8 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, docTyp
   const [taskId, setTaskId] = useState('')
   const [generating, setGenerating] = useState(false)
   const [downloadInfo, setDownloadInfo] = useState<{ url: string; filename: string } | null>(null)
+  // プレビューの発行日（請求書は今日の和暦が印字される。開いたときに求める）
+  const [issueDateLabel, setIssueDateLabel] = useState('')
 
   const handleClose = () => {
     if (downloadInfo) URL.revokeObjectURL(downloadInfo.url)
@@ -76,6 +80,7 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, docTyp
     setAmount(presetAmount(recommendedOffice) || '')
     setDueDate('')
     setTaskId(defaultTaskId ?? '')
+    setIssueDateLabel(toWareki(todayJstYmd()))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, recommendedOffice, caseData.deceased_name, defaultTaskId])
 
@@ -98,7 +103,8 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, docTyp
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: '生成に失敗しました' }))
-        showToast(`生成に失敗: ${err.error ?? '不明なエラー'}`, 'error')
+        // 409＝入金済の請求書が既にある（出し直し不可）。メッセージをそのまま見せる
+        showToast(res.status === 409 ? (err.error ?? '入金済の請求書があります') : `生成に失敗: ${err.error ?? '不明なエラー'}`, 'error')
         return
       }
       const blob = await res.blob()
@@ -256,10 +262,17 @@ export default function InvoiceDocumentModal({ isOpen, onClose, caseData, docTyp
             <span className="text-gray-500 w-16 flex-shrink-0">宛先</span>
             <span className="text-gray-800">{caseData.clients?.name ?? '（未設定）'} 様</span>
           </div>
+          {/* 請求書は今日の和暦を印字。領収書の日付は入金の日で作った日とは限らないので空欄（手書き） */}
           <div className="flex gap-3">
             <span className="text-gray-500 w-16 flex-shrink-0">発行日</span>
-            <span className="text-gray-800">空欄（手書き）</span>
+            <span className="text-gray-800">{docType === '請求書' ? `${issueDateLabel || '今日'}（今日の日付を印字）` : '空欄（入金日を手書き）'}</span>
           </div>
+          {docType === '請求書' && (
+            <div className="flex gap-3">
+              <span className="text-gray-500 w-16 flex-shrink-0">請求一覧</span>
+              <span className="text-gray-800">同じ案件・法人の{kubunLabel}請求書があれば行は増えず更新（入金済なら出し直せません）</span>
+            </div>
+          )}
           <div className="flex gap-3">
             <span className="text-gray-500 w-16 flex-shrink-0">社印</span>
             <span className="text-gray-800">{office === 'gyosei' ? '行政書士法人オーシャン' : '司法書士法人オーシャン'} の角印を配置</span>

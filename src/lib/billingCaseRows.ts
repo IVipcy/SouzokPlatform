@@ -1,4 +1,5 @@
 import { isIkiikiContract } from '@/lib/constants'
+import { advanceTotal } from '@/lib/advancePayment'
 // 請求タブ（管理担当ダッシュボード／マイページ）の案件ベース行ビルダー。
 // 当月の「受託(受注) / 当月完了予定の対応中 / 当月業務完了の完了」案件を抽出し、
 // 区分に応じた請求書（受託=前受金, 対応中/完了=確定請求）の状況を1行にまとめる。
@@ -54,6 +55,9 @@ type CaseLike = {
   fee_administrative?: number | null
   fee_judicial?: number | null
   advance_payment?: number | null
+  // 法人別の前受金（行政/司法）。旧列 advance_payment だけ見ると司法/行政の前受金が0に見える
+  advance_payment_administrative?: number | null
+  advance_payment_judicial?: number | null
   order_route?: string | null
   order_route_detail?: string | null
 }
@@ -147,7 +151,8 @@ export function buildBillingCaseRows(
     }
 
     const feeTotal = c.fee_total ?? ((c.fee_administrative ?? 0) + (c.fee_judicial ?? 0))
-    const estimate = wantType === '前受金' ? (c.advance_payment ?? 0) : feeTotal
+    // 前受金の見込みは法人別（行政＋司法）の合計。旧データは advanceTotal が単一列へ寄せる
+    const estimate = wantType === '前受金' ? advanceTotal(c) : feeTotal
     const sales = salesByCase.get(c.id) ?? null
     const mgr = managerByCase.get(c.id) ?? null
     const sub = subManagerByCase.get(c.id) ?? null

@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { FileSpreadsheet, Download, ArrowLeft, CalendarClock } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
-import { billingPatternOf } from '@/lib/constants'
+import { billingPatternOf, INVOICE_STATUSES } from '@/lib/constants'
+import { todayJstYmd } from '@/lib/today'
 import HelpHint from '@/components/ui/HelpHint'
 import {
   buildSalesReport, isSaleInvoice,
@@ -56,11 +57,15 @@ export default function SalesReportClient({ invoices, expenses, rewards, teams }
 
   // 未計上（売上を表す請求書だが posted_date も issued_date も未設定）
   //   会計上、請求書発行時点で計上する。発行済(issued_date あり)なら発行日で自動計上されるため未計上ではない。
+  //   対象は現行のステータス（constants の INVOICE_STATUSES）のうち '未請求' 以外＝作成済／入金待ち／入金済。
   const unposted = useMemo(
-    () => invoices.filter(inv =>
-      isSaleInvoice(inv.invoice_type, patternOf(inv)) && !inv.posted_date && !inv.issued_date &&
-      ['前受金請求済', '前受金入金済', '確定請求済', '入金済', '一部入金'].includes(inv.status),
-    ),
+    () => {
+      const issuedStatuses = (INVOICE_STATUSES as readonly string[]).filter(s => s !== '未請求')
+      return invoices.filter(inv =>
+        isSaleInvoice(inv.invoice_type, patternOf(inv)) && !inv.posted_date && !inv.issued_date &&
+        issuedStatuses.includes(inv.status),
+      )
+    },
     [invoices],
   )
 
@@ -329,7 +334,7 @@ function DeductInput({ value, onSave }: { value: number; onSave: (v: number) => 
 
 // 未計上の確定請求を一括計上する
 function UnpostedPanel({ invoices, onDone }: { invoices: SalesReportRaw[]; onDone: () => void }) {
-  const [postDate, setPostDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [postDate, setPostDate] = useState(() => todayJstYmd())
   const [checked, setChecked] = useState<Set<string>>(() => new Set(invoices.map(i => i.id)))
   const [saving, setSaving] = useState(false)
 

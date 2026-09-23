@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Banknote, ClipboardList, Hourglass, CheckCircle2, AlertCircle, AlertTriangle, Undo2, Upload, Receipt, FileSpreadsheet, Wallet, X, type LucideIcon } from 'lucide-react'
+import { Banknote, ClipboardList, Hourglass, CheckCircle2, AlertCircle, AlertTriangle, Undo2, Upload, Receipt, FileSpreadsheet, Wallet, X, Plus, type LucideIcon } from 'lucide-react'
+import { thisMonthJst } from '@/lib/today'
 import PageHeader from '@/components/ui/PageHeader'
 import { useStickyLeftColumns } from '@/components/ui/useStickyLeftColumns'
 import { createClient } from '@/lib/supabase/client'
@@ -88,6 +89,16 @@ function getPaidAmount(payments: PaymentRow[] | null | undefined): number {
 function getRefundTotal(payments: PaymentRow[] | null | undefined): number {
   if (!payments || payments.length === 0) return 0
   return payments.filter(p => p.is_refund).reduce((sum, p) => sum - p.amount, 0)
+}
+
+// 請求合計の共通定義（上部KPI・行/司カードで同じものを使う）。
+//   total     … 純額（請求額の合計 − 返金）
+//   collected … 実受領（各請求ごとに 0〜請求額 の範囲に丸めた入金の純額）
+function netOfRows(rows: Array<{ amount: number; payments: PaymentRow[] | null | undefined }>) {
+  const gross = rows.reduce((s, inv) => s + inv.amount, 0)
+  const refunds = rows.reduce((s, inv) => s + getRefundTotal(inv.payments), 0)
+  const collected = rows.reduce((s, inv) => s + Math.max(0, Math.min(inv.amount, getPaidAmount(inv.payments))), 0)
+  return { total: Math.max(0, gross - refunds), refunds, collected }
 }
 
 // 入金期日からの超過日数。未入金（入金済/未請求以外）かつ期日を過ぎた場合のみ正の値、それ以外は null。
@@ -224,9 +235,8 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
   const [bulkBusy, setBulkBusy] = useState(false)
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
 
-  // 月フィルタ（KPIs用）
-  const ymToday = new Date().toISOString().slice(0, 7)
-  const [monthFilter, setMonthFilter] = useState<string>(ymToday)
+  // 月フィルタ（KPIs用）。既定は日本時間の当月（UTCだと月初の朝9時前に前月が出て「今月の請求が消えた」に見える）
+  const [monthFilter, setMonthFilter] = useState<string>(() => thisMonthJst())
 
   // 月候補（過去12ヶ月 + 全期間）
   const monthOptions = useMemo(() => {
@@ -282,13 +292,11 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
   }, [invoices, caseFilter, statusFilter, search, monthFilter])
 
   // 請求合計の内訳（発行済のみ）：純額（返金控除後）・入金済（実受領・純額）・未入金・返金。
+  // 行/司カードも同じ定義（netOfRows）で出す。上部と法人別で総額／純額が食い違わないように。
   const collection = useMemo(() => {
     const issued = monthFilteredInvoices.filter(inv => inv.status !== '未請求')
-    const gross = issued.reduce((s, inv) => s + inv.amount, 0)
-    const refunds = issued.reduce((s, inv) => s + getRefundTotal(inv.payments), 0)
-    const netBilled = Math.max(0, gross - refunds)
-    const collected = issued.reduce((s, inv) => s + Math.max(0, Math.min(inv.amount, getPaidAmount(inv.payments))), 0)
-    return { total: netBilled, refunds, collected, outstanding: Math.max(0, netBilled - collected), count: issued.length }
+    const n = netOfRows(issued)
+    return { total: n.total, refunds: n.refunds, collected: n.collected, outstanding: Math.max(0, n.total - n.collected), count: issued.length }
   }, [monthFilteredInvoices])
 
   // 返金一覧（当月・KPIの返金額クリックで開く）
@@ -426,7 +434,8 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
     const paid = src.filter(inv => inv.status === '入金済').length
     // 要確認（CSV突合②③）・返金依頼は全期間で件数管理（月フィルタ非依存の処理待ちキュー）
     const review = invoices.filter(inv => inv.needs_review).length
-    const refundOpen = requests.filter(r => r.kind === 'refund' && r.status !== '完了').length
+    // 却下済は経理の対応待ちではないので件数から外す（一覧には「却下」の印で残る）
+    const refundOpen = requests.filter(r => r.kind === 'refund' && r.status !== '完了' && r.approval_status !== 'rejected').length
     return [
       { key: 'all',     label: '請求合計', Icon: Banknote as LucideIcon,      value: fmt(collection.total), sub: `${collection.count}件発行済` },
       { key: '未請求',   label: '未請求',   Icon: ClipboardList as LucideIcon, value: String(unpaid),     sub: '請求書未発行', color: 'text-gray-500' },
@@ -438,17 +447,19 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
     ]
   }, [monthFilteredInvoices, invoices, collection, requests])
 
-  // 行/司 別の集計（発行済のみ）。請求合計・前受金・確定請求・入金を法人で分ける
+  // 行/司 別の集計（発行済のみ）。請求合計・前受金・確定請求・入金を法人で分ける。
+  // 請求合計・入金済は上部KPIと同じ純額の定義（netOfRows）。
   const firmSummary = useMemo(() => {
     const issued = monthFilteredInvoices.filter(inv => inv.status !== '未請求')
     const calc = (pred: (inv: InvoiceWithRelations) => boolean) => {
       const rows = issued.filter(pred)
+      const n = netOfRows(rows)
       return {
         count: rows.length,
-        total: rows.reduce((s, inv) => s + inv.amount, 0),
+        total: n.total,
         advance: rows.filter(inv => inv.invoice_type === '前受金').reduce((s, inv) => s + inv.amount, 0),
         confirmed: rows.filter(inv => inv.invoice_type === '確定請求').reduce((s, inv) => s + inv.amount, 0),
-        paid: rows.reduce((s, inv) => s + getPaidAmount(inv.payments), 0),
+        paid: n.collected,
       }
     }
     return {
@@ -485,6 +496,11 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
     const rest = (invoice.payments ?? []).filter(p => p.id !== payment.id).reduce((s, p) => s + p.amount, 0)
     if (rest < invoice.amount && invoice.status === '入金済') {
       await supabase.from('invoices').update({ status: '入金待ち' }).eq('id', invoice.id)
+      // 入金確定のときに自動でクローズした確認依頼（auto_closed）は、入金済でなくなった以上まだ答えが要る。
+      // '依頼中' に戻して受注／管理が回答できるようにする（人が手で完了にしたものは触らない）。
+      await supabase.from('payment_check_requests')
+        .update({ status: '依頼中', auto_closed: false, confirmed_date: null })
+        .eq('invoice_id', invoice.id).eq('kind', 'confirm').eq('status', '完了').eq('auto_closed', true)
     }
     setUndoPayment(null)
     showToast(`入金 ${fmt(payment.amount)} の消し込みを取り消しました`, 'success')
@@ -609,6 +625,12 @@ export default function BillingClient({ invoices, cases, deposits = [], requests
       >
         {monthOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
+      {/* 請求書発行（立替の紐づけ・計上日を入れる唯一の経路）。未請求の行にチェックがあればその案件で開く */}
+      {!readOnly && (
+        <Button variant="primary" size="sm" leftIcon={<Plus className="w-3.5 h-3.5" strokeWidth={2.25} />} onClick={() => setCreateOpen(true)}>
+          請求書発行
+        </Button>
+      )}
       {canReconcile && (
         <Button variant="secondary" size="sm" leftIcon={<Upload className="w-3.5 h-3.5" strokeWidth={2} />} onClick={() => setCsvOpen(true)}>
           入金突合

@@ -15,7 +15,17 @@ import { repairXlsx } from '@/lib/xlsxRepair'
 import { getInvoiceVariant, INVOICE_FIELDS } from '@/lib/invoiceVariants'
 import { STAMP_FILES } from '@/lib/ininjoVariants'
 import { toWarekiParts } from '@/lib/wareki'
+import { todayJstYmd } from '@/lib/today'
 import { KOSEKI_AGENT_OFFICES, findBranch, type OfficeBranchId } from '@/lib/officeProfiles'
+
+// 案件側の前受金モーダルから出し直すたびに invoices 行が増えないよう、
+// 同じ 案件×種類(前受金)×法人 の行があればそれを更新する。入金済の行があれば触らず 409 で止める
+// （入金済の請求書を書き換えると入金との対応が崩れる。追加請求は /billing から別の行で発行する）。
+// （route ファイルは POST 以外を export できないので定数はファイル内に留める）
+const PAID_INVOICE_EXISTS_MESSAGE = '入金済の請求書があります。追加請求は /billing から発行してください'
+const UPLOAD_FAILED_MESSAGE = '請求書ファイルの保存に失敗しました。時間をおいてもう一度お試しください'
+const GENERIC_ERROR_MESSAGE = '請求書の生成に失敗しました'
+const isYmd = (s: unknown): s is string => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s)
 
 type Body = {
   caseId: string
@@ -55,11 +65,42 @@ export async function POST(request: NextRequest) {
     if (!def) {
       return NextResponse.json({ error: `未知のバリエーション: ${variant}` }, { status: 400 })
     }
-    if (typeof amount !== 'number' || amount <= 0) {
+    // 入力の型を最低限そろえる（壊れた入力で 500 にしない）
+    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
       return NextResponse.json({ error: '金額を正しく入力してください' }, { status: 400 })
+    }
+    if (kenmei != null && typeof kenmei !== 'string') {
+      return NextResponse.json({ error: '件名の形式が正しくありません' }, { status: 400 })
+    }
+    if (body.dueDate != null && body.dueDate !== '' && !isYmd(body.dueDate)) {
+      return NextResponse.json({ error: '入金期日の形式が正しくありません' }, { status: 400 })
+    }
+    if (body.invoiceId != null && typeof body.invoiceId !== 'string') {
+      return NextResponse.json({ error: '請求書IDの形式が正しくありません' }, { status: 400 })
     }
 
     const supabase = await createClient()
+
+    // 請求書（請求実体）を作る前に、更新先の invoices 行を決める。
+    //   invoiceId あり … メイン請求モーダル経由。その行のファイルパスだけ更新。
+    //   invoiceId なし … 同じ 案件×前受金×法人 の行を探す。入金済なら止める（ファイルも作らない）。
+    let targetInvoiceId: string | null = body.invoiceId ?? null
+    if (def.docType === '請求書' && !targetInvoiceId) {
+      const { data: existing, error: exErr } = await supabase
+        .from('invoices')
+        .select('id, status')
+        .eq('case_id', caseId).eq('invoice_type', '前受金').eq('firm_type', def.office)
+        .order('created_at', { ascending: false })
+      if (exErr) {
+        console.error('[invoice] invoices lookup failed:', exErr.message)
+        return NextResponse.json({ error: GENERIC_ERROR_MESSAGE }, { status: 500 })
+      }
+      const rows = (existing ?? []) as Array<{ id: string; status: string }>
+      if (rows.some(r => r.status === '入金済')) {
+        return NextResponse.json({ error: PAID_INVOICE_EXISTS_MESSAGE }, { status: 409 })
+      }
+      targetInvoiceId = rows[0]?.id ?? null
+    }
     const { data: caseData, error: caseErr } = await supabase
       .from('cases')
       .select('*, clients(*)')
@@ -137,8 +178,9 @@ export async function POST(request: NextRequest) {
     }
 
     // 発行年月日。請求書だけ入れる。領収書の日付は入金の日で、作った日とは限らないため。
+    const today = todayJstYmd()
     if (def.docType === '請求書') {
-      const w = toWarekiParts(new Date().toISOString().slice(0, 10))
+      const w = toWarekiParts(today)
       if (w) {
         setCell(ws, F.issueDate.era, w.era)
         for (const [addr, v] of [[F.issueDate.year, w.year], [F.issueDate.month, w.month], [F.issueDate.day, w.day]] as const) {
@@ -182,36 +224,48 @@ export async function POST(request: NextRequest) {
     // ExcelJS は <sheetPr> の子要素を規格と違う順に書き出すバグがあり、
     // そのままだと Excel がシートを丸ごと捨てて白紙で開く。書き出し後に直す。
     const uploadBuffer = repairXlsx(Buffer.from(outBuffer as ArrayBuffer))
-    let savedPath: string | null = null
-    {
-      const { error: uploadErr } = await supabase.storage
-        .from('documents')
-        .upload(storagePath, uploadBuffer, {
-          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        })
-      if (!uploadErr) {
-        savedPath = storagePath
-        await supabase.from('documents').insert({
-          case_id: caseId,
-          task_id: taskId ?? null,
-          name: `${def.docType}（前受金・${def.office === 'gyosei' ? '行政' : '司法'}）`,
-          file_path: storagePath,
-          file_type: 'Excel',
-          status: '作成済',
-          generated_by: 'ai',
-        })
-      } else {
-        console.error('[invoice] storage upload failed:', uploadErr.message)
-      }
+    // ファイル保存に失敗したら非200で返して終わる。既にある generated_file_path を null で
+    // 上書きしない（次回に別の日付の請求書が作り直される元になる）。
+    const { error: uploadErr } = await supabase.storage
+      .from('documents')
+      .upload(storagePath, uploadBuffer, {
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      })
+    if (uploadErr) {
+      console.error('[invoice] storage upload failed:', uploadErr.message)
+      return NextResponse.json({ error: UPLOAD_FAILED_MESSAGE }, { status: 500 })
     }
+    const savedPath = storagePath
+    await supabase.from('documents').insert({
+      case_id: caseId,
+      task_id: taskId ?? null,
+      name: `${def.docType}（前受金・${def.office === 'gyosei' ? '行政' : '司法'}）`,
+      file_path: storagePath,
+      file_type: 'Excel',
+      status: '作成済',
+      generated_by: 'ai',
+    })
 
     // 請求一覧(invoices)にも反映（請求書のみ。領収書は請求実体ではない）。
     if (def.docType === '請求書') {
       if (body.invoiceId) {
         // メイン請求モーダル経由＝既に行があるので、公式Excelのパスだけ追記
-        await supabase.from('invoices').update({ generated_file_path: savedPath }).eq('id', body.invoiceId)
+        const { error: updErr } = await supabase.from('invoices').update({ generated_file_path: savedPath }).eq('id', body.invoiceId)
+        if (updErr) console.error('[invoice] invoices update(path) failed:', updErr.message)
+      } else if (targetInvoiceId) {
+        // 出し直し：同じ 案件×前受金×法人 の行を更新（行を増やさない）。
+        // ステータスは触らない。計上日は既に入っていればそのまま（発行日だけ今日に）。
+        const { data: cur } = await supabase.from('invoices').select('posted_date').eq('id', targetInvoiceId).single()
+        const { error: updErr } = await supabase.from('invoices').update({
+          amount,
+          fee_amount: amount,
+          issued_date: today,
+          ...((cur as { posted_date: string | null } | null)?.posted_date ? {} : { posted_date: today }),
+          ...(body.dueDate ? { due_date: body.dueDate } : {}),
+          generated_file_path: savedPath,
+        }).eq('id', targetInvoiceId)
+        if (updErr) console.error('[invoice] invoices update failed:', updErr.message)
       } else {
-        const today = new Date().toISOString().slice(0, 10)
         const { error: invErr } = await supabase.from('invoices').insert({
           case_id: caseId,
           invoice_type: '前受金',
@@ -221,7 +275,7 @@ export async function POST(request: NextRequest) {
           status: '作成済',
           issued_date: today,
           posted_date: today,   // 計上日=請求日（発行日）
-          due_date: body.dueDate ?? null,
+          due_date: body.dueDate || null,
           generated_file_path: savedPath,
         })
         if (invErr) console.error('[invoice] invoices insert failed:', invErr.message)
@@ -236,8 +290,8 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : '不明なエラー'
+    // 内部のパス・DB制約名などを利用者に返さない。詳細はサーバーログだけに残す
     console.error('[invoice] error:', e)
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: GENERIC_ERROR_MESSAGE }, { status: 500 })
   }
 }

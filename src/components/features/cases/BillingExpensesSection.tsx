@@ -124,22 +124,51 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
   const setPend = (key: string, patch: Partial<PendingItem>) => setPending(prev => prev ? prev.map(p => p.key === key ? { ...p, ...patch } : p) : prev)
   const setAllShigyo = (s: string) => setPending(prev => prev ? prev.map(p => ({ ...p, shigyo: s })) : prev)
 
-  // ポップアップで確定 → 既存の取り込み分を入れ替え（手入力分 source_kind=null は残す）
+  // ポップアップで確定 → 出どころキー（source_kind+source_id）で upsert。
+  //   ・同じ出どころの行があれば更新（行を作り直さない。発行済み請求書の明細と行の対応が切れないように）
+  //   ・請求済み（billed_invoice_id あり）の行は触らない（金額が変わっていても請求書に載った値が正）
+  //   ・出どころが無くなった未請求の取り込み行だけ消す（手入力分 source_kind=null は残す）
   const confirmImport = async () => {
     if (!pending) return
     setImporting(true)
-    await supabase.from('billing_expense_items').delete().eq('case_id', caseId).not('source_kind', 'is', null)
-    const base = rows.filter(r => !r.source_kind).length
-    const { error } = await supabase.from('billing_expense_items').insert(pending.map((it, i) => ({
-      case_id: caseId, sort_order: base + i, quantity: null, unit_price: null, note: null,
-      shigyo: it.shigyo, taxable: it.taxable, label: it.label, amount: it.amount,
-      source_kind: it.source_kind, source_id: it.source_id,
-    })))
-    if (error) { showToast(`取り込みに失敗: ${error.message}`, 'error'); setImporting(false); return }
+    const keyOf = (r: { source_kind: string | null; source_id: string | null }) => `${r.source_kind}:${r.source_id}`
+    const existing = new Map(rows.filter(r => r.source_kind && r.source_id).map(r => [keyOf(r), r]))
+    const pendingKeys = new Set(pending.map(it => it.key))
+    let updated = 0, inserted = 0, skippedBilled = 0
+    const errors: string[] = []
+    const base = rows.length
+    let n = 0
+    for (const it of pending) {
+      const cur = existing.get(it.key)
+      if (cur) {
+        if (cur.billed_invoice_id) { skippedBilled++; continue }
+        const { error } = await supabase.from('billing_expense_items')
+          .update({ shigyo: it.shigyo, taxable: it.taxable, label: it.label, amount: it.amount })
+          .eq('id', cur.id)
+        if (error) errors.push(error.message); else updated++
+      } else {
+        const { error } = await supabase.from('billing_expense_items').insert({
+          case_id: caseId, sort_order: base + n++, quantity: null, unit_price: null, note: null,
+          shigyo: it.shigyo, taxable: it.taxable, label: it.label, amount: it.amount,
+          source_kind: it.source_kind, source_id: it.source_id,
+        })
+        if (error) errors.push(error.message); else inserted++
+      }
+    }
+    // 出どころが消えた（実務タブで削除・依頼者負担に変わった等）未請求の取り込み行を片付ける
+    const stale = rows.filter(r => r.source_kind && r.source_id && !pendingKeys.has(keyOf(r)) && !r.billed_invoice_id).map(r => r.id)
+    if (stale.length > 0) {
+      const { error } = await supabase.from('billing_expense_items').delete().in('id', stale)
+      if (error) errors.push(error.message)
+    }
     const { data } = await supabase.from('billing_expense_items').select('*').eq('case_id', caseId).order('sort_order').order('created_at')
     setRows((data ?? []) as BillingExpenseItemRow[])
     setImporting(false); setPending(null)
-    showToast(`実務タブから${pending.length}件の立替実費を取り込みました`, 'success')
+    if (errors.length > 0) { showToast(`取り込みの一部に失敗: ${errors[0]}`, 'error'); return }
+    showToast(
+      `実務タブから取り込みました（追加 ${inserted}件・更新 ${updated}件${skippedBilled > 0 ? `・請求済みのため据え置き ${skippedBilled}件` : ''}${stale.length > 0 ? `・出どころ消滅で削除 ${stale.length}件` : ''}）`,
+      'success',
+    )
   }
 
   if (loading) return <div className="text-[12px] text-gray-400 py-3">読み込み中…</div>
@@ -169,7 +198,8 @@ export default function BillingExpensesSection({ caseId }: { caseId: string }) {
                     // 数量×単価が入っていれば金額は自動計算（読み取り専用）
                     <div className="px-1.5 py-1.5 text-[12px] text-right tabular-nums text-gray-700 bg-gray-50/70 rounded" title="数量×単価の自動計算">{yen(r.amount ?? 0)}</div>
                   ) : (
-                    <MoneyInput value={r.amount} onCommit={v => commit(r.id, { amount: v === '' ? 0 : Number(v) })} />
+                    // 直接入力もローカルへ反映して小計をすぐ更新する（再読込まで変わらないのを防ぐ）
+                    <MoneyInput value={r.amount} onCommit={v => { const amt = v === '' ? 0 : Number(v); setLocal(r.id, { amount: amt }); commit(r.id, { amount: amt }) }} />
                   )}
                 </td>
                 <td className="px-1.5 py-1"><input type="text" defaultValue={r.note ?? ''} onBlur={e => commit(r.id, { note: e.target.value })} placeholder="備考" className="w-full px-1.5 py-1.5 text-[12px] bg-gray-50 border border-gray-200 rounded outline-none focus:border-brand-500" /></td>

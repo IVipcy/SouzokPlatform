@@ -12,9 +12,14 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { showToast } from '@/components/ui/Toast'
 import { createClient } from '@/lib/supabase/client'
+import { todayJstYmd } from '@/lib/today'
 import type { CaseRow } from '@/types'
 
 const yen = (n: number) => `¥${Math.round(n).toLocaleString('ja-JP')}`
+// 立替実費の行のうち「登録免許税・印紙」に当たるもの（実務タブからの取り込み source_kind=registration、または名目で判定）。
+// 報酬内訳(reward_items.registration_tax)にも同じ税が入り得るので、どちらか一方だけを数える。
+const isRegTaxExpense = (r: { source_kind: string | null; label: string | null }) =>
+  r.source_kind === 'registration' || /登録免許税|印紙/.test(r.label ?? '')
 
 function AmountRow({ label, value, minus = false }: { label: string; value: number; minus?: boolean }) {
   return (
@@ -31,12 +36,14 @@ export default function ImportShihoInvoiceModal({ isOpen, onClose, caseData, onS
   caseData: CaseRow
   onSaved: () => void
 }) {
-  const today = new Date().toISOString().slice(0, 10)
-  const [issuedDate, setIssuedDate] = useState(today)
+  const [issuedDate, setIssuedDate] = useState(() => todayJstYmd())  // 日本時間の今日
   const [invoiceNo, setInvoiceNo] = useState('')
   const [fee, setFee] = useState(caseData.fee_judicial ?? 0)  // 司法・確定報酬（OCR反映で更新）
-  const [advExpense, setAdvExpense] = useState(0)   // 立替実費（司法・郵送料等）
-  const [regTax, setRegTax] = useState(0)           // 登録免許税又は印紙税（司法・報酬内訳から）
+  const [advExpense, setAdvExpense] = useState(0)   // 立替実費（司法・郵送料等。登録免許税の行は除く）
+  // 登録免許税又は印紙税（司法）。立替実費に登録免許税の行があればそれ、無ければ報酬内訳(registration_tax)。
+  // 両方足すと二重になる（実務タブから取り込んだ分と、OCRで報酬内訳に入れた分）。
+  const [regTaxFromExpense, setRegTaxFromExpense] = useState(0)
+  const [regTaxFromReward, setRegTaxFromReward] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [savedId, setSavedId] = useState<string | null>(null)
@@ -82,10 +89,14 @@ export default function ImportShihoInvoiceModal({ isOpen, onClose, caseData, onS
     const disc = caseData.reward_discount_judicial ?? 0
     const newFee = Math.max(0, rewardSum - disc)
     await supabase.from('cases').update({ fee_judicial: newFee }).eq('id', caseData.id)
-    // 画面反映
+    // 画面反映（登録免許税は報酬内訳側の値を更新。立替実費に登録免許税の行があればそちらが優先される）
     setFee(newFee)
-    setRegTax(ocrItems.reduce((n, it) => n + it.tax, 0))
-    setAdvExpense(ocrExpense)
+    setRegTaxFromReward(ocrItems.reduce((n, it) => n + it.tax, 0))
+    // 立替実費（司法）は郵送料の行を差し替えたので読み直す（登録免許税の行は残っている）
+    const { data: expRows } = await supabase.from('billing_expense_items').select('amount, shigyo, source_kind, label').eq('case_id', caseData.id).eq('shigyo', '司法')
+    const rows = (expRows ?? []) as Array<{ amount: number | null; shigyo: string | null; source_kind: string | null; label: string | null }>
+    setAdvExpense(rows.filter(r => !isRegTaxExpense(r)).reduce((n, r) => n + (r.amount ?? 0), 0))
+    setRegTaxFromExpense(rows.filter(isRegTaxExpense).reduce((n, r) => n + (r.amount ?? 0), 0))
     setOcrItems(null)
     setReflecting(false)
     showToast('司法書士請求書を反映しました（報酬・登免印紙・立替実費）', 'success')
@@ -95,19 +106,23 @@ export default function ImportShihoInvoiceModal({ isOpen, onClose, caseData, onS
   useEffect(() => {
     const supabase = createClient()
     Promise.all([
-      supabase.from('billing_expense_items').select('amount, shigyo').eq('case_id', caseData.id),
+      supabase.from('billing_expense_items').select('amount, shigyo, source_kind, label').eq('case_id', caseData.id),
       supabase.from('reward_items').select('registration_tax, shigyo').eq('case_id', caseData.id),
     ]).then(([expRes, rwRes]) => {
-      const adv = ((expRes.data ?? []) as Array<{ amount: number | null; shigyo: string | null }>)
-        .filter(r => r.shigyo === '司法').reduce((n, r) => n + (r.amount ?? 0), 0)
-      const tax = ((rwRes.data ?? []) as Array<{ registration_tax: number | null; shigyo: string | null }>)
-        .filter(r => r.shigyo === '司法').reduce((n, r) => n + (r.registration_tax ?? 0), 0)
-      setAdvExpense(adv)
-      setRegTax(tax)
+      const shihoRows = ((expRes.data ?? []) as Array<{ amount: number | null; shigyo: string | null; source_kind: string | null; label: string | null }>)
+        .filter(r => r.shigyo === '司法')
+      // 登録免許税の行は立替実費から分けて持つ（報酬内訳の registration_tax と二重に足さないため）
+      setAdvExpense(shihoRows.filter(r => !isRegTaxExpense(r)).reduce((n, r) => n + (r.amount ?? 0), 0))
+      setRegTaxFromExpense(shihoRows.filter(isRegTaxExpense).reduce((n, r) => n + (r.amount ?? 0), 0))
+      setRegTaxFromReward(((rwRes.data ?? []) as Array<{ registration_tax: number | null; shigyo: string | null }>)
+        .filter(r => r.shigyo === '司法').reduce((n, r) => n + (r.registration_tax ?? 0), 0))
       setLoading(false)
     })
   }, [caseData.id])
 
+  // 登録免許税又は印紙税：立替実費の行があればそれを採用、無ければ報酬内訳の値。どちらか一方だけ数える
+  const regTax = regTaxFromExpense > 0 ? regTaxFromExpense : regTaxFromReward
+  const regTaxBoth = regTaxFromExpense > 0 && regTaxFromReward > 0
   const expense = advExpense + regTax  // 司法の実費合計＝立替＋登免/印紙
   const billAmount = fee + expense - advance
   const hasAmount = fee > 0 || expense > 0
@@ -203,7 +218,12 @@ export default function ImportShihoInvoiceModal({ isOpen, onClose, caseData, onS
         ) : (
           <div className="rounded-lg border border-gray-200 px-2 py-1">
             <AmountRow label="報酬（司法・確定報酬）" value={fee} />
-            <AmountRow label="登録免許税又は印紙税（司法）" value={regTax} />
+            <AmountRow label={`登録免許税又は印紙税（司法・${regTaxFromExpense > 0 ? '立替実費の行' : '報酬内訳'}から）`} value={regTax} />
+            {regTaxBoth && (
+              <div className="px-1 py-1 text-[11px] text-amber-700">
+                立替実費の登録免許税 {yen(regTaxFromExpense)} と報酬内訳の登録免許税 {yen(regTaxFromReward)} の両方があります。二重に数えないよう立替実費の行だけを採用しています。
+              </div>
+            )}
             <AmountRow label="立替実費（司法・郵送料等）" value={advExpense} />
             {advance > 0 && <AmountRow label="前受金（差引）" value={advance} minus />}
             <div className="flex items-center justify-between px-1 py-2 mt-0.5 border-t-2 border-brand-100">
