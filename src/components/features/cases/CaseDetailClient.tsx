@@ -908,7 +908,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         <PracticeProcedureTab key={p.tab} caseData={caseState} patchCase={patchCase} gyomu={p.gyomu} title={p.title} description={p.description} court={p.court} trust={p.trust} mediation={p.mediation} heirs={heirs} tasks={tasks} sagyoDocuments={sagyoDocuments} receipts={documentReceipts ?? []} onRefresh={handleSaved} />
       ))}
       {effectiveTab === 'referral' && (
-        <ReferralTab caseData={caseState} referrals={caseReferrals ?? []} tasks={tasks} onRefresh={handleSaved} />
+        <ReferralTab caseData={caseState} referrals={caseReferrals ?? []} tasks={tasks} onRefresh={handleSaved} heirs={heirs} />
       )}
       {effectiveTab === 'receipts' && (
         <DocsTab mode="receipts" caseData={caseState} documents={documents} documentReceipts={documentReceipts} tasks={tasks} contractDocuments={contractDocuments} caseFiles={caseFiles} createdDocuments={createdDocuments} currentMemberId={currentMemberId} canOperateReceipts={viewerOwnsCase} />

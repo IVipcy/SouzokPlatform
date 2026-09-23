@@ -20,7 +20,6 @@ type Props = {
 const PROCEDURE_OPTIONS: string[] = ORDER_CATEGORY_ROWS.flat()
 const SERVICE_OPTIONS = ['相続税申告', '不動産売却', '不動産鑑定', '保険請求代行']
 const DIFFICULTY_OPTIONS = ['易', '普', '難'] as const
-const TAX_OPTIONS = ['要', '不要', '確認中'] as const
 const RANK_OPTIONS = ['S', 'A', 'B', 'C', '確認中'] as const
 
 export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Props) {
@@ -30,7 +29,6 @@ export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Pr
     difficulty: caseData.difficulty ?? '普',
     procedure_type: caseData.procedure_type ?? [],
     additional_services: caseData.additional_services ?? [],
-    tax_filing_required: caseData.tax_filing_required,
     tax_filing_deadline: caseData.tax_filing_deadline ?? '',
     property_rank: caseData.property_rank ?? '確認中',
     total_asset_estimate: caseData.total_asset_estimate ?? 0,
@@ -65,7 +63,6 @@ export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Pr
         service_category_2: form.procedure_type[1] ?? null,
         service_parts: form.procedure_type.length ? buildParts(form.procedure_type) : null,
         additional_services: form.additional_services,
-        tax_filing_required: form.tax_filing_required,
         tax_filing_deadline: form.tax_filing_deadline || null,
         property_rank: form.property_rank,
         total_asset_estimate: form.total_asset_estimate || null,
@@ -235,25 +232,6 @@ export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Pr
         </FormField>
 
         <div className="grid grid-cols-2 gap-4">
-          {/* 相続税 */}
-          <FormField label="相続税申告">
-            <div className="flex gap-2">
-              {TAX_OPTIONS.map(t => (
-                <label key={t} className="flex items-center gap-1.5 text-sm cursor-pointer">
-                  <input
-                    type="radio"
-                    name="tax"
-                    value={t}
-                    checked={form.tax_filing_required === t}
-                    onChange={() => setForm(p => ({ ...p, tax_filing_required: t }))}
-                    className="accent-brand-600"
-                  />
-                  {t}
-                </label>
-              ))}
-            </div>
-          </FormField>
-
           {/* 不動産ランクは物件単位の管理に移行（財産情報タブの各物件で設定） */}
         </div>
 

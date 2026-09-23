@@ -108,6 +108,8 @@ export type CaseAlertContext = {
   reportActionOverdue?: AlertSeverity | null
   /** 上の件数（理由文に出す） */
   reportActionCount?: number
+  /** 相続税申告の要否が「確認中」のままで、確定した財産の合計が基礎控除を超えている（金額は理由文に出す） */
+  taxFilingUndecided?: { total: number; deduction: number; heirs: number } | null
 }
 
 const dayOf = (v: string | null | undefined) => (v ? v.slice(0, 10) : null)
@@ -221,6 +223,15 @@ export function evaluateCaseAlerts(c: CaseAlertInput, ctx: CaseAlertContext, tod
     out.push({ key: 'completion_overdue', category: '完了予定日 超過', severity: 'high', audience: 'manager',
       since: c.expected_completion_date, days: bizDaysOverdue(c.expected_completion_date, todayStr),
       reason: `完了予定日 ${c.expected_completion_date} を過ぎています`, tab: 'tasks' })
+  }
+
+  // 相続税申告の要否が未確定（確認中）のまま、確定した財産の合計が基礎控除を超えている。
+  // 要否は人が決める（管理担当が財産調査後に確定）。ここは「決めていない」ことだけを知らせる。
+  if (c.status === '対応中' && ctx.taxFilingUndecided) {
+    const t = ctx.taxFilingUndecided
+    const man = (n: number) => `${Math.round(n / 10_000).toLocaleString()}万円`
+    out.push({ key: 'tax_filing_undecided', category: '相続税申告 要否未確定', severity: 'mid', audience: 'manager',
+      reason: `確定した財産の合計 ${man(t.total)} が基礎控除 ${man(t.deduction)}（相続人${t.heirs}人）を超えていますが、相続税申告の要否が「確認中」のままです。他事業者紹介の税理士で確定してください`, tab: 'referral' })
   }
 
   // 週次報告の漏れ。作業進行中に入って1週間たってからカウントする。

@@ -62,7 +62,8 @@ function needsFollowup(status: string, latestDate: string | null): boolean {
 
 export default function CaseHeader({ caseData, latestCommunicationDate, caseAlerts, tasks, statusHistory, selectableStatuses, onStatusChange, onJumpToReferral, showReceiptsAction, receiptCount = 0, receiptTotal = 0, showDocsAction, showDocumentCreateAction, docCount = 0, highlightTabs, onActivateTab, caseMembers = [], allMembers = [], reopenCount = 0, relatedCases = [] }: Props) {
   const statusColor = CASE_STATUSES.find(s => s.key === caseData.status)?.color ?? '#6B7280'
-  const taxFiling = caseData.tax_filing_required === '要'
+  // 相続税申告は 要／不要／確認中 の3値をそのまま見せる（以前は「要」以外を全部「なし」にしていて、確認中が「なし」に見えた）
+  const taxState = caseData.tax_filing_required === '要' ? '要' : caseData.tax_filing_required === '不要' ? '不要' : '確認中'
   const followupNeeded = needsFollowup(caseData.status, latestCommunicationDate)
   const procedures = (caseData.procedure_type ?? []).filter(Boolean)
 
@@ -216,7 +217,7 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                   ) : <span className="text-[11px] text-gray-300">未設定</span>}
                 </MetaRow>
 
-                {/* 相続税申告（自動判定）。クリックで税理士セクションへ */}
+                {/* 相続税申告（人が入れた要否。判定は他事業者紹介の税理士ブロック）。クリックでそこへ */}
                 {(
                   <MetaRow label="相続税申告">
                     <button
@@ -224,13 +225,15 @@ export default function CaseHeader({ caseData, latestCommunicationDate, caseAler
                       onClick={onJumpToReferral}
                       title="他事業者紹介（税理士）へ移動"
                       className={`inline-flex items-center gap-1 text-[11px] leading-none px-2 py-1 rounded-md font-semibold transition-colors ${
-                        taxFiling
+                        taxState === '要'
                           ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
-                          : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'
+                          : taxState === '不要'
+                            ? 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'
+                            : 'bg-white text-amber-700 border border-dashed border-amber-300 hover:bg-amber-50'
                       }`}
                     >
-                      <span className={`w-1.5 h-1.5 rounded-full ${taxFiling ? 'bg-amber-500' : 'bg-gray-400'}`} />
-                      {taxFiling ? 'あり' : 'なし'}
+                      <span className={`w-1.5 h-1.5 rounded-full ${taxState === '要' ? 'bg-amber-500' : taxState === '不要' ? 'bg-gray-400' : 'bg-amber-300'}`} />
+                      {taxState === '要' ? '要（あり）' : taxState}
                     </button>
                   </MetaRow>
                 )}

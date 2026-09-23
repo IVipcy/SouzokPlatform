@@ -6,6 +6,7 @@
 // 取得はここに集約し、案件の色を出す画面はすべてこの ctx を使う。
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { basicDeduction } from '@/lib/taxFiling'
 import { overdueSeverity, billOverdueSeverity } from '@/lib/overdue'
 import { CONTRACT_PENDING_STATUSES } from '@/lib/constants'
 import { caseReportSeverity } from '@/lib/caseReports'
@@ -39,7 +40,7 @@ export async function fetchCaseAlertContexts(
   if (caseIds.length === 0) return out
 
   const empty = <T,>() => Promise.resolve({ data: [] as T[] })
-  const [membersRes, invoicesRes, tasksRes, docsRes, reportsRes, hourensouRes] = await Promise.all([
+  const [membersRes, invoicesRes, tasksRes, docsRes, reportsRes, hourensouRes, taxCaseRes, heirsRes, propsRes, finRes] = await Promise.all([
     supabase.from('case_members').select('case_id,role').in('case_id', caseIds),
     supabase.from('invoices').select('case_id,invoice_type,status,created_at,due_date').in('case_id', caseIds),
     preloaded.tasks ? empty<unknown>() : supabase.from('tasks').select('case_id,title,task_kind,status,due_date,priority').in('case_id', caseIds),
@@ -47,6 +48,11 @@ export async function fetchCaseAlertContexts(
     preloaded.reports ? empty<unknown>() : supabase.from('progress_reports').select('case_id,status,confirmed_date').in('case_id', caseIds),
     // 報連相（要対応の未回答だけアラートに出す）
     supabase.from('case_reports').select('case_id,kind,status,requested_date').in('case_id', caseIds),
+    // 相続税申告の要否未確定（確定した財産の合計 vs 基礎控除）
+    supabase.from('cases').select('id,tax_filing_required').in('id', caseIds),
+    supabase.from('heirs').select('case_id,is_deceased,is_legal_heir').in('case_id', caseIds),
+    supabase.from('real_estate_properties').select('case_id,appraisal_value,confirmed').in('case_id', caseIds),
+    supabase.from('financial_assets').select('case_id,balance_amount').in('case_id', caseIds),
   ])
   const taskRows = preloaded.tasks ?? (tasksRes.data ?? [])
   const reportRows = preloaded.reports ?? (reportsRes.data ?? [])
@@ -116,6 +122,30 @@ export async function fetchCaseAlertContexts(
     if (r.status === '確認済' && (r.confirmed_date ?? '') >= weekAgoStr) recentWeekly.add(r.case_id)
   }
 
+  // 相続税申告の要否：確認中（または未入力）のまま、確定した財産の合計が基礎控除を超えているか
+  const taxUndecided = new Map<string, { total: number; deduction: number; heirs: number }>()
+  {
+    const undecided = new Set(((taxCaseRes.data ?? []) as Array<{ id: string; tax_filing_required: string | null }>).filter(c => !c.tax_filing_required || c.tax_filing_required === '確認中').map(c => c.id))
+    const heirCnt = new Map<string, number>()
+    for (const h of (heirsRes.data ?? []) as Array<{ case_id: string; is_deceased: boolean | null; is_legal_heir: boolean | null }>) {
+      if (h.is_deceased || h.is_legal_heir === false) continue
+      heirCnt.set(h.case_id, (heirCnt.get(h.case_id) ?? 0) + 1)
+    }
+    const total = new Map<string, number>()
+    for (const p of (propsRes.data ?? []) as Array<{ case_id: string; appraisal_value: number | null; confirmed: boolean | null }>) {
+      if (p.confirmed && p.appraisal_value) total.set(p.case_id, (total.get(p.case_id) ?? 0) + p.appraisal_value)
+    }
+    for (const f of (finRes.data ?? []) as Array<{ case_id: string; balance_amount: number | null }>) {
+      if (f.balance_amount) total.set(f.case_id, (total.get(f.case_id) ?? 0) + f.balance_amount)
+    }
+    for (const id of undecided) {
+      const t = total.get(id) ?? 0
+      const heirs = heirCnt.get(id) ?? 0
+      const deduction = basicDeduction(heirs)
+      if (t > deduction) taxUndecided.set(id, { total: t, deduction, heirs })
+    }
+  }
+
   for (const id of caseIds) {
     const adv = advance.get(id)
     out.set(id, {
@@ -131,6 +161,7 @@ export async function fetchCaseAlertContexts(
       billOverdue: billSev.get(id) ?? null,
       reportActionOverdue: reportSev.get(id) ?? null,
       reportActionCount: reportCnt.get(id) ?? 0,
+      taxFilingUndecided: taxUndecided.get(id) ?? null,
     })
   }
   return out

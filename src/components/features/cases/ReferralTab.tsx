@@ -4,11 +4,12 @@ import { useState, Fragment } from 'react'
 import { Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import type { CaseRow, CaseReferralRow, TaskRow } from '@/types'
+import type { CaseRow, CaseReferralRow, TaskRow, HeirRow } from '@/types'
+import TaxFilingField from './TaxFilingField'
 import {
   Section, SectionHeading, FieldGrid, FieldRow, InlineSelect, InlineEdit, InlineDate, InlineCurrency, InlineTextarea,
 } from '@/components/ui/InlineFields'
-import { REFERRAL_PARTNER_TYPES, REFERRAL_BILLING_STATUSES, REAL_ESTATE_REGISTRATION_OPTIONS, TAX_FILING_OPTIONS, REAL_ESTATE_APPRAISAL_RANKS, TAX_ADVISOR_REFERRAL_REASONS, OTHER_REFERRAL_PARTNERS, TAX_ADVISOR_COMPANIES } from '@/lib/constants'
+import { REFERRAL_PARTNER_TYPES, REFERRAL_BILLING_STATUSES, REAL_ESTATE_REGISTRATION_OPTIONS, REAL_ESTATE_APPRAISAL_RANKS, TAX_ADVISOR_REFERRAL_REASONS, OTHER_REFERRAL_PARTNERS, TAX_ADVISOR_COMPANIES } from '@/lib/constants'
 import { PracticeTabHeader, ProgressChip } from './TabContextPanel'
 import SelectOrTextField from './SelectOrTextField'
 
@@ -19,6 +20,8 @@ type Props = {
   tasks?: TaskRow[]
   // オーダーシート埋め込み時は報酬請求状態を出さない（請求は個別タブ/請求機能で管理）
   orderSheetMode?: boolean
+  /** 相続人（相続税申告の目安＝基礎控除の人数に使う） */
+  heirs?: HeirRow[]
 }
 
 /**
@@ -61,7 +64,7 @@ function ReasonField({ label, value, onSave }: { label: string; value: string | 
   )
 }
 
-export default function ReferralTab({ caseData, referrals, onRefresh, tasks = [], orderSheetMode = false }: Props) {
+export default function ReferralTab({ caseData, referrals, onRefresh, tasks = [], orderSheetMode = false, heirs = [] }: Props) {
   const supabase = createClient()
   const [rows, setRows] = useState<CaseReferralRow[]>(referrals)
   const [activeType, setActiveType] = useState<string | null>(referrals[0]?.partner_type ?? null)
@@ -153,7 +156,7 @@ export default function ReferralTab({ caseData, referrals, onRefresh, tasks = []
             {/* 紹介理由は選択肢か自由入力。「自由入力に切替」でその場で文字を打てる（別の欄は作らない）。
                 自由入力の文字はそのまま referral_reason に入る。 */}
             <ReasonField label="紹介理由" value={row.referral_reason} onSave={v => { void saveReferralField(row.id, 'referral_reason')(v) }} />
-            <InlineSelect label="相続税申告要否" value={caseData.tax_filing_required} options={[...TAX_FILING_OPTIONS]} onSave={saveCaseField('tax_filing_required')} />
+            <TaxFilingField value={caseData.tax_filing_required} onSave={saveCaseField('tax_filing_required')} heirs={heirs} total={caseData.total_asset_estimate ?? null} hasTaxReferral />
             <FirmNameField label="紹介先（税理士法人名）" value={row.firm_name} onSave={v => { void saveReferralField(row.id, 'firm_name')(v) }} />
           </>
         )}
@@ -192,7 +195,7 @@ export default function ReferralTab({ caseData, referrals, onRefresh, tasks = []
         </Section>
         <Section title="税理士紹介">
           <FieldGrid>
-            <InlineSelect label="相続税申告要否" value={caseData.tax_filing_required} options={[...TAX_FILING_OPTIONS]} onSave={saveCaseField('tax_filing_required')} width="md" />
+            <TaxFilingField value={caseData.tax_filing_required} onSave={saveCaseField('tax_filing_required')} heirs={heirs} total={caseData.total_asset_estimate ?? null} hasTaxReferral={!!taxRow} />
             <InlineSelect label="紹介" value={taxRow ? 'あり' : 'なし'} options={['あり', 'なし']} onSave={async v => { await togglePartner('税理士', v === 'あり') }} width="compact" />
             {/* 紹介先の税理士法人。面談結果登録の「紹介元（税理士経由）」と同じ一覧から選ぶ。
                 付き合いのない法人へ紹介することもあるので、一覧に無ければそのまま打てる。 */}
