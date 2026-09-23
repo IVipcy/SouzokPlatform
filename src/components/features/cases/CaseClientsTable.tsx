@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Trash2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { syncMainClientHeir } from '@/lib/clientHeirSync'
+import { normalizePhone } from '@/lib/phone'
 import { showToast } from '@/components/ui/Toast'
 import { HEIR_RELATIONSHIPS } from '@/lib/constants'
 import type { CaseClientRow } from '@/types'
@@ -42,6 +43,11 @@ export default function CaseClientsTable({ caseId, clients, onRefresh, clientId,
     // 前後の空白・改行を落として保存する。貼り付けで紛れ込むと、氏名の検索・入金の突合・
     // 重複チェックが「見えない文字」でずれる。姓名のあいだのスペースには手を触れない。
     value = value.trim()
+    // 電話番号はハイフンなし・半角数字だけで保存する（全角や勝手に入れたハイフンは落とす）。入金突合・検索で表記ゆれを作らない
+    if (field === 'phone' || field === 'mobile_phone') {
+      value = normalizePhone(value)
+      setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value === '' ? null : value } as CaseClientRow : r)))
+    }
     const { error } = await supabase.from('case_clients').update({ [field]: value === '' ? null : value }).eq('id', id)
     if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
     // メイン依頼者の氏名編集 → 案件名へ反映（＋相続人一覧の依頼者チェックも同じ人に）
@@ -97,7 +103,7 @@ export default function CaseClientsTable({ caseId, clients, onRefresh, clientId,
         <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1260 }}>
           <thead>
             <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
-              <th className="px-2 py-2 text-left font-semibold w-28">優先度</th>
+              <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 140, width: 140 }}>優先度</th>
               <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 160 }}>氏名</th>
               <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 160 }}>ふりがな</th>
               <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 120, width: 120 }}>続柄</th>
