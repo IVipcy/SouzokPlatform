@@ -4,9 +4,10 @@ import { useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useSearchParams } from 'next/navigation'
 import {
-  Section, SectionHeading, FieldGrid, InlineSelect, InlineEdit, InlineCheckbox, InlineTextarea,
+  Section, SectionHeading, FieldGrid, InlineCheckbox, InlineTextarea,
 } from '@/components/ui/InlineFields'
 import { municipalityOf } from './RealEstateSection'
+import InsuranceRowsTable from './InsuranceRowsTable'
 import { OTHER_ASSET_KINDS, isNegativeKind } from '@/lib/constants'
 import { SubTabs } from '@/components/ui/SubTabs'
 import { PracticeRow } from './PracticeCard'
@@ -129,7 +130,7 @@ export default function AssetsTab({ caseData, properties, financialAssets, finan
 
   // オーダーシート：証券/信託/生命保険はデータが無ければ最初は非表示。「＋証券/＋信託/＋生命保険」を押すと表示。
   const hasKind = (k: string) => financialAssets.some(a => a.asset_type === k)
-  const hasInsurance = !!caseData.life_insurance_company || !!caseData.life_insurance_inquiry || !!caseData.life_insurance_inquiry_notes
+  const hasInsurance = !!caseData.life_insurance_company || !!caseData.life_insurance_inquiry || !!caseData.life_insurance_inquiry_notes || financialAssets.some(a => a.asset_type === '生命保険')
   const [reveal, setReveal] = useState<{ securities?: boolean; trust?: boolean; insurance?: boolean }>({})
   // オーダーシートも実務と同じく証券・信託は1区画。証券会社／株主名簿管理人の行か、保有先の回答があれば出す
   const holdingKnown = caseData.securities_holding_known ?? null
@@ -306,8 +307,12 @@ export default function AssetsTab({ caseData, properties, financialAssets, finan
         <div className={showInsurance ? 'space-y-3' : 'hidden'}>
           <SectionHeading title="生命保険" className="mb-2.5 pb-1.5 border-b border-gray-200"
             right={orderSheetMode ? undefined : <ProgressChip caseId={caseData.id} scopeKey="asset_insurance" title="生命保険" />} />
+          {/* 保険会社は1行1社（面談シートと同じ表・同じ保存先）。複数社に入っているのが普通なので1欄では持たない */}
+          <InsuranceRowsTable caseId={caseData.id} assets={financialAssets} onRefresh={onRefresh} />
+          {caseData.life_insurance_company && !financialAssets.some(a => a.asset_type === '生命保険') && (
+            <p className="text-[11.5px] text-amber-800">以前の欄に「{caseData.life_insurance_company}」と入っています。上の表に会社を足してください（この文は表に入ると消えます）。</p>
+          )}
           <FieldGrid>
-            <InlineEdit label="保険会社名" value={caseData.life_insurance_company} onSave={v => save('life_insurance_company', v)} />
             <InlineCheckbox label="生命保険協会照会" value={caseData.life_insurance_inquiry} onSave={v => save('life_insurance_inquiry', v)} />
             <InlineTextarea label="照会結果・保険金メモ" value={caseData.life_insurance_inquiry_notes} onSave={v => save('life_insurance_inquiry_notes', v)} fullWidth placeholder="例）受取人／保険金額／請求日／入金日／課税区分（みなし相続財産）／協会照会の結果 など" />
           </FieldGrid>

@@ -19,13 +19,14 @@ import { MoneyInput } from '@/components/features/cases/FinancialAssetsTable'
 import { useRowsFrom } from '@/lib/useRowsFrom'
 import type { CaseRow, CaseClientRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, CaseOtherAssetRow } from '@/types'
 import type { MeetingMemoRow } from './IntakeCaseClient'
-import MemoPhotoBox from './MemoPhotoBox'
 import { toKatakana } from '@/lib/kana'
+import AssetEstimateSection from '@/components/features/cases/AssetEstimateSection'
+import { gyomuOfCase, GYOMU_TAB } from '@/lib/serviceMaster'
 
 const BUCKET = 'meeting-memos'
 
 // AIで項目に反映のスキーマ（単一項目・cases/clients テーブルに1レコード上書き）。
-type XField = { key: string; label: string; target: 'case' | 'client'; enum?: string[]; type?: 'date' | 'number' }
+type XField = { key: string; label: string; target: 'case' | 'client' | 'memo_order'; enum?: string[]; type?: 'date' | 'number' }
 const EXTRACT_SCHEMA: Record<string, XField[]> = {
   // 依頼者情報：住所・振込名義（clients テーブル）を中心にAI反映。
   clientInfo: [
@@ -44,7 +45,8 @@ const EXTRACT_SCHEMA: Record<string, XField[]> = {
   //   procedure_type(手続き区分の複数選択) は enum配列で扱いにくいため、フリー欄側で確認する運用。
   order: [
     { key: 'contract_type', label: '契約形態', target: 'case', enum: ['行・司連名', '行政書士法人単独', '司法書士法人単独', 'いきいきライフ協会'] },
-    { key: 'meeting_other_notes', label: '提案内容・その他メモ', target: 'case' },
+    // 提案内容はどの画面にも出ない隠れ列（meeting_other_notes）ではなく、受注内容のメモ（work_content.order）へ追記する
+    { key: 'meeting_other_notes', label: '提案内容・その他メモ', target: 'memo_order' },
   ],
 }
 
@@ -91,7 +93,6 @@ const ROW_EXTRACT_SCHEMA: Record<string, (Omit<RowExtractSchema, 'table'> & { ta
     fields: [
       { key: 'property_type', label: '物件種別', enum: [...PROPERTY_TYPES] },
       { key: 'address', label: '所在地' },
-      { key: 'appraisal_value', label: '評価額', type: 'number' },
       { key: 'notes', label: '備考' },
     ],
   }],
@@ -101,7 +102,6 @@ const ROW_EXTRACT_SCHEMA: Record<string, (Omit<RowExtractSchema, 'table'> & { ta
       { key: 'institution_name', label: '金融機関名' },
       { key: 'branch_name', label: '支店' },
       { key: 'account_number', label: '口座番号' },
-      { key: 'balance_amount', label: '残高', type: 'number' },
     ],
     fixedValues: { asset_type: '預貯金', acquirer: '自社' },
   }],
@@ -111,7 +111,6 @@ const ROW_EXTRACT_SCHEMA: Record<string, (Omit<RowExtractSchema, 'table'> & { ta
     fields: [
       { key: 'institution_name', label: '証券会社名' },
       { key: 'branch_name', label: '支店' },
-      { key: 'balance_amount', label: '評価額', type: 'number' },
       { key: 'notes', label: '備考（聞いた銘柄など）' },
     ],
     fixedValues: { asset_type: '証券', acquirer: '自社' },
@@ -273,12 +272,11 @@ function HeirsMini({ caseId, heirs, onRefresh, ensureCaseId }: { caseId: string;
   )
 }
 
-// ── 不動産（面談シート：物件種別・所在地・評価額・備考だけ） ──
+// ── 不動産（面談シート：物件種別・所在地・地番／家屋番号・備考だけ。金額は「資産概算」で） ──
 function REMini({ caseId, properties, onRefresh, ensureCaseId }: { caseId: string; properties: RealEstatePropertyRow[]; onRefresh?: () => void; ensureCaseId?: () => Promise<string> }) {
   const supabase = createClient()
   const [rows, setRows] = useRowsFrom(properties)
   const save = (id: string, field: string, v: string) => { setRows(p => p.map(r => r.id === id ? { ...r, [field]: v } as RealEstatePropertyRow : r)); supabase.from('real_estate_properties').update({ [field]: v || null }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }) }
-  const saveNum = (id: string, v: string) => { supabase.from('real_estate_properties').update({ appraisal_value: v ? Number(v) : null }).eq('id', id).then(({ error }) => { if (error) showToast(`保存に失敗: ${error.message}`, 'error') }) }
   const add = async () => { const cid = ensureCaseId ? await ensureCaseId() : caseId; const { data, error } = await supabase.from('real_estate_properties').insert({ case_id: cid }).select('*').single(); if (error || !data) { showToast('追加に失敗', 'error'); return } setRows(p => [...p, data as RealEstatePropertyRow]); onRefresh?.() }
   const del = async (id: string) => { await supabase.from('real_estate_properties').delete().eq('id', id); setRows(p => p.filter(r => r.id !== id)); onRefresh?.() }
   return (
@@ -295,7 +293,6 @@ function REMini({ caseId, properties, onRefresh, ensureCaseId }: { caseId: strin
           {needsBuildingNumber(r.property_type) && (
             <label className="block"><span className="block text-[11px] text-gray-400 mb-0.5">家屋番号</span><input type="text" value={r.kaoku_bango ?? ''} onChange={e => save(r.id, 'kaoku_bango', e.target.value)} className="w-full px-2 py-1.5 text-[13px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400" /></label>
           )}
-          <label className="block"><span className="block text-[11px] text-gray-400 mb-0.5">評価額</span><MoneyInput value={r.appraisal_value} onCommit={v => saveNum(r.id, v)} /></label>
           <label className="block"><span className="block text-[11px] text-gray-400 mb-0.5">備考</span><input type="text" value={r.notes ?? ''} onChange={e => save(r.id, 'notes', e.target.value)} placeholder="売却意向・査定状況 等" className="w-full px-2 py-1.5 text-[13px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400" /></label>
           <div className="sm:col-span-2 flex justify-end"><button type="button" onClick={() => del(r.id)} className="inline-flex items-center gap-1 text-[12px] text-gray-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" />削除</button></div>
         </div>
@@ -353,6 +350,8 @@ export function createRunExtract(deps: {
   onFilled?: (keys: string[]) => void
   /** true でトーストを出さない（まとめて反映で件数を集計してから1回だけ出したいとき） */
   silent?: boolean
+  /** セクションのメモ（work_content[key]）に追記する。提案内容・その他メモの反映先 */
+  appendWorkContent?: (key: string, text: string) => Promise<void>
 }) {
   const toast = (msg: string, kind: 'success' | 'error') => { if (!deps.silent) showToast(msg, kind) }
   return (sec: string) => async (source: { image?: string; text?: string }): Promise<{ filled: number; added: number }> => {
@@ -371,14 +370,17 @@ export function createRunExtract(deps: {
       // 単一項目：case/clientへ上書き
       const values = j.values ?? {}
       const casePatch: Record<string, unknown> = {}, clientPatch: Record<string, unknown> = {}
+      const memoOrder: string[] = []
       const filled: string[] = []
       for (const f of singleSchema ?? []) {
         const v = values[f.key]; if (v === undefined || v === null || v === '') continue
+        if (f.target === 'memo_order') { memoOrder.push(String(v)); continue }
         if (f.target === 'case') casePatch[f.key] = v; else clientPatch[f.key] = v
         filled.push(f.key)
       }
       if (Object.keys(casePatch).length) await deps.patchCase(casePatch as Partial<CaseRow>)
       if (Object.keys(clientPatch).length) await deps.patchClient(clientPatch)
+      if (memoOrder.length && deps.appendWorkContent) { await deps.appendWorkContent('order', memoOrder.join('\n')); filled.push('work_content.order') }
       // 行データ：該当テーブルへINSERT。
       // 「図→表」「表→図」どちらの順でも使えるようにしたため、両方やると同じ人が二重登録される。
       // そこで dedupeKey（相続人なら氏名）が既存行と一致するものはスキップする。
@@ -461,7 +463,7 @@ const OPTIONAL_FIN: { kind: string; label: string; section: string; cols: FinCol
   { kind: '証券', label: '証券・信託', section: 'assets_securities', kinds: ['証券', '信託銀行'], cols: [] },
   { kind: '生命保険', label: '生命保険', section: 'assets_insurance', cols: [{ key: 'institution_name', label: '保険会社名' }] },
 ]
-const SEC_COLS: FinCol[] = [{ key: 'institution_name', label: '証券会社' }, { key: 'branch_name', label: '支店' }, { key: 'balance_amount', label: '残高（評価額）', money: true }, { key: 'notes', label: '備考（聞いた銘柄など）' }]
+const SEC_COLS: FinCol[] = [{ key: 'institution_name', label: '証券会社' }, { key: 'branch_name', label: '支店' }, { key: 'notes', label: '備考（聞いた銘柄など）' }]
 const TRUST_COLS: FinCol[] = [{ key: 'institution_name', label: '信託銀行名' }, { key: 'notes', label: '備考' }]
 const HOLDING_KNOWN_OPTIONS = ['分かる', '分からない', '持っていない'] as const
 
@@ -520,11 +522,32 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
   const runExtractRaw = createRunExtract({
     patchCase, patchClient, caseId: caseData.id, ensureCaseId, onRefresh,
     onFilled: keys => setAiFilled(prev => new Set([...prev, ...keys])),
+    appendWorkContent: async (key, text) => {
+      const wc = (caseData.work_content ?? {}) as Record<string, string>
+      const cur = (wc[key] ?? '').trim()
+      await patchCase({ work_content: { ...wc, [key]: cur ? `${cur}\n${text}` : text } } as Partial<CaseRow>)
+    },
   })
   const runExtract = (sec: string) => async (source: { image?: string; text?: string }) => { await runExtractRaw(sec)(source) }
 
+  // 受注区分（提案内容・手続き内容で選んだもの）に合わせてセクションを出し分ける（オーダーシートと同じ業務→タブの表）。
+  // 依頼者情報・提案内容・相続人調査・資産概算は面談の基本なので常に出す。
+  // 区分に無いセクションでも、メモ（タイピング／手書き）やデータが入っていれば出す（面談で書いたものを隠さない）。
+  const wcAll = (caseData.work_content ?? {}) as Record<string, string>
+  const selectedTabs = caseData.service_category ? new Set(gyomuOfCase(caseData).map(g => GYOMU_TAB[g]).filter(Boolean)) : null
+  const SEC_GATE: Record<string, string> = { assets_re: 'assets', assets_deposit: 'assets', assets_securities: 'assets', assets_insurance: 'assets', division: 'division', will: 'will', registration: 'registration', cancellation: 'cancellation' }
+  const hasAssetData = properties.length > 0 || financialAssets.length > 0 || otherAssets.length > 0
+  const secOn = (key: string, memoKey?: string) => {
+    const gate = key.startsWith('other_') ? 'assets' : SEC_GATE[key]
+    if (!gate || !selectedTabs) return true
+    if (selectedTabs.has(gate as never)) return true
+    if (gate === 'assets' && hasAssetData) return true
+    return !!(wcAll[memoKey ?? key] ?? '').trim() || memos.some(m => m.section === key)
+  }
+  const assetsOn = secOn('assets_re', 'assets')
+
   // セクション枠（描画関数：コンポーネント化すると再マウントで手書きが消えるため）。
-  const sec = (key: string, title: string, badge: string | null, body: React.ReactNode, extract?: (src: { image?: string; text?: string }) => Promise<void>, hideMemo?: boolean, memo?: { key: string; label: string }) => (
+  const sec = (key: string, title: string, badge: string | null, body: React.ReactNode, extract?: (src: { image?: string; text?: string }) => Promise<void>, hideMemo?: boolean, memo?: { key: string; label: string }) => secOn(key, memo?.key) && (
     <div key={key} id={`sec-${key}`} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-2.5 bg-[#1E3A8A]"><span className="text-[14px] font-bold text-white flex-1">{title}</span>{badge && <span className="text-[10px] text-white bg-white/22 rounded-full px-1.5 py-0.5">{badge}</span>}</div>
       <div className="p-4">
@@ -613,12 +636,17 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
         </div>
       ), runExtract('deceased'))}
 
+      {/* 資産概算（調査開始前）。口座ごとの残高・物件ごとの評価額は面談では分からないので、区分ごとの目安だけ */}
+      {sec('assets_estimate', '資産概算（調査開始前）', null, (
+        <AssetEstimateSection caseId={caseData.id} patchCase={patchCase} ensureCaseId={ensureCaseId} compact />
+      ), undefined, true)}
+
       {sec('assets_re', '財産調査（不動産）', '常時表示', (
         <REMini caseId={caseData.id} properties={properties} onRefresh={onRefresh} ensureCaseId={ensureCaseId} />
       ), runExtract('assets_re'), false, { key: 'assets', label: '財産のメモ（不動産・預金・証券などで共通。OS/実務の財産調査に反映されます）' })}
 
       {sec('assets_deposit', '財産調査（預金）', '常時表示', (
-        <FinMini caseId={caseData.id} kind="預貯金" addLabel="口座を追加" assets={financialAssets} onRefresh={onRefresh} ensureCaseId={ensureCaseId} cols={[{ key: 'institution_name', label: '金融機関名' }, { key: 'branch_name', label: '支店' }, { key: 'account_number', label: '口座番号' }, { key: 'balance_amount', label: '残高（評価額）', money: true }]} />
+        <FinMini caseId={caseData.id} kind="預貯金" addLabel="口座を追加" assets={financialAssets} onRefresh={onRefresh} ensureCaseId={ensureCaseId} cols={[{ key: 'institution_name', label: '金融機関名' }, { key: 'branch_name', label: '支店' }, { key: 'account_number', label: '口座番号' }]} />
       ), runExtract('assets_deposit'), false, { key: 'assets', label: '財産のメモ（不動産・預金・証券などで共通。OS/実務の財産調査に反映されます）' })}
 
       {OPTIONAL_FIN.filter(f => extraFin.has(f.kind)).map(f => (
@@ -671,8 +699,8 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
         </div>
       ))}
 
-      {/* 財産の種類を追加 */}
-      <div className="flex items-center gap-2 flex-wrap">
+      {/* 財産の種類を追加（財産のセクションが出ているときだけ） */}
+      {assetsOn && <div className="flex items-center gap-2 flex-wrap">
         <span className="text-[12px] text-gray-500">財産の種類を追加：</span>
         {OPTIONAL_FIN.filter(f => !extraFin.has(f.kind)).map(f => (
           <button key={f.kind} type="button" onClick={() => showKind(f.kind, f.section)} className="inline-flex items-center gap-1 text-[12px] px-3 py-1.5 rounded-lg border border-dashed border-gray-300 text-brand-600 hover:border-brand-300"><Plus className="w-3.5 h-3.5" />{f.label}</button>
@@ -685,7 +713,7 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
           </button>
         ))}
         {OPTIONAL_FIN.every(f => extraFin.has(f.kind)) && OTHER_ASSET_KINDS.every(k => extraFin.has(k.kind)) && <span className="text-[11px] text-gray-300">すべて表示中</span>}
-      </div>
+      </div>}
 
       {sec('referral', '他事業者紹介', null, (
         <p className="text-[12px] text-gray-400">紹介の要否はメモ欄に記録してください（不動産査定・税理士など。詳細は③オーダーシートの他事業者紹介で入力）。</p>

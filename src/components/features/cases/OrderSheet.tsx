@@ -12,7 +12,7 @@ import ClientInfoTab from './ClientInfoTab'
 import OrderContentTab from './OrderContentTab'
 import DeceasedTab from './DeceasedTab'
 import AssetsTab from './AssetsTab'
-import AssetsTotalBand from './AssetsTotalBand'
+import AssetEstimateSection from './AssetEstimateSection'
 import { OTHER_ASSET_KINDS } from '@/lib/constants'
 import ReferralTab from './ReferralTab'
 import CancellationTab from './CancellationTab'
@@ -190,7 +190,8 @@ export default function OrderSheet({
     // その他財産・相続債務・その他費用は金融資産ではないので、金融ブロックから出して別に置く。
     { title: '財産（不動産）', gate: 'assets', workContentKey: 'assets', node: (
       <>
-        <AssetsTotalBand properties={properties} financialAssets={financialAssets} otherAssets={otherAssets} />
+        {/* 資産概算（調査開始前）。合計バンド（口座の残高・物件の評価額の集計）は廃止し、区分ごとの目安を入れる区画に */}
+        <AssetEstimateSection caseId={caseData.id} patchCase={patchCase} />
         <div className="mt-3"><AssetsTab caseData={caseData} properties={properties} acquisitions={acquisitions} financialAssets={financialAssets} onRefresh={onRefresh} patchCase={patchCase} orderSheetMode contractDocuments={contractDocuments} showKinds={['realestate']} showOtherKinds={[]} hideSummary /></div>
       </>
     ) },
@@ -230,6 +231,9 @@ export default function OrderSheet({
     { title: '手紙', gate: 'letter', node: <HintNote>作業内容を下の欄に書いてください（専用の入力項目は今後追加予定です）。</HintNote> },
     { title: '執行通知', gate: 'execution', node: <HintNote>作業内容を下の欄に書いてください（専用の入力項目は今後追加予定です）。</HintNote> },
     { title: '契約書作成', gate: 'contractCreate', node: <HintNote>契約書を作る作業を下の欄に書いてください（残りの手続きとは別です。専用の入力項目は今後追加予定）。</HintNote> },
+    // 相続登記・遺産承継はオーダーシートでは作業内容（フリー）だけ。登記の申請単位・精算書は実務タブで
+    { title: '相続登記', gate: 'registration', node: <HintNote>登記の種別（所有権移転・住所氏名変更 等）や登記原因、分かっている物件の話を下の欄に書いてください。申請単位の管理は実務タブの「相続登記」で行います。</HintNote> },
+    { title: '遺産承継', gate: 'succession', node: <HintNote>承継の段取り（解約金の受け皿・分配の方針 等）を下の欄に書いてください。精算書・指図書は実務タブの「遺産承継」で作ります。</HintNote> },
     // 契約・報酬・請求はオーダーシートでは扱わない（請求タブで管理）
   ]
   const osSections = allOsSections.filter(s => showSec(s.gate))

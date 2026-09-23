@@ -598,7 +598,6 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         meeting_other_notes: formData.otherNotes || null,
         consideration_decline_reason: formData.considerationDeclineReason || null,
         consideration_decline_reason_detail: formData.considerationDeclineReasonDetail || null,
-        meeting_content_detail: formData.meetingContentDetail || null,
         expected_completion_date: formData.expectedCompletionDate || null,
         intake_roles: formData.intakeRoles,
         // 郵送・書類設定／依頼者特徴（メイン依頼者）
@@ -622,7 +621,6 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         // そのあとに重なるので、下書きを取った時点で空だと空に戻る。
         // 入口ごとに順番を直すと別の道が残るので、最後の書き込みの側で守る。
         ...(formData.contractType ? { contract_type: formData.contractType } : {}),
-        follow_up_call_needed: formData.followUpCallNeeded === '要' ? true : formData.followUpCallNeeded === '不要' ? false : null,
         // 受注の獲得区分（即受注/面談なし受注）。互換のため instant_order も維持（即受注のとき true）。
         order_win_type: formData.orderWinType || null,
         instant_order: formData.orderWinType === '即受注',

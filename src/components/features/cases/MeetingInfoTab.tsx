@@ -14,7 +14,7 @@ import {
   isOrderRouteLocked,
   CONSIDERATION_DECLINE_REASONS, ORDER_ROUTES,
   getSelectableCaseStatuses, getCaseStatusLabel, REFERRAL_PARTNER_TYPES, isInitialTasksDone,
-  CONSIDERATION_PERIODS, considerationDueMax,
+  CONSIDERATION_PERIODS, considerationDueMax, MEETING_CATEGORIES, PROSPECT_LEVELS,
 } from '@/lib/constants'
 import { ORDER_CATEGORIES, KENIN_CATEGORY, KENIN_COMBO_SECONDARY, categoriesOf, seedRolesForCategories } from '@/lib/serviceMaster'
 import type { CaseRow, CaseMemberRow, MemberRow, CaseReferralRow, TaskRow, ContractDocumentRow } from '@/types'
@@ -127,6 +127,10 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
             onSave={v => saveCaseField('order_route_detail', v)}
           />
           <InlineMemberSelect label="面談担当（受注担当）" roleKey="sales" assigned={salesMembers} allMembers={allMembers} caseId={caseData.id} onRefresh={onRefresh} multi={false} />
+          {/* 面談結果登録で入れる項目のうち、ここでしか直せないもの（以前は登録後に見る場所が無かった） */}
+          <InlineSelect label="面談分類" value={caseData.meeting_type} options={[...MEETING_CATEGORIES]} onSave={v => saveCaseField('meeting_type', v)} />
+          <InlineDate label="面談実施日" value={caseData.meeting_executed_date} onSave={v => saveCaseField('meeting_executed_date', v || null)} />
+          <InlineSelect label="見込み度" value={caseData.prospect_level} options={[...PROSPECT_LEVELS]} onSave={v => saveCaseField('prospect_level', v)} />
           <InlineEdit label="顧客名（依頼者名）" value={caseData.deal_name} onSave={v => saveCaseField('deal_name', v)} />
           <InlineSelect label="面談結果（ステータス）" value={caseData.status} options={getSelectableCaseStatuses(!!caseData.order_sheet_completed_at, caseData.status, managerAssigned, initialTasksDone, contractProcDone)} optionLabel={getCaseStatusLabel} onSave={v => saveCaseField('status', v)} />
           <InlineSelect label="手続内容（受注区分）" value={caseData.service_category} options={[...ORDER_CATEGORIES]} onSave={v => selectCategory(v)} />
@@ -143,6 +147,7 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
           <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => saveCaseField('expected_completion_date', v || null)} />
           <InlineSelect label="検討中・失注理由" value={caseData.consideration_decline_reason} options={[...CONSIDERATION_DECLINE_REASONS]} onSave={v => saveCaseField('consideration_decline_reason', v)} />
           <InlineTextarea label="理由詳細" value={caseData.consideration_decline_reason_detail} onSave={v => saveCaseField('consideration_decline_reason_detail', v)} fullWidth />
+          <InlineTextarea label="ヒアリング内容メモ" value={caseData.meeting_hearing_memo} onSave={v => saveCaseField('meeting_hearing_memo', v)} fullWidth />
         </FieldGrid>
         {/* 不動産売却・税理士などの他事業者紹介（ON＝紹介タブに業者サブタブ作成） */}
         <div className="mt-3 pt-3 border-t border-gray-100">

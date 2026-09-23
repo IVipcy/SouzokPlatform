@@ -12,7 +12,7 @@
 // タスクは作らない。対応待ちに「担当する」を押した人だけ tasks に入る（段階3）。
 // 印鑑登録証明書は案件に1つ（原本は1通）。上の帯に置き、機関ごとには持たない。
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Plus, Trash2, Copy, ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -42,7 +42,7 @@ import type {
   FinancialAssetRow, FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow, FinancialJasdecResultRow, CaseRow, TaskRow, ContractDocumentRow,
 } from '@/types'
 import type { TimelineReceipt } from './CaseTimeline'
-import { sameBank } from '@/lib/bankName'
+import { sameBank, normalizeBankName } from '@/lib/bankName'
 
 type Kind = '預貯金' | '証券' | '信託銀行' | '証券・信託'
 /** 実務タブの種別 → 調査先の種別。「証券・信託」は証券会社・株主名簿管理人・ほふりを1つのタブで扱う
@@ -88,6 +88,44 @@ export default function FinancialSection({ caseId, kind, scopePrefix, assets, in
   const allInstitutions = useMemo(() => rawInstitutions.map(i => (localEdits[i.id] ? { ...i, ...localEdits[i.id] } : i)), [rawInstitutions, localEdits])
 
   const institutions = useMemo(() => allInstitutions.filter(i => KINDS_OF[kind].includes(i.kind)).sort((a, b) => a.sort_order - b.sort_order || collator.compare(a.name, b.name)), [allInstitutions, kind])
+
+  // オーダーシートで入れた口座（financial_assets）は調査先（financial_institutions）に結びついていない。
+  // ここを開いたとき、口座の金融機関名ごとに調査先を作り（同じ名前があればそれに）、口座に institution_id を入れる。
+  // 全店調査の要否はオーダーシートの値を調査先の search_required に写す（作るときだけ。手で直した後は上書きしない）。
+  const seededRef = useRef(false)
+  useEffect(() => {
+    if (seededRef.current) return
+    const wanted = kind === '預貯金' ? ['預貯金'] : ['証券', '信託銀行', '信託']
+    const kindOfAsset = (t: string): FinancialInstitutionRow['kind'] => (t === '預貯金' ? '預金' : t === '証券' ? '証券' : '株主名簿管理人')
+    const todo = assets.filter(a => wanted.includes(a.asset_type) && (a.institution_name ?? '').trim() && (!a.institution_id || !rawInstitutions.some(i => i.id === a.institution_id)))
+    if (todo.length === 0) return
+    seededRef.current = true
+    ;(async () => {
+      const created = new Map<string, string>()
+      let sort = rawInstitutions.length
+      for (const a of todo) {
+        const k = kindOfAsset(a.asset_type)
+        const name = a.institution_name.trim()
+        const key = `${k}|${normalizeBankName(name)}`
+        let id = rawInstitutions.find(i => i.kind === k && sameBank(i.name, name))?.id ?? created.get(key) ?? null
+        if (!id) {
+          const { data, error } = await supabase.from('financial_institutions').insert({
+            case_id: caseId, kind: k, name, sort_order: sort++,
+            branch_name: k === '預金' ? (a.branch_name || null) : null,
+            search_required: k === '預金' ? (a.all_branch_survey === '要') : false,
+            ...(k === '株主名簿管理人' ? { freeze_required: false } : {}),
+          }).select('id').single()
+          if (error || !data) { showToast(`調査先の自動作成に失敗: ${error?.message ?? ''}`, 'error'); continue }
+          id = (data as { id: string }).id
+          created.set(key, id)
+        }
+        await supabase.from('financial_assets').update({ institution_id: id }).eq('id', a.id)
+      }
+      if (created.size > 0) showToast(`オーダーシートの口座から調査先を ${created.size} 件作りました`, 'success')
+      onRefresh?.()
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assets, rawInstitutions, kind, caseId])
   // focus（タスク詳細・来店予約一覧から）は名前で当てる。完全一致が無ければ表記ゆれ（全角半角・空白・「銀行」の有無）を吸収して当てる
   const [sub, setSub] = useState<string>(() => {
     if (!focus) return 'top'

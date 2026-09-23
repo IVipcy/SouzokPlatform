@@ -162,19 +162,17 @@ export default function RealEstateTable({ caseId, properties, onRefresh, orderSh
               <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
                 <th className={TH + ' w-28'}>物件種別</th>
                 <th className={TH}>所在地<span className="block text-[10px] font-normal text-brand-700">名寄帳取得後に地番を要確認</span></th>
-                <th className={TH + ' text-right w-32'}>評価額</th>
                 <th className={TH}>備考</th>
                 <th className="px-2.5 py-2 w-8" />
               </tr>
             </thead>
             <tbody>
               {visibleRows.length === 0 ? (
-                <tr><td colSpan={5} className="px-3 py-6 text-center text-[13px] text-gray-400">不動産が登録されていません</td></tr>
+                <tr><td colSpan={4} className="px-3 py-6 text-center text-[13px] text-gray-400">不動産が登録されていません</td></tr>
               ) : visibleRows.map(r => (
                 <tr key={r.id} className="border-b border-gray-100">
                   <TypeCell r={r} setLocal={setLocal} commit={commit} />
                   <CellInput value={r.address} onChange={v => setLocal(r.id, 'address', v)} onCommit={v => commit(r.id, 'address', v)} placeholder="所在地（住所を予測）" suggestions={addrOptions} />
-                  <td className="px-2.5 py-1.5"><MoneyInput value={r.appraisal_value} onCommit={v => commit(r.id, 'appraisal_value', v)} /></td>
                   <CellInput value={r.notes} onChange={v => setLocal(r.id, 'notes', v)} onCommit={v => commit(r.id, 'notes', v)} placeholder="住人・売却意向 等" />
                   <DeleteCell onDelete={() => delRow(r)} />
                 </tr>

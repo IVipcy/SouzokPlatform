@@ -143,6 +143,7 @@ export type CaseRow = {
   // 新規面談登録（migration 149）
   meeting_owner_id: string | null      // 面談担当＝受注担当（自動設定）
   meeting_type: string | null          // 面談内容（フリーテキスト。既定「新規面談」）
+  prospect_level?: string | null       // 見込み度（高/中/低/不明。面談結果登録と面談情報タブ）
   proposal_note: string | null         // 提案金額（旧・単一フリーテキスト。互換のため残置）
   proposal_judicial: string | null     // 提案金額（司法書士報酬。migration 218）
   proposal_administrative: string | null // 提案金額（行政書士報酬。migration 218）

@@ -115,6 +115,11 @@ export default function WhiteboardTab({
   // 相続人調査の帯だけは画像のままAIへ渡す（手描きの家系図を表に起こすため）。
   const runExtract = createRunExtract({
     patchCase, patchClient, caseId: caseData.id, ensureCaseId, onRefresh, silent: true,
+    appendWorkContent: async (key, text) => {
+      const wc = (caseData.work_content ?? {}) as Record<string, string>
+      const cur = (wc[key] ?? '').trim()
+      await patchCase({ work_content: { ...wc, [key]: cur ? `${cur}\n${text}` : text } } as Partial<CaseRow>)
+    },
   })
 
   const tops = heights.reduce<number[]>((acc, h, i) => { acc.push(i === 0 ? 0 : acc[i - 1] + heights[i - 1]); return acc }, [])

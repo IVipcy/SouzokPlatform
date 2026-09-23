@@ -45,7 +45,32 @@ export default function FinancialRequestModal({ isOpen, onClose, institution, ac
   const allIds = useMemo(() => accounts.map(a => a.id), [accounts])
   const [requestDate, setRequestDate] = useState('')
   const [sealSent, setSealSent] = useState(false)   // 依頼者の印鑑登録証明書の原本を同封（来店なら持参）
-  const [balanceLines, setBalanceLines] = useState<BalanceLine[]>([{ id: 1, recent: false, date: defaultBalanceDate ?? '', accountIds: allIds }])
+  // 残高証明の初期値：オーダーシートの口座の指定（相続開始日／直近日／任意の日付）から行を作る。同じ指定の口座は1行にまとめる
+  const [balanceLines, setBalanceLines] = useState<BalanceLine[]>(() => {
+    const fallback: BalanceLine[] = [{ id: 1, recent: false, date: defaultBalanceDate ?? '', accountIds: allIds }]
+    if (noAccounts) return fallback
+    const lines: BalanceLine[] = []
+    let seq = 1
+    const onDeath = accounts.filter(a => a.balance_cert_on_death).map(a => a.id)
+    const recent = accounts.filter(a => a.balance_cert_recent).map(a => a.id)
+    if (onDeath.length > 0) lines.push({ id: seq++, recent: false, date: defaultBalanceDate ?? '', accountIds: onDeath })
+    if (recent.length > 0) lines.push({ id: seq++, recent: true, date: '', accountIds: recent })
+    const byDate = new Map<string, string[]>()
+    for (const a of accounts) for (const d of a.balance_cert_dates ?? []) { if (!d) continue; byDate.set(d, [...(byDate.get(d) ?? []), a.id]) }
+    for (const [d, ids] of byDate) lines.push({ id: seq++, recent: false, date: d, accountIds: ids })
+    return lines.length > 0 ? lines : fallback
+  })
+  // オーダーシートで付けた指定（実務が読んでいなかったもの）。請求の中身を決めるときに見える所へ出す
+  const osNotes = (() => {
+    const out: string[] = []
+    if (accounts.some(a => a.all_branch_survey === '要')) out.push('全店調査 要')
+    if (accounts.some(a => a.accrued_interest_required === '要')) out.push('経過利息 要')
+    if (accounts.some(a => a.share_cert_required === '要')) out.push('所有株式数証明 要')
+    if (accounts.some(a => a.unclaimed_dividend_required === '要')) out.push('未受領配当金 要')
+    const pri = accounts.map(a => a.survey_priority).find(p => p && p !== '通常')
+    if (pri) out.push(`優先度 ${pri}`)
+    return out
+  })()
   // 取引履歴の初期値：オーダーシート（口座の「取引明細の取得期間」）に入っている期間をそのまま行にする。
   // 同じ期間を持つ口座はひとつの行にまとめ、その口座だけを対象にする。
   const [historyLines, setHistoryLines] = useState<HistoryLine[]>(() => {
@@ -162,6 +187,7 @@ export default function FinancialRequestModal({ isOpen, onClose, institution, ac
               依頼者の印鑑登録証明書の原本を同封（来店なら持参）
             </label>
             {sealInfo && <span className="w-full text-[10.5px] text-gray-500 text-right">印鑑登録証明書：{sealInfo}</span>}
+            {osNotes.length > 0 && <span className="w-full text-[11px] text-brand-800 bg-brand-50 border border-brand-100 px-2 py-1">オーダーシートの指定：{osNotes.join('・')}</span>}
           </div>
         </section>
 

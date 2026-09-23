@@ -5,6 +5,7 @@ import { categoriesOf, kindForTask, GYOMU_TAB } from '@/lib/serviceMaster'
 import CourtProcedureInfo from './CourtProcedureInfo'
 import TrustInfo from './TrustInfo'
 import MediationParties from './MediationParties'
+import ProcedureMeetingFields from './ProcedureMeetingFields'
 import ProcedureDocsTable from './ProcedureDocsTable'
 import { PracticeTabHeader } from './TabContextPanel'
 import type { RoleRow } from './ProcedureIntakeSection'
@@ -66,9 +67,9 @@ export default function PracticeProcedureTab({ caseData, patchCase, gyomu, title
     </div>
   )
 
-  // オーダーシート（embedded）では、家裁手続き情報・請求受領（受信簿連動）は進捗系のため出さない。
-  // 作業内容・関連情報（フリー）はオーダーシート側で各セクション共通に表示される。
-  if (embedded) return null
+  // オーダーシート（embedded）では、面談で聞ける・受注担当が想定できる項目だけ出す
+  // （管轄家裁／調停の申立人・相手方／信託契約書種別・最終帰属者）。事件番号・期日・請求受領は実務タブ。
+  if (embedded) return <ProcedureMeetingFields caseData={caseData} gyomu={gyomu} court={court} mediation={mediation} trust={trust} heirs={heirs} patchCase={patchCase} />
   return (
     <div className="space-y-3.5">
       <PracticeTabHeader title={title} description={description}
