@@ -59,7 +59,12 @@ export default function AssetEstimateSection({ caseId, patchCase, ensureCaseId, 
   const add = async (kind: string) => {
     const cid = ensureCaseId ? await ensureCaseId() : caseId
     const { data, error } = await createClient().from('case_asset_estimates').insert({ case_id: cid, kind, sort_order: rows.length }).select('*').single()
-    if (error || !data) { showToast(`追加に失敗: ${error?.message ?? ''}`, 'error'); return }
+    if (error || !data) {
+      // 表が無い（migration 292 未適用）ときは、何が起きたか分かる文にする（押しても何も起きないように見えていた）
+      const missing = /does not exist|schema cache|42P01|PGRST205/i.test(`${error?.code ?? ''} ${error?.message ?? ''}`)
+      showToast(missing ? '資産概算の表がまだ作られていません。migration 292 を適用してください' : `追加に失敗: ${error?.message ?? ''}`, 'error')
+      return
+    }
     setRows(prev => [...prev, data as Row])
   }
   const save = async (id: string, patch: Partial<Row>) => {
