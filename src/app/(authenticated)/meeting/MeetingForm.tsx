@@ -480,19 +480,17 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
 
   // 提案金額（⑧）：司法書士報酬 / 行政書士報酬 をそれぞれ proposal_judicial / proposal_administrative に
   //   「提案せず」or 税込(カンマ整形)で保存。お客様に伝えるのは税込の金額なので、
-  //   税抜を入力させて×1.1する形をやめ、伝えた額をそのまま入れてもらう。内税は表示のみ。
+  //   税抜を入力させて×1.1する形をやめ、伝えた額をそのまま入れてもらう。
+  //   消費税の内訳は出さない（面談で要るのは伝えた税込額だけ。内訳は請求書側で計算する）。
   type ProposalField = 'proposalJudicial' | 'proposalAdministrative'
   const propMode = (v: string) => (v === '提案せず' ? '提案せず' : '金額を入力')
   const propDigits = (v: string) => (v === '提案せず' ? '' : (v || '').replace(/[^0-9]/g, ''))
-  // 税込 X 円の内消費税（10%）＝ round(X / 11)
-  const propInnerTax = (v: string) => { const d = propDigits(v); return d ? Math.round(Number(d) / 11) : null }
   const setPropMode = (field: ProposalField, mode: string) => update(field, mode === '提案せず' ? '提案せず' : '')
   const setPropAmount = (field: ProposalField, raw: string) => {
     const d = raw.replace(/[^0-9]/g, '')
     update(field, d ? Number(d).toLocaleString('en-US') : '')
   }
   const propTotalIncl = Number(propDigits(data.proposalJudicial) || 0) + Number(propDigits(data.proposalAdministrative) || 0)
-  const propTotalTax = propTotalIncl ? Math.round(propTotalIncl / 11) : 0
 
   // 他事業者紹介の あり/なし トグル（referralPartners に partner_type を出し入れ）
   const toggleReferral = (key: string, yes: boolean) =>
@@ -972,24 +970,14 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
             ]).map(({ field, label }, i) => {
               const val = data[field]
               const digits = propDigits(val)
-              const tax = propInnerTax(val)
               return (
                 <div key={field} className={i > 0 ? 'mt-4 pt-4 border-t border-gray-100' : ''}>
                   <div className="text-[12px] font-semibold text-gray-600 mb-1.5">{label}</div>
                   <Pills value={propMode(val)} options={['提案せず', '金額を入力']} onChange={v => setPropMode(field, v as string)} />
                   {propMode(val) === '金額を入力' && (
-                    <div className="mt-3 flex items-end gap-3">
-                      <div className="flex-1">
-                        <div className="text-[11px] text-gray-400 mb-1">税込（入力）</div>
-                        <Input value={digits ? Number(digits).toLocaleString('en-US') : ''} onChange={v => setPropAmount(field, v)} placeholder="330,000" />
-                      </div>
-                      <div className="pb-2.5 text-gray-300">→</div>
-                      <div className="flex-1">
-                        <div className="text-[11px] text-gray-400 mb-1">内消費税（10%）</div>
-                        <div className="h-[42px] flex items-center justify-end px-3 rounded-lg bg-brand-50 text-brand-700 font-semibold border-[1.5px] border-brand-100 tabular-nums">
-                          {tax != null ? `${tax.toLocaleString('en-US')} 円` : '—'}
-                        </div>
-                      </div>
+                    <div className="mt-3 max-w-[320px]">
+                      <div className="text-[11px] text-gray-400 mb-1">税込（円）</div>
+                      <Input value={digits ? Number(digits).toLocaleString('en-US') : ''} onChange={v => setPropAmount(field, v)} placeholder="330,000" />
                     </div>
                   )}
                 </div>
@@ -998,7 +986,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
             {propTotalIncl > 0 && (
               <div className="mt-4 pt-3 border-t border-gray-200 flex items-center justify-between text-[13px]">
                 <span className="font-semibold text-gray-600">合計提案金額</span>
-                <span className="tabular-nums text-gray-700">税込 <b className="text-brand-700">{propTotalIncl.toLocaleString('en-US')}</b> 円　<span className="text-gray-400">（内消費税 {propTotalTax.toLocaleString('en-US')} 円）</span></span>
+                <span className="tabular-nums text-gray-700">税込 <b className="text-brand-700">{propTotalIncl.toLocaleString('en-US')}</b> 円</span>
               </div>
             )}
           </Card>
