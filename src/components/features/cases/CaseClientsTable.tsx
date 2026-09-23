@@ -93,17 +93,18 @@ export default function CaseClientsTable({ caseId, clients, onRefresh, clientId,
     <div>
       {/* PC: 表（スマホは非表示・下のカード表示） */}
       <div className="hidden sm:block overflow-x-auto">
-        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1120 }}>
+        {/* 列は潰さない。続柄が矢印だけになったり、連絡先希望のボタンが縦に折れたりしていたので、幅は px で固定し文字も折り返さない */}
+        <table className="w-full text-[13px] border-collapse" style={{ minWidth: 1260 }}>
           <thead>
             <tr className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-600 tracking-[0.04em]">
               <th className="px-2 py-2 text-left font-semibold w-28">優先度</th>
               <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 160 }}>氏名</th>
               <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 160 }}>ふりがな</th>
-              <th className="px-2 py-2 text-left font-semibold w-28">続柄</th>
+              <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 120, width: 120 }}>続柄</th>
               <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 140 }}>TEL（携帯）</th>
               <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 140 }}>TEL（固定）</th>
               <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 200 }}>メール</th>
-              <th className="px-2 py-2 text-left font-semibold w-56">連絡先希望</th>
+              <th className="px-2 py-2 text-left font-semibold" style={{ minWidth: 230, width: 230 }}>連絡先希望</th>
               <th className="px-2 py-2 text-center font-semibold w-12">外字</th>
               <th className="px-2 py-2 w-8" />
             </tr>
@@ -127,8 +128,8 @@ export default function CaseClientsTable({ caseId, clients, onRefresh, clientId,
                     </td>
                     <Cell value={r.name} onChange={v => setLocal(r.id, 'name', v)} onCommit={v => commit(r.id, 'name', v)} placeholder="山田 太郎" />
                     <Cell value={r.furigana} onChange={v => setLocal(r.id, 'furigana', v)} onCommit={v => commit(r.id, 'furigana', v)} placeholder="やまだ たろう" />
-                    <td className="px-2 py-1.5">
-                      <select value={r.relationship ?? ''} onChange={e => { setLocal(r.id, 'relationship', e.target.value); commit(r.id, 'relationship', e.target.value) }} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
+                    <td className="px-2 py-1.5" style={{ minWidth: 120 }}>
+                      <select value={r.relationship ?? ''} onChange={e => { setLocal(r.id, 'relationship', e.target.value); commit(r.id, 'relationship', e.target.value) }} style={{ minWidth: 100 }} className="w-full px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white outline-none focus:border-brand-500">
                         <option value="">選択</option>
                         {r.relationship && !(HEIR_RELATIONSHIPS as readonly string[]).includes(r.relationship) && <option value={r.relationship}>{r.relationship}</option>}
                         {HEIR_RELATIONSHIPS.map(o => <option key={o} value={o}>{o}</option>)}
@@ -189,8 +190,8 @@ function PrefContactCell({ value, onChange }: { value: string[] | null; onChange
   const toggle = (key: string) =>
     onChange(selected.includes(key) ? selected.filter(k => k !== key) : [...selected, key])
   return (
-    <td className="px-2 py-1.5">
-      <div className="flex items-center gap-1">
+    <td className="px-2 py-1.5" style={{ minWidth: 230 }}>
+      <div className="flex items-center gap-1 flex-nowrap">
         {PREF_CONTACTS.map(p => {
           const on = selected.includes(p.key)
           return (
@@ -198,7 +199,7 @@ function PrefContactCell({ value, onChange }: { value: string[] | null; onChange
               key={p.key}
               type="button"
               onClick={() => toggle(p.key)}
-              className={`px-1.5 py-1 rounded text-[11px] font-medium border transition-colors ${
+              className={`px-1.5 py-1 rounded text-[11px] font-medium border transition-colors whitespace-nowrap ${
                 on ? 'bg-brand-600 border-brand-600 text-white' : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'
               }`}
             >

@@ -608,7 +608,7 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
                   type="button"
                   disabled={!mainFurigana}
                   onClick={() => mainFurigana && patchClient({ transfer_name_kana: toKatakana(mainFurigana) })}
-                  className="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-1.5 py-0.5 rounded border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="whitespace-nowrap text-[11px] font-medium text-brand-600 hover:text-brand-700 px-1.5 py-0.5 rounded border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed"
                 >メイン依頼者のフリガナを取得</button>
               }
             />

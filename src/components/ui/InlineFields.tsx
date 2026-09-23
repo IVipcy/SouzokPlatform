@@ -285,7 +285,8 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
 
   return (
     <FieldRow label={label} required={required} fullWidth={fullWidth} hint={hint}>
-      <div className="flex items-center gap-2">
+      {/* 狭いときは横のボタンを下の行へ回す（値の欄を最低8remは確保する） */}
+      <div className="flex items-center gap-2 flex-wrap">
         {editing ? (
           <input
             ref={inputRef}
@@ -302,16 +303,17 @@ export function InlineEdit({ label, value, onSave, mono, fullWidth, required, ac
         ) : (
           <div
             onClick={handleStartEdit}
-            className="group cursor-pointer flex flex-1 min-w-0 items-center gap-1.5 min-h-[24px] px-1 -mx-1 rounded hover:bg-brand-50 transition-colors"
+            className="group cursor-pointer flex flex-1 min-w-[8rem] items-center gap-1.5 min-h-[24px] px-1 -mx-1 rounded hover:bg-brand-50 transition-colors"
             title="クリックして編集"
           >
-            <span className={`text-[14px] ${mono ? 'font-mono' : ''} ${value ? `${ai ? 'text-blue-600' : 'text-gray-700'} font-medium border-b border-dashed border-gray-200 group-hover:border-brand-400` : 'text-gray-400 italic text-[13px] border-b border-dashed border-gray-200 group-hover:border-brand-400'}`}>
+            {/* 横のボタン（action）に押されて1文字ずつ縦に折れないよう、値は1行で省略表示 */}
+            <span className={`min-w-0 truncate whitespace-nowrap text-[14px] ${mono ? 'font-mono' : ''} ${value ? `${ai ? 'text-blue-600' : 'text-gray-700'} font-medium border-b border-dashed border-gray-200 group-hover:border-brand-400` : 'text-gray-400 italic text-[13px] border-b border-dashed border-gray-200 group-hover:border-brand-400'}`}>
               {value ?? 'クリックして入力'}
             </span>
-            <Pencil className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity " strokeWidth={2} />
+            <Pencil className="w-3.5 h-3.5 flex-none text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity " strokeWidth={2} />
           </div>
         )}
-        {renderAction(editing ? draft : (value ?? ''))}
+        {action != null && <div className="flex-none whitespace-nowrap">{renderAction(editing ? draft : (value ?? ''))}</div>}
       </div>
     </FieldRow>
   )
