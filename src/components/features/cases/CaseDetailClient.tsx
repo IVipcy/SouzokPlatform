@@ -1080,6 +1080,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
             kosekiRequests={kosekiRequests}
             properties={properties}
             financialAssets={financialAssets}
+            financialInstitutions={financialInstitutions}
             heirs={heirs}
             caseClients={caseClients ?? []}
             viewerRole={viewerRole}

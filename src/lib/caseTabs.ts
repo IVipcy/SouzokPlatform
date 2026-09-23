@@ -35,7 +35,7 @@ export type CaseTabState = {
 }
 
 // 業務（受注区分）で出し分ける実務タブ。これら以外（コア）は常に表示。
-const GYOMU_GATED_TABS: TabKey[] = ['deceased', 'legalInfo', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession']
+const GYOMU_GATED_TABS: TabKey[] = ['deceased', 'legalInfo', 'assets', 'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'letter', 'execution', 'contractCreate']
 function filterByGyomu(tabs: TabKey[], allowed?: TabKey[]): TabKey[] {
   if (!allowed) return tabs
   return tabs.filter(t => !GYOMU_GATED_TABS.includes(t) || allowed.includes(t))
@@ -52,8 +52,10 @@ export type TabVisibility = {
 // 納品タブは実施タブ末尾＝案件基本情報ドロップダウンの直左位置に。
 const FULL_PRACTICE_TABS: TabKey[] = [
   // 案件進捗(basicInfo)は「案件報告」(progress)に統合済み。progress の中に事務管理進捗として埋め込む。
-  'orderSheet', 'progress', 'assignees', 'ownerSales', 'contractProc', 'clientInfo', 'deceased', 'assets', 'referral',
-  'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession', 'contract',
+  'orderSheet', 'progress', 'assignees', 'ownerSales', 'contractProc', 'clientInfo', 'deceased', 'legalInfo', 'assets', 'referral',
+  'division', 'will', 'registration', 'cancellation', 'trust', 'renunciation', 'mediation', 'probate', 'guardianship', 'succession',
+  // 手紙・執行通知・契約書作成はオーダーシートにセクションがあるのに、ここに無くて実務タブに出ていなかった（区分に業務があるときだけ出る）
+  'letter', 'execution', 'contractCreate', 'contract',
   'delivery',
   'receipts', 'docs', 'documentCreate', 'tasks', 'meeting',
 ]

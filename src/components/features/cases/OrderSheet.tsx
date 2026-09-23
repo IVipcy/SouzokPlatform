@@ -167,7 +167,8 @@ export default function OrderSheet({
     ? new Set(selectedGyomu.map(g => GYOMU_TAB[g]).filter(Boolean) as TabKey[])
     : null
   // 依頼者情報は業務(gyomu)に依存しない固定セクションなので、allowedTabs に関わらず常に表示する。
-  const ALWAYS_SEC = new Set<TabKey>(['clientInfo'])
+  // 他事業者紹介はどの業務にも属さない（業務→タブの表に無い）ので、明示しないと受注区分が入った途端に消える
+  const ALWAYS_SEC = new Set<TabKey>(['clientInfo', 'referral'])
   const showSec = (gate?: TabKey) => !gate || ALWAYS_SEC.has(gate) || !allowedTabs || allowedTabs.has(gate)
 
   // workContentKey: 上部フリー欄(WorkContentField)の保存先キー。省略時は gate ?? title
@@ -223,7 +224,7 @@ export default function OrderSheet({
     { title: '他事業者紹介', gate: 'referral', anchorId: 'os-referral', node: <ReferralTab caseData={caseData} referrals={referrals} onRefresh={onRefresh} orderSheetMode /> },
     { title: '遺産分割', gate: 'division', node: <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} agreementDispatches={agreementDispatches} onRefresh={onRefresh} patchCase={patchCase} mode="division" orderSheetMode /> },
     { title: '遺言', gate: 'will', node: <DivisionTab caseData={caseData} divisionDetails={divisionDetails} heirs={heirs} onRefresh={onRefresh} patchCase={patchCase} mode="will" orderSheetMode /> },
-    { title: '解約等（銀行・証券・自動車）', gate: 'cancellation', node: <CancellationTab financialAssets={financialAssets} onRefresh={onRefresh} receipts={receipts} orderSheetMode /> },
+    { title: '解約等（銀行・証券・信託）', gate: 'cancellation', node: <CancellationTab financialAssets={financialAssets} onRefresh={onRefresh} receipts={receipts} orderSheetMode /> },
     ...PROCEDURE_TABS.map(p => ({
       title: p.title,
       gate: p.tab,

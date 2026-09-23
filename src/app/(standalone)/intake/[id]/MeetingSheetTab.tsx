@@ -157,10 +157,11 @@ function SavedMemos({ memos, onDelete, readOnly }: { memos: MeetingMemoRow[]; on
 }
 
 // ③オーダーシートへ引き継ぐ、手書きメモ（読み取り専用・セクション別）。
-export const SEC_LABEL: Record<string, string> = { memoPhoto: '面談メモ（写真）', clientInfo: '依頼者情報', order: '提案内容・手続き内容', deceased: '相続人調査', assets_re: '財産調査（不動産）', assets_deposit: '財産調査（預金）', assets_securities: '財産調査（証券・信託）', assets_insurance: '財産調査（生命保険）', referral: '他事業者紹介' }
+export const SEC_LABEL: Record<string, string> = { memoPhoto: '面談メモ（写真）', clientInfo: '依頼者情報', order: '提案内容・手続き内容', deceased: '相続人調査', assets_re: '財産調査（不動産）', assets_deposit: '財産調査（預金）', assets_securities: '財産調査（証券・信託）', assets_insurance: '財産調査（生命保険）', referral: '他事業者紹介', division: '遺産分割', will: '遺言', registration: '相続登記', cancellation: '解約等' }
 
 /** 白紙メモの帯（＝セクション）の並び順。SEC_LABEL からラベルを引く。 */
-export const WB_ORDER = ['clientInfo', 'order', 'deceased', 'assets_re', 'assets_deposit', 'assets_securities', 'assets_insurance', 'referral'] as const
+// 遺産分割・遺言・相続登記・解約の帯が無く、その話題が他事業者紹介の帯に流れ込んでいたので足した（メモは同名セクションと共有）
+export const WB_ORDER = ['clientInfo', 'order', 'deceased', 'assets_re', 'assets_deposit', 'assets_securities', 'assets_insurance', 'referral', 'division', 'will', 'registration', 'cancellation'] as const
 
 /** 「AIで項目に反映」に対応しているセクション（他事業者紹介はメモのみ＝非対応）。 */
 export const isExtractable = (sec: string) => !!EXTRACT_SCHEMA[sec] || !!ROW_EXTRACT_SCHEMA[sec]
@@ -743,8 +744,8 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
       {sec('registration', '相続登記', null, (
         <p className="text-[12px] text-gray-400">登記種別（所有権移転・住所氏名変更 等）・登記原因をメモ欄に記録してください。</p>
       ))}
-      {sec('cancellation', '解約等（銀行・証券・自動車）', null, (
-        <p className="text-[12px] text-gray-400">解約したい口座・自動車の内容や優先順位をメモ欄に記録してください。</p>
+      {sec('cancellation', '解約等（銀行・証券・信託）', null, (
+        <p className="text-[12px] text-gray-400">解約したい口座の内容や優先順位をメモ欄に記録してください。自動車の処分は「その他財産」の行として入れてください。</p>
       ))}
     </div>
   )

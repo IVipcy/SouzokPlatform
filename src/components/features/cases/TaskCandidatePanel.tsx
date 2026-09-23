@@ -4,12 +4,12 @@ import { useCallback, useMemo, useState } from 'react'
 import { Check, ChevronDown, Loader2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import {
-  categoriesOf, gyomuForCategories, CROSS_GYOMU,
+  categoriesOf, gyomuForCategories, CROSS_GYOMU, defaultRolesForGyomu,
 } from '@/lib/serviceMaster'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { REFERRAL_TASK_LABEL } from '@/lib/constants'
 import { TantoKubunBadge } from '@/components/ui/TantoKubunBadge'
-import type { TaskRow, TaskTemplateRow, CaseReferralRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow, HeirRow, CaseClientRow } from '@/types'
+import type { TaskRow, TaskTemplateRow, CaseReferralRow, KosekiRequestRow, RealEstatePropertyRow, FinancialAssetRow, FinancialInstitutionRow, HeirRow, CaseClientRow } from '@/types'
 import type { RoleRow } from './ProcedureIntakeSection'
 
 type Props = {
@@ -28,6 +28,8 @@ type Props = {
   // 不動産・金融資産（左タブ単位＝市区町村/金融機関でタスクをまとめる）
   properties?: RealEstatePropertyRow[]
   financialAssets?: FinancialAssetRow[]
+  /** 調査先（実務で足した銀行・証券会社・株主名簿管理人）。口座が無くても金融・解約の候補を出す */
+  financialInstitutions?: FinancialInstitutionRow[]
   /** 被相続人の氏名。戸籍請求のうち被相続人あての1本だけ「着手OK」で生成するために使う。 */
   deceasedName?: string | null
   /** 相続人。戸籍タスク名に続柄（長男 等）を出すために使う。 */
@@ -113,7 +115,7 @@ const CANCEL_NON_UNIT_TASKS = ['自動車名義変更', '保険金請求']
  *
  * 以前は「◯件生成」でまとめて作っていたが、一度に大量に出るのをやめて1件ずつにした。
  */
-export default function TaskCandidatePanel({ caseId, intakeRoles, serviceCategory, serviceCategory2, existingTasks, caseReferrals = [], kosekiRequests = [], properties = [], financialAssets = [], deceasedName = null, heirs = [], caseClients = [], onSaved }: Props) {
+export default function TaskCandidatePanel({ caseId, intakeRoles, serviceCategory, serviceCategory2, existingTasks, caseReferrals = [], kosekiRequests = [], properties = [], financialAssets = [], financialInstitutions = [], deceasedName = null, heirs = [], caseClients = [], onSaved }: Props) {
   // viewerRole は担当区分フィルタ撤廃により未使用（Props には残し、呼び出し側の互換を保つ）。
   // チェックした候補（既定は全部オフ。要るものだけ選ぶ）
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -163,10 +165,17 @@ export default function TaskCandidatePanel({ caseId, intakeRoles, serviceCategor
     }
     const isOwn = (a: string | null | undefined) => (a ?? '自社') !== '依頼者'  // null既定=自社
     const muniUnits = [...new Set(properties.map(muniOf).filter(Boolean))]
-    const instUnits = [...new Set(financialAssets.map(a => (a.institution_name ?? '').trim()).filter(Boolean))]
-    // 自社取得の単位（＝請求タスクが要る）。依頼者取得のみの単位は読込（到着確認）だけ。
+    // 金融の単位＝口座の金融機関名 ∪ 調査先（実務で足した銀行は口座が無いことがある）
+    const instNamesFromInst = financialInstitutions.filter(i => i.kind === '預金' || i.kind === '証券' || i.kind === '株主名簿管理人').map(i => (i.name ?? '').trim()).filter(Boolean)
+    const instUnits = [...new Set([...financialAssets.map(a => (a.institution_name ?? '').trim()).filter(Boolean), ...instNamesFromInst])]
+    // 解約の単位＝解約有無が「無」以外の口座（「無」にした銀行の解約タスクは出さない）＋ 調査先
+    const cancelUnits = [...new Set([
+      ...financialAssets.filter(a => (a.cancellation_required ?? '') !== '無').map(a => (a.institution_name ?? '').trim()).filter(Boolean),
+      ...instNamesFromInst.filter(n => !financialAssets.some(a => (a.institution_name ?? '').trim() === n && (a.cancellation_required ?? '') === '無')),
+    ])]
+    // 自社取得の単位（＝請求タスクが要る）。依頼者取得のみの単位は読込（到着確認）だけ。調査先だけの単位は自社扱い
     const muniOwn = new Set(properties.filter(p => isOwn(p.acquirer)).map(muniOf).filter(Boolean))
-    const instOwn = new Set(financialAssets.filter(a => isOwn(a.acquirer)).map(a => (a.institution_name ?? '').trim()).filter(Boolean))
+    const instOwn = new Set([...financialAssets.filter(a => isOwn(a.acquirer)).map(a => (a.institution_name ?? '').trim()).filter(Boolean), ...instNamesFromInst])
     // 銀行→口座種別リスト（普通・定期 等）。1銀行に複数口座があるとき、タスク名に併記して判別しやすく。
     const instAcctTypes = new Map<string, string[]>()
     for (const a of financialAssets) {
@@ -208,7 +217,7 @@ export default function TaskCandidatePanel({ caseId, intakeRoles, serviceCategor
         { prefix: 'fin', label: '資料請求（全店調査・残高・経過利息）', onlyOwn: true },
         { prefix: 'fin-read', label: '資料読込（残高・取引履歴・凍結確認等）' },
       ] },
-      '解約': { units: instUnits, own: instOwn, tasks: [{ prefix: 'cancel', label: '解約手続き' }] },
+      '解約': { units: cancelUnits, own: instOwn, tasks: [{ prefix: 'cancel', label: '解約手続き' }] },
     }
     const unitExpanded = new Set<string>()  // 単位展開済みの業務（個別作業はスキップ）
     const kosekiLabel = (k: KosekiRequestRow) => {
@@ -222,7 +231,9 @@ export default function TaskCandidatePanel({ caseId, intakeRoles, serviceCategor
     // 実際にやる業務（最終確認タスクを足す対象）
     const activeGyomus = new Set<string>()
 
-    intakeRoles.forEach((r, idx) => {
+    // 納品は実施業務に無くても常に候補に出す（納品タブは常に出るのに、候補が無くて手で作っていた）
+    const rolesAll: RoleRow[] = intakeRoles.some(r => r.gyomu === '納品') ? intakeRoles : [...intakeRoles, ...(defaultRolesForGyomu('納品') as RoleRow[])]
+    rolesAll.forEach((r, idx) => {
       if (!r.sagyou?.trim() || r.owner === '不要') return
       if (!r.custom) activeGyomus.add(r.gyomu)
       // その他（自由入力）＝名もなき業務。業務名＝タスク名、内容(note)＝作業内容。管理担当タスクとして生成。
@@ -295,7 +306,7 @@ export default function TaskCandidatePanel({ caseId, intakeRoles, serviceCategor
     // 担当区分での絞り込みは撤廃：どのアカウントで開いても全区分の候補を出す。
     // どのみち全タスクが要るため、区分はバッジで判別できれば十分（ガチガチ制御しない）。
     return out
-  }, [intakeRoles, caseReferrals, kosekiRequests, properties, financialAssets, roleOfPerson, isFirstKosekiPerson])
+  }, [intakeRoles, caseReferrals, kosekiRequests, properties, financialAssets, financialInstitutions, roleOfPerson, isFirstKosekiPerson])
 
   // 戸籍収集をやる案件なのに請求先（役所）が未入力＝粗い「戸籍請求」1件になってしまう状態。
   const kosekiCoarse = useMemo(() =>

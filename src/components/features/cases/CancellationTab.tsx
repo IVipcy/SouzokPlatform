@@ -137,7 +137,7 @@ export default function CancellationTab({ caseId, caseData, financialAssets, fin
         // オーダーシート：預貯金／証券／信託の解約をサブタブ廃止で全展開（登録が無い種別は出さない）
         <div className="space-y-4">
           {rows.length === 0
-            ? <p className="text-[12.5px] text-gray-400 py-3">財産調査で金融資産を登録すると、ここに解約手続の表が出ます。</p>
+            ? <p className="text-[12.5px] text-gray-400 py-3">口座が無いので表がありません。財産（金融資産）で口座・証券・信託を入れると、ここに解約手続の表が出ます。自動車の処分は「その他財産」の行で管理します。</p>
             : SUBTABS.map(renderKindBlock)}
         </div>
       )}

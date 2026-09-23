@@ -30,13 +30,17 @@ const SECTIONS = WB_ORDER.map(k => ({ key: k as string, label: SEC_LABEL[k] }))
 // 見出しと同じくHTMLで重ねているだけなので、OCRに送る画像にも保存する原本にも写らない。
 const SECTION_HINT: Record<string, string> = {
   clientInfo: '氏名／ふりがな／続柄／TEL／住所／振込名義人（カナ）',
-  order: '契約形態／提案した手続き／概算報酬／依頼者の反応',
+  order: '契約形態／提案した手続き／提案金額／依頼者の反応',
   deceased: '被相続人の 氏名／ふりがな／生年月日／死亡日／住所／本籍　　相続人（氏名・続柄）　※家系図を描いてもOK（図から相続人一覧に起こします）',
-  assets_re: '物件種別／所在地／地番（土地）・家屋番号（建物）／評価額',
-  assets_deposit: '金融機関名／支店／口座番号／残高',
-  assets_securities: '保有先が分かるか／証券会社名／支店／評価額／株主名簿管理人（信託銀行）',
-  assets_insurance: '保険会社名／受取人／金額',
+  assets_re: '物件種別／所在地／地番（土地）・家屋番号（建物）　※金額は「資産概算」に',
+  assets_deposit: '金融機関名／支店／口座番号　※金額は「資産概算」に',
+  assets_securities: '保有先が分かるか／証券会社名／支店／株主名簿管理人（信託銀行）',
+  assets_insurance: '保険会社名（受取人・保険金が分かれば備考に）',
   referral: '紹介先／紹介内容／依頼者の反応',
+  division: '分割の方針／誰が何を取るか／協議書の郵送方法',
+  will: '遺言の種類（自筆・公正証書）／保管場所／作成場所／文案の状況',
+  registration: '登記の種別（所有権移転・住所氏名変更 等）／登記原因／分かっている物件',
+  cancellation: '解約したい口座・証券／優先順位／送金先の希望',
 }
 const BAND_H = 380        // 帯1つの既定の高さ（≒スマホ1画面ぶん）
 const BAND_STEP = 260     // 「広げる」1回で増える高さ
