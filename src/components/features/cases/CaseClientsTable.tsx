@@ -61,6 +61,10 @@ export default function CaseClientsTable({ caseId, clients, onRefresh, clientId,
       await syncMainName(row?.name ?? '')
       await syncMainClientHeir(supabase, ensureCaseId ? await ensureCaseId() : caseId, row?.name ?? '', row?.relationship ?? null)
     }
+    // メイン依頼者の続柄を変えた → 相続人一覧の同じ人の続柄にも写す（氏名を入れた時点では続柄が空で、写せていなかった）
+    if (field === 'relationship' && row?.priority === 'main' && row?.name) {
+      await syncMainClientHeir(supabase, ensureCaseId ? await ensureCaseId() : caseId, row.name, value || null)
+    }
   }
 
   // 配列・真偽値など文字列以外の即時保存（連絡先希望 / 外字有無）

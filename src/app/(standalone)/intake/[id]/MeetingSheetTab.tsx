@@ -7,6 +7,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Sparkles, Trash2, Plus, ChevronDown, Lightbulb } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { syncMainClientHeir } from '@/lib/clientHeirSync'
 import { showToast } from '@/components/ui/Toast'
 import { FieldGrid, FieldRow, InlineEdit } from '@/components/ui/InlineFields'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
@@ -506,8 +507,18 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
     return m
   }, [otherAssets])
   const cl = caseData.clients
+  const mainCaseClient = caseClients.find(c => c.priority === 'main') ?? caseClients[0]
   // 振込名義人の自動入力元＝メイン依頼者のふりがな（clients.furigana が空なら依頼者一覧のメインから）
-  const mainFurigana = cl?.furigana || (caseClients.find(c => c.priority === 'main') ?? caseClients[0])?.furigana
+  const mainFurigana = cl?.furigana || mainCaseClient?.furigana
+  // 依頼者の住所1・住所2を保存したら、相続人一覧の同じ人（依頼者チェックの行）にも写す。
+  // 氏名を入れた時点で自動で相続人に足しているが、住所はその時点では空なので、ここで追いかけて入れる
+  const saveClientAddress = async (patch: { address?: string | null; address2?: string | null }) => {
+    await patchClient(patch)
+    const name = mainCaseClient?.name || cl?.name
+    if (!name || !caseData.id || caseData.id === 'new') return
+    try { await syncMainClientHeir(createClient(), caseData.id, name, mainCaseClient?.relationship ?? null, patch) }
+    catch (e) { showToast(e instanceof Error ? e.message : '相続人一覧への反映に失敗しました', 'error') }
+  }
 
   const clearAi = (key: string) => setAiFilled(prev => { if (!prev.has(key)) return prev; const n = new Set(prev); n.delete(key); return n })
   // 株の保有先が分かるか（オーダーシートの証券・信託と同じ）。「分からない」なら実務の証券・信託に「ほふり照会」を立てる
@@ -593,8 +604,8 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
             {/* 住所の型（全画面共通）：郵便番号（住所1から取得）→ 住所1（都道府県〜番地まで）→ 住所2（建物名・部屋番号） */}
             <InlineEdit label="郵便番号" value={cl?.postal_code ?? null} onSave={v => patchClient({ postal_code: v.replace(/[^0-9]/g, '') || null })} mono fullWidth
               action={<PostalLookupButton address={cl?.address} onResolved={zip => void patchClient({ postal_code: zip })} />} />
-            <InlineEdit label="住所1（都道府県〜番地まで）" value={cl?.address ?? null} ai={aiFilled.has('address')} onSave={v => { clearAi('address'); return patchClient({ address: v || null }) }} fullWidth />
-            <InlineEdit label="住所2（建物名・部屋番号）" value={cl?.address2 ?? null} onSave={v => patchClient({ address2: v || null })} fullWidth />
+            <InlineEdit label="住所1（都道府県〜番地まで）" value={cl?.address ?? null} ai={aiFilled.has('address')} onSave={v => { clearAi('address'); return saveClientAddress({ address: v || null }) }} fullWidth />
+            <InlineEdit label="住所2（建物名・部屋番号）" value={cl?.address2 ?? null} onSave={v => saveClientAddress({ address2: v || null })} fullWidth />
             {/* 振込名義人＝入金CSV突合のキー。本人振込なら依頼者のふりがなをカタカナで入れる。
                 案件詳細の依頼者タブと同じボタンを、面談シートにも置く。 */}
             <InlineEdit
