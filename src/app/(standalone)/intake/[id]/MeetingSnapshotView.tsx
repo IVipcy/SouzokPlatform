@@ -97,6 +97,10 @@ export default function MeetingSnapshotView({ snapshot, onEditLatest }: {
         <Row label="提案金額（行政）" value={c.proposal_administrative} />
         <Row label="契約形態" value={c.contract_type} />
         <Row label="難易度" value={c.difficulty} />
+        <Row label="受注の獲得区分" value={c.order_win_type} />
+        <Row label="完了予定日" value={c.expected_completion_date} />
+        <Row label="検討中・失注理由" value={[c.consideration_decline_reason, c.consideration_decline_reason_detail].filter(Boolean).join('：')} />
+        <Row label="依頼者の特徴" value={[c.client_trait, c.client_trait_detail].filter(Boolean).join('／')} />
         {wc.order && <p className="mt-2 text-[12.5px] text-gray-700 whitespace-pre-wrap">{wc.order}</p>}
       </Section>
 
@@ -118,16 +122,23 @@ export default function MeetingSnapshotView({ snapshot, onEditLatest }: {
 
       <Section title="財産調査">
         <div className="space-y-3">
+          {(snapshot.assetEstimates?.length ?? 0) > 0 && (
+            <div>
+              <div className="text-[12px] font-semibold text-gray-500 mb-1">資産概算（調査開始前）{typeof c.total_asset_estimate === 'number' ? `　合計 ${yen(c.total_asset_estimate)}` : ''}</div>
+              <List rows={snapshot.assetEstimates ?? []} cols={[{ key: 'kind', label: '区分' }, { key: 'amount', label: '金額', money: true }, { key: 'note', label: 'メモ' }]} />
+            </div>
+          )}
           <div>
             <div className="text-[12px] font-semibold text-gray-500 mb-1">不動産</div>
+            {/* 列名は実際の列（appraisal_value）。以前は無い列名を読んでいて常に「—」だった */}
             <List rows={snapshot.properties} cols={[
-              { key: 'property_type', label: '種別' }, { key: 'address', label: '所在' }, { key: 'evaluation_amount', label: '評価額', money: true },
+              { key: 'property_type', label: '種別' }, { key: 'address', label: '所在' }, { key: 'lot_number', label: '地番' }, { key: 'appraisal_value', label: '評価額', money: true },
             ]} />
           </div>
           <div>
             <div className="text-[12px] font-semibold text-gray-500 mb-1">金融資産</div>
             <List rows={snapshot.financialAssets} cols={[
-              { key: 'asset_type', label: '種別' }, { key: 'institution_name', label: '金融機関' }, { key: 'balance', label: '残高', money: true },
+              { key: 'asset_type', label: '種別' }, { key: 'institution_name', label: '金融機関' }, { key: 'branch_name', label: '支店' }, { key: 'balance_amount', label: '残高', money: true },
             ]} />
           </div>
           {snapshot.otherAssets.length > 0 && (
@@ -143,7 +154,7 @@ export default function MeetingSnapshotView({ snapshot, onEditLatest }: {
 
       {snapshot.referrals.length > 0 && (
         <Section title="他事業者紹介">
-          <List rows={snapshot.referrals} cols={[{ key: 'partner_type', label: '種別' }, { key: 'content', label: '紹介内容' }]} />
+          <List rows={snapshot.referrals} cols={[{ key: 'partner_type', label: '種別' }, { key: 'firm_name', label: '紹介先' }, { key: 'referral_reason', label: '紹介理由' }, { key: 'appraisal_rank', label: '査定ランク' }, { key: 'content', label: '依頼内容' }, { key: 'content_detail', label: '備考' }]} />
         </Section>
       )}
 

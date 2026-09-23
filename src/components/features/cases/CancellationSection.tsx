@@ -71,6 +71,7 @@ export default function CancellationSection({ caseId, financialAssets, instituti
                 <table className="w-full text-[12px] border-collapse" style={{ minWidth: 680 }}>
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-300 text-[12px] text-gray-600">
+                      <th className="px-2.5 py-2 text-left font-semibold w-16">優先度</th>
                       <th className="px-2.5 py-2 text-left font-semibold">金融機関</th>
                       <th className="px-2.5 py-2 text-left font-semibold w-28">支店/銘柄</th>
                       <th className="px-2.5 py-2 text-center font-semibold w-20">解約有無</th>
@@ -81,9 +82,11 @@ export default function CancellationSection({ caseId, financialAssets, instituti
                   </thead>
                   <tbody>
                     {rows.length === 0 ? (
-                      <tr><td colSpan={6} className="px-3 py-6 text-center text-gray-400">財産調査タブで金融機関を登録すると、ここで解約手続を管理できます。</td></tr>
+                      <tr><td colSpan={7} className="px-3 py-6 text-center text-gray-400">財産調査タブで金融機関を登録すると、ここで解約手続を管理できます。</td></tr>
                     ) : rows.map((r, i) => (
                       <tr key={r.id} className={`border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-brand-50/30 ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`} onClick={() => setSub((r.institution_name ?? '').trim() || '__unset__')}>
+                        {/* 解約の優先度（オーダーシートで付けたもの。以前は実務に出ていなかった） */}
+                        <td className="px-2.5 py-2">{r.cancel_priority && r.cancel_priority !== '通常' ? <span className={`text-[11px] font-bold px-1.5 py-0.5 ${r.cancel_priority === '超急ぎ' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'}`}>{r.cancel_priority}</span> : <span className="text-gray-400 text-[11px]">通常</span>}</td>
                         <td className="px-2.5 py-2 font-medium text-gray-800">{(r.institution_name ?? '').trim() || <span className="text-gray-300">未設定</span>}</td>
                         <td className="px-2.5 py-2 text-gray-700">{r.branch_name || r.stock_name || <span className="text-gray-300">—</span>}</td>
                         <td className="px-2.5 py-2 text-center">{r.cancellation_required || '—'}</td>

@@ -421,7 +421,7 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
             patchClient={patchClient}
             onRefresh={() => router.refresh()}
             guided
-            meetingMemos={memoList.filter(m => m.section === 'whiteboard')}
+            meetingMemos={memoList}
             {...rest}
           />
         </div>

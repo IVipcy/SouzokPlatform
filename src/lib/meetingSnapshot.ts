@@ -16,6 +16,7 @@ export type MeetingSnapshot = {
   financialAssets: Record<string, unknown>[]   // 金融資産
   otherAssets: Record<string, unknown>[]       // その他財産・債務・費用
   referrals: Record<string, unknown>[]         // 他事業者紹介
+  assetEstimates?: Record<string, unknown>[]   // 資産概算（調査開始前。migration 292）
 }
 
 // 面談シートで触る案件の項目だけを写す（オーダーシート専用の項目まで持つと意味がぼやけるため）
@@ -27,6 +28,9 @@ const CASE_FIELDS = [
   'deceased_name', 'deceased_furigana', 'deceased_birth_date', 'date_of_death',
   'deceased_address', 'deceased_registered_address',
   'meeting_hearing_memo', 'meeting_other_notes', 'work_content', 'tax_filing_required',
+  // 面談で決まるのに記録に入っていなかったもの
+  'consideration_decline_reason', 'consideration_decline_reason_detail', 'client_trait', 'client_trait_detail',
+  'order_win_type', 'expected_completion_date', 'total_asset_estimate', 'mailing_destination',
 ] as const
 
 const pick = (row: Record<string, unknown> | null, fields: readonly string[]) => {
@@ -38,7 +42,7 @@ const pick = (row: Record<string, unknown> | null, fields: readonly string[]) =>
 
 /** 面談結果登録の保存後に呼ぶ。いまの案件の内容を面談時点の記録として保存する。 */
 export async function saveMeetingSnapshot(supabase: SupabaseClient, caseId: string): Promise<void> {
-  const [{ data: c }, { data: caseClients }, { data: heirs }, { data: props }, { data: fin }, { data: other }, { data: refs }] = await Promise.all([
+  const [{ data: c }, { data: caseClients }, { data: heirs }, { data: props }, { data: fin }, { data: other }, { data: refs }, { data: est }] = await Promise.all([
     supabase.from('cases').select('*, clients(*)').eq('id', caseId).maybeSingle(),
     supabase.from('case_clients').select('*').eq('case_id', caseId).order('sort_order').order('created_at'),
     supabase.from('heirs').select('*').eq('case_id', caseId).order('sort_order').order('created_at'),
@@ -46,6 +50,7 @@ export async function saveMeetingSnapshot(supabase: SupabaseClient, caseId: stri
     supabase.from('financial_assets').select('*').eq('case_id', caseId).order('sort_order').order('created_at'),
     supabase.from('case_other_assets').select('*').eq('case_id', caseId).order('sort_order').order('created_at'),
     supabase.from('case_referrals').select('*').eq('case_id', caseId),
+    supabase.from('case_asset_estimates').select('*').eq('case_id', caseId).order('sort_order').order('created_at'),
   ])
   if (!c) return
   const row = c as Record<string, unknown> & { clients?: Record<string, unknown> | null }
@@ -59,6 +64,7 @@ export async function saveMeetingSnapshot(supabase: SupabaseClient, caseId: stri
     financialAssets: (fin ?? []) as Record<string, unknown>[],
     otherAssets: (other ?? []) as Record<string, unknown>[],
     referrals: (refs ?? []) as Record<string, unknown>[],
+    assetEstimates: (est ?? []) as Record<string, unknown>[],
   }
   const { error } = await supabase.from('cases')
     .update({ meeting_snapshot: snapshot, meeting_snapshot_at: snapshot.at })

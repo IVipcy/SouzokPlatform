@@ -580,6 +580,8 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         meeting_executed_date: formData.meetingDate || null,
         order_route: formData.orderRoute || null,
         order_route_detail: formData.orderRouteDetail || null,
+        // 過去客経由の紹介元は名前だけでなく依頼者IDも持つ（後から辿れるように）
+        referral_client_id: formData.orderRoute === PAST_CLIENT_ROUTE ? (formData.pastClientId || null) : null,
         meeting_other_notes: formData.otherNotes || null,
         consideration_decline_reason: formData.considerationDeclineReason || null,
         consideration_decline_reason_detail: formData.considerationDeclineReasonDetail || null,

@@ -290,12 +290,13 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
     }
     // オーダーシート（戸籍の取得計画）の見立てを初期値にする（請求範囲・取得方法・住所関係書類）。役所ごとに書き換えられる。
     const { data: planRow } = await supabase
-      .from('koseki_plans').select('range_text, acquisition_authority, address_doc').eq('case_id', caseId).eq('person_name', person).maybeSingle()
-    const plan = planRow as { range_text: string | null; acquisition_authority: string | null; address_doc: string | null } | null
+      .from('koseki_plans').select('range_text, acquisition_authority, address_doc, note').eq('case_id', caseId).eq('person_name', person).maybeSingle()
+    const plan = planRow as { range_text: string | null; acquisition_authority: string | null; address_doc: string | null; note: string | null } | null
     const docTypes = ['戸籍', ...(plan?.address_doc === '住民票' || plan?.address_doc === '戸籍の附票' ? [plan.address_doc] : [])].join('・')
     const { data, error } = await supabase.from('koseki_requests')
       .insert({
         case_id: caseId, sort_order: requests.length,
+        notes: plan?.note ?? null,
         is_additional: form.needsApproval,
         additional_reason: form.needsApproval ? (form.reason || null) : null,
         target_person: form.target_person || null,
@@ -359,9 +360,12 @@ export default function KosekiSection({ caseId, caseData, requests: rawRequests,
     plan.push({ source_rid: `koseki-read:${r.id}`, title: `戸籍読込：${label}`, ext_data: { ready_on_receipt: true } })
     const { data: existing } = await supabase.from('tasks').select('source_rid').eq('case_id', caseId).in('source_rid', plan.map(p => p.source_rid))
     const have = new Set(((existing ?? []) as { source_rid: string }[]).map(x => x.source_rid))
+    // 優先度はオーダーシートの取得計画（その人の行）から。無ければ通常
+    const { data: planRow } = person ? await supabase.from('koseki_plans').select('priority').eq('case_id', caseId).eq('person_name', person).maybeSingle() : { data: null }
+    const priority = ((planRow as { priority: string | null } | null)?.priority) || '通常'
     const toInsert = plan.filter(p => !have.has(p.source_rid)).map((p, i) => ({
       case_id: caseId, task_kind: 'case', title: p.title, phase: '戸籍', category: '戸籍',
-      status: '着手前', priority: '通常', source_rid: p.source_rid, work_role: 'assistant', ext_data: p.ext_data, sort_order: 90 + i,
+      status: '着手前', priority, source_rid: p.source_rid, work_role: 'assistant', ext_data: p.ext_data, sort_order: 90 + i,
     }))
     if (toInsert.length > 0) await supabase.from('tasks').insert(toInsert)
     onRefresh?.()

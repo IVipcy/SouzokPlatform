@@ -13,6 +13,7 @@ import { PracticeTabHeader, ProgressChip } from './TabContextPanel'
 // キーは OrderSheet の gate(TabKey) または title（gate が無いセクション）。
 export const WORK_CONTENT_PLACEHOLDERS: Record<string, string> = {
   '依頼者情報': '例）本人の性格・連絡の取りやすさ、同行者との関係、対応時の注意点 など',
+  clientInfo: '例）本人の性格・連絡の取りやすさ、同行者との関係、対応時の注意点 など',
   '受注内容': '例）提案の経緯、値引き・特約、依頼者の要望・懸念 など',
   deceased: '例）相続人◯名（長男・次男…）、関係は円満/対立、遠方・海外・連絡不通の有無、代襲/数次相続 など',
   assets: '例）金融資産の概算合計◯◯万円、ゆうちょ銀行：◯◯万円、みずほ銀行：◯◯万円。不動産の概要 など',

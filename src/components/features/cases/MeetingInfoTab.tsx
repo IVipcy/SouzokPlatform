@@ -9,6 +9,7 @@ import {
   InlineDate, InlineMemberSelect, InlineTextarea,
 } from '@/components/ui/InlineFields'
 import ReferralSourceLookup from './ReferralSourceLookup'
+import PastClientLookup from './PastClientLookup'
 import {
   MAIN_FUNERAL_COMPANIES, OTHER_FUNERAL_COMPANIES, TAX_ADVISOR_COMPANIES, HP_SOURCES, PAST_CLIENT_ROUTE,
   isOrderRouteLocked,
@@ -149,7 +150,9 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
           <ReferralDetailField
             route={caseData.order_route}
             value={caseData.order_route_detail}
+            clientId={caseData.referral_client_id ?? null}
             onSave={v => saveCaseField('order_route_detail', v)}
+            onSelectClient={async (id, name) => { await patchCase({ referral_client_id: id || null, order_route_detail: name } as Partial<CaseRow>) }}
           />
           <InlineMemberSelect label="面談担当（受注担当）" roleKey="sales" assigned={salesMembers} allMembers={allMembers} caseId={caseData.id} onRefresh={onRefresh} multi={false} />
           {/* 面談結果登録で入れる項目のうち、ここでしか直せないもの（以前は登録後に見る場所が無かった） */}
@@ -261,10 +264,13 @@ function ReferralToggles({ caseId, referrals, onRefresh }: {
 
 // 紹介元。面談ルートによって選ぶものが変わるので、ここで出し分ける。
 // 面談結果登録の画面（MeetingForm）と同じ選択肢を使う。
-function ReferralDetailField({ route, value, onSave }: {
+function ReferralDetailField({ route, value, clientId, onSave, onSelectClient }: {
   route: string | null
   value: string | null
+  /** 過去客経由の紹介元の依頼者ID（migration 293） */
+  clientId?: string | null
   onSave: (v: string) => Promise<void>
+  onSelectClient?: (clientId: string, name: string) => Promise<void>
 }) {
   if (!route) {
     return <Field label="紹介元" value="（受注ルートを選ぶと入力できます）" />
@@ -276,8 +282,12 @@ function ReferralDetailField({ route, value, onSave }: {
     return <InlineSelect label="紹介元（HP）" value={value} options={[...HP_SOURCES]} onSave={onSave} />
   }
   if (route === PAST_CLIENT_ROUTE) {
-    // 過去客経由は既存の依頼者名を書く（面談結果登録では依頼者検索から選ぶ）
-    return <InlineEdit label="紹介元（過去の依頼者）" value={value} onSave={onSave} hint="過去の依頼者名" />
+    // 過去客経由は既存の依頼者から選ぶ（面談結果登録と同じ）。選んだ依頼者IDも案件に残す
+    return (
+      <FieldRow label="紹介元（過去の依頼者）" hint="既存の依頼者を名前で探して選びます。選ぶと依頼者IDも記録され、あとから辿れます">
+        <PastClientLookup value={clientId ?? ''} displayName={value ?? ''} onSelect={(id, name) => void (onSelectClient ? onSelectClient(id, name) : onSave(name))} />
+      </FieldRow>
+    )
   }
   const staticOptions =
     route === '主要取引先葬儀社' ? [...MAIN_FUNERAL_COMPANIES]

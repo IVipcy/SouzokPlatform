@@ -243,9 +243,9 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
     kosekiSeededRef.current = true
     ;(async () => {
       const supabase = createClient()
-      const { data: planRows } = await supabase.from('koseki_plans').select('person_name, range_text, address_doc, acquisition_authority').eq('case_id', caseState.id).order('sort_order').order('created_at')
-      const plans = ((planRows ?? []) as Array<{ person_name: string; range_text: string | null; address_doc: string | null; acquisition_authority: string | null }>)
-        .filter(p => (p.person_name ?? '').trim() && (p.range_text || p.address_doc || p.acquisition_authority))
+      const { data: planRows } = await supabase.from('koseki_plans').select('person_name, range_text, address_doc, acquisition_authority, note').eq('case_id', caseState.id).order('sort_order').order('created_at')
+      const plans = ((planRows ?? []) as Array<{ person_name: string; range_text: string | null; address_doc: string | null; acquisition_authority: string | null; note: string | null }>)
+        .filter(p => (p.person_name ?? '').trim() && (p.range_text || p.address_doc || p.acquisition_authority || p.note))
       const dn = (caseState.deceased_name ?? '').trim()
       const officeOf = (name: string) => {
         if (name === dn) return kosekiOfficeFromAddress(caseState.deceased_registered_address ?? null)
@@ -258,17 +258,17 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         if (addressDoc === '住民票' || addressDoc === '戸籍の附票') parts.push(addressDoc)
         return parts.join('・')
       }
-      type Row = { case_id: string; target_person: string; acquirer: string; request_to: string | null; range_text: string | null; doc_types: string; doc_form: string; acquisition_authority: string | null; sort_order: number }
+      type Row = { case_id: string; target_person: string; acquirer: string; request_to: string | null; range_text: string | null; doc_types: string; doc_form: string; acquisition_authority: string | null; notes: string | null; sort_order: number }
       let rows: Row[] = []
       if (plans.length > 0) {
         rows = plans.map((p, i) => ({
           case_id: caseState.id, target_person: p.person_name.trim(), acquirer: '自社', request_to: officeOf(p.person_name.trim()),
-          range_text: p.range_text, doc_types: docTypesOf(p.address_doc), doc_form: '謄本', acquisition_authority: p.acquisition_authority, sort_order: i,
+          range_text: p.range_text, doc_types: docTypesOf(p.address_doc), doc_form: '謄本', acquisition_authority: p.acquisition_authority, notes: p.note, sort_order: i,
         }))
       } else {
         const client = heirs.find(h => h.is_client && (h.name ?? '').trim())
         const name = client ? (client.name ?? '').trim() : dn
-        if (name) rows = [{ case_id: caseState.id, target_person: name, acquirer: '自社', request_to: officeOf(name), range_text: null, doc_types: '戸籍', doc_form: '謄本', acquisition_authority: null, sort_order: 0 }]
+        if (name) rows = [{ case_id: caseState.id, target_person: name, acquirer: '自社', request_to: officeOf(name), range_text: null, doc_types: '戸籍', doc_form: '謄本', acquisition_authority: null, notes: null, sort_order: 0 }]
       }
       if (rows.length > 0) {
         const { error } = await supabase.from('koseki_requests').insert(rows)

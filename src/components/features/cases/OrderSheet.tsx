@@ -324,8 +324,9 @@ export default function OrderSheet({
           {memoPhotos.length > 0 && <MemoPhotoStrip memos={memoPhotos} onOpen={id => { setMemoOpenId(id); setMemoViewerOpen(true) }} />}
           {osSections.map((s, i) => (
             <OSSection key={s.title} title={s.title} id={sectionId(s, i)}>
-              {/* 依頼者情報は作業内容欄が不要（依頼者の属性入力のみ）／受注内容はOrderContentTab側でgyomu="order"のフリー欄を持つため二重表示回避 */}
-              {s.title !== '依頼者情報' && s.title !== '受注内容' && (
+              {/* 受注内容は OrderContentTab 側で gyomu="order" のフリー欄を持つため二重表示回避。
+                  依頼者情報は面談シートのメモ（work_content.clientInfo）を読む場所がPC版に無かったので出す */}
+              {s.title !== '受注内容' && (
                 <div className="mb-3 pb-3 border-b border-gray-100">
                   <WorkContentField caseData={caseData} gyomu={s.workContentKey ?? s.gate ?? s.title} patchCase={patchCase} label="作業内容・関連情報" placeholder={workContentPlaceholder(s.gate ?? s.title)} />
                 </div>

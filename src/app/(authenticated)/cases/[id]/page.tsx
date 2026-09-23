@@ -116,7 +116,8 @@ export default async function CaseDetailPage({ params }: Props) {
     supabase.from('reward_items').select('amount').eq('case_id', id),
     // 白紙メモの原本（面談シートの白紙モードで保存した1枚画像）。migration 221 未適用環境では error → 空配列で degrade。
     // 白紙メモ（手書き原本）と面談メモ（写真）。どちらもオーダーシートのビューアから開ける。
-    supabase.from('meeting_memos').select('id, image_path, image_bucket, section, created_at, meta').eq('case_id', id).in('section', ['whiteboard', 'memoPhoto']).order('created_at', { ascending: false }),
+    // 白紙メモ・面談写真・セクション別の手書き、全部読む（入力アプリと同じ）。以前は白紙と写真だけで、セクション別の手書きが見えなかった
+    supabase.from('meeting_memos').select('id, image_path, image_bucket, section, created_at, meta').eq('case_id', id).order('created_at', { ascending: false }),
     // その他財産／相続債務／その他費用。migration 224 未適用環境では error → 空配列で degrade。
     supabase.from('case_other_assets').select('*').eq('case_id', id).order('sort_order', { ascending: true }).order('created_at'),
     // 金融財産調査：調査先／請求／請求明細（明細×口座・明細×銘柄を join）／銘柄。migration 271。

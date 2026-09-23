@@ -144,6 +144,7 @@ export type CaseRow = {
   meeting_owner_id: string | null      // 面談担当＝受注担当（自動設定）
   meeting_type: string | null          // 面談内容（フリーテキスト。既定「新規面談」）
   prospect_level?: string | null       // 見込み度（高/中/低/不明。面談結果登録と面談情報タブ）
+  referral_client_id?: string | null   // 紹介元の依頼者（過去客経由。migration 293）
   proposal_note: string | null         // 提案金額（旧・単一フリーテキスト。互換のため残置）
   proposal_judicial: string | null     // 提案金額（司法書士報酬。migration 218）
   proposal_administrative: string | null // 提案金額（行政書士報酬。migration 218）
@@ -1046,7 +1047,6 @@ export type FinancialAssetRow = {
   account_type: string | null                 // 口座種別（普通/定期/当座/積立/貯蓄/その他。migration 187）
   required_docs: string[] | null
   existence_check: string | null
-  safe_deposit_box: string | null
   dissolution_status: string | null
   passbook_status: string | null
   houri_inquiry: boolean
@@ -1078,7 +1078,6 @@ export type FinancialAssetRow = {
   tx_five_years: boolean                    // 取引明細「相続開始日まで5年」のチェック（migration 275）
   balance_cert_dates: string[] | null       // 残高証明の取得日（任意の日付・複数。migration 245）
   has_investment_trust: boolean                // 投信有無（預金・メモ。migration 214）
-  has_safe_deposit: boolean                    // 貸金庫有無（預金・タスク生成。migration 214）
   acquirer: string | null                    // 取得区分（自社/依頼者。migration 085）
   acquired_part: string | null               // 取得した受注区分パート（パート制。migration 129）
   balance_amount: number | null               // 残高/評価額（migration 143。目録・精算書へ）
