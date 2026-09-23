@@ -75,17 +75,30 @@ export function AlertCenterProvider({ children }: { children: React.ReactNode })
       const supabase = createClient()
       const [{ data }, alertRes] = await Promise.all([
         supabase.from('notifications').select('*').eq('member_id', memberId).order('created_at', { ascending: false }).limit(FETCH_LIMIT),
-        fetch('/api/alerts').then(r => r.ok ? r.json() : { alerts: [] }).catch(() => ({ alerts: [] })),
+        // ベルは毎回いまの状態を見たい。環境によっては最初の結果を使い回すので、キャッシュを切る。
+        // 取れなかったときは ok=false（下の「消えた鍵の掃除」をしない。空を本物と誤認して対応済を全部消さないため）
+        fetch('/api/alerts', { cache: 'no-store' })
+          .then(async r => (r.ok ? { ok: true, ...(await r.json()) } : { ok: false, alerts: [] }))
+          .catch(() => ({ ok: false, alerts: [] })),
       ])
       setNotifications((data ?? []) as NotificationItem[])
       const list = (alertRes?.alerts ?? []) as AlertItem[]
+      const fetchedOk = alertRes?.ok === true
       setRawAlerts(list)
-      // 人ごとの状態。初めて見るアラートは「初出」を記録する（既にあれば触らない）
+      // 人ごとの状態。初めて見るアラートは「初出」を記録する（既にあれば触らない）。
+      // 自分の全行を読む（人ごとの行数は小さい）。今回の取得に無い鍵は条件が解消したということなので、
+      // 対応済を含めて行ごと消す。同じ鍵で再発したときに「初出＝いま」の新着として戻すため。
+      // 消さないと、再発したアラートが完了済タブに埋もれて誰も気づけない。
       const keys = list.map(a => a.id)
-      let rows: StateRow[] = []
+      const keySet = new Set(keys)
+      const { data: st } = await supabase.from('alert_states').select('alert_key, first_seen_at, acked_at').eq('member_id', memberId)
+      const allRows = (st ?? []) as StateRow[]
+      const stale = fetchedOk ? allRows.filter(r => !keySet.has(r.alert_key)).map(r => r.alert_key) : []
+      if (stale.length > 0) {
+        await supabase.from('alert_states').delete().eq('member_id', memberId).in('alert_key', stale)
+      }
+      let rows: StateRow[] = allRows.filter(r => keySet.has(r.alert_key))
       if (keys.length > 0) {
-        const { data: st } = await supabase.from('alert_states').select('alert_key, first_seen_at, acked_at').eq('member_id', memberId).in('alert_key', keys)
-        rows = (st ?? []) as StateRow[]
         const known = new Set(rows.map(r => r.alert_key))
         const missing = keys.filter(k => !known.has(k))
         if (missing.length > 0) {

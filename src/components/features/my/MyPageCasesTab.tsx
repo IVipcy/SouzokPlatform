@@ -315,7 +315,7 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                 </td>
               )}
               <td className="px-3 py-2.5 text-center">
-                {c.flag ? (
+                {c.flag && c.flag !== 'blue' ? (
                   /* フラグは「何がマズいか」の入口。案件詳細のトップに落とすと結局そこから探す
                      ことになるので、要注意/要確認バナーと同じ一覧へ、この案件だけに絞って飛ばす。 */
                   <Link
@@ -325,6 +325,14 @@ export default function MyPageCasesTab({ memberId: _memberId, cases, compact = f
                   >
                     {FLAG_LABEL[c.flag]}
                   </Link>
+                ) : c.flag === 'blue' ? (
+                  /* アラート無し（青）。要注意一覧に飛ばしても空になるだけなので、リンクにしない普通のチップ */
+                  <span
+                    title="いま出ているアラートはありません"
+                    className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[11.5px] font-bold whitespace-nowrap ${FLAG_BG.blue}`}
+                  >
+                    {FLAG_LABEL.blue}
+                  </span>
                 ) : (
                   <Link href={`/cases/${c.id}`} title="案件詳細を開く" className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[11px] font-bold bg-gray-100 text-gray-500 border border-gray-200 hover:brightness-95 whitespace-nowrap">
                     {getCaseStatusLabel(c.status)}

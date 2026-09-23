@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Calendar, AlertTriangle, ArrowUpDown } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
 import { CASE_STATUSES } from '@/lib/constants'
+import { todayJstYmd } from '@/lib/today'
 
 type CaseMeeting = {
   id: string
@@ -104,7 +105,8 @@ export default function MonthlyMeetingsTable({ cases, title = '当月面談一�
     return arr
   }, [filtered, sortKey, sortOrder])
 
-  const today = new Date().toISOString().split('T')[0]
+  // 「今日」は日本時間（UTC だと朝9時前に前日になる）。描画のたびに new Date() しないよう遅延初期化
+  const [today] = useState(() => todayJstYmd())
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {

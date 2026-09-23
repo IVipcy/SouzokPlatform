@@ -17,12 +17,14 @@ import {
   EMPTY_DEPT_TARGET,
   fiscalYearMonthsToDate,
   applyReferralFlags,
+  jstMonthRange,
   type DashCase,
   type DashCaseMember,
   type DashReferral,
   type DashStatusChange,
   type DeptTargetRow,
 } from '@/lib/dashboardMetrics'
+import { thisMonthJst } from '@/lib/today'
 
 type MemberRow = {
   id: string
@@ -44,12 +46,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const periodLabel = currentPeriod === 'today' ? '本日' : currentPeriod === 'month' ? '当月' : '年度累計'
   const supabase = await createClient()
   const today = new Date()
-  const thisYm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+  // 当月は日本時間で決める（サーバーは UTC。月初の朝9時前に前月扱いになっていた）
+  const thisYm = thisMonthJst(today)
 
-  // 当月の月初〜月末（activity_log フィルタ用 — 受注担当の達成判定に使う）
-  const monthStart = `${thisYm}-01T00:00:00`
-  const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1)
-  const nextMonthStart = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}-01T00:00:00`
+  // 当月の月初〜翌月初（activity_log フィルタ用 — 受注担当の達成判定に使う）。created_at は UTC なので範囲に直す
+  const { start: monthStart, end: nextMonthStart } = jstMonthRange(thisYm)
 
   const [
     { data: casesRaw },

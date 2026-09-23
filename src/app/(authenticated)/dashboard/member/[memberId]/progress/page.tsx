@@ -8,6 +8,8 @@ import MonthSelector from '@/components/features/dashboard/MonthSelector'
 import TeamMemberNav, { type TeamNavMember } from '@/components/features/dashboard/TeamMemberNav'
 import { fetchCaseAlertContexts } from '@/lib/caseAlertContext'
 import { evaluateCaseAlerts } from '@/lib/alertRules'
+import { ACTIVE_CASE_STATUSES } from '@/lib/constants'
+import { thisMonthJst } from '@/lib/today'
 import {
   computeProgressKpis,
   computeCaseFlag,
@@ -16,6 +18,10 @@ import {
   type DashCase,
   type DashTask,
 } from '@/lib/dashboardMetrics'
+
+// 表に出す案件（受注〜作業進行中）。KPI もこの集合で数える。
+// 以前は表が戻り受注を落とし、KPI は既定（戻り受注込み）で数えていたので件数が食い違っていた。
+const ACTIVE = new Set<string>(ACTIVE_CASE_STATUSES)
 
 type CaseFull = DashCase & {
   case_number: string
@@ -36,7 +42,8 @@ export default async function MemberProgressPage({ params, searchParams }: Props
   const { month } = await searchParams
   const supabase = await createClient()
   const today = new Date()
-  const ymToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+  // 当月は日本時間で決める（サーバーは UTC）
+  const ymToday = thisMonthJst(today)
 
   const selectedMonth: string | 'all' = month === 'all' ? 'all' : (month || ymToday)
   const selectedMonthForKpis: string | null = selectedMonth === 'all' ? null : selectedMonth
@@ -127,7 +134,7 @@ export default async function MemberProgressPage({ params, searchParams }: Props
   const alertCtx = await fetchCaseAlertContexts(supabase, caseIdArray, todayStr)
   const alertsByCase = new Map(cases.map(c => [c.id, evaluateCaseAlerts(c, alertCtx.get(c.id) ?? {}, todayStr)]))
 
-  const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today, invoices, undefined, alertsByCase)
+  const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today, invoices, ACTIVE, alertsByCase)
 
   // case → manager マップ
   const managerByCase = new Map<string, { id: string; name: string; avatar_color: string; avatar_url: string | null; primary_role: string | null }>()
@@ -145,7 +152,6 @@ export default async function MemberProgressPage({ params, searchParams }: Props
     tasksByCase.get(t.case_id)!.push(t)
   }
 
-  const ACTIVE = new Set(['受注', '作業着手準備', '対応中'])
   const inSelectedMonth = (d: string | null | undefined): boolean => {
     if (!d) return false
     if (selectedMonth === 'all') return true

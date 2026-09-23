@@ -27,9 +27,9 @@ import HourenSouTable, { type HourenSouItem } from '@/components/features/my/Hou
 import VisitReservationsPanel from './VisitReservationsPanel'
 import type { VisitData } from '@/lib/visitReservations'
 import type { CaseReportStatus } from '@/types'
-import TaskListClient, { isTaskInRoleScope, type CaseInfo, type TaskJump } from '@/components/features/tasks/TaskListClient'
+import TaskListClient, { isListedAssistantTask, type CaseInfo, type TaskJump } from '@/components/features/tasks/TaskListClient'
 import { bizDaysOverdue } from '@/lib/overdue'
-import { getStartSignal, type ReadinessReceipt } from '@/lib/taskReadiness'
+import type { ReadinessReceipt } from '@/lib/taskReadiness'
 import {
   taskSeverity, worstSeverity, SEVERITY_TAB, SEVERITY_TAB_NOTE, type TaskSeverity,
 } from '@/lib/taskSeverity'
@@ -113,7 +113,8 @@ export default function OfficeDashboardTabs({
   const searchParams = useSearchParams()
   // タブはURLに残す。リロード・戻るで同じタブに戻れるようにする。既定はタスク。
   const urlTab = searchParams.get('tab')
-  const tabFromUrl = (['filing', 'start', 'tasks', 'mail', 'hourensou'] as string[]).includes(urlTab ?? '') ? (urlTab as TabKey) : 'tasks'
+  // 許可一覧に無いタブはリロードでタスクに戻る。報連相（要対応）が漏れていた
+  const tabFromUrl = (['filing', 'start', 'tasks', 'hourensou', 'hourensouAction'] as TabKey[]).includes((urlTab ?? '') as TabKey) ? (urlTab as TabKey) : 'tasks'
   const [tab, setTab] = useState<TabKey>(tabFromUrl)
   const selectTab = (t: TabKey) => {
     setTab(t)
@@ -134,9 +135,9 @@ export default function OfficeDashboardTabs({
   //   要注意（赤）… 大きく遅れているタスク／急ぎ・超急ぎ
   //   要確認（オレンジ）… 遅れが目立つタスク
   //   緑・青はバナーを出さず、タブの色だけで知らせる
-  const listedTasks = tasks.filter(t =>
-    isTaskInRoleScope(t, 'assistant')
-    && (normalizeStatus(t.status) !== '着手前' || getStartSignal(t, receipts).ready))
+  // 「一覧に載るか」の条件は TaskListClient と同じ関数で判定する（相続登記タスクの除外を含む）。
+  // 別々に書いていたせいで、バナーには数えるのに一覧を開くと「該当なし」になっていた。
+  const listedTasks = tasks.filter(t => isListedAssistantTask(t, receipts))
   const openTasks = listedTasks.filter(t => normalizeStatus(t.status) !== '完了')
   const readyCount = listedTasks.filter(t => normalizeStatus(t.status) === '着手前').length
   const chuiTasks = openTasks.filter(t => taskSeverity(t, today) === 'red')

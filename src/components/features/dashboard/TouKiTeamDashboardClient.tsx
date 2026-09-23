@@ -15,6 +15,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { normalizeTaskStatus } from '@/lib/taskReadiness'
 import { bizDaysUntil } from '@/lib/overdue'
+import { todayJstYmd } from '@/lib/today'
 import type { TaskRow } from '@/types'
 import { RemainCell } from '@/components/ui/RemainCell'
 
@@ -36,7 +37,8 @@ export default function TouKiTeamDashboardClient({ tasks: initialTasks, currentM
   const router = useRouter()
   const [filter, setFilter] = useState<FilterKey>('not_started')
   const [busy, setBusy] = useState<string | null>(null)
-  const today = new Date().toLocaleDateString('sv-SE')
+  // 「今日」は日本時間。描画のたびに new Date() しないよう遅延初期化
+  const [today] = useState(() => todayJstYmd())
 
   const counts = useMemo(() => {
     const c = { all: initialTasks.length, not_started: 0, in_progress: 0, done: 0 }

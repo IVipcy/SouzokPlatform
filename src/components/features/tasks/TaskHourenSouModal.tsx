@@ -9,7 +9,10 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import HourenSouModal from '@/components/features/cases/HourenSouModal'
-import type { CaseRow, MemberRow } from '@/types'
+import type { CaseRow, MemberRow, CaseReportKind } from '@/types'
+
+/** 送った報連相の種別。呼び出し側が「要対応のときだけタスクを確認中にする」判断に使う */
+export type TaskHourenSouSent = { kind: CaseReportKind | null }
 
 export default function TaskHourenSouModal({ isOpen, onClose, caseId, currentMemberId, taskId = null, taskTitle, onSent }: {
   isOpen: boolean
@@ -20,7 +23,8 @@ export default function TaskHourenSouModal({ isOpen, onClose, caseId, currentMem
   taskId?: string | null
   /** 送信欄の下書きに入れるタスク名 */
   taskTitle?: string | null
-  onSent?: () => void
+  /** 送信後。種別（情報共有／要対応）を添える。taskId が無いときは kind=null */
+  onSent?: (sent: TaskHourenSouSent) => void
 }) {
   const [caseData, setCaseData] = useState<CaseRow | null>(null)
   const [members, setMembers] = useState<MemberRow[]>([])
@@ -56,7 +60,16 @@ export default function TaskHourenSouModal({ isOpen, onClose, caseId, currentMem
       salesMemberId={salesMemberId}
       allMembers={members}
       taskId={taskId}
-      onSent={onSent}
+      onSent={async () => {
+        // 報連相ウィンドウは種別を返さないので、このタスクに紐づく直近の1件を読んで種別を知る。
+        // 情報共有は誰も回答しないので、呼び出し側でタスクを確認中にしないために要る。
+        let kind: CaseReportKind | null = null
+        if (taskId) {
+          const { data } = await createClient().from('case_reports').select('kind').eq('task_id', taskId).order('created_at', { ascending: false }).limit(1).maybeSingle()
+          kind = ((data as { kind?: CaseReportKind } | null)?.kind) ?? null
+        }
+        onSent?.({ kind })
+      }}
       initialMessage={taskTitle ? `【${taskTitle}】について相談です。\n` : ''}
     />
   )

@@ -855,13 +855,13 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
             // 「事務管理進捗」(案件進捗=BasicInfoTab)を 案件進捗タブ内のサブタブとして表示。
             // 受注担当ビューでも 管理担当と同じ5サブタブ(進捗サマリー/事務管理進捗/案件報告/報連相・メモ/不満・クレーム)にする。
             renderOfficeProgress={() => (
-              <BasicInfoTab embedded caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} contractDocuments={contractDocuments} managerAssigned={managerAssigned} contractProcDone={contractProcDone} salesMemberId={salesMemberId} canRequestReview={isCaseManager} />
+              <BasicInfoTab embedded caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} contractDocuments={contractDocuments} managerAssigned={managerAssigned} contractProcDone={contractProcDone} kentouContractReady={kentouContractReady} workPrepReady={workPrepReady} salesMemberId={salesMemberId} canRequestReview={isCaseManager} />
             )}
           />
         )
       })()}
       {effectiveTab === 'basicInfo' && (
-        <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} contractDocuments={contractDocuments} managerAssigned={managerAssigned} contractProcDone={contractProcDone} salesMemberId={salesMemberId} canRequestReview={isCaseManager} />
+        <BasicInfoTab caseData={caseState} tasks={tasks} properties={properties} allMembers={allMembers} currentMemberId={currentMemberId} patchCase={patchCase} documentReceipts={documentReceipts} contractDocuments={contractDocuments} managerAssigned={managerAssigned} contractProcDone={contractProcDone} kentouContractReady={kentouContractReady} workPrepReady={workPrepReady} salesMemberId={salesMemberId} canRequestReview={isCaseManager} />
       )}
       {effectiveTab === 'ownerSales' && (
         <OwnerSalesTab caseData={caseState} patchCase={patchCase} relations={relations} currentMemberId={currentMemberId} onRelationsChanged={reloadRelations} />

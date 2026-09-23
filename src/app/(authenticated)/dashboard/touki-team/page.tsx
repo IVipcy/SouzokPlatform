@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/lib/auth'
 import ToukiTeamTabs from '@/components/features/dashboard/ToukiTeamTabs'
 import { TOUKI_REQUEST_SELECT } from '@/lib/toukiRequests'
 import { loadTaskListData } from '@/lib/loadTaskListData'
+import { todayJstYmd } from '@/lib/today'
 import type { TaskRow, ToukiRequestRow } from '@/types'
 
 // 相続登記チーム 専用ダッシュボード。
@@ -48,7 +49,8 @@ export default async function TouKiTeamDashboardPage() {
     loadTaskListData(),   // 事務管理のタスク一覧と同じデータ（案件・メンバー・受信簿）。表示は担当区分「相続登記チーム」で絞る
   ])
   const requests = (reqRaw ?? []) as unknown as ToukiRequestRow[]
-  const todayStr = new Date().toLocaleDateString('sv-SE')
+  // 「今日」は日本時間（サーバーのローカル日付は Azure では UTC）
+  const todayStr = todayJstYmd()
 
   return (
     <div>

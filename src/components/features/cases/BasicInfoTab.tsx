@@ -12,7 +12,7 @@ import { Section } from '@/components/ui/InlineFields'
 import { SubTabs } from '@/components/ui/SubTabs'
 import { CASE_STATUSES, getCaseStatusLabel, getSelectableCaseStatuses } from '@/lib/constants'
 import { GYOMU_ALL } from '@/lib/serviceMaster'
-import { todayJstYmd } from '@/lib/dashboardMetrics'
+import { todayJstYmd } from '@/lib/today'
 import type { CaseRow, TaskRow, MemberRow, RealEstatePropertyRow, ContractDocumentRow } from '@/types'
 import CaseTimeline, { type TimelineReceipt } from './CaseTimeline'
 import HistoryTab from './HistoryTab'
@@ -35,6 +35,10 @@ type Props = {
   managerAssigned?: boolean
   // 契約残手続き（契約書類受信）完了か（対応中ガード用）
   contractProcDone?: boolean
+  // 検討中（契約書待ち）→受注 のゲート。省略時はヘッダー（CaseDetailClient）と同じく契約手続き完了と同値
+  kentouContractReady?: boolean
+  // 受注/戻り受注 → 作業着手準備 のゲート（受注ナビの全件完了）。省略時は進ませない（ナビ以外からは手で進めない、の既定）
+  workPrepReady?: boolean
   // 進捗確認依頼の確認者＝受注担当
   salesMemberId?: string | null
   // 進捗確認を依頼できるか（この案件の管理担当のみ）
@@ -51,7 +55,7 @@ const normGyomu = (phase: string | null | undefined): string => {
   return g
 }
 
-export default function BasicInfoTab({ caseData, tasks, properties, allMembers, currentMemberId, patchCase, documentReceipts, contractDocuments = [], managerAssigned = false, contractProcDone = true, salesMemberId = null, canRequestReview = false, embedded = false }: Props) {
+export default function BasicInfoTab({ caseData, tasks, properties, allMembers, currentMemberId, patchCase, documentReceipts, contractDocuments = [], managerAssigned = false, contractProcDone = true, kentouContractReady = contractProcDone, workPrepReady = false, salesMemberId = null, canRequestReview = false, embedded = false }: Props) {
   // 契約時受領書類の区分（id → category）。到着物の紐づけ不要の自動判定に使う。
   const contractCat = new Map((contractDocuments ?? []).map(d => [d.id, d.category ?? '']))
   const saveCaseField = async (field: string, value: unknown) => {
@@ -59,7 +63,8 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
   }
 
   // ── 進行状態サマリー用の集計 ──
-  const todayYmd = todayJstYmd(new Date())
+  // 「今日」は日本時間。描画のたびに new Date() しないよう遅延初期化
+  const [todayYmd] = useState(() => todayJstYmd())
   // 数える対象は下の線表に出しているものと同じ集合にする（表と数字が食い違わないように）。
   //   事務管理担当タスク ＋ 管理担当タスクのうち業務区分が入っているもの。
   //   「その他」の随時タスク（お客様連絡・引継ぎ 等）は案件の進み具合と別なので数えない。
@@ -190,7 +195,7 @@ export default function BasicInfoTab({ caseData, tasks, properties, allMembers, 
         <div className="rounded-lg border border-gray-200">
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-px bg-gray-100">
             <SummaryItem label="案件ステータス">
-              <StatusChipDropdown status={caseData.status} orderSheetCompleted={!!caseData.order_sheet_completed_at} managerAssigned={managerAssigned} contractProcDone={contractProcDone} onChange={s => saveCaseField('status', s)} />
+              <StatusChipDropdown status={caseData.status} orderSheetCompleted={!!caseData.order_sheet_completed_at} managerAssigned={managerAssigned} contractProcDone={contractProcDone} kentouContractReady={kentouContractReady} workPrepReady={workPrepReady} onChange={s => saveCaseField('status', s)} />
             </SummaryItem>
             <SummaryItem label="現在の業務">
               <span className="text-[14px] font-bold text-gray-900">{currentPhaseLabel ?? '未着手'}</span>
@@ -253,10 +258,15 @@ function SummaryItem({ label, children }: { label: string; children: React.React
 
 // 案件ステータスの編集チップ（ブランド単色。ヘッダーのステータスフローと色を統一）
 // 対応中/完了はオーダーシート完成＋管理担当アサイン後のみ選択可（getSelectableCaseStatuses）。
-function StatusChipDropdown({ status, orderSheetCompleted, managerAssigned, contractProcDone = true, onChange }: { status: string; orderSheetCompleted: boolean; managerAssigned: boolean; contractProcDone?: boolean; onChange: (s: string) => void }) {
+// ヘッダー（CaseHeader）と同じゲート引数を全部渡す。以前は契約書待ち→受注・→作業着手準備のゲートを渡しておらず、
+// ヘッダーでは選べない遷移がここでは選べていた。
+function StatusChipDropdown({ status, orderSheetCompleted, managerAssigned, contractProcDone = true, kentouContractReady = contractProcDone, workPrepReady = false, onChange }: {
+  status: string; orderSheetCompleted: boolean; managerAssigned: boolean; contractProcDone?: boolean
+  kentouContractReady?: boolean; workPrepReady?: boolean; onChange: (s: string) => void
+}) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  const allowed = new Set(getSelectableCaseStatuses(orderSheetCompleted, status, managerAssigned, true, contractProcDone))
+  const allowed = new Set(getSelectableCaseStatuses(orderSheetCompleted, status, managerAssigned, true, contractProcDone, kentouContractReady, workPrepReady))
 
   useEffect(() => {
     if (!open) return

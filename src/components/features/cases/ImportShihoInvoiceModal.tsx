@@ -133,16 +133,22 @@ export default function ImportShihoInvoiceModal({ isOpen, onClose, caseData, onS
     setSaving(true)
     const supabase = createClient()
     // 行政の請求書生成と同じく「作成済」で登録。入金待ちへの移行は請求・入金タブで行う。
-    const { data, error } = await supabase.from('invoices').insert({
-      case_id: caseData.id, invoice_type: '確定請求', firm_type: 'shiho',
+    // 取り込み直しで行が増えないよう、同じ案件の司法・確定請求が既にあれば更新（入金済なら止める）。API 側（S15）と同じ決まり
+    const { data: existing } = await supabase.from('invoices').select('id, status').eq('case_id', caseData.id).eq('invoice_type', '確定請求').eq('firm_type', 'shiho').order('created_at', { ascending: false }).limit(1).maybeSingle()
+    const ex = existing as { id: string; status: string } | null
+    if (ex?.status === '入金済') { setSaving(false); showToast('入金済の司法の確定請求書があります。追加請求は /billing から発行してください', 'error'); return }
+    const values = {
       amount: billAmount, fee_amount: fee, expenses_amount: expense, advance_deduction: advance,
-      status: '作成済', issued_date: issuedDate,
+      issued_date: issuedDate,
       invoice_number: invoiceNo.trim() || null,
       notes: '相続の力で発行（取り込み）',
-    }).select('id').single()
+    }
+    const { data, error } = ex
+      ? await supabase.from('invoices').update(values).eq('id', ex.id).select('id').single()
+      : await supabase.from('invoices').insert({ case_id: caseData.id, invoice_type: '確定請求', firm_type: 'shiho', status: '作成済', ...values }).select('id').single()
     setSaving(false)
     if (error) { showToast(`確定請求済にできませんでした: ${error.message}`, 'error'); return }
-    showToast('司法書士の確定請求レコードを作成しました', 'success')
+    showToast(ex ? '司法書士の確定請求レコードを更新しました' : '司法書士の確定請求レコードを作成しました', 'success')
     setSavedId((data as { id: string } | null)?.id ?? '')
     onSaved()
   }

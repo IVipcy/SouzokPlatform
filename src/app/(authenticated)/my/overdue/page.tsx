@@ -3,14 +3,15 @@ import Link from 'next/link'
 import { AlertTriangle, ArrowLeft } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/server'
-import { getCurrentUser, canSeeMyPage } from '@/lib/auth'
+import { getCurrentUser, canSeeMyPage, isSystemManager } from '@/lib/auth'
 import { overdueSeverity, billOverdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
 import { todayJstYmd } from '@/lib/today'
 import OverdueDetailClient from '@/components/features/my/OverdueDetailClient'
 import { computeUrgentReportAlerts, computeParcelArrivalAlerts, computeTeamHourensouAlerts } from '@/lib/caseStateAlerts'
 import { fetchCaseAlertContexts } from '@/lib/caseAlertContext'
 import { evaluateCaseAlerts, bannerOf } from '@/lib/alertRules'
-import type { TaskRow } from '@/types'
+import { toukiSeverity, toukiOverdueDays } from '@/lib/toukiRequests'
+import type { TaskRow, ToukiRequestStatus } from '@/types'
 
 // マイページ上部の要確認/要注意バナーの遷移先。バナーで選んだ severity で絞り込み表示。
 // 入金超過の請求＋案件別表（事務管理・受注/管理担当タスクを問わず超過が発生している案件）を並べる。
@@ -25,6 +26,9 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
   if (!user?.memberId) redirect('/login')
   if (!canSeeMyPage(user)) redirect('/')
   const memberId = user.memberId
+  // 登記依頼のアラートは管理担当（サブ含む）だけ。マイページのバナー（my/page.tsx）と同じ条件。
+  // システム管理者はマイページの既定ビューが管理担当なので、ここでも管理担当として扱う
+  const isManager = user.primaryRole === 'manager' || user.primaryRole === 'sub_manager' || isSystemManager(user)
   const supabase = await createClient()
   const todayStr = todayJstYmd()
 
@@ -62,12 +66,13 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
   //   ①案件の出現判定: 「kakunin/chui級の重い超過が1件以上」あるときのみ /my/overdue に出す (caseHasSevere)
   //   ②リスト表示: そのケースについて 期日超過(due_date < today) の未完了タスクは 全件 表示 (軽微=severity:null も含む)
   //   ③重要度(severity): ケース内で最も重い(chui > kakunin > null)
-  type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: OverdueSeverity | null; priority: string | null; kind: 'case' | 'system' }
+  //   ④相続登記チームのタスク（touki_team）も行に出す。件数には入るのに行が無かったので、受注/管理側の列に「登記」の種別で並べる
+  type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: OverdueSeverity | null; priority: string | null; kind: 'case' | 'system' | 'touki_team' }
   const caseOverdue = new Map<string, {
     severity: OverdueSeverity        // ケース重要度 (chui/kakunin)
     countTasks: number; countCase: number; countSystem: number
     caseTasks: OverdueTaskLite[]     // 事務管理側の超過タスク(軽微含む・古い順)
-    systemTasks: OverdueTaskLite[]   // 受注/管理側の超過タスク(軽微含む・古い順)
+    systemTasks: OverdueTaskLite[]   // 受注/管理側・相続登記チームの超過タスク(軽微含む・古い順)
   }>()
   const caseHasSevere = new Set<string>()
   for (const t of tasks) {
@@ -87,7 +92,8 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
     cur.countTasks += 1
     const base = { id: t.id, title: t.title, due_date: (t.due_date as string) || todayStr, over: t.due_date ? Math.max(0, calDaysOverdue(t.due_date as string, todayStr)) : 0, severity: sev, priority: t.priority ?? null }
     if (t.task_kind === 'case') { cur.countCase += 1; cur.caseTasks.push({ ...base, kind: 'case' }) }
-    if (t.task_kind === 'system') { cur.countSystem += 1; cur.systemTasks.push({ ...base, kind: 'system' }) }
+    else if (t.task_kind === 'touki_team') { cur.countSystem += 1; cur.systemTasks.push({ ...base, kind: 'touki_team' }) }
+    else { cur.countSystem += 1; cur.systemTasks.push({ ...base, kind: 'system' }) }
     caseOverdue.set(t.case_id, cur)
   }
   // ケースが 重い超過1件でも無ければ、/my/overdue には出さない
@@ -180,7 +186,28 @@ export default async function OverdueDetailPage({ searchParams }: { searchParams
     ...teamReportRows.map((r: any) => [r.case_id, { case_number: r.cases?.case_number ?? '', deal_name: r.cases?.deal_name ?? '' }] as const),
     ...teamOnlyCaseMeta.map(c => [c.id, { case_number: c.case_number, deal_name: c.deal_name }] as const),
   ])
+  // 登記依頼が止まっている（自分が出したもの）→ 要確認／要注意。
+  // マイページのバナー（my/page.tsx の toukiBannerAlerts）と同じ条件・同じ判定。
+  // バナーだけが数えていて、飛んできたこの一覧に無かったので「バナー1件→一覧0件」になっていた。
+  const toukiAlerts = await (async () => {
+    if (!isManager) return []
+    const { data } = await supabase.from('touki_requests').select('id, case_id, request_type, office, status, requested_at, cases(case_number, deal_name)')
+      .eq('requester_id', memberId).in('status', ['依頼中', '対応中'])
+    type TR = { id: string; case_id: string; request_type: string; office: string | null; status: ToukiRequestStatus; requested_at: string; cases: { case_number: string; deal_name: string } | null }
+    return ((data ?? []) as unknown as TR[]).flatMap(r => {
+      const sev = toukiSeverity(r, todayStr)
+      if (!sev) return []
+      return [{
+        caseId: r.case_id, caseNumber: r.cases?.case_number ?? '', dealName: r.cases?.deal_name ?? '',
+        category: '登記依頼 返答待ち', severity: sev,
+        since: r.requested_at.slice(0, 10), days: toukiOverdueDays(r, todayStr),
+        reason: `${r.request_type}（${r.office || '法務局未設定'}）を出してから返ってきていません（${r.status}）`,
+        href: `/cases/${r.case_id}?tab=registration${r.office ? `&focus=${encodeURIComponent(r.office)}` : ''}`,
+      }]
+    })
+  })()
   const caseStateAlerts = [
+    ...toukiAlerts,
     // 案件アラート。判定は alertRules.ts に集約。
     // 案件アラート。バナー・案件の色とまったく同じ判定・同じ材料を使う（alertRules.ts / caseAlertContext.ts）。
     ...(await (async () => {

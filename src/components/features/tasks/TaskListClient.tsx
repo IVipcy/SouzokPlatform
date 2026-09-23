@@ -16,6 +16,7 @@ import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { ASSISTANT_TASK_TABS, tabKeyOfGyomu, isHiddenForAssistant } from '@/lib/assistantTaskTabs'
 import { taskSeverity, THRESHOLDS_MAIL, SEVERITY_RANK, SEVERITY_TAB, SEVERITY_TAB_NOTE, SEVERITY_LABEL, type TaskSeverity } from '@/lib/taskSeverity'
 import { bizDaysUntil } from '@/lib/overdue'
+import { todayJstYmd, toJstYmd } from '@/lib/today'
 import { koteiOf, koteiRank } from '@/lib/kotei'
 import { GyomuBadge } from '@/components/ui/KoteiBadge'
 import { RemainCell } from '@/components/ui/RemainCell'
@@ -106,7 +107,7 @@ export type SortKey = 'default' | 'remain' | 'priority'
 //   roleScope='manager'   … 管理担当タスク一覧（work_role='manager' のみ）
 //   roleScope='assistant' … 事務管理タスク一覧（manager 以外。未分類・旧データもこちら）
 // 事務管理ダッシュボードの工程別タブでも同じ判定を使うため、外に出して共有する。
-export function isTaskInRoleScope(t: TaskRow, roleScope: 'assistant' | 'manager' | 'touki' | 'touki') {
+export function isTaskInRoleScope(t: TaskRow, roleScope: 'assistant' | 'manager' | 'touki') {
   // 相続登記チームのタスク（task_kind='touki_team'）はチームのダッシュボードにだけ出す
   if (t.task_kind === 'touki_team') return roleScope === 'touki'
   if (roleScope === 'touki') return false
@@ -127,6 +128,23 @@ const normalizeStatus = (status: string) => {
   return status
 }
 
+// 業務区分 = task.phase（"PhaseN:" 接頭辞を除く）
+const gyomuOf = (t: TaskRow) => (t.phase ?? '').replace(/^Phase\d+[:：]\s*/, '')
+
+/**
+ * 事務管理タスク一覧（roleScope='assistant'・案件詳細ではない）に「載る」タスクか。
+ *   1) 事務管理の持ち場のタスクである
+ *   2) 着手前なら着手OK（受領待ち・前段未完了は出さない）
+ *   3) 相続登記の業務ではない（相続登記チームの持ち場。事務管理の一覧には出さない）
+ * 事務管理ダッシュボードのバナー（OfficeDashboardTabs）もこの関数で数える。
+ * 条件を別々に書いていたせいで、バナーは登記タスクを数えるのに一覧を開くと「該当なし」になっていた。
+ */
+export function isListedAssistantTask(t: TaskRow, receipts: ReadinessReceipt[]): boolean {
+  if (!isTaskInRoleScope(t, 'assistant')) return false
+  if (isHiddenForAssistant(gyomuOf(t))) return false
+  return normalizeStatus(t.status) !== '着手前' || getStartSignal(t, receipts).ready
+}
+
 // 優先度セルの見た目。急ぎ＝黄／超急ぎ＝赤（案件詳細のタスクタブと同じ）。
 // 急ぎ・超急ぎだけ太字にして、通常の行に埋もれないようにする。
 function priorityCls(p: string | null | undefined) {
@@ -136,9 +154,6 @@ function priorityCls(p: string | null | undefined) {
 }
 // 急ぎ・超急ぎだけを上へ持ち上げる。通常のタスクは今までどおり工程順のまま。
 const priorityRank = (p: string | null | undefined) => (p === '超急ぎ' ? 0 : p === '急ぎ' ? 1 : 2)
-
-// 業務区分 = task.phase（"PhaseN:" 接頭辞を除く）
-const gyomuOf = (t: TaskRow) => (t.phase ?? '').replace(/^Phase\d+[:：]\s*/, '')
 
 // 遅れの絞り込みチップ。タブの点と同じ4色・同じ判定。
 const SEV_CHIPS: TaskSeverity[] = ['blue', 'green', 'orange', 'red']
@@ -236,7 +251,9 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     }
   }
 
-  const today = new Date().toISOString().split('T')[0]
+  // 「今日」は日本時間。UTC の toISOString だと朝9時前に前日になり、同じタスクが
+  // 一覧では期限内・ダッシュボードでは要確認、と食い違っていた。描画のたびに new Date() しないよう遅延初期化。
+  const [today] = useState(() => todayJstYmd())
   /** 郵便タブに入るタスクか（到着物受信簿の「対応」で作った／結んだもの） */
   const isMailTask = useCallback((t: TaskRow) => !!mailTaskIds?.has(t.id), [mailTaskIds])
 
@@ -245,8 +262,11 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
   // 一覧に載せるのは「着手OK・対応中・完了」だけ。
   // 着手できないタスク（受領待ち・前段が終わっていない）まで並べると、
   // やり残しが山ほどあるように見えて手が止まるため、着手できるものだけを出す。
+  // 事務管理の一覧（案件詳細ではない）は isListedAssistantTask に寄せる（相続登記の除外もここで掛ける。
+  // 「着手OK」「すべて」の件数はこの母数から数えるので、後段で除外すると表より多く見えていた）。
   const assistantTasks = useMemo(
     () => tasks.filter(t => {
+      if (roleScope === 'assistant' && !caseScope) return isListedAssistantTask(t, receipts)
       if (!isTaskInRoleScope(t, roleScope)) return false
       if (caseScope) return true   // 案件詳細＝この案件で作ったタスクを全部出す
       return normalizeStatus(t.status) !== '着手前' || getStartSignal(t, receipts).ready
@@ -265,7 +285,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
     const ext = (t.ext_data ?? {}) as Record<string, unknown>
     const iso = t.completed_at ?? (typeof ext.completed_at === 'string' ? ext.completed_at : null) ?? t.updated_at
     if (!iso) return false
-    return new Date(iso).toLocaleDateString('sv-SE') === today
+    return toJstYmd(iso) === today
   }, [today])
   const doneVisible = useCallback((t: TaskRow) => {
     if (caseScope) return true
@@ -285,14 +305,8 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
         (t.task_assignees ?? []).some(a => a.member_id === currentMemberId && a.role === 'primary'),
       )
     }
-    // 相続登記は相続登記チームの持ち場。事務管理の一覧には出さない（案件詳細では出す）。
-    if (roleScope === 'assistant' && !caseScope) {
-      result = result.filter(t => !isHiddenForAssistant(gyomuOf(t)))
-    }
-    // 遅れ・優先度の絞り込み（業務タブに関係なく効く）
-    if (sevFilter !== 'all') {
-      result = result.filter(t => taskSeverity(t, today) === sevFilter)
-    }
+    // 優先度の絞り込み（業務タブに関係なく効く）。
+    // 遅れの絞り込みはタブごとにしきい値が違う（郵便だけ1営業日で赤）ので、タブが決まったあと sevMatch で掛ける。
     if (priFilter.size > 0) {
       result = result.filter(t => priFilter.has(t.priority || '通常'))
     }
@@ -310,13 +324,23 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       })
     }
     return result
-  }, [assistantTasks, statusFilter, filterMine, search, caseMap, currentMemberId, today, sevFilter, priFilter, outingOnly, caseScope, isReady, roleScope, doneVisible])
+  }, [assistantTasks, statusFilter, filterMine, search, caseMap, currentMemberId, priFilter, outingOnly, caseScope, isReady, doneVisible])
+
+  /**
+   * 遅れの絞り込みチップに合うか。タブの点と同じしきい値で判定する。
+   * 郵便タブは「1営業日の超過で赤」なので、そこで赤いタスクを「大幅遅れ」で絞ったときも同じ物差しを使う。
+   * 以前は通常のしきい値で絞っていたため、郵便タブが赤なのに絞ると0件になっていた。
+   */
+  const sevMatch = useCallback((t: TaskRow, tabKey: string) =>
+    sevFilter === 'all' || taskSeverity(t, today, tabKey === MAIL_TAB ? THRESHOLDS_MAIL : undefined) === sevFilter,
+  [sevFilter, today])
 
   const filtered = useMemo(() => {
     // 業務タブ（'all' 以外は そのタブに属する業務のタスクだけ）。郵便だけ業務では切らない。
-    const result = taskTab === 'all' ? scopedTasks
+    const inTab = taskTab === 'all' ? scopedTasks
       : taskTab === MAIL_TAB ? scopedTasks.filter(isMailTask)
       : scopedTasks.filter(t => tabKeyOfGyomu(gyomuOf(t)) === taskTab)
+    const result = inTab.filter(t => sevMatch(t, taskTab))
     // 見出しで選んだ並び。期限なしは常に最後（並べる基準がないため）。
     if (sortKey !== 'default') {
       const sign = sortDir === 'asc' ? 1 : -1
@@ -349,7 +373,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       const bd = b.due_date ?? '9999-12-31'
       return ad.localeCompare(bd)
     })
-  }, [scopedTasks, taskTab, today, sortKey, sortDir, isMailTask])
+  }, [scopedTasks, taskTab, today, sortKey, sortDir, isMailTask, sevMatch])
 
   // 業務タブごとの件数と重さ。タブの並びは定義どおり固定で、0件でも出す
   // （「そのタブは今やることが無い」ことが分かるほうが探しやすい）。
@@ -368,6 +392,8 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       // 郵便は業務タブと排他ではない。戸籍のタスクが同時に郵便にも出る。
       if (isMailTask(t)) keys.push(MAIL_TAB)
       for (const k of keys) {
+        // 遅れの絞り込みはタブごとのしきい値で効く。そのタブを押したときに表に出る件数と同じにする
+        if (!sevMatch(t, k)) continue
         const e = touch(k)
         e.count += 1
         // 郵便だけ「1営業日の超過で赤」。業務ごとのしきい値は使わない。
@@ -376,7 +402,7 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
       }
     }
     return m
-  }, [scopedTasks, today, isMailTask, mailTaskIds])
+  }, [scopedTasks, today, isMailTask, mailTaskIds, sevMatch])
 
   const kpis = useMemo(() => {
     const pre = assistantTasks.filter(t => normalizeStatus(t.status) === '着手前')

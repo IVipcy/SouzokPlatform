@@ -27,6 +27,7 @@ import TaskCreatedDocsSection from './TaskCreatedDocsSection'
 import TaskTargetPicker, { TARGET_GYOMU, emptyTarget, resolveTargetRid, type TaskTarget } from './TaskTargetPicker'
 
 import { useCurrentMember } from '@/lib/useCurrentMember'
+import { todayJstYmd } from '@/lib/today'
 import { useIsManager } from '@/components/providers/AuthProvider'
 import type { TaskRow, MemberRow, CaseRow, CaseDocumentRow, CaseActivityRow, TaskDependencyRow, TaskTemplateRow, DocumentRow, HeirRow, RealEstatePropertyRow, ContractDocumentRow } from '@/types'
 import { institutionGuide } from '@/lib/institutionAlert'
@@ -172,12 +173,13 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
     ;(async () => {
       const { data } = await createClient()
         .from('case_reports')
-        .select('status, confirmed_date, confirm_comment, confirmer:members!case_reports_confirmer_id_fkey(name)')
+        .select('kind, status, confirmed_date, confirm_comment, confirmer:members!case_reports_confirmer_id_fkey(name)')
         .eq('task_id', task.id)
         .order('created_at', { ascending: false })
       if (!alive) return
-      const rows = (data ?? []) as unknown as Array<{ status: string; confirmed_date: string | null; confirm_comment: string | null; confirmer: { name: string } | null }>
-      const pending = rows.filter(r => r.status !== '確認済').length
+      const rows = (data ?? []) as unknown as Array<{ kind: string | null; status: string; confirmed_date: string | null; confirm_comment: string | null; confirmer: { name: string } | null }>
+      // 回答待ちに数えるのは「要対応」だけ。情報共有は誰も回答しないので、数えると永久に完了できない。
+      const pending = rows.filter(r => r.kind === '要対応' && r.status !== '確認済').length
       const ans = rows.find(r => r.status === '確認済')
       setReview({
         pending,
@@ -236,7 +238,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
             case_id: task.case_id, task_id: task.id, member_id: memberId,
             activity_type: 'task_started',
             description: `${task.title} に着手`,
-            activity_date: new Date().toISOString().split('T')[0],
+            activity_date: todayJstYmd(),
           })
         }
         showToast(`「${task.title}」に着手しました`)
@@ -249,7 +251,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
             case_id: task.case_id, task_id: task.id, member_id: memberId,
             activity_type: 'task_completed',
             description: `${task.title} を完了`,
-            activity_date: new Date().toISOString().split('T')[0],
+            activity_date: todayJstYmd(),
           })
         }
         showToast(`「${task.title}」を完了しました`)
@@ -450,7 +452,8 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
               )}
               {/* タスクの進め方の相談。中身は報連相だが、押す人にとっては
                   「担当に確認する」という行為なのでその名前にする。
-                  送るとこのタスクは「確認中」になり、回答が付くまで完了できない。
+                  「要対応」で送るとこのタスクは「確認中」になり、回答が付くまで完了できない
+                  （「情報共有」は回答が要らないので何も変えない）。
                   回答待ちの間は押させない。重ねて送ると同じ件で報連相が二重に立ち、
                   どちらに答えれば完了できるのか分からなくなるため。 */}
               {!isSystemTask && (
@@ -460,7 +463,7 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
                   disabled={review.pending > 0}
                   title={review.pending > 0
                     ? '担当の回答待ちです。回答が付いてから、必要なら改めて確認できます'
-                    : 'タスクの進め方を担当に相談します。送るとこのタスクは「確認中」になり、回答が付くまで完了できません'}
+                    : 'タスクの進め方を担当に相談します。「要対応」で送るとこのタスクは「確認中」になり、回答が付くまで完了できません（「情報共有」はそのまま進められます）'}
                   // 「完了にする」の隣に並ぶ従のボタン。主と高さ・文字サイズを揃え、
                   // 塗りを外して差を付ける。
                   // 前は 12px・px-3 py-1.5 の琥珀の塗りで、主より一回り小さく色だけ強く、
@@ -780,11 +783,11 @@ export default function TaskDetailClient({ task, allMembers, documents, createdD
           currentMemberId={currentMemberId}
           taskId={task.id}
           taskTitle={task.title}
-          onSent={async () => {
+          onSent={async ({ kind }) => {
             setHelpOpen(false)
-            // 相談を送ったタスクは回答が付くまで「確認中」で止める（完了ボタンは押せない）。
-            // 完了・着手前のタスクからは送れないので、対応中・着手前のときだけ移す。
-            if (currentStatus !== '完了') {
+            // 「要対応」の相談を送ったタスクは回答が付くまで「確認中」で止める（完了ボタンは押せない）。
+            // 「情報共有」は誰も回答しないので、確認中にすると永久に完了できなくなる → 何もしない。
+            if (kind === '要対応' && currentStatus !== '完了') {
               await createClient().from('tasks').update({ status: '確認中' }).eq('id', task.id)
             }
             router.refresh()

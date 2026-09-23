@@ -4,6 +4,7 @@ import { loadTaskListData } from '@/lib/loadTaskListData'
 import OfficeDashboardTabs, { type HourenSouRow } from '@/components/features/dashboard/OfficeDashboardTabs'
 import type { OfficeRow } from '@/components/features/dashboard/OfficeManagerDashboard'
 import { loadVisitReservations } from '@/lib/visitReservations'
+import { todayJstYmd } from '@/lib/today'
 
 // 事務管理担当ダッシュボード。
 //   ① ファイル化待ち／作業着手待ち … status=作業着手準備 の案件を、ファイル化の済／未で2タブに割る
@@ -13,7 +14,8 @@ import { loadVisitReservations } from '@/lib/visitReservations'
 export default async function OfficeDashboardPage() {
   const supabase = await createClient()
   const currentUser = await getCurrentUser()
-  const today = new Date().toLocaleDateString('sv-SE')
+  // 「今日」は日本時間（サーバーのローカル日付は Azure では UTC）
+  const today = todayJstYmd()
   const { data: casesData } = await supabase
     .from('cases')
     .select('id, case_number, deal_name, status, filing_status, order_sheet_completed_at, order_sheet_finalized_at, updated_at, order_received_date, case_members(role, members(name, team_id))')

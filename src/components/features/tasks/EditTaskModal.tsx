@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { TASK_PRIORITIES } from '@/lib/constants'
-import { DB_PHASES, getPhaseLabel } from '@/lib/phases'
+import { GYOMU_ALL } from '@/lib/serviceMaster'
 import { WORK_ROLES } from '@/lib/constants'
 import type { WorkRole } from '@/types'
 import type { TaskRow, MemberRow } from '@/types'
@@ -20,34 +20,40 @@ type Props = {
   onSaved: () => void
 }
 
-export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembers, onSaved }: Props) {
+// 業務区分 = task.phase（旧データの "PhaseN:" 接頭辞を除く）。
+// 以前はここで旧フェーズ（phase1〜6）を選ばせていて、保存すると業務名が壊れて
+// 実務タブとの紐づき・凍結確認ゲートが外れていた。業務名（GYOMU_ALL）から選ぶ形に直した。
+const gyomuOf = (phase: string | null | undefined) => (phase ?? '').replace(/^Phase\d+[:：]\s*/, '').trim()
+
+// タスクの現在値からフォームの初期値を作る
+const formOf = (task: TaskRow) => ({
+  title: task.title,
+  gyomu: gyomuOf(task.phase),
+  priority: (task.priority === '外出タスク' ? '通常' : task.priority) as string,
+  dueDate: task.due_date ?? '',
+  category: task.category ?? '',
+  workRole: (task.work_role ?? '') as WorkRole | '',
+})
+
+export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembers: _allMembers, onSaved }: Props) {
   const router = useRouter()
-  const [form, setForm] = useState({
-    title: '',
-    phase: 'phase1' as string,
-    priority: '通常' as string,
-    dueDate: '',
-    category: '',
-    workRole: '' as WorkRole | '',
-  })
+  const [form, setForm] = useState(() => formOf(task))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const caseInfo = caseMap[task.case_id]
 
-  useEffect(() => {
-    if (isOpen && task) {
-      setForm({
-        title: task.title,
-        phase: task.phase,
-        priority: task.priority === '外出タスク' ? '通常' : task.priority,
-        dueDate: task.due_date ?? '',
-        category: task.category ?? '',
-        workRole: (task.work_role ?? '') as WorkRole | '',
-      })
-      setError('')
-    }
-  }, [isOpen, task])
+  // 開くたび・別のタスクに切り替わるたびに初期化する。
+  // effect の中で setState すると lint に止められるので、レンダー中に前回値と比べて入れ直す。
+  const openKey = isOpen ? task.id : ''
+  const [appliedKey, setAppliedKey] = useState(openKey)
+  if (openKey !== appliedKey) {
+    setAppliedKey(openKey)
+    if (isOpen) { setForm(formOf(task)); setError('') }
+  }
+
+  // 現在の値がマスタに無い（旧データ・自由入力）ときも、選択肢に残して見えなくならないようにする
+  const gyomuOptions = form.gyomu && !GYOMU_ALL.includes(form.gyomu) ? [form.gyomu, ...GYOMU_ALL] : GYOMU_ALL
 
   const handleSubmit = async () => {
     if (!form.title.trim()) {
@@ -64,7 +70,8 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
       .from('tasks')
       .update({
         title: form.title.trim(),
-        phase: form.phase,
+        // phase には業務名をそのまま入れる（実務タブ・凍結ゲート・工程バッジはこの名前で判定する）
+        phase: form.gyomu || null,
         priority: form.priority,
         due_date: form.dueDate || null,
         category: form.category || null,
@@ -134,21 +141,22 @@ export default function EditTaskModal({ isOpen, onClose, task, caseMap, allMembe
           />
         </div>
 
-        {/* Phase */}
+        {/* 業務（実務タブ・実施業務と同じ名前） */}
         <div>
-          <label className="block text-[13px] font-semibold text-gray-500 mb-1">フェーズ</label>
+          <label className="block text-[13px] font-semibold text-gray-500 mb-1">業務</label>
           <select
-            value={form.phase}
-            onChange={e => setForm(p => ({ ...p, phase: e.target.value }))}
+            value={form.gyomu}
+            onChange={e => setForm(p => ({ ...p, gyomu: e.target.value }))}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
           >
-            {DB_PHASES.map(p => <option key={p} value={p}>{getPhaseLabel(p)}</option>)}
+            <option value="">（未設定）</option>
+            {gyomuOptions.map(g => <option key={g} value={g}>{g}</option>)}
           </select>
         </div>
 
         {/* ステータスはボタンで進行するため編集不可 */}
         <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-          <span className="text-[13px] text-gray-500">💡 ステータスはタスク一覧・詳細画面のボタンで進行します（着手前 → 対応中 → 完了）</span>
+          <span className="text-[13px] text-gray-500">💡 ステータスはタスク一覧・詳細画面のボタンで進行します（着手前 → 作業進行中 → 完了）</span>
         </div>
 
         <div className="grid grid-cols-2 gap-3">

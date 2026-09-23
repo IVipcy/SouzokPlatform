@@ -13,8 +13,10 @@ import UserAvatar from '@/components/ui/UserAvatar'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { isUrgentReportState } from '@/lib/constants'
+import { todayJstYmd } from '@/lib/today'
 import ProgressReportComposeFields, { emptyProgressReportDraft, type ProgressReportDraft } from './ProgressReportComposeFields'
 import HourenSouModal from './HourenSouModal'
+import { resolveStartStatus } from './HandoffModal'
 import { CaseComposeContext } from './CaseComposeContext'
 import type { CaseRow, MemberRow, ProgressReportKind } from '@/types'
 
@@ -70,7 +72,8 @@ export default function CaseComposeProvider({ caseData, allMembers, currentMembe
     if (!currentMemberId) { showToast('ログイン情報が取得できません', 'error'); return }
     setRequesting(true)
     const supabase = createClient()
-    const today = new Date().toISOString().split('T')[0]
+    // 依頼日は日本時間の今日（UTC だと朝9時前に前日になる）
+    const today = todayJstYmd()
     const isProgress = reportKind === 'progress_check'
     let { error } = await supabase.from('progress_reports').insert({
       case_id: caseData.id,
@@ -108,7 +111,13 @@ export default function CaseComposeProvider({ caseData, allMembers, currentMembe
     }
 
     if (reportKind === 'case_reopen') {
-      await supabase.from('cases').update({ status: '対応中' }).eq('id', caseData.id)
+      // 再オープンも着手ゲート（getSelectableCaseStatuses）を通す。業務完了・納品完了からは戻せるが、
+      // ゲートが揃っていない案件を直接「作業進行中」にはしない（揃っていなければ作業着手準備に留める）。
+      const gate = await resolveStartStatus(supabase, caseData.id)
+      if (gate.next) await supabase.from('cases').update({ status: gate.next }).eq('id', caseData.id)
+      if (gate.next !== '対応中') {
+        showToast(`${gate.reasons.length ? gate.reasons.join('・') + 'ため、' : ''}案件は「作業進行中」にせず${gate.next ? '「作業着手準備」に留めました' : 'いまのステータスのままにしました'}`, 'error')
+      }
     } else if (reportKind === 'delivery_confirm') {
       await supabase.from('cases').update({ delivery_status: '確認申請中' }).eq('id', caseData.id)
     }

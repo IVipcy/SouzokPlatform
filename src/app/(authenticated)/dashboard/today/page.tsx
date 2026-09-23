@@ -12,6 +12,7 @@ import {
   type DashCaseMember,
   type DashStatusChange,
 } from '@/lib/dashboardMetrics'
+import { jstDayRange } from '@/lib/today'
 
 type MemberRow = {
   id: string
@@ -31,9 +32,9 @@ export default async function DeptTodayDashboard() {
   const ymd = todayJstYmd(today)
   const ym = ymd.slice(0, 7)
 
-  // 当日の status_change のみ取得（活ログを絞ってDB負荷を下げる）
-  const dayStart = `${ymd}T00:00:00`
-  const dayEnd = `${ymd}T23:59:59.999`
+  // 当日（日本時間）の status_change のみ取得（活ログを絞ってDB負荷を下げる）。
+  // created_at は UTC なので、日本の1日を UTC の範囲 [start, end) に直して絞る
+  const { start: dayStart, end: dayEnd } = jstDayRange(ymd)
 
   const [
     { data: casesRaw },
@@ -52,7 +53,7 @@ export default async function DeptTodayDashboard() {
       .eq('entity_type', 'case')
       .eq('action', 'status_change')
       .gte('created_at', dayStart)
-      .lte('created_at', dayEnd),
+      .lt('created_at', dayEnd),
   ])
 
   const cases = (casesRaw ?? []) as DashCase[]

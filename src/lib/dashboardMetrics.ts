@@ -5,6 +5,10 @@
 import { bizDaysOverdue } from '@/lib/overdue'
 import { AFTER_ORDER_STATUSES, ACTIVE_CASE_STATUSES, DONE_STATUSES } from '@/lib/constants'
 import { caseFlagFromAlerts, type CaseAlertChip } from '@/lib/alerts'
+import { todayJstYmd, jstDayRange } from '@/lib/today'
+
+// 「今日」は lib/today に一本化した。ここから import している画面が多いので、同じ名前で再輸出しておく。
+export { todayJstYmd } from '@/lib/today'
 
 export type DashCase = {
   id: string
@@ -143,7 +147,8 @@ export function freshnessFlag(
   if (caseRow.has_complaint) return 'purple'
   const ref = (caseRow.last_opened_at ?? caseRow.created_at ?? '')?.slice(0, 10)
   if (!ref) return 'blue'
-  const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  // サーバーのローカル日付（Azure は UTC）ではなく日本の今日で数える
+  const ymd = todayJstYmd(today)
   const biz = bizDaysOverdue(ref, ymd)
   if (biz >= 10) return 'red'
   if (biz >= 5) return 'yellow'
@@ -207,6 +212,16 @@ export function monthRange(ym: string): { start: string; end: string } {
   const last = new Date(y, m, 0)
   const end = `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}`
   return { start, end }
+}
+
+/**
+ * 'YYYY-MM'（日本時間の月）を UTC の ISO 範囲 [start, end) にする。
+ * activity_log の created_at（timestamptz）を月で絞るクエリに使う。
+ * 'YYYY-MM-01T00:00:00' の文字をそのまま渡すと UTC の月初になり、日本の月初0〜9時が前月に入る。
+ */
+export function jstMonthRange(ym: string): { start: string; end: string } {
+  const { start, end } = monthRange(ym)
+  return { start: jstDayRange(start).start, end: jstDayRange(end).end }
 }
 
 const monthsDiff = (a: string, b: string): number =>
@@ -276,8 +291,8 @@ export function casesForMember(
 
 // 当年度（4月～3月）のうち、現在月までを 当月→過去 順で返す
 export function fiscalYearMonthsToDate(today: Date = new Date()): string[] {
-  const y = today.getFullYear()
-  const m = today.getMonth() + 1
+  // 月初の朝9時前に前月扱いにならないよう、日本時間の年月から数える
+  const [y, m] = todayJstYmd(today).split('-').map(Number)
   const fiscalStartYear = m >= 4 ? y : y - 1
   const months: string[] = []
   let cy = fiscalStartYear
@@ -425,14 +440,15 @@ export function computeProgressKpis(
   }
 }
 
-// 当日の YYYY-MM-DD 文字列を返す（Asia/Tokyo タイムゾーン）
-export function todayJstYmd(today: Date = new Date()): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Tokyo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(today)
+// 日本時間の日付範囲 [startYmd, endYmd]（両端とも 'YYYY-MM-DD'）に created_at（UTC の timestamptz）が入るか。
+// 以前は 'YYYY-MM-DDT00:00:00' の文字と UTC の文字を直接比べていて、0〜9時の受注が前日に計上されていた。
+// 文字比較は '+00:00' と 'Z' の表記差で境目がずれるので、ミリ秒に直して比べる。
+function inJstDateRange(createdAt: string, startYmd: string, endYmd: string): boolean {
+  const t = new Date(createdAt).getTime()
+  if (Number.isNaN(t)) return false
+  const startMs = new Date(jstDayRange(startYmd).start).getTime()
+  const endMs = new Date(jstDayRange(endYmd).end).getTime()
+  return t >= startMs && t < endMs
 }
 
 // 日次ダッシュボード用の集計
@@ -446,12 +462,8 @@ export function computeDailyMetrics(
   const monthStart = `${ym}-01`
   const monthEnd = monthRange(ym).end
 
-  // 当日の status_change のみ
-  const todayStartTs = `${ymd}T00:00:00`
-  const todayEndTs = `${ymd}T23:59:59.999`
-  const todayChanges = statusChanges.filter(
-    sc => sc.created_at >= todayStartTs && sc.created_at <= todayEndTs,
-  )
+  // 当日（日本時間）の status_change のみ。created_at は UTC なので範囲に直して比べる
+  const todayChanges = statusChanges.filter(sc => inJstDateRange(sc.created_at, ymd, ymd))
 
   // 本日「→受注」「→戻り受注」遷移（遷移元は問わない。戻り受注も受注として数える）
   const newOrderIds = new Set(
@@ -520,13 +532,9 @@ export function computeSalesDailyMetrics(
   today: Date = new Date(),
 ): SalesDailyMetricsBundle {
   const ymd = todayJstYmd(today)
-  const todayStartTs = `${ymd}T00:00:00`
-  const todayEndTs = `${ymd}T23:59:59.999`
 
-  // 当日の status_change のみ
-  const todayChanges = statusChanges.filter(
-    sc => sc.created_at >= todayStartTs && sc.created_at <= todayEndTs,
-  )
+  // 当日（日本時間）の status_change のみ。created_at は UTC なので範囲に直して比べる
+  const todayChanges = statusChanges.filter(sc => inJstDateRange(sc.created_at, ymd, ymd))
 
   // 本日 面談数: 面談実施日が本日の案件数（実際に面談した件数）
   const meetingsCount = cases.filter(c => c.meeting_executed_date === ymd).length
@@ -597,13 +605,8 @@ export function computeSalesMetricsForRange(
   end: string,
   _properties: DashProperty[] = [],
 ): SalesMetricsBundle {
-  const startTs = `${start}T00:00:00`
-  const endTs = `${end}T23:59:59.999`
-
-  // 当月のステータス遷移
-  const inMonthChanges = statusChanges.filter(
-    sc => sc.created_at >= startTs && sc.created_at <= endTs,
-  )
+  // 期間内（日本時間の日付）のステータス遷移。created_at は UTC なので範囲に直して比べる
+  const inMonthChanges = statusChanges.filter(sc => inJstDateRange(sc.created_at, start, end))
 
   // 面談数: 面談実施日(meeting_executed_date)が期間内の案件数（実際に面談した件数）
   const meetingsCount = cases.filter(c =>

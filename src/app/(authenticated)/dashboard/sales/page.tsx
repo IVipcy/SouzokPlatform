@@ -24,6 +24,7 @@ import {
   fiscalYearMonthsToDate,
   EMPTY_SALES_TARGET,
   applyReferralFlags,
+  jstMonthRange,
   type DashCase,
   type DashCaseMember,
   type DashProperty,
@@ -32,6 +33,7 @@ import {
   type SalesTargetRow,
   type SalesMetricsBundle,
 } from '@/lib/dashboardMetrics'
+import { thisMonthJst } from '@/lib/today'
 
 type MemberRow = {
   id: string
@@ -53,15 +55,15 @@ export default async function SalesDashboardPage({ searchParams }: { searchParam
   const periodLabel = currentPeriod === 'today' ? '本日' : currentPeriod === 'month' ? '当月' : '年度累計'
   const supabase = await createClient()
   const today = new Date()
-  const ym = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
-  const monthLabel = `${today.getMonth() + 1}月`
+  // 当月は日本時間で決める（サーバーは UTC。月初の朝9時前に前月扱いになっていた）
+  const ym = thisMonthJst(today)
+  const monthLabel = `${Number(ym.slice(5))}月`
 
-  // activity_log フィルタ用。年度累計でも集計できるよう年度初から取得
+  // activity_log フィルタ用。年度累計でも集計できるよう年度初から取得。created_at は UTC なので範囲に直す
   const fiscalMonths = fiscalYearMonthsToDate(today)
   const earliestYm = fiscalMonths[fiscalMonths.length - 1] ?? ym
-  const fiscalStart = `${earliestYm}-01T00:00:00`
-  const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1)
-  const nextMonthStart = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}-01T00:00:00`
+  const fiscalStart = jstMonthRange(earliestYm).start
+  const nextMonthStart = jstMonthRange(ym).end
 
   const [
     { data: casesRaw },

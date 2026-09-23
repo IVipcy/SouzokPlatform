@@ -10,10 +10,13 @@ import ProgressViewTabs, { type ProgressView } from '@/components/features/dashb
 import TeamViewSwitch from '@/components/features/dashboard/TeamViewSwitch'
 import BillingCaseTable from '@/components/features/billing/BillingCaseTable'
 import OverdueAttention, { type OverdueBill, type OverdueTaskItem } from '@/components/features/dashboard/OverdueAttention'
-import { overdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
+import { overdueSeverity, billOverdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
 import { buildBillingCaseRows } from '@/lib/billingCaseRows'
 import { fetchCaseAlertContexts } from '@/lib/caseAlertContext'
 import { evaluateCaseAlerts, bannerOf } from '@/lib/alertRules'
+import { fetchAllRows } from '@/lib/supabaseFetchAll'
+import { IN_PROGRESS_STATUSES } from '@/lib/constants'
+import { thisMonthJst } from '@/lib/today'
 import {
   computeProgressKpis,
   computeCaseFlag,
@@ -23,6 +26,11 @@ import {
   type DashTask,
 } from '@/lib/dashboardMetrics'
 import type { TaskRow } from '@/types'
+
+// 表に出す案件のステータス集合。KPI（担当件数・色件数・業完対象）もこの集合で数える。
+// 管理案件はすべて「作業進行中（対応中）」なので、表は対応中だけ。
+// KPI だけ既定（受注〜対応中）で数えていたため、件数が表より多く見えていた。
+const TABLE_STATUSES = new Set<string>(IN_PROGRESS_STATUSES)
 type CaseFull = DashCase & {
   case_number: string
   deal_name: string
@@ -69,7 +77,8 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   }
   const currentMemberId = currentUser?.memberId ?? null
   const today = new Date()
-  const ymToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+  // 当月は日本時間で決める（サーバーは UTC。月初の朝9時前に前月扱いになっていた）
+  const ymToday = thisMonthJst(today)
 
   // 月パラメータの解決
   const selectedMonth: string | 'all' = month === 'all' ? 'all' : (month || ymToday)
@@ -193,25 +202,31 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   const tasks = (tasksRaw ?? []) as DashTask[]
   const invoices = (invoicesRaw ?? []) as InvoiceFull[]
 
-  // チームタスク欄用: スコープ案件の未完了システムタスク（要対応のみ表示）
+  // チームタスク欄・バナー用: スコープ案件の未完了システムタスク。
+  // 100件で切っていたため、バナーのタスク件数が一覧（全件）と食い違っていた。ページを送って全件そろえる。
   let systemTasksRaw: unknown[] | null = null
   try {
-    const { data } = await supabase
-      .from('tasks')
-      .select('*, cases(id, case_number, deal_name, status, meeting_executed_date, order_received_date, client_response_due_date, procedure_type), started_by_member:members!tasks_started_by_fkey(*)')
-      .eq('task_kind', 'system')
-      .neq('status', '完了')
-      .in('case_id', caseIdArray)
-      .order('due_date', { ascending: true, nullsFirst: false })
-      .limit(100)
+    const { data } = await fetchAllRows<TaskRow>((from, to) =>
+      supabase
+        .from('tasks')
+        .select('*, cases(id, case_number, deal_name, status, meeting_executed_date, order_received_date, client_response_due_date, procedure_type), started_by_member:members!tasks_started_by_fkey(*)')
+        .eq('task_kind', 'system')
+        .neq('status', '完了')
+        .in('case_id', caseIdArray)
+        .order('due_date', { ascending: true, nullsFirst: false })
+        .order('id')   // ページの境目で行が重複・欠落しないよう、並びを一意にする
+        .range(from, to),
+    )
     systemTasksRaw = data
   } catch { /* migration 046 未適用 → 空扱い */ }
   // === 要対応（入金期日・タスク期日の超過）— チームスコープ ===
   const todayStr = todayJstYmd(today)
   const caseNameById = new Map(cases.map(c => [c.id, c.deal_name]))
   const firmLabelOf = (f: string | null) => f === 'shiho' ? '司法' : f === 'gyosei' ? '行政' : ''
+  // 請求の遅れは請求の基準（billOverdueSeverity）で数える。飛び先の一覧（team/overdue）と同じ物差し。
+  // タスクの基準（overdueSeverity）で数えていたため、バナー1件→一覧0件になっていた。
   const teamOverdueBills: OverdueBill[] = invoices
-    .map(inv => ({ inv, sev: inv.status === '入金待ち' ? overdueSeverity(inv.due_date, todayStr) : null }))
+    .map(inv => ({ inv, sev: inv.status === '入金待ち' ? billOverdueSeverity(inv.due_date, todayStr) : null }))
     .filter((x): x is { inv: InvoiceFull; sev: OverdueSeverity } => x.sev !== null)
     .map(({ inv, sev }) => ({
       id: inv.id, caseId: inv.case_id, caseName: caseNameById.get(inv.case_id) ?? '',
@@ -243,7 +258,7 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
   const alertCtx = await fetchCaseAlertContexts(supabase, caseIdArray, todayStr)
   const alertsByCase = new Map(cases.map(c => [c.id, evaluateCaseAlerts(c, alertCtx.get(c.id) ?? {}, todayStr)]))
 
-  const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today, invoices, undefined, alertsByCase)
+  const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today, invoices, TABLE_STATUSES, alertsByCase)
 
   // バナーもボードの色件数と同じアラートから数える（案件単位・重いほうに寄せる）
   const teamCaseAlerts = cases.flatMap(c => (alertsByCase.get(c.id) ?? []).flatMap(h => {
@@ -274,8 +289,8 @@ export default async function TeamProgressPage({ params, searchParams }: Props) 
     tasksByCase.get(t.case_id)!.push(t)
   }
 
-  // 管理案件はすべて「対応中」。対応中の案件のみを表示する（期間・ステータスの絞り込みはしない）。
-  const baseCases = cases.filter(c => c.status === '対応中')
+  // 管理案件はすべて「対応中」。対応中の案件のみを表示する（期間・ステータスの絞り込みはしない）。KPI と同じ集合。
+  const baseCases = cases.filter(c => TABLE_STATUSES.has(c.status))
   const allRows: ProgressCaseRow[] = baseCases
     .map(c => {
       const mgr = managerByCase.get(c.id) ?? null

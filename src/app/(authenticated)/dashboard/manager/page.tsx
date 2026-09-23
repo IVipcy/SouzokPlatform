@@ -13,7 +13,8 @@ import { todayJstYmd } from '@/lib/dashboardMetrics'
 import { fetchCaseAlertContexts } from '@/lib/caseAlertContext'
 import { evaluateCaseAlerts } from '@/lib/alertRules'
 import type { TaskRow } from '@/types'
-import { CASE_STATUSES } from '@/lib/constants'
+import { CASE_STATUSES, ACTIVE_CASE_STATUSES } from '@/lib/constants'
+import { thisMonthJst } from '@/lib/today'
 import {
   computeProgressKpis,
   computeCaseFlag,
@@ -32,7 +33,9 @@ type MemberRow = { id: string; name: string; avatar_color: string; avatar_url: s
 type InvoiceFull = { id: string; case_id: string; invoice_number: string | null; amount: number; status: string; issued_date: string | null; invoice_type: string; expenses_amount: number | null; advance_deduction: number | null; notes: string | null; receipt_issued_date: string | null }
 
 const FLAG_RANK: Record<CaseFlag, number> = { purple: 0, red: 1, yellow: 2, blue: 3 }
-const ACTIVE = new Set(['受注', '作業着手準備', '対応中'])
+// 表に出す案件（受注〜作業進行中）。KPI もこの集合で数える（ステータスで絞っているときはその1つ）。
+// 以前は表が戻り受注を落とし、KPI は既定（戻り受注込み）で数えていたので件数が食い違っていた。
+const ACTIVE = new Set<string>(ACTIVE_CASE_STATUSES)
 const INVOICE_PSTATUS = ['未請求', '作成済', '入金待ち', '入金済'] as const
 
 type Props = { searchParams: Promise<{ month?: string; view?: string; member?: string; status?: string; pstatus?: string }> }
@@ -42,7 +45,8 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
   const supabase = await createClient()
   const today = new Date()
   const todayStr = todayJstYmd(today)
-  const ymToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+  // 当月は日本時間で決める（サーバーは UTC）
+  const ymToday = thisMonthJst(today)
 
   const selectedMonth: string | 'all' = month === 'all' ? 'all' : (month || ymToday)
   const selectedMonthForKpis: string | null = selectedMonth === 'all' ? null : selectedMonth
@@ -149,7 +153,9 @@ export default async function ManagerOverviewPage({ searchParams }: Props) {
   const alertCtx = await fetchCaseAlertContexts(supabase, caseIdArray, todayStr)
   const alertsByCase = new Map(cases.map(c => [c.id, evaluateCaseAlerts(c, alertCtx.get(c.id) ?? {}, todayStr)]))
 
-  const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today, invoices, undefined, alertsByCase)
+  // 表と同じステータス集合で数える（ステータスで絞っていればその1つ、無ければ受注〜作業進行中）
+  const kpiStatuses = statusFilter ? new Set<string>([statusFilter]) : ACTIVE
+  const kpis = computeProgressKpis(cases, tasks, selectedMonthForKpis, today, invoices, kpiStatuses, alertsByCase)
 
   // 案件→管理担当 / 受注担当
   const managerByCase = new Map<string, MemberRow>()

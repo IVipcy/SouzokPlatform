@@ -3,6 +3,7 @@ import { Trophy } from 'lucide-react'
 import PageHeader from '@/components/ui/PageHeader'
 import RankingClient from '@/components/features/dashboard/RankingClient'
 import { buildRankings } from '@/lib/rankingMetrics'
+import { thisMonthJst } from '@/lib/today'
 
 type CaseRow = { id: string; order_received_date: string | null; completion_date: string | null; contract_type: string | null; fee_administrative: number | null; fee_judicial: number | null; fee_total: number | null }
 type CaseMemberRow = { case_id: string; member_id: string; role: string }
@@ -12,8 +13,8 @@ type TeamRow = { id: string; name: string }
 // ランキングダッシュボード（月間）。管理担当／受注担当／チームの3軸。
 export default async function RankingDashboard() {
   const supabase = await createClient()
-  const now = new Date()
-  const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  // 当月は日本時間で決める（サーバーは UTC。月初の朝9時前に前月のランキングになっていた）
+  const ym = thisMonthJst()
 
   const [{ data: casesRaw }, { data: cmRaw }, { data: membersRaw }, { data: teamsRaw }] = await Promise.all([
     supabase.from('cases').select('id,status,order_received_date,completion_date,contract_type,fee_administrative,fee_judicial,fee_total').eq('intake_draft', false),
@@ -30,7 +31,7 @@ export default async function RankingDashboard() {
     ym,
   )
 
-  const monthLabel = `${now.getFullYear()}年${now.getMonth() + 1}月`
+  const monthLabel = `${Number(ym.slice(0, 4))}年${Number(ym.slice(5))}月`
 
   return (
     <div>

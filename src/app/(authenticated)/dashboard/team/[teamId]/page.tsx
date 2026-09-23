@@ -15,7 +15,7 @@ import DashboardViewTabs from '@/components/features/dashboard/DashboardViewTabs
 import TeamViewSwitch from '@/components/features/dashboard/TeamViewSwitch'
 import MonthlyMeetingsTable from '@/components/features/dashboard/MonthlyMeetingsTable'
 import OverdueAttention, { type OverdueBill, type OverdueTaskItem } from '@/components/features/dashboard/OverdueAttention'
-import { overdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
+import { overdueSeverity, billOverdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
 import type { TaskRow } from '@/types'
 import {
   computeSalesDailyMetrics,
@@ -23,6 +23,7 @@ import {
   fiscalYearMonthsToDate,
   todayJstYmd,
   applyReferralFlags,
+  jstMonthRange,
   type DashCase,
   type DashCaseMember,
   type DashProperty,
@@ -67,9 +68,9 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
   // activity_log フィルタ用。年度累計でも集計できるよう年度初から取得する。
   const fiscalMonths = fiscalYearMonthsToDate(today) // [当月, ...過去] 降順
   const earliestYm = fiscalMonths[fiscalMonths.length - 1] ?? ym
-  const fiscalStart = `${earliestYm}-01T00:00:00`
-  const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1)
-  const nextMonthStart = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}-01T00:00:00`
+  // created_at は UTC なので、日本時間の月初を UTC の範囲に直して絞る
+  const fiscalStart = jstMonthRange(earliestYm).start
+  const nextMonthStart = jstMonthRange(ym).end
 
   // 必須クエリ（既存テーブルのみ。これらが失敗するとページが開けない想定）
   const [
@@ -290,7 +291,9 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
       primary_role: m.primary_role,
     }))
 
-  const dateLabel = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日（${['日','月','火','水','木','金','土'][today.getDay()]}）`
+  // 見出しの日付も日本時間（ymd）から組む。サーバーのローカル日付だと朝9時前に前日になる
+  const [dy, dm, dd] = ymd.split('-').map(Number)
+  const dateLabel = `${dy}年${dm}月${dd}日（${['日','月','火','水','木','金','土'][new Date(`${ymd}T00:00:00`).getDay()]}）`
 
   const scopeLabel = focusedMember ? focusedMember.name : `${team.name}`
 
@@ -320,8 +323,9 @@ export default async function TeamTodayDashboard({ params, searchParams }: Props
       .in('case_id', [...teamCaseIds])
     teamInvoices = (invRaw ?? []) as typeof teamInvoices
   }
+  // 請求の遅れは請求の基準（billOverdueSeverity）。飛び先の一覧（team/overdue）と同じ物差しで数える
   const teamOverdueBills: OverdueBill[] = teamInvoices
-    .map(inv => ({ inv, sev: inv.status === '入金待ち' ? overdueSeverity(inv.due_date, ymd) : null }))
+    .map(inv => ({ inv, sev: inv.status === '入金待ち' ? billOverdueSeverity(inv.due_date, ymd) : null }))
     .filter((x): x is { inv: (typeof teamInvoices)[number]; sev: OverdueSeverity } => x.sev !== null)
     .map(({ inv, sev }) => ({
       id: inv.id, caseId: inv.case_id, caseName: caseNameById.get(inv.case_id) ?? '',

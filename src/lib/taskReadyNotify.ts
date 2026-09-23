@@ -9,6 +9,9 @@ import { createClient } from '@/lib/supabase/client'
 //   2) その担当者へ通知を出す（通知をクリックするとそのタスクの詳細へ飛ぶ）
 //
 // 事務管理担当のタスク（担当区分＝事務）は一覧で拾う運用なので、ここでは何もしない。
+// 相続登記チームのタスク（task_kind='touki_team'）は案件の担当ではなくチームのキューで拾うので、
+// 割当は付けず、チームのメンバー（members.is_touki_team）全員に通知だけ出す。
+// 以前はどちらにも当たらず、作っても誰にも届いていなかった。
 
 export type ReadyTaskLite = {
   id: string
@@ -34,11 +37,17 @@ export async function notifyTasksReady(tasks: ReadyTaskLite[], fromTaskTitle: st
   const supabase = createClient()
   const caseId = tasks[0].case_id
 
-  const [{ data: c }, { data: cms }, { data: asg }] = await Promise.all([
+  const hasToukiTeam = tasks.some(t => t.task_kind === 'touki_team')
+  const [{ data: c }, { data: cms }, { data: asg }, { data: toukiMembers }] = await Promise.all([
     supabase.from('cases').select('case_number, deal_name').eq('id', caseId).maybeSingle(),
     supabase.from('case_members').select('member_id, role').eq('case_id', caseId).in('role', ['sales', 'manager']),
     supabase.from('task_assignees').select('task_id, member_id').in('task_id', tasks.map(t => t.id)),
+    // 相続登記チームの宛先。登記タスクが無いときは引かない
+    hasToukiTeam
+      ? supabase.from('members').select('id').eq('is_active', true).eq('is_touki_team', true)
+      : Promise.resolve({ data: [] as Array<{ id: string }> }),
   ])
+  const toukiTeamIds = ((toukiMembers ?? []) as Array<{ id: string }>).map(m => m.id)
 
   const memberByRole = new Map<string, string[]>()
   for (const m of (cms ?? []) as Array<{ member_id: string | null; role: string }>) {
@@ -56,9 +65,13 @@ export async function notifyTasksReady(tasks: ReadyTaskLite[], fromTaskTitle: st
   const notifications: Array<Record<string, unknown>> = []
 
   for (const t of tasks) {
-    const role = roleOf(t)
     let ids = assigneesByTask.get(t.id) ?? []
-    if (ids.length === 0) {
+    if (t.task_kind === 'touki_team') {
+      // 相続登記チーム：割当は付けず、チーム全員へ通知（誰が取るかはチームのキューで決める）
+      if (ids.length === 0) ids = toukiTeamIds
+      if (ids.length === 0) continue            // チームに誰も登録されていない
+    } else if (ids.length === 0) {
+      const role = roleOf(t)
       if (!role) continue                       // 事務管理タスクで担当者未設定 → 何もしない
       ids = memberByRole.get(role) ?? []
       if (ids.length === 0) continue            // その担当がまだ案件に付いていない

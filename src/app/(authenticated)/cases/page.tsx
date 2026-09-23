@@ -6,6 +6,7 @@ import type { MyCaseRow } from '@/components/features/my/MyPageCasesTab'
 import { fetchCaseAlertContexts } from '@/lib/caseAlertContext'
 import { evaluateCaseAlerts } from '@/lib/alertRules'
 import { computeCaseFlag } from '@/lib/dashboardMetrics'
+import { todayJstYmd } from '@/lib/today'
 import type { ConsultCase } from '@/components/features/my/ConsultationCasesTable'
 import type { ReferralRow } from '@/components/features/my/ReferralCasesTable'
 import type { LpCaseRow } from '@/components/features/cases/LpCasesTable'
@@ -125,7 +126,8 @@ export default async function CasesPage() {
     tasksByCase.get(t.case_id)!.push(t)
   }
   const isOpen = (s: string) => s !== '完了' && s !== 'キャンセル'
-  const todayStr = today.toISOString().slice(0, 10)
+  // 「今日」は日本時間（UTC だと朝9時前に前日になり、期限超過の色がほかの画面とずれる）
+  const todayStr = todayJstYmd(today)
 
   // 案件の色はアラートの最大深刻度で決める（要注意/要確認バナーと同じ判定）。
   // タスク・案件報告は上で全件取ってあるので渡す（同じテーブルを2回引かない）。

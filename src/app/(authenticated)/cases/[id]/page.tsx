@@ -6,6 +6,7 @@ import type { TimelineReceipt } from '@/components/features/cases/CaseTimeline'
 import type { MemoLite } from '@/components/features/cases/MeetingMemoViewer'
 import { computeCaseAlerts } from '@/lib/alerts'
 import { overdueSeverity } from '@/lib/overdue'
+import { todayJstYmd, toJstYmd } from '@/lib/today'
 import type { CaseRow, CaseMemberRow, TaskRow, MemberRow, TaskTemplateRow, HeirRow, KosekiRequestRow, RealEstatePropertyRow, RealEstateAcquisitionRow, FinancialAssetRow, FinancialInstitutionRow, FinancialRequestRow, FinancialRequestItemRow, SecuritiesHoldingRow, FinancialJasdecResultRow, DivisionDetailRow, AgreementDispatchRow, ExpenseRow, CaseDocumentRow, ClientCommunicationRow, CaseReferralRow, CaseClientRow, ContractDocumentRow, SagyoDocumentRow, DocumentRow, CaseFileRow, AssetInventoryRow, CaseOtherAssetRow } from '@/types'
 
 type Props = {
@@ -135,8 +136,9 @@ export default async function CaseDetailPage({ params }: Props) {
   // 最終接触日（鮮度フラグ用）を更新。1日1回だけ書き込む。
   try {
     const lastOpened = (caseResult.data as { last_opened_at?: string | null }).last_opened_at
-    const todayStr = new Date().toISOString().slice(0, 10)
-    if (!lastOpened || lastOpened.slice(0, 10) < todayStr) {
+    // 日本時間の日付で「今日すでに開いたか」を見る（UTC で比べると朝9時前に日付が変わらない）
+    const todayStr = todayJstYmd()
+    if (!lastOpened || (toJstYmd(lastOpened) ?? '') < todayStr) {
       await supabase.from('cases').update({ last_opened_at: new Date().toISOString() }).eq('id', id)
     }
   } catch { /* migration 未適用環境では無視 */ }
@@ -149,8 +151,9 @@ export default async function CaseDetailPage({ params }: Props) {
   const reopenCount = repRows.filter(r => r.kind === 'case_reopen').length
   const tasksForAlert = (tasksResult.data ?? []) as TaskRow[]
   const now = new Date()
-  const nowStr = now.toISOString().slice(0, 10)
-  const weekAgoStr = new Date(now.getTime() - 7 * 86_400_000).toISOString().slice(0, 10)
+  // 「今日」は日本時間（UTC だと朝9時前に前日になり、期限超過の判定がほかの画面とずれる）
+  const nowStr = todayJstYmd(now)
+  const weekAgoStr = todayJstYmd(new Date(now.getTime() - 7 * 86_400_000))
   const caseAlerts = computeCaseAlerts(
     caseResult.data as CaseRow,
     {

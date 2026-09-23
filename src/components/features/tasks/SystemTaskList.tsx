@@ -10,6 +10,7 @@ import Badge from '@/components/ui/Badge'
 import { getAssignRoleDef, CASE_STATUSES } from '@/lib/constants'
 import { getPhaseLabel } from '@/lib/phases'
 import { getStartSignal } from '@/lib/taskReadiness'
+import { todayJstYmd } from '@/lib/today'
 import type { TaskRow } from '@/types'
 
 // 業務ラベル: 事務管理タスクは phase に業務（戸籍/金融資産…）を保持。旧データの phase1〜6 は接頭辞を外す。
@@ -157,7 +158,8 @@ export default function SystemTaskList({
     if (next.has(k)) next.delete(k); else next.add(k)
     return next
   })
-  const today = new Date().toISOString().split('T')[0]
+  // 「今日」は日本時間（UTC だと朝9時前に前日になる）。描画のたびに new Date() しないよう遅延初期化
+  const [today] = useState(() => todayJstYmd())
 
   const groupCounts = useMemo(() => {
     const m = { gyomu: 0, other: 0 }

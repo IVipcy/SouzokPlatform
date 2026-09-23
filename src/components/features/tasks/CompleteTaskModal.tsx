@@ -23,6 +23,7 @@ import TaskTargetPicker, { emptyTarget, resolveTargetRid, type TaskTarget } from
 import { showToast } from '@/components/ui/Toast'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrentMember } from '@/lib/useCurrentMember'
+import { todayJstYmd } from '@/lib/today'
 import TaskHourenSouModal from '@/components/features/tasks/TaskHourenSouModal'
 import { notifyTasksReady, type ReadyTaskLite } from '@/lib/taskReadyNotify'
 import { loadNextCandidates, type NextCandidate } from '@/lib/nextTaskCandidates'
@@ -160,10 +161,12 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
         ext_data: extReady(refImageIds.length > 0 ? { ref_image_ids: refImageIds } : {}, task.id, c.why),
         sort_order: 95 + i,
       }))
-      const { data: created, error: ce } = await supabase.from('tasks').insert(rows).select('id, title, case_id')
+      const { data: created, error: ce } = await supabase.from('tasks').insert(rows).select('id, title, case_id, source_rid')
       if (ce) showToast(`次のタスクの作成に失敗しました: ${ce.message}`, 'error')
-      for (const c of ((created ?? []) as Array<{ id: string; title: string; case_id: string }>)) {
-        const src = picked.find(x => x.title.trim() === c.title)
+      for (const c of ((created ?? []) as Array<{ id: string; title: string; case_id: string; source_rid: string | null }>)) {
+        // 作った行は source_rid（候補の識別子）で引き当てる。タイトルは入力欄で直せるので、
+        // 同じ名前に直した候補があると取り違える。
+        const src = picked.find(x => x.rid === c.source_rid)
         readied.push({ id: c.id, title: c.title, case_id: c.case_id, task_kind: src?.taskKind ?? 'case', assign_role: null, work_role: 'assistant', mode: 'now', note: '' })
       }
     }
@@ -216,7 +219,7 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
         case_id: task.case_id, task_id: task.id, member_id: memberId,
         activity_type: 'task_completed',
         description: `${task.title} を完了`,
-        activity_date: new Date().toISOString().split('T')[0],
+        activity_date: todayJstYmd(),
       })
     }
 
@@ -413,12 +416,14 @@ export default function CompleteTaskModal({ task, onClose, onCompleted }: {
     </FloatingWindow>
 
     {/* 相談用の報連相ウィンドウ（完了とは別に送れる）。
-        完了ウィンドウの中に入れると、そのスクロール枠の中で開くことになるので外に出す。 */}
+        完了ウィンドウの中に入れると、そのスクロール枠の中で開くことになるので外に出す。
+        taskId を渡して、タスク詳細から送った相談と同じくこのタスクに紐づける（詳細の相談欄に出る）。 */}
     <TaskHourenSouModal
       isOpen={hourenSouOpen}
       onClose={() => setHourenSouOpen(false)}
       caseId={task.case_id}
       currentMemberId={memberId}
+      taskId={task.id}
       taskTitle={task.title}
       onSent={() => { setHourenSouOpen(false); setConsulted(true) }}
     />

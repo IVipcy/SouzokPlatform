@@ -14,7 +14,9 @@ type BillLite = {
   id: string; caseId: string; caseName: string; typeLabel: string; firmLabel: string
   amount: number; dueDate: string; over: number; severity: OverdueSeverity
 }
-type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: OverdueSeverity | null; priority?: string | null; kind?: 'case' | 'system' }
+type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: OverdueSeverity | null; priority?: string | null; kind?: 'case' | 'system' | 'touki_team' }
+// 行の種別ラベル。相続登記チームのタスクは件数に入るのに行が出ていなかったので「登記」として出す
+const KIND_LABEL: Record<NonNullable<OverdueTaskLite['kind']>, string> = { case: '事務管理', system: '受注/管理', touki_team: '登記' }
 type CaseLite = {
   id: string; case_number: string; deal_name: string; status: string
   client_name: string | null
@@ -27,6 +29,19 @@ type CaseLite = {
 }
 
 type Section = 'payment' | 'task' | 'caseAlert'
+
+// タブのボタン。描画の中で部品を作ると押すたびに作り直されるので、外に出しておく
+function TabBtn({ active, onClick, label, count }: { active: boolean; onClick: () => void; label: string; count: number }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-4 py-2 -mb-px border-b-2 text-[13px] font-semibold transition-colors ${active ? 'border-brand-600 text-brand-700' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+    >
+      {label}<span className={`ml-1.5 text-[11px] font-mono ${active ? 'text-brand-500' : 'text-gray-400'}`}>{count}</span>
+    </button>
+  )
+}
 type CaseAlertLite = {
   caseId: string; caseNumber: string; dealName: string; category: string
   severity: OverdueSeverity; href?: string
@@ -47,26 +62,13 @@ export default function OverdueDetailClient({ bills, cases, caseAlerts = [], sev
     .map(t => ({ ...t, caseId: c.id, caseNumber: c.case_number, dealName: c.deal_name })))
     .sort((a, b) => b.over - a.over)
 
-  const TabBtn = ({ s, label, count }: { s: Section; label: string; count: number }) => {
-    const active = section === s
-    return (
-      <button
-        type="button"
-        onClick={() => setSection(s)}
-        className={`px-4 py-2 -mb-px border-b-2 text-[13px] font-semibold transition-colors ${active ? 'border-brand-600 text-brand-700' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
-      >
-        {label}<span className={`ml-1.5 text-[11px] font-mono ${active ? 'text-brand-500' : 'text-gray-400'}`}>{count}</span>
-      </button>
-    )
-  }
-
   return (
     <div className="space-y-4">
       {/* タブ */}
       <div className="flex gap-1 border-b border-gray-200 flex-wrap">
-        <TabBtn s="payment" label="入金期日超過（請求）" count={bills.length} />
-        <TabBtn s="task" label="タスク期日超過" count={flatTasks.length} />
-        <TabBtn s="caseAlert" label="案件アラート" count={caseAlerts.length} />
+        <TabBtn active={section === 'payment'} onClick={() => setSection('payment')} label="入金期日超過（請求）" count={bills.length} />
+        <TabBtn active={section === 'task'} onClick={() => setSection('task')} label="タスク期日超過" count={flatTasks.length} />
+        <TabBtn active={section === 'caseAlert'} onClick={() => setSection('caseAlert')} label="案件アラート" count={caseAlerts.length} />
       </div>
 
       {section === 'caseAlert' && (
@@ -169,7 +171,7 @@ export default function OverdueDetailClient({ bills, cases, caseAlerts = [], sev
                         <td className="px-3 py-2.5 font-medium text-gray-800 truncate">{t.dealName}</td>
                         <td className="px-3 py-2.5">
                           <Link href={`/tasks/${t.id}`} className="text-[12.5px] font-semibold text-gray-800 hover:text-brand-700 hover:underline">{t.title}</Link>
-                          {t.kind && <span className="ml-2 text-[10.5px] px-1 py-0.5 rounded bg-gray-100 text-gray-500">{t.kind === 'case' ? '事務管理' : '受注/管理'}</span>}
+                          {t.kind && <span className="ml-2 text-[10.5px] px-1 py-0.5 rounded bg-gray-100 text-gray-500">{KIND_LABEL[t.kind]}</span>}
                         </td>
                         <td className="px-3 py-2.5 font-mono text-gray-600 whitespace-nowrap">{t.due_date}</td>
                         <td className="px-3 py-2.5 whitespace-nowrap">

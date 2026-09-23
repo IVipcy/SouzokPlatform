@@ -5,8 +5,14 @@
 // 基準を変えたときに説明だけ古いまま残ることはない。
 
 import {
-  SEVERITY_TAB, SEVERITY_LABEL, TAB_THRESHOLDS, severityRangeText, type TaskSeverity,
+  SEVERITY_TAB, SEVERITY_LABEL, TAB_THRESHOLDS, THRESHOLDS_MAIL, severityRangeText, type TaskSeverity,
 } from '@/lib/taskSeverity'
+
+// 表に出すタブ。郵便は業務ではないが、タブとして見えているので同じ表に載せる（1営業日の超過でいきなり赤）
+const HELP_ROWS: Array<{ tab: string; th: typeof TAB_THRESHOLDS[number]['th'] }> = [
+  { tab: '郵便', th: THRESHOLDS_MAIL },
+  ...TAB_THRESHOLDS,
+]
 
 const ORDER: TaskSeverity[] = ['blue', 'green', 'orange', 'red']
 
@@ -43,20 +49,27 @@ export function TabThresholdTable() {
             <span className={SEVERITY_TAB[sev].text}>{SEVERITY_LABEL[sev]}</span>
           </span>
         ))}
-        {TAB_THRESHOLDS.map(({ tab, th }) => (
+        {HELP_ROWS.map(({ tab, th }) => (
           <TabRow key={tab} tab={tab} th={th} />
         ))}
       </span>
       <span className="block mt-1.5 text-gray-500">
         日数は超過した営業日数（日曜と祝日を除く／土曜は営業日）。
         表に無い分（期限内〜{TAB_THRESHOLDS[1].th.green - 1}営業日超過）が「期限内」です。
+        「—」はその色にならないタブ（郵便は1営業日の超過でいきなり赤）。
       </span>
     </span>
   )
 }
 
 function TabRow({ tab, th }: { tab: string; th: typeof TAB_THRESHOLDS[number]['th'] }) {
-  const cell = (sev: TaskSeverity) => severityRangeText(th, sev).replace('営業日超過〜', '日〜').replace('営業日超過', '日')
+  // しきい値が隣と同じ色（郵便＝緑・オレンジ・赤がすべて1）は、その色になる日数が無い。
+  // そのまま文にすると「1〜0日」になるので「—」にする。
+  const cell = (sev: TaskSeverity) => {
+    if (sev === 'green' && th.green >= th.orange) return '—'
+    if (sev === 'orange' && th.orange >= th.red) return '—'
+    return severityRangeText(th, sev).replace('営業日超過〜', '日〜').replace('営業日超過', '日')
+  }
   return (
     <>
       <span className="text-[11.5px] text-gray-700 whitespace-nowrap">{tab}</span>
@@ -72,12 +85,13 @@ export function TaskTabHelp() {
   return (
     <span className="block">
       <span className="block mb-1.5">
-        数字は<b className="font-bold text-gray-900">着手OK</b>の件数です。いま手をつけられるタスクだけで、
-        対応中と完了は数えません。
+        数字は<b className="font-bold text-gray-900">そのタブを押したときに表に出る件数</b>です。
+        上で選んでいる状態（着手OK／全て・作業進行中・確認中・完了）と、絞り込み（遅れ・優先度・外出・自分のタスク・検索）を
+        掛けたあとの数なので、「着手OK」を選んでいれば着手OKだけ、「全て」なら作業進行中・確認中も入ります。
       </span>
       <span className="block mb-2.5 text-gray-500">
-        タブの色は、そのタブで<b className="font-bold text-gray-700">いちばん遅れているタスク</b>の色です。
-        タブ名・件数も同じ色になります。
+        タブの色は、そのタブに出ている未完了のうち<b className="font-bold text-gray-700">いちばん遅れているタスク</b>の色です
+        （完了は急がせる意味がないので数えません）。タブ名・件数も同じ色になります。
       </span>
       <SeverityLegend />
       <span className="block mt-2.5 mb-1 font-bold text-gray-900">タブごとの日数</span>

@@ -5,6 +5,7 @@ import PageHeader from '@/components/ui/PageHeader'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, isSystemManager } from '@/lib/auth'
 import { overdueSeverity, billOverdueSeverity, calDaysOverdue, type OverdueSeverity } from '@/lib/overdue'
+import { todayJstYmd } from '@/lib/today'
 import OverdueDetailClient from '@/components/features/my/OverdueDetailClient'
 import type { TaskRow } from '@/types'
 
@@ -21,8 +22,8 @@ export default async function TeamOverduePage({ params, searchParams }: { params
   if (!user?.memberId) redirect('/login')
   if (!isSystemManager(user) && user.teamId !== teamId) redirect('/')
   const supabase = await createClient()
-  const today = new Date()
-  const todayStr = today.toISOString().slice(0, 10)
+  // 「今日」は日本時間（UTC だと朝9時前に前日になり、チーム進捗のバナーと件数がずれる）
+  const todayStr = todayJstYmd()
 
   // チーム情報 + 管理担当メンバー
   const [{ data: team }, { data: teamMembers }] = await Promise.all([
@@ -80,7 +81,8 @@ export default async function TeamOverduePage({ params, searchParams }: { params
     }))
 
   // 案件別の超過タスク集計。ケース出現は重い超過(kakunin/chui)、リスト表示は軽微も全件含む。
-  type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: OverdueSeverity | null; priority: string | null; kind: 'case' | 'system' }
+  // 相続登記チームのタスク（touki_team）も行に出す（件数には入るのに行が無い、を無くす）。受注/管理側の列に「登記」の種別で並べる
+  type OverdueTaskLite = { id: string; title: string; due_date: string; over: number; severity: OverdueSeverity | null; priority: string | null; kind: 'case' | 'system' | 'touki_team' }
   const caseOverdue = new Map<string, {
     severity: OverdueSeverity
     countTasks: number; countCase: number; countSystem: number
@@ -98,7 +100,8 @@ export default async function TeamOverduePage({ params, searchParams }: { params
     cur.countTasks += 1
     const base = { id: t.id, title: t.title, due_date: t.due_date as string, over: calDaysOverdue(t.due_date as string, todayStr), severity: sev, priority: t.priority ?? null }
     if (t.task_kind === 'case') { cur.countCase += 1; cur.caseTasks.push({ ...base, kind: 'case' }) }
-    if (t.task_kind === 'system') { cur.countSystem += 1; cur.systemTasks.push({ ...base, kind: 'system' }) }
+    else if (t.task_kind === 'touki_team') { cur.countSystem += 1; cur.systemTasks.push({ ...base, kind: 'touki_team' }) }
+    else { cur.countSystem += 1; cur.systemTasks.push({ ...base, kind: 'system' }) }
     caseOverdue.set(t.case_id, cur)
   }
   for (const cid of [...caseOverdue.keys()]) {
