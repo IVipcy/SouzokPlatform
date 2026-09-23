@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Trash2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { syncMainClientHeir } from '@/lib/clientHeirSync'
 import { showToast } from '@/components/ui/Toast'
 import { HEIR_RELATIONSHIPS } from '@/lib/constants'
 import type { CaseClientRow } from '@/types'
@@ -43,13 +44,16 @@ export default function CaseClientsTable({ caseId, clients, onRefresh, clientId,
     value = value.trim()
     const { error } = await supabase.from('case_clients').update({ [field]: value === '' ? null : value }).eq('id', id)
     if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); return }
-    // メイン依頼者の氏名編集 → 案件名へ反映
-    if (field === 'name' && rows.find(r => r.id === id)?.priority === 'main') {
+    // メイン依頼者の氏名編集 → 案件名へ反映（＋相続人一覧の依頼者チェックも同じ人に）
+    const row = rows.find(r => r.id === id)
+    if (field === 'name' && row?.priority === 'main') {
       await syncMainName(value)
+      await syncMainClientHeir(supabase, ensureCaseId ? await ensureCaseId() : caseId, value, row?.relationship ?? null)
     }
-    // 優先度をメインに変更 → その行の氏名を案件名へ反映
+    // 優先度をメインに変更 → その行の氏名を案件名へ反映（＋相続人の依頼者チェック）
     if (field === 'priority' && value === 'main') {
-      await syncMainName(rows.find(r => r.id === id)?.name ?? '')
+      await syncMainName(row?.name ?? '')
+      await syncMainClientHeir(supabase, ensureCaseId ? await ensureCaseId() : caseId, row?.name ?? '', row?.relationship ?? null)
     }
   }
 

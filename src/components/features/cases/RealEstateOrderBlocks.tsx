@@ -24,9 +24,9 @@ import RealEstateTable from './RealEstateTable'
 import type { RealEstateAcquisitionRow, RealEstatePropertyRow } from '@/types'
 import { PriorityCell } from './PracticeTableCells'
 
-/** 登記情報/法務局ブロックの請求先の既定値 */
-const RE_REQUEST_TO_DEFAULT = '民事法務協会'
-const HOUMU_ITEMS = ['登記情報', '所有者事項', '公図', '地積測量図'] as const   // JTN/民事法務協会/法務局
+/** 登記情報/法務局ブロックの請求先の既定値（物件表から足したときの共通処理と同じ「法務局」。実務タブの請求先と揃える） */
+const RE_REQUEST_TO_DEFAULT = '法務局'
+const HOUMU_ITEMS = ['登記情報', '公図', '地積測量図'] as const   // JTN/民事法務協会/法務局。「所有者事項」は自動作成の一覧に無いので外した
 const KOKUZEI_ITEMS = ['路線価'] as const                                       // 国税局HP
 const propLabel = (p: RealEstatePropertyRow) => p.address || p.lot_number || p.property_type || '未入力の物件'
 const itemsOf = (r: RealEstateAcquisitionRow): string[] => {

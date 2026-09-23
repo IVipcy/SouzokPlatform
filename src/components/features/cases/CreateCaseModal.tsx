@@ -10,13 +10,15 @@ import Button from '@/components/ui/Button'
 import { showToast } from '@/components/ui/Toast'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { generateCaseNumber } from '@/lib/stationIntegration'
+import { MEETING_RESULT_OPTIONS, getMeetingResultOption, CONSIDERATION_PERIODS } from '@/lib/constants'
+import { ORDER_CATEGORIES } from '@/lib/serviceMaster'
+import { buildParts } from '@/lib/serviceParts'
+import { applyMeetingResult } from '@/lib/meetingResult'
 
 type Props = { isOpen: boolean; onClose: () => void; onSaved: () => void }
 
-const MEETING_RESULTS = ['検討中', '即受注', '失注'] as const
-const RESULT_TO_STATUS: Record<string, string> = { '検討中': '検討中', '即受注': '受注', '失注': '失注' }
-const CONSIDERATION_PERIODS = ['1週間', '2週間', '1ヶ月', '見込み不明'] as const
-const PROCEDURES = ['相続登記', '遺産整理（預貯金等）', '遺言', '相続放棄・限定承認', 'その他'] as const
+// 面談結果・検討期間・受注区分は面談結果登録と同じ選択肢（以前はここだけ別のリストで、獲得区分も記録していなかった）
+const PROCEDURES = ORDER_CATEGORIES
 
 export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
   const user = useAuth()
@@ -60,11 +62,15 @@ export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
       case_number: caseNumber,
       deal_name: form.client_name.trim(),
       client_id: client.id,
-      status: RESULT_TO_STATUS[form.meeting_result] ?? '面談設定済',
+      status: getMeetingResultOption(form.meeting_result)?.status ?? '面談設定済',
       order_route_detail: form.referrer.trim(),         // 紹介元（葬儀社名等）
       meeting_owner_id: user?.memberId ?? null,          // 面談担当＝ログイン者を自動設定
       meeting_type: form.meeting_type.trim() || null,
-      order_category: form.procedures.length ? form.procedures : null,
+      // 受注区分はマスタの値で、面談結果登録と同じ列へ
+      service_category: form.procedures[0] ?? null,
+      service_category_2: form.procedures[1] ?? null,
+      service_parts: form.procedures.length ? buildParts(form.procedures) : null,
+      procedure_type: form.procedures.length ? form.procedures : null,
       consideration_period: form.consideration_period || null,
       client_response_due_date: form.response_due || null,
       proposal_judicial: form.proposal_judicial.trim() || null,
@@ -73,6 +79,9 @@ export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
       consideration_decline_reason_detail: form.decline_reason.trim() || null,
     }).select('id').single()
     if (caseErr || !created) { setError(`案件作成に失敗: ${caseErr?.message ?? ''}`); setSaving(false); return }
+    // 面談結果の反映（獲得区分・報酬内訳・案件番号の経路）は面談結果登録と同じ処理
+    const opt = getMeetingResultOption(form.meeting_result)
+    if (opt) await applyMeetingResult(supabase, created.id, opt, { caseNumber })
 
     // 不動産売却・税理士 → 他事業者紹介（依頼内容詳細にフリーテキスト）
     const refs: { case_id: string; partner_type: string; content_detail: string }[] = []
@@ -103,7 +112,7 @@ export default function CreateCaseModal({ isOpen, onClose, onSaved }: Props) {
           <Row label="面談内容"><input value={form.meeting_type} onChange={e => set('meeting_type', e.target.value)} placeholder="新規面談" className={inp} /></Row>
           <Row label="面談結果">
             <select value={form.meeting_result} onChange={e => set('meeting_result', e.target.value)} className={inp}>
-              {MEETING_RESULTS.map(r => <option key={r} value={r}>{r}</option>)}
+              {MEETING_RESULT_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
           </Row>
           <Row label="手続内容" hint="受注区分（暫定）">

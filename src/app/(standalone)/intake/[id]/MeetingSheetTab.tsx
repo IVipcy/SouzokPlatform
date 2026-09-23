@@ -22,6 +22,7 @@ import type { MeetingMemoRow } from './IntakeCaseClient'
 import { toKatakana } from '@/lib/kana'
 import { municipalityFromAddress } from '@/lib/address'
 import { ageAtDeath } from '@/lib/age'
+import PostalLookupButton from '@/components/ui/PostalLookupButton'
 import AssetEstimateSection from '@/components/features/cases/AssetEstimateSection'
 import { gyomuOfCase, GYOMU_TAB } from '@/lib/serviceMaster'
 
@@ -253,6 +254,9 @@ function HeirsMini({ caseId, heirs, onRefresh, ensureCaseId }: { caseId: string;
             <select value={r.relationship_type ?? r.relationship ?? ''} onChange={e => save(r.id, 'relationship_type', e.target.value)} className="flex-1 sm:flex-none sm:w-28 min-w-[96px] px-1.5 py-1.5 text-[12px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400">
               <option value="">続柄</option>{HEIR_RELATIONSHIPS.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
+            {/* 住所1・住所2（オーダーシートの郵送先情報一覧・封筒・受領証の宛先に使う。以前は面談で聞いても入れる場所が無かった） */}
+            <input type="text" value={r.address ?? ''} onChange={e => save(r.id, 'address', e.target.value)} placeholder="住所1（都道府県〜番地）" className="basis-full sm:basis-auto sm:flex-1 min-w-[160px] px-2 py-1.5 text-[12.5px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400" />
+            <input type="text" value={r.address2 ?? ''} onChange={e => save(r.id, 'address2', e.target.value)} placeholder="住所2（建物名・部屋番号）" className="basis-full sm:basis-auto sm:w-40 px-2 py-1.5 text-[12.5px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400" />
             {formerSpouses.length > 0 && !isFormerSpouse(r.relationship_type ?? r.relationship) && (
               <select value={r.other_parent_heir_id ?? ''} onChange={e => saveParent(r.id, e.target.value)} className="flex-1 sm:flex-none sm:w-32 min-w-[120px] px-1.5 py-1.5 text-[11.5px] border border-gray-200 rounded bg-white focus:outline-none focus:border-brand-400" title="誰との子か（相関図の線の出どころ）">
                 <option value="">現配偶者との子</option>
@@ -582,7 +586,11 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
         <div className="space-y-3">
           <CaseClientsTable caseId={caseData.id} clients={caseClients} onRefresh={onRefresh} clientId={caseData.client_id} ensureCaseId={ensureCaseId} />
           <FieldGrid>
-            <InlineEdit label="住所" value={cl?.address ?? null} ai={aiFilled.has('address')} onSave={v => { clearAi('address'); return patchClient({ address: v || null }) }} fullWidth />
+            {/* オーダーシートの依頼者情報と同じ 住所1・住所2・郵便番号（住所1から取得）。以前は1欄で建物名が混ざっていた */}
+            <InlineEdit label="住所1（都道府県〜番地まで）" value={cl?.address ?? null} ai={aiFilled.has('address')} onSave={v => { clearAi('address'); return patchClient({ address: v || null }) }} fullWidth
+              action={<PostalLookupButton address={cl?.address} onResolved={zip => void patchClient({ postal_code: zip })} />} />
+            <InlineEdit label="住所2（建物名・部屋番号）" value={cl?.address2 ?? null} onSave={v => patchClient({ address2: v || null })} />
+            <InlineEdit label="郵便番号" value={cl?.postal_code ?? null} onSave={v => patchClient({ postal_code: v.replace(/[^0-9]/g, '') || null })} mono />
             {/* 振込名義人＝入金CSV突合のキー。本人振込なら依頼者のふりがなをカタカナで入れる。
                 案件詳細の依頼者タブと同じボタンを、面談シートにも置く。 */}
             <InlineEdit
@@ -623,6 +631,10 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
               <BirthdayPicker value={caseData.date_of_death} onChange={v => { clearAi('date_of_death'); patchCase({ date_of_death: v || null, deceased_age: ageAtDeath(caseData.deceased_birth_date, v) }) }} />
             </FieldRow>
             <InlineEdit label="被相続人住所" value={caseData.deceased_address} ai={aiFilled.has('deceased_address')} onSave={v => { clearAi('deceased_address'); return patchCase({ deceased_address: v || null }) }} fullWidth />
+            <InlineEdit label="住所2（建物名・部屋番号）" value={caseData.deceased_address2} onSave={v => patchCase({ deceased_address2: v || null } as Partial<CaseRow>)} />
+            <FieldRow label="外字">
+              <label className="inline-flex items-center gap-1.5 text-[13px] text-gray-700 cursor-pointer"><input type="checkbox" checked={!!caseData.deceased_has_special_chars} onChange={e => void patchCase({ deceased_has_special_chars: e.target.checked } as Partial<CaseRow>)} className="w-4 h-4 accent-brand-600" />被相続人の氏名に外字がある</label>
+            </FieldRow>
             <InlineEdit label="被相続人本籍" value={caseData.deceased_registered_address} ai={aiFilled.has('deceased_registered_address')} onSave={v => { clearAi('deceased_registered_address'); return patchCase({ deceased_registered_address: v || null }) }} fullWidth />
           </FieldGrid>
           <HeirsMini caseId={caseData.id} heirs={heirs} onRefresh={onRefresh} ensureCaseId={ensureCaseId} />

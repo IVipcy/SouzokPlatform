@@ -34,6 +34,7 @@ import {
 } from '@/lib/serviceMaster'
 import { buildParts, partRank } from '@/lib/serviceParts'
 import { rolesForCategoryChange } from '@/lib/serviceMaster'
+import { syncMainClientHeir } from '@/lib/clientHeirSync'
 import ReferralSourceLookup from '@/components/features/cases/ReferralSourceLookup'
 import PastClientLookup from '@/components/features/cases/PastClientLookup'
 import { IntakeRolesEditor, IntakeDocsEditor, clientReflectCandidates, type RoleRow } from '@/components/features/cases/ProcedureIntakeSection'
@@ -336,6 +337,35 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
   const [restoredAt, setRestoredAt] = useState<string | null>(null)
   // 触ったかどうか（イベントや後から届く復元の中から見るので ref で持つ）
   const dirtyRef = useRef(false)
+
+  // 既にある他事業者紹介を読み込む（以前は読んでおらず、この画面では常に「なし」に見えていた）。
+  // 読めた分だけ、保存時に「外したら消す」の対象になる。
+  const loadedPartnersRef = useRef<string[]>([])
+  const refsLoadedRef = useRef(false)
+  useEffect(() => {
+    if (refsLoadedRef.current || selectedCase.id === 'new') return
+    refsLoadedRef.current = true
+    ;(async () => {
+      const { data: rows } = await createClient().from('case_referrals').select('partner_type, referral_reason, content, content_detail, appraisal_rank').eq('case_id', selectedCase.id)
+      const list = (rows ?? []) as Array<{ partner_type: string; referral_reason: string | null; content: string | null; content_detail: string | null; appraisal_rank: string | null }>
+      if (list.length === 0) return
+      loadedPartnersRef.current = list.map(r => r.partner_type)
+      setData(prev => {
+        if (dirtyRef.current) return prev
+        const tax = list.find(r => r.partner_type === '税理士'), re = list.find(r => r.partner_type === '不動産')
+        const notes: Record<string, string> = { ...prev.otherReferralNotes }
+        for (const r of list) if (r.partner_type !== '税理士' && r.partner_type !== '不動産') notes[r.partner_type] = r.content_detail ?? r.content ?? ''
+        return {
+          ...prev,
+          referralPartners: [...new Set([...prev.referralPartners, ...list.map(r => r.partner_type)])],
+          taxAdvisorReferralReason: prev.taxAdvisorReferralReason || tax?.referral_reason || '',
+          realEstateRegistrationType: prev.realEstateRegistrationType || re?.content || '',
+          realEstateAppraisalRank: prev.realEstateAppraisalRank || re?.appraisal_rank || '',
+          otherReferralNotes: notes,
+        }
+      })
+    })()
+  }, [selectedCase.id])
 
   // 案件に控えてある下書きを取りに行く（別の端末で書いた続きを拾う）。
   // 触り始めたあとに上書きすると入力中の値が消えるので、まだ触っていないときだけ戻す。
@@ -740,14 +770,20 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
             // 備考(content_detail)は「その他」自由入力のときだけ。選択値（査定ランク）の重複保存はしない。
             row.content_detail = rank.startsWith('その他') ? (formData.realEstateAppraisalNote || null) : null
           } else {
-            const note = formData.otherReferralNotes[p]
-            row.content = note || null
-            row.content_detail = note || null
+            // 備考は content_detail に統一（content は不動産の依頼内容だけ）
+            row.content_detail = formData.otherReferralNotes[p] || null
           }
           return row
         })
         await supabase.from('case_referrals').upsert(rows, { onConflict: 'case_id,partner_type' })
       }
+      // 外した紹介は消す（他の画面と同じ）。開いたときに読み込めていた分だけを対象にする（読めていない分は触らない）
+      {
+        const gone = loadedPartnersRef.current.filter(p => !formData.referralPartners.includes(p))
+        if (gone.length > 0) await supabase.from('case_referrals').delete().eq('case_id', caseId).in('partner_type', gone)
+      }
+      // メイン依頼者＝相続人一覧の依頼者チェック。同じ名前の相続人に付ける（いなければ相続人として足す）
+      await syncMainClientHeir(supabase, caseId, mainName, mainClient?.relationship || null)
 
       setSaving(false)
       return caseId

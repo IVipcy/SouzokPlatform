@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { CASE_STATUSES, getSelectableCaseStatuses } from '@/lib/constants'
+import { ORDER_CATEGORY_ROWS } from '@/lib/serviceMaster'
+import { buildParts } from '@/lib/serviceParts'
 import type { CaseRow } from '@/types'
 
 type Props = {
@@ -14,7 +16,8 @@ type Props = {
   onSaved: () => void
 }
 
-const PROCEDURE_OPTIONS = ['手続一式', '登記', '遺産分割協議書のみ', '相続人調査のみ']
+// 受注区分はマスタから（以前は「手続一式」など別の言葉で、業務に解決できずオーダーシート・実務タブが黙って変わっていた）
+const PROCEDURE_OPTIONS: string[] = ORDER_CATEGORY_ROWS.flat()
 const SERVICE_OPTIONS = ['相続税申告', '不動産売却', '不動産鑑定', '保険請求代行']
 const DIFFICULTY_OPTIONS = ['易', '普', '難'] as const
 const TAX_OPTIONS = ['要', '不要', '確認中'] as const
@@ -57,7 +60,10 @@ export default function CaseEditModal({ isOpen, onClose, caseData, onSaved }: Pr
         deal_name: form.deal_name.trim(),
         status: form.status,
         difficulty: form.difficulty,
-        procedure_type: form.procedure_type,
+        procedure_type: form.procedure_type.length ? form.procedure_type : null,
+        service_category: form.procedure_type[0] ?? null,
+        service_category_2: form.procedure_type[1] ?? null,
+        service_parts: form.procedure_type.length ? buildParts(form.procedure_type) : null,
         additional_services: form.additional_services,
         tax_filing_required: form.tax_filing_required,
         tax_filing_deadline: form.tax_filing_deadline || null,

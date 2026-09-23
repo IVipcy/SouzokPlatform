@@ -279,7 +279,8 @@ export const expenseItemTaxable = (label: string): boolean | undefined => {
 
 // === 他事業者紹介 ===
 // 「他事業者紹介」タブの業者サブタブ（case_referrals.partner_type）。
-export const REFERRAL_PARTNER_TYPES = ['税理士', '弁護士', '不動産', '遺品整理', '生命保険'] as const
+// 全画面で同じ並び（面談結果登録・オーダーシート・面談情報タブ・実務の他事業者紹介）。以前は画面ごとに一部しか出ていなかった
+export const REFERRAL_PARTNER_TYPES = ['税理士', '弁護士', '不動産', '遺品整理', '生命保険', '解体', '自動車', '鑑定', '特殊清掃'] as const
 // 紹介先ごとの「依頼／引継ぎ」タスク名（タスク追加の候補で使用）。不動産のみ社内事業部への引継ぎ。
 export const REFERRAL_TASK_LABEL: Record<string, string> = {
   '税理士': '税理士依頼',
@@ -317,6 +318,7 @@ export const REAL_ESTATE_APPRAISAL_RANKS = [
 export const OTHER_REFERRAL_PARTNERS = [
   { key: '弁護士', label: '弁護士紹介' },
   { key: '遺品整理', label: '遺品整理業者紹介' },
+  { key: '生命保険', label: '生命保険会社紹介' },
   { key: '解体', label: '解体業者紹介' },
   { key: '自動車', label: '自動車（売買・処分）' },
   { key: '鑑定', label: '鑑定業者紹介' },

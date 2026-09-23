@@ -44,14 +44,14 @@ function FirmNameField({ label, value, onSave }: { label: string; value: string 
   )
 }
 
-// 紹介理由。選択肢から選ぶか、「自由入力に切替」でその場で書く。「その他（自由入力）」という選択肢は置かない
-// （選んでも書く場所が無く、別の欄が要ることになるため）。
-const REASON_OPTIONS = TAX_ADVISOR_REFERRAL_REASONS.filter(r => r !== 'その他（自由入力）')
+// 紹介理由。選択肢から選ぶか、「自由入力に切替」でその場で書く。
+// 面談結果登録で「その他（自由入力）」を選んだ値もそのまま出す（以前は選択肢から外していて空に落ちていた）。
+const REASON_OPTIONS = [...TAX_ADVISOR_REFERRAL_REASONS]
 function ReasonField({ label, value, onSave }: { label: string; value: string | null; onSave: (v: string) => void }) {
   return (
     <FieldRow label={label}>
       <SelectOrTextField
-        value={value === 'その他（自由入力）' ? null : (value ?? null)}
+        value={value ?? null}
         options={REASON_OPTIONS}
         onSave={onSave}
         placeholder="紹介した事情を入力"
@@ -208,7 +208,7 @@ export default function ReferralTab({ caseData, referrals, onRefresh, tasks = []
               return (
                 <Fragment key={p.key}>
                   <InlineSelect label={p.label} value={row ? 'あり' : 'なし'} options={['あり', 'なし']} onSave={async v => { await togglePartner(p.key, v === 'あり') }} width="compact" />
-                  {row ? <InlineEdit label="備考" value={row.content} onSave={saveReferralField(row.id, 'content')} /> : <div className="py-1.5" />}
+                  {row ? <InlineEdit label="備考" value={row.content_detail ?? row.content} onSave={saveReferralField(row.id, 'content_detail')} /> : <div className="py-1.5" />}
                 </Fragment>
               )
             })}

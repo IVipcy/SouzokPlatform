@@ -173,7 +173,10 @@ export default function MeetingInfoTab({ caseData, caseMembers, allMembers, onRe
           <InlineEdit label="提案金額（司法）" value={caseData.proposal_judicial ?? caseData.proposal_note} onSave={v => saveCaseField('proposal_judicial', v)} />
           <InlineEdit label="提案金額（行政）" value={caseData.proposal_administrative} onSave={v => saveCaseField('proposal_administrative', v)} />
           <InlineDate label="完了予定日" value={caseData.expected_completion_date} onSave={v => saveCaseField('expected_completion_date', v || null)} />
-          <InlineSelect label="検討中・失注理由" value={caseData.consideration_decline_reason} options={[...CONSIDERATION_DECLINE_REASONS]} onSave={v => saveCaseField('consideration_decline_reason', v)} />
+          {/* 理由はステータスに合うものだけ（面談結果登録と同じ）。受注案件に【失注】が付けられていた */}
+          <InlineSelect label="検討中・失注理由" value={caseData.consideration_decline_reason}
+            options={CONSIDERATION_DECLINE_REASONS.filter(r => caseData.status === '失注' ? r.startsWith('【失注】') : PRE_ORDER.has(caseData.status) ? r.startsWith('【検討】') : true)}
+            onSave={v => saveCaseField('consideration_decline_reason', v)} />
           <InlineTextarea label="理由詳細" value={caseData.consideration_decline_reason_detail} onSave={v => saveCaseField('consideration_decline_reason_detail', v)} fullWidth />
           <InlineTextarea label="ヒアリング内容メモ" value={caseData.meeting_hearing_memo} onSave={v => saveCaseField('meeting_hearing_memo', v)} fullWidth />
         </FieldGrid>
