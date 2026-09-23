@@ -18,14 +18,14 @@ import OrderContentTab from '@/components/features/cases/OrderContentTab'
 import CaseClientsTable from '@/components/features/cases/CaseClientsTable'
 import { MoneyInput } from '@/components/features/cases/FinancialAssetsTable'
 import { useRowsFrom } from '@/lib/useRowsFrom'
-import type { CaseRow, CaseClientRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, CaseOtherAssetRow } from '@/types'
+import type { CaseRow, CaseClientRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, CaseOtherAssetRow, CaseReferralRow } from '@/types'
 import type { MeetingMemoRow } from './IntakeCaseClient'
 import { toKatakana } from '@/lib/kana'
 import { municipalityFromAddress } from '@/lib/address'
 import { ageAtDeath } from '@/lib/age'
 import PostalLookupButton from '@/components/ui/PostalLookupButton'
 import SameAsClientAddressButton from '@/components/features/cases/SameAsClientAddressButton'
-import TaxFilingField from '@/components/features/cases/TaxFilingField'
+import ReferralTab from '@/components/features/cases/ReferralTab'
 import AssetEstimateSection from '@/components/features/cases/AssetEstimateSection'
 import { gyomuOfCase, GYOMU_TAB } from '@/lib/serviceMaster'
 
@@ -471,6 +471,7 @@ type Props = {
   setMemos: React.Dispatch<React.SetStateAction<MeetingMemoRow[]>>
   caseClients: CaseClientRow[]
   heirs: HeirRow[]
+  referrals: CaseReferralRow[]
   properties: RealEstatePropertyRow[]
   financialAssets: FinancialAssetRow[]
   /** その他財産／相続債務／その他費用（case_other_assets） */
@@ -488,7 +489,7 @@ const TRUST_COLS: FinCol[] = [{ key: 'institution_name', label: '信託銀行名
 const HOLDING_KNOWN_OPTIONS = ['分かる', '分からない', '持っていない'] as const
 
 // currentMemberId は面談メモ（写真）の保存者として使う。
-export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensureCaseId, memos, setMemos, caseClients, heirs, properties, financialAssets, otherAssets = [], onRefresh, currentMemberId }: Props) {
+export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensureCaseId, memos, setMemos, caseClients, heirs, referrals, properties, financialAssets, otherAssets = [], onRefresh, currentMemberId }: Props) {
   const [aiFilled, setAiFilled] = useState<Set<string>>(new Set())
   const [diagramOpen, setDiagramOpen] = useState(false)   // 相続関係図の開閉（既定は閉じる）
   // 追加表示中の財産種別。すでに1行でも入っている種別は開いた状態で始める。
@@ -757,13 +758,9 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
       </div>}
 
       {sec('referral', '他事業者紹介', null, (
-        <div className="space-y-2">
-          {/* 相続税申告の要否は面談時の見立てをここで入れる（オーダーシート・実務の税理士ブロックと同じ欄）。目安は資産概算と基礎控除の比較 */}
-          <FieldGrid>
-            <TaxFilingField value={caseData.tax_filing_required} onSave={v => patchCase({ tax_filing_required: v || null } as Partial<CaseRow>)} heirs={heirs} total={caseData.total_asset_estimate ?? null} />
-          </FieldGrid>
-          <p className="text-[12px] text-gray-400">紹介の要否はメモ欄に記録してください（不動産査定・税理士など。詳細は③オーダーシートの他事業者紹介で入力）。</p>
-        </div>
+        // オーダーシートの他事業者紹介と同じ部品（不動産査定／税理士紹介＋相続税申告要否／その他紹介 の あり・なし と中身）。
+        // 以前はメモだけで、税理士・弁護士・不動産などの選択肢が無かった
+        <ReferralTab caseData={caseData} referrals={referrals} onRefresh={onRefresh} orderSheetMode heirs={heirs} ensureCaseId={ensureCaseId} />
       ))}
 
       {/* 遺産分割 / 遺言 / 相続登記 / 解約等：メモ欄のみのセクション。

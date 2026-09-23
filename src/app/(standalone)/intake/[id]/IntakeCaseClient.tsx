@@ -346,7 +346,7 @@ export default function IntakeCaseClient({ caseData, currentMemberId, memos, ...
               </div>
             )}
             <MeetingSheetTab caseData={caseState} patchCase={patchCase} patchClient={patchClient} ensureCaseId={ensureCase} currentMemberId={currentMemberId} memos={memoList} setMemos={setMemos}
-              caseClients={rest.caseClients} heirs={rest.heirs} properties={rest.properties} financialAssets={rest.financialAssets} otherAssets={rest.otherAssets} onRefresh={() => router.refresh()} />
+              caseClients={rest.caseClients} heirs={rest.heirs} referrals={rest.referrals} properties={rest.properties} financialAssets={rest.financialAssets} otherAssets={rest.otherAssets} onRefresh={() => router.refresh()} />
           </>
           )}
           {/* 面談シート最下部の保存ボタン。入力欄は blur で随時オートセーブされているが、

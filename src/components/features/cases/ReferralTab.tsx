@@ -20,6 +20,8 @@ type Props = {
   tasks?: TaskRow[]
   // オーダーシート埋め込み時は報酬請求状態を出さない（請求は個別タブ/請求機能で管理）
   orderSheetMode?: boolean
+  /** 面談シートの下書き用。行を足す前に案件を作る */
+  ensureCaseId?: () => Promise<string>
   /** 相続人（相続税申告の目安＝基礎控除の人数に使う） */
   heirs?: HeirRow[]
 }
@@ -64,8 +66,10 @@ function ReasonField({ label, value, onSave }: { label: string; value: string | 
   )
 }
 
-export default function ReferralTab({ caseData, referrals, onRefresh, tasks = [], orderSheetMode = false, heirs = [] }: Props) {
+export default function ReferralTab({ caseData, referrals, onRefresh, tasks = [], orderSheetMode = false, heirs = [], ensureCaseId }: Props) {
   const supabase = createClient()
+  // 面談シートの下書き（案件未作成）から使うとき、行を足す前に案件を作る
+  const caseIdFor = async () => (ensureCaseId ? await ensureCaseId() : caseData.id)
   const [rows, setRows] = useState<CaseReferralRow[]>(referrals)
   const [activeType, setActiveType] = useState<string | null>(referrals[0]?.partner_type ?? null)
   const [busy, setBusy] = useState(false)
@@ -79,7 +83,7 @@ export default function ReferralTab({ caseData, referrals, onRefresh, tasks = []
     setBusy(true)
     const { data, error } = await supabase
       .from('case_referrals')
-      .insert({ case_id: caseData.id, partner_type: partnerType })
+      .insert({ case_id: await caseIdFor(), partner_type: partnerType })
       .select('*')
       .single()
     setBusy(false)
@@ -109,7 +113,7 @@ export default function ReferralTab({ caseData, referrals, onRefresh, tasks = []
   // cases 本体の1フィールドを更新（相続税申告要否など。保存後に親を再取得）
   const saveCaseField = (field: keyof CaseRow) => async (value: unknown) => {
     const v = value === '' ? null : value
-    const { error } = await supabase.from('cases').update({ [field]: v }).eq('id', caseData.id)
+    const { error } = await supabase.from('cases').update({ [field]: v }).eq('id', await caseIdFor())
     if (error) { showToast(`保存に失敗しました: ${error.message}`, 'error'); throw new Error(error.message) }
     onRefresh?.()
   }
@@ -119,7 +123,7 @@ export default function ReferralTab({ caseData, referrals, onRefresh, tasks = []
   const togglePartner = async (type: string, yes: boolean) => {
     const existing = rowOf(type)
     if (yes && !existing) {
-      const { data, error } = await supabase.from('case_referrals').insert({ case_id: caseData.id, partner_type: type }).select('*').single()
+      const { data, error } = await supabase.from('case_referrals').insert({ case_id: await caseIdFor(), partner_type: type }).select('*').single()
       if (error || !data) { showToast(`追加に失敗しました: ${error?.message ?? ''}`, 'error'); return }
       setRows(prev => [...prev, data as CaseReferralRow])
       onRefresh?.()

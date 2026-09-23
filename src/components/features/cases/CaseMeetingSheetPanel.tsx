@@ -20,11 +20,11 @@ import MeetingSnapshotView from '@/app/(standalone)/intake/[id]/MeetingSnapshotV
 import { readMeetingSnapshot } from '@/lib/meetingSnapshot'
 import type { MeetingMemoRow } from '@/app/(standalone)/intake/[id]/IntakeCaseClient'
 import type {
-  CaseRow, CaseClientRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, CaseOtherAssetRow,
+  CaseRow, CaseClientRow, HeirRow, RealEstatePropertyRow, FinancialAssetRow, CaseOtherAssetRow, CaseReferralRow,
 } from '@/types'
 
 export default function CaseMeetingSheetPanel({
-  caseData, patchCase, patchClient, caseClients, heirs, properties, financialAssets, otherAssets = [],
+  caseData, patchCase, patchClient, caseClients, heirs, referrals = [], properties, financialAssets, otherAssets = [],
   currentMemberId, onRefresh, onStartOrderSheet,
 }: {
   caseData: CaseRow
@@ -32,6 +32,8 @@ export default function CaseMeetingSheetPanel({
   patchClient: (patch: Record<string, unknown>) => Promise<void>
   caseClients: CaseClientRow[]
   heirs: HeirRow[]
+  /** 他事業者紹介（面談シートの他事業者紹介セクションに出す） */
+  referrals?: CaseReferralRow[]
   properties: RealEstatePropertyRow[]
   financialAssets: FinancialAssetRow[]
   otherAssets?: CaseOtherAssetRow[]
@@ -104,6 +106,7 @@ export default function CaseMeetingSheetPanel({
             setMemos={setMemos}
             caseClients={caseClients}
             heirs={heirs}
+            referrals={referrals}
             properties={properties}
             financialAssets={financialAssets}
             otherAssets={otherAssets}

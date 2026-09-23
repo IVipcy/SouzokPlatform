@@ -780,6 +780,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
           caseData={caseState}
           patchCase={patchCase}
           patchClient={patchClient}
+          referrals={caseReferrals ?? []}
           caseClients={caseClients ?? []}
           heirs={heirs}
           properties={properties}
