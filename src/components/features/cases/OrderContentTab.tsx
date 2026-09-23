@@ -169,28 +169,8 @@ export default function OrderContentTab({ caseData, patchCase, orderSheetMode = 
               )}
             </FieldRow>
 
-            {/* 作業ごとの要不要。「不要」にした作業はタスク候補に出ない。以前は面談結果登録の編集部品でしか変えられなかった */}
-            {!isReferralOnly && roles.some(r => r.sagyou?.trim()) && (
-              <FieldRow label="作業の要不要" labelNote={<span className="text-[10.5px] font-normal text-gray-400">（不要にした作業はタスク候補に出ません）</span>}>
-                <div className="space-y-1.5">
-                  {[...new Set(roles.map(r => r.gyomu))].map(g => (
-                    <div key={g} className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-[12px] font-semibold text-gray-600 w-24 flex-none">{g}</span>
-                      {roles.filter(r => r.gyomu === g && r.sagyou?.trim()).map((r, i) => {
-                        const off = r.owner === '不要'
-                        return (
-                          <button key={`${g}-${i}`} type="button" onClick={() => void saveRoles(roles.map(x => (x === r ? { ...x, owner: off ? '自社' : '不要' } : x)))}
-                            title={off ? '押すと要るに戻します' : '押すと不要にします'}
-                            className={`px-2 py-0.5 text-[12px] border ${off ? 'bg-gray-100 text-gray-400 border-gray-200 line-through' : 'bg-white text-gray-700 border-gray-300 hover:border-brand-400'}`}>
-                            {r.sagyou}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  ))}
-                </div>
-              </FieldRow>
-            )}
+            {/* 「作業の要不要」（作業ごとに不要にする一覧）は出さない。受注区分と実施業務を選べば十分で、
+                候補に出た作業はチェックを外せばよい（2026-09-23 ユーザー判断で撤去。owner='不要' の除外ロジック自体は残す） */}
 
             {!isReferralOnly && (
               <FieldRow label="その他業務" labelNote={<span className="text-[10.5px] font-normal text-gray-400">（自由追加）</span>} hint="ここに入れたものは、作業着手準備の「候補から選択」でそのままタスクになります。タスク追加と同じ項目（担当区分・タスク名・作業内容・優先度・期限・外出）を入れておいてください。">
