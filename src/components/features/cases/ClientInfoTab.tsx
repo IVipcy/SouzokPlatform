@@ -69,8 +69,7 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
       <Section title="メイン依頼者の住所">
         {caseData.client_id && client ? (
           <FieldGrid>
-            <InlineEdit label="住所1（都道府県〜番地まで）" value={client.address} onSave={v => saveClientField('address', v)} required hint="都道府県・市区町村・町名・番地まで。建物名・部屋番号は住所2に" />
-            <InlineEdit label="住所2（建物名・部屋番号）" value={client.address2} onSave={v => saveClientField('address2', v)} />
+            {/* 住所の型（全画面共通）：郵便番号（住所1から取得）→ 住所1（都道府県〜番地まで）→ 住所2（建物名・部屋番号） */}
             <InlineEdit
               label="郵便番号"
               value={client.postal_code}
@@ -78,6 +77,8 @@ export default function ClientInfoTab({ caseData, clientCommunications, patchCas
               onSave={v => saveClientField('postal_code', v.replace(/[^0-9]/g, ''))}
               action={() => <PostalLookupButton address={client.address} onResolved={zip => saveClientField('postal_code', zip)} className="inline-flex items-center gap-1 h-7 px-2.5 rounded text-[11.5px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap" />}
             />
+            <InlineEdit label="住所1（都道府県〜番地まで）" value={client.address} onSave={v => saveClientField('address', v)} required hint="都道府県・市区町村・町名・番地まで。建物名・部屋番号は住所2に" />
+            <InlineEdit label="住所2（建物名・部屋番号）" value={client.address2} onSave={v => saveClientField('address2', v)} />
             {/* 振込名義人（カナ）＝入金CSV突合のキー。本人振込なら依頼者ふりがなをカタカナで自動入力。
                 面談シートと同じく検討中から出す（面談で聞いた振込名義を入れる場所を揃える）。 */}
             {(

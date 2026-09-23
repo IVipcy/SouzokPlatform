@@ -15,6 +15,7 @@ import { showToast } from '@/components/ui/Toast'
 import BirthdayPicker from '@/components/ui/BirthdayPicker'
 import { toKatakana } from '@/lib/kana'
 import PostalLookupButton from '@/components/ui/PostalLookupButton'
+import SameAsClientAddressButton from '@/components/features/cases/SameAsClientAddressButton'
 import type { SelectedCase } from './MeetingPageClient'
 import { STEPS, INITIAL_DATA, EMPTY_CLIENT, type FormData, type ClientPerson } from './formData'
 import {
@@ -298,6 +299,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         email: selectedCase.clientEmail ?? '',
       }
       if (selectedCase.clientAddress) init.address = selectedCase.clientAddress
+      if (selectedCase.clientAddress2) init.address2 = selectedCase.clientAddress2
       if (selectedCase.clientPostalCode) init.postalCode = selectedCase.clientPostalCode
       // 被相続人
       if (selectedCase.deceasedName) init.deceasedName = selectedCase.deceasedName
@@ -305,6 +307,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
       if (selectedCase.deceasedBirthDate) init.deceasedBirthday = selectedCase.deceasedBirthDate
       if (selectedCase.dateOfDeath) init.dateOfDeath = selectedCase.dateOfDeath
       if (selectedCase.deceasedAddress) init.deceasedAddress = selectedCase.deceasedAddress
+      if (selectedCase.deceasedAddress2) init.deceasedAddress2 = selectedCase.deceasedAddress2
       if (selectedCase.deceasedRegisteredAddress) init.deceasedRegisteredAddress = selectedCase.deceasedRegisteredAddress
       // LP事前ヒアリング情報をヒアリングメモの先頭にプリセット（営業が面談時に追記する想定）
       const lpHearing: string[] = []
@@ -557,10 +560,16 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
       // 1. メイン依頼者を clients に upsert（互換のため cases.client_id 維持）
       const mainClient = formData.clients.find(c => c.priority === 'main') ?? formData.clients[0]
       const mainName = (mainClient?.name ?? '').trim()
-      // この画面に出ている依頼者の項目は「顧客名」だけ。出していない項目（ふりがな・振込名義人・住所・郵便番号・
+      // この画面に出ている依頼者の項目は「顧客名」と「郵便番号・住所1・住所2」。出していない項目（ふりがな・振込名義人・
       // 電話・メール・続柄）は書かない。書くと、面談シート・依頼者情報タブで入れた値を開いた時点の古い値や空で潰す。
+      // 住所は入っているときだけ書く（空のまま保存しても、面談シートで入れた値を消さない）。
       // 続柄は案件依頼者（case_clients）側だけに持つ。
-      const clientPayload = { name: mainName || '無題' }
+      const clientPayload = {
+        name: mainName || '無題',
+        ...(formData.postalCode.trim() ? { postal_code: formData.postalCode.trim() } : {}),
+        ...(formData.address.trim() ? { address: formData.address.trim() } : {}),
+        ...(formData.address2.trim() ? { address2: formData.address2.trim() } : {}),
+      }
 
       if (isNew) {
         if (formData.pastClientId) {
@@ -638,8 +647,11 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
         // 実施業務は新規のときだけ初期値を入れる。既存案件はオーダーシートで選んだ業務を持っているので、
         // ここでは区分に紐づく管理業務だけ入れ替える（下の rolesForCategoryChange）。
         ...(isNew ? { intake_roles: formData.intakeRoles } : {}),
-        // ※ この画面に出ていない項目（難易度・顧客郵送先・依頼者特徴・被相続人の各項目・面談場所・ヒアリングメモ）は書かない。
+        // ※ この画面に出ていない項目（難易度・顧客郵送先・依頼者特徴・被相続人の氏名等・面談場所・ヒアリングメモ）は書かない。
         //    書くと依頼者情報タブ・相続人調査・受注内容で入れた値を空や古い値で潰す。
+        //    被相続人の住所1・住所2はこの画面に出しているので、入っているときだけ書く（空なら触らない）。
+        ...(formData.deceasedAddress.trim() ? { deceased_address: formData.deceasedAddress.trim() } : {}),
+        ...(formData.deceasedAddress2.trim() ? { deceased_address2: formData.deceasedAddress2.trim() } : {}),
         // 契約形態（検討中段階で設定 → 契約書・委任状のFMT推奨に使用）。
         // 空のときは書き込まない。①面談シートで入れた値を消してしまうため。
         // 案件を開いたときに読み込んではいるが、下書き（meeting_form_draft）が
@@ -1136,15 +1148,17 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
           {/* メイン依頼者の住所（書類・請求で使う正本） */}
           <div className="mt-6 max-w-[800px]">
             <SectionHeader Icon={User} title="メイン依頼者の住所・郵送・特徴" sub="メイン依頼者の住所と郵送先・特徴を登録" />
-            <Card label="依頼者住所（都道府県〜番地まで）"><Input value={data.address} onChange={v => update('address', v)} placeholder="愛知県名古屋市中区栄…" /></Card>
+            {/* 住所の型（全画面共通）：郵便番号（住所1から取得）→ 住所1 → 住所2。空のまま保存しても既存の値は消さない */}
             <Card label="郵便番号">
               <Input
                 value={data.postalCode}
                 onChange={v => update('postalCode', v.replace(/[^0-9]/g, ''))}
-                placeholder="住所から取得 または 7桁を入力"
+                placeholder="住所1から取得 または 7桁を入力"
               />
               <PostalLookupButton address={data.address} onResolved={zip => update('postalCode', zip)} />
             </Card>
+            <Card label="住所1（都道府県〜番地まで）"><Input value={data.address} onChange={v => update('address', v)} placeholder="愛知県名古屋市中区栄…" /></Card>
+            <Card label="住所2（建物名・部屋番号）"><Input value={data.address2} onChange={v => update('address2', v)} placeholder="○○マンション 301号室" /></Card>
             {/* 振込名義人（カナ）＝入金CSV突合キー。最大3つ。1つ目だけ「依頼者と同じ」ボタン。
                 「検討中」段階では入金が発生しないため表示しない（受注後に入力）。 */}
             {data.caseStatus !== '検討中' && (
@@ -1222,11 +1236,15 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
                 : <span className="text-gray-400 text-[13px]">生年月日と死亡日を入力すると自動計算されます</span>}
             </div>
           </Card>
-          <Card label="被相続人住所（都道府県〜番地まで）"><Input value={data.deceasedAddress} onChange={v => update('deceasedAddress', v)} placeholder="被相続人の最後の住所" /></Card>
-          <Card label="被相続人郵便番号">
-            <Input value={data.deceasedPostalCode} onChange={v => update('deceasedPostalCode', v.replace(/[^0-9]/g, ''))} placeholder="住所から取得 または 7桁を入力" />
-            <PostalLookupButton address={data.deceasedAddress} onResolved={zip => update('deceasedPostalCode', zip)} />
+          {/* 住所の型（全画面共通）：住所1 → 住所2。被相続人に郵便番号は持たない。「依頼者と同じ」で上の依頼者の住所1・住所2を写す */}
+          <Card label="住所1（都道府県〜番地まで）">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0"><Input value={data.deceasedAddress} onChange={v => update('deceasedAddress', v)} placeholder="被相続人の最後の住所" /></div>
+              <SameAsClientAddressButton clientAddress={data.address} clientAddress2={data.address2} currentAddress={data.deceasedAddress} currentAddress2={data.deceasedAddress2}
+                onApply={(a1, a2) => { update('deceasedAddress', a1); update('deceasedAddress2', a2 ?? '') }} />
+            </div>
           </Card>
+          <Card label="住所2（建物名・部屋番号）"><Input value={data.deceasedAddress2} onChange={v => update('deceasedAddress2', v)} placeholder="○○マンション 301号室" /></Card>
           <Card label="被相続人本籍"><Input value={data.deceasedRegisteredAddress} onChange={v => update('deceasedRegisteredAddress', v)} placeholder="被相続人の本籍" /></Card>
           <Card label="被相続人外字有無">
             <label className="flex items-center gap-2 cursor-pointer text-[13px] text-gray-700">
@@ -1342,7 +1360,7 @@ export default function MeetingForm({ selectedCase, currentMemberId, standalone 
             <ConfirmSection title="依頼者">
               <ConfirmRow label="メイン依頼人" value={(data.clients.find(c => c.priority === 'main') ?? data.clients[0])?.name ?? ''} />
               <ConfirmRow label="人数" value={`${data.clients.filter(c => c.name.trim()).length}名`} />
-              <ConfirmRow label="メイン依頼者の住所" value={[data.postalCode, data.address].filter(Boolean).join('　')} />
+              <ConfirmRow label="メイン依頼者の住所" value={[data.postalCode ? `〒${data.postalCode}` : '', data.address, data.address2].filter(Boolean).join('　')} />
               <ConfirmRow label="顧客郵送先" value={data.mailingDestination === 'その他' ? `その他（${data.mailingAddressOther}）` : data.mailingDestination} />
               <ConfirmRow label="依頼者の特性" value={(data.clientTrait ?? '').split(',').filter(Boolean).join('・')} />
             </ConfirmSection>

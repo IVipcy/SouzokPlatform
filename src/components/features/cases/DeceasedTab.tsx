@@ -22,6 +22,7 @@ import NameHint from '@/components/ui/NameHint'
 import { PersonRoleChip, PersonRoleLegend, roleKindOf } from '@/components/ui/PersonRoleChip'
 import { normalizePersonName } from '@/lib/personName'
 import AddressHint from '@/components/ui/AddressHint'
+import SameAsClientAddressButton from './SameAsClientAddressButton'
 import { normalizeAddress } from '@/lib/address'
 import {
   Section,
@@ -444,15 +445,12 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
               </FieldRow>
               {/* 被相続人の郵便番号は廃止。住所は戸籍・住民票から転記するので、
                   郵便番号から引く場面が無く、欄だけが残っていた（列は残すので既存の値は消えない）。 */}
-              <InlineEdit label="被相続人住所 住所1（都道府県〜番地まで）" value={caseData.deceased_address} onSave={v => saveCaseField('deceased_address', v)} address hint="都道府県・市区町村・町名・番地まで。建物名・部屋番号は住所2に"
+              {/* 住所の型（全画面共通）：住所1 → 住所2。「依頼者と同じ」は共通部品（面談シート・面談結果登録と同じ動き） */}
+              <InlineEdit label="住所1（都道府県〜番地まで）" value={caseData.deceased_address} onSave={v => saveCaseField('deceased_address', v)} address hint="都道府県・市区町村・町名・番地まで。建物名・部屋番号は住所2に"
                 action={
-                  <button
-                    type="button"
-                    disabled={!(caseData.clients?.address ?? '').trim()}
-                    title={(caseData.clients?.address ?? '').trim() ? '依頼者の住所1・住所2をそのまま入れる' : '依頼者の住所が未入力です'}
-                    onClick={async () => { await patchCase({ deceased_address: caseData.clients?.address ?? null, deceased_address2: caseData.clients?.address2 ?? null } as Partial<CaseRow>) }}
-                    className="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-1.5 py-0.5 rounded border border-brand-200 bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                  >依頼者と同じ</button>
+                  <SameAsClientAddressButton clientAddress={caseData.clients?.address} clientAddress2={caseData.clients?.address2}
+                    currentAddress={caseData.deceased_address} currentAddress2={caseData.deceased_address2}
+                    onApply={(a1, a2) => patchCase({ deceased_address: a1, deceased_address2: a2 } as Partial<CaseRow>)} />
                 } />
               <InlineEdit label="住所2（建物名・部屋番号）" value={caseData.deceased_address2} onSave={v => saveCaseField('deceased_address2', v)} />
               <InlineEdit
@@ -749,7 +747,7 @@ export default function DeceasedTab({ caseData, heirs, kosekiRequests = [], onRe
               {/* オーダーシートでは詳細（郵便番号/住所/本籍）を隠し、実務タブで入力。エクセルR50-52 */}
               {!orderSheetMode && (
               <div className="grid grid-cols-1 gap-3 mb-3">
-                <FormField label="住所">
+                <FormField label="住所1（都道府県〜番地まで）">
                   <input
                     type="text"
                     value={heirForm.address}

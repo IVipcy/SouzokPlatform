@@ -51,7 +51,8 @@ export type FormData = {
   clients: ClientPerson[]
   // メイン依頼者の住所・郵送・特徴（案件詳細の依頼者タブと同じ項目。メイン依頼者のみ）
   postalCode: string          // メイン依頼者 郵便番号
-  address: string             // メイン依頼者 住所
+  address: string             // メイン依頼者 住所1（都道府県〜番地まで）
+  address2: string            // メイン依頼者 住所2（建物名・部屋番号）
   transferNameKana: string    // 振込名義人カナ（入金CSV突合キー。本人振込なら依頼者ふりがな）
   transferNameKana2: string   // 振込名義人カナ2（任意）
   transferNameKana3: string   // 振込名義人カナ3（任意）
@@ -64,8 +65,9 @@ export type FormData = {
   deceasedKana: string
   deceasedBirthday: string          // 被相続人 生年月日
   dateOfDeath: string               // 相続開始日（死亡日）
-  deceasedPostalCode: string        // 被相続人 郵便番号
-  deceasedAddress: string           // 被相続人 住所
+  deceasedPostalCode: string        // 被相続人 郵便番号（廃止。画面には出さない。古い下書きの互換で残す）
+  deceasedAddress: string           // 被相続人 住所1（都道府県〜番地まで）
+  deceasedAddress2: string          // 被相続人 住所2（建物名・部屋番号）
   deceasedRegisteredAddress: string // 被相続人 本籍
   deceasedHasSpecialChars: boolean  // 被相続人 外字有無
   // 面談内容
@@ -113,6 +115,7 @@ export const INITIAL_DATA: FormData = {
   clients: [{ priority: 'main', name: '', kana: '', birthday: '', relationship: '', phone: '', mobilePhone: '', email: '' }],
   postalCode: '',
   address: '',
+  address2: '',
   transferNameKana: '',
   transferNameKana2: '',
   transferNameKana3: '',
@@ -126,6 +129,7 @@ export const INITIAL_DATA: FormData = {
   dateOfDeath: '',
   deceasedPostalCode: '',
   deceasedAddress: '',
+  deceasedAddress2: '',
   deceasedRegisteredAddress: '',
   deceasedHasSpecialChars: false,
   hearingMemo: '',

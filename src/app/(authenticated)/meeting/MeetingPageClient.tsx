@@ -19,12 +19,14 @@ export type SelectedCase = {
   deceasedBirthDate?: string | null
   dateOfDeath?: string | null
   deceasedAddress?: string | null
+  deceasedAddress2?: string | null
   deceasedRegisteredAddress?: string | null
   clientFurigana?: string | null
   clientRelation?: string | null
   clientMobilePhone?: string | null
   clientEmail?: string | null
   clientAddress?: string | null
+  clientAddress2?: string | null
   clientPostalCode?: string | null
   clientNotes?: string | null
   hearingContent?: string | null

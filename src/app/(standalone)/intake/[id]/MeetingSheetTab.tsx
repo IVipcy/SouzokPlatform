@@ -23,6 +23,7 @@ import { toKatakana } from '@/lib/kana'
 import { municipalityFromAddress } from '@/lib/address'
 import { ageAtDeath } from '@/lib/age'
 import PostalLookupButton from '@/components/ui/PostalLookupButton'
+import SameAsClientAddressButton from '@/components/features/cases/SameAsClientAddressButton'
 import TaxFilingField from '@/components/features/cases/TaxFilingField'
 import AssetEstimateSection from '@/components/features/cases/AssetEstimateSection'
 import { gyomuOfCase, GYOMU_TAB } from '@/lib/serviceMaster'
@@ -589,11 +590,11 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
         <div className="space-y-3">
           <CaseClientsTable caseId={caseData.id} clients={caseClients} onRefresh={onRefresh} clientId={caseData.client_id} ensureCaseId={ensureCaseId} />
           <FieldGrid>
-            {/* オーダーシートの依頼者情報と同じ 住所1・住所2・郵便番号（住所1から取得）。以前は1欄で建物名が混ざっていた */}
-            <InlineEdit label="住所1（都道府県〜番地まで）" value={cl?.address ?? null} ai={aiFilled.has('address')} onSave={v => { clearAi('address'); return patchClient({ address: v || null }) }} fullWidth
+            {/* 住所の型（全画面共通）：郵便番号（住所1から取得）→ 住所1（都道府県〜番地まで）→ 住所2（建物名・部屋番号） */}
+            <InlineEdit label="郵便番号" value={cl?.postal_code ?? null} onSave={v => patchClient({ postal_code: v.replace(/[^0-9]/g, '') || null })} mono fullWidth
               action={<PostalLookupButton address={cl?.address} onResolved={zip => void patchClient({ postal_code: zip })} />} />
-            <InlineEdit label="住所2（建物名・部屋番号）" value={cl?.address2 ?? null} onSave={v => patchClient({ address2: v || null })} />
-            <InlineEdit label="郵便番号" value={cl?.postal_code ?? null} onSave={v => patchClient({ postal_code: v.replace(/[^0-9]/g, '') || null })} mono />
+            <InlineEdit label="住所1（都道府県〜番地まで）" value={cl?.address ?? null} ai={aiFilled.has('address')} onSave={v => { clearAi('address'); return patchClient({ address: v || null }) }} fullWidth />
+            <InlineEdit label="住所2（建物名・部屋番号）" value={cl?.address2 ?? null} onSave={v => patchClient({ address2: v || null })} fullWidth />
             {/* 振込名義人＝入金CSV突合のキー。本人振込なら依頼者のふりがなをカタカナで入れる。
                 案件詳細の依頼者タブと同じボタンを、面談シートにも置く。 */}
             <InlineEdit
@@ -633,8 +634,11 @@ export default function MeetingSheetTab({ caseData, patchCase, patchClient, ensu
             <FieldRow label="相続開始日（死亡日）">
               <BirthdayPicker value={caseData.date_of_death} onChange={v => { clearAi('date_of_death'); patchCase({ date_of_death: v || null, deceased_age: ageAtDeath(caseData.deceased_birth_date, v) }) }} />
             </FieldRow>
-            <InlineEdit label="被相続人住所" value={caseData.deceased_address} ai={aiFilled.has('deceased_address')} onSave={v => { clearAi('deceased_address'); return patchCase({ deceased_address: v || null }) }} fullWidth />
-            <InlineEdit label="住所2（建物名・部屋番号）" value={caseData.deceased_address2} onSave={v => patchCase({ deceased_address2: v || null } as Partial<CaseRow>)} />
+            {/* 住所の型（全画面共通）：住所1 → 住所2。被相続人に郵便番号は持たない。「依頼者と同じ」で依頼者の住所1・住所2を一度に写す */}
+            <InlineEdit label="住所1（都道府県〜番地まで）" value={caseData.deceased_address} ai={aiFilled.has('deceased_address')} onSave={v => { clearAi('deceased_address'); return patchCase({ deceased_address: v || null }) }} fullWidth
+              action={<SameAsClientAddressButton clientAddress={cl?.address} clientAddress2={cl?.address2} currentAddress={caseData.deceased_address} currentAddress2={caseData.deceased_address2}
+                onApply={(a1, a2) => { clearAi('deceased_address'); return patchCase({ deceased_address: a1, deceased_address2: a2 } as Partial<CaseRow>) }} />} />
+            <InlineEdit label="住所2（建物名・部屋番号）" value={caseData.deceased_address2} onSave={v => patchCase({ deceased_address2: v || null } as Partial<CaseRow>)} fullWidth />
             <FieldRow label="外字">
               <label className="inline-flex items-center gap-1.5 text-[13px] text-gray-700 cursor-pointer"><input type="checkbox" checked={!!caseData.deceased_has_special_chars} onChange={e => void patchCase({ deceased_has_special_chars: e.target.checked } as Partial<CaseRow>)} className="w-4 h-4 accent-brand-600" />被相続人の氏名に外字がある</label>
             </FieldRow>

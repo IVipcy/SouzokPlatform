@@ -40,14 +40,14 @@ export default function MailingAddressList({ caseData, heirs, patchClient, onRef
   return (
     <div className="w-full text-[13px]">
       <div className="grid grid-cols-[11rem_6.5rem_minmax(0,1.5fr)_minmax(0,1fr)] gap-x-3 items-center">
-        <span className={head}>氏名</span><span className={head}>区分</span><span className={head}>住所①（都道府県〜番地）</span><span className={head}>住所②（建物名・部屋番号）</span>
+        <span className={head}>氏名</span><span className={head}>区分</span><span className={head}>住所1（都道府県〜番地まで）</span><span className={head}>住所2（建物名・部屋番号）</span>
       </div>
       {!hasClientHeir && client && (
         <div className={rowCls}>
           <span className="truncate text-gray-800 font-medium">{client.name || <span className="text-gray-300">依頼者（氏名未入力）</span>}</span>
           <span className="text-gray-600">依頼者</span>
-          <input type="text" defaultValue={client.address ?? ''} onBlur={e => void saveClient('address', e.target.value.trim())} placeholder="住所①" className={inp} />
-          <input type="text" defaultValue={client.address2 ?? ''} onBlur={e => void saveClient('address2', e.target.value.trim())} placeholder="住所②" className={inp} />
+          <input type="text" defaultValue={client.address ?? ''} onBlur={e => void saveClient('address', e.target.value.trim())} placeholder="住所1" className={inp} />
+          <input type="text" defaultValue={client.address2 ?? ''} onBlur={e => void saveClient('address2', e.target.value.trim())} placeholder="住所2" className={inp} />
         </div>
       )}
       {alive.map(h => (
@@ -56,8 +56,8 @@ export default function MailingAddressList({ caseData, heirs, patchClient, onRef
           <select value={h.is_client ? '依頼者' : '相続人'} onChange={e => void saveHeir(h, { is_client: e.target.value === '依頼者' })} style={{ fontFamily: 'inherit' }} className="input-flat w-full px-1.5 py-1 text-[13px] text-gray-800 outline-none">
             {KIND_OPTIONS.map(k => <option key={k} value={k}>{k}</option>)}
           </select>
-          <input type="text" key={`a1-${h.id}-${h.address ?? ''}`} defaultValue={h.address ?? ''} onBlur={e => { const v = e.target.value.trim(); if (v !== (h.address ?? '')) void saveHeir(h, { address: v || null }) }} placeholder="住所①" className={inp} />
-          <input type="text" key={`a2-${h.id}-${h.address2 ?? ''}`} defaultValue={h.address2 ?? ''} onBlur={e => { const v = e.target.value.trim(); if (v !== (h.address2 ?? '')) void saveHeir(h, { address2: v || null }) }} placeholder="住所②" className={inp} />
+          <input type="text" key={`a1-${h.id}-${h.address ?? ''}`} defaultValue={h.address ?? ''} onBlur={e => { const v = e.target.value.trim(); if (v !== (h.address ?? '')) void saveHeir(h, { address: v || null }) }} placeholder="住所1" className={inp} />
+          <input type="text" key={`a2-${h.id}-${h.address2 ?? ''}`} defaultValue={h.address2 ?? ''} onBlur={e => { const v = e.target.value.trim(); if (v !== (h.address2 ?? '')) void saveHeir(h, { address2: v || null }) }} placeholder="住所2" className={inp} />
         </div>
       ))}
       {alive.length === 0 && (!client || hasClientHeir) && (
