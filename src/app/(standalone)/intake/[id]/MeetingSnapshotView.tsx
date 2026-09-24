@@ -6,8 +6,9 @@
 // 取り直したいときは面談結果登録をもう一度保存する。
 // 「いまの内容を見る／直す」で、従来どおりの編集できる面談シートへ切り替えられる。
 //
-// 見た目は面談シート・オーダーシートと同じ（青い見出し帯・項目名セルの2列表・同じ列並びの一覧表）。
-// 違いは入力欄が文字になっていることと、見出し帯の鍵だけ。並びも面談シートと同じ順にそろえる。
+// 見た目はオーダーシートの型：角丸なしの大セクション（ベージュの外枠・青い見出し帯・白い中身）、
+// 先頭に「作業内容・関連情報」（面談シートのメモ）、その下は「｜青い縦線＋太字」の小見出しで区切る。
+// 項目名セルの2列表（FieldGrid）と一覧表の列並びは面談シートと同じ。違いは入力欄が文字になっていることと鍵だけ。
 
 import { Lock } from 'lucide-react'
 import { FieldGrid, FieldRow } from '@/components/ui/InlineFields'
@@ -31,25 +32,40 @@ function V({ label, value, fullWidth, mono }: { label: string; value: unknown; f
   )
 }
 
-/** セクション。面談シートの sec() と同じ見た目＋鍵 */
-function Section({ title, badge, memo, children }: { title: string; badge?: string | null; memo?: string | null; children: React.ReactNode }) {
+/** 大セクション。オーダーシートの OSSection と同じ（角丸なし・ベージュ外枠・青い帯・白い中身）＋鍵 */
+function OSSection({ title, badge, memo, children }: { title: string; badge?: string | null; memo?: string | null; children: React.ReactNode }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-2.5 bg-[#1E3A8A]">
-        <span className="text-[14px] font-bold text-white flex-1">{title}</span>
+    <section className="bg-[#FEF8EA]">
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-brand-600">
+        <h2 className="text-[14px] font-bold text-white tracking-[0.02em] flex-1">{title}</h2>
         {badge && <span className="text-[10px] text-white bg-white/22 rounded-full px-1.5 py-0.5">{badge}</span>}
         <Lock className="w-3.5 h-3.5 text-white/80" strokeWidth={2} />
       </div>
-      <div className="p-4 space-y-3">
-        {/* メモ（＝このセクションのフリー作業欄）。面談シートと同じくセクションの先頭 */}
+      <div className="p-4 space-y-4 bg-white">
+        {/* 作業内容・関連情報（＝面談シートのこのセクションのメモ）。オーダーシートと同じ先頭位置 */}
         {memo && (
-          <div className="rounded-md bg-[#f3f5f8] px-3 py-2">
-            <div className="text-[11px] text-gray-400 mb-0.5">メモ</div>
-            <p className="text-[13px] text-gray-800 whitespace-pre-wrap">{memo}</p>
+          <div className="pb-3 border-b border-gray-100">
+            <div className="text-[11.5px] text-gray-500 mb-1">作業内容・関連情報（面談シートのメモ）</div>
+            <p className="text-[13px] text-gray-800 whitespace-pre-wrap bg-[#f3f5f8] px-2.5 py-2">{memo}</p>
           </div>
         )}
         {children}
       </div>
+    </section>
+  )
+}
+
+/** 小見出しブロック。オーダーシート内の Section（nested）と同じ「｜青い縦線＋13.5px 太字」＋インデント */
+function Block({ title, children }: { title?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      {title && (
+        <div className="flex items-center gap-2 mb-2">
+          <span className="inline-block w-[3px] h-3.5 bg-brand-600 flex-shrink-0" />
+          <h3 className="text-[13.5px] font-semibold text-gray-700">{title}</h3>
+        </div>
+      )}
+      <div className={title ? 'pl-[11px]' : ''}>{children}</div>
     </div>
   )
 }
@@ -81,8 +97,6 @@ function Table({ rows, cols, emptyText = 'なし' }: { rows: Rec[]; cols: Col[];
   )
 }
 
-const SUB = 'text-[12px] font-semibold text-gray-500'
-
 export default function MeetingSnapshotView({ snapshot, onEditLatest }: {
   snapshot: MeetingSnapshot
   /** 「いまの内容を見る／直す」を押したとき（従来の編集できる面談シートへ） */
@@ -103,7 +117,7 @@ export default function MeetingSnapshotView({ snapshot, onEditLatest }: {
   const yesNo = (v: unknown) => (v === true ? '✓' : null)
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-5">
       <div className="flex items-center gap-2 flex-wrap rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
         <Lock className="w-4 h-4 text-amber-700 flex-none" strokeWidth={2} />
         <span className="text-[12.5px] text-amber-900 flex-1 min-w-[220px] leading-snug">
@@ -115,119 +129,148 @@ export default function MeetingSnapshotView({ snapshot, onEditLatest }: {
         </button>
       </div>
 
-      <Section title="依頼者情報" memo={wc.clientInfo}>
-        <Table rows={snapshot.caseClients} emptyText="依頼者が登録されていません" cols={[
-          { key: 'priority', label: '優先度', width: '7rem', fmt: v => v === 'main' ? 'メイン依頼人' : v === 'companion' ? '同行者' : S(v) },
-          { key: 'name', label: '氏名' }, { key: 'furigana', label: 'ふりがな' }, { key: 'relationship', label: '続柄', width: '5rem' },
-          { key: 'mobile_phone', label: 'TEL（携帯）', width: '8.5rem', fmt: v => formatPhone(S(v)) || null },
-          { key: 'phone', label: 'TEL（固定）', width: '8.5rem', fmt: v => formatPhone(S(v)) || null },
-          { key: 'email', label: 'メール' },
-          { key: 'preferred_contact', label: '連絡先希望', fmt: v => Array.isArray(v) && v.length ? v.join('・') : null },
-          { key: 'has_special_chars', label: '外字', width: '3.5rem', fmt: yesNo },
-        ]} />
-        {/* 住所の型（全画面共通）：郵便番号 → 住所1 → 住所2 */}
-        <FieldGrid>
-          <V label="郵便番号" value={zip(cl?.postal_code)} mono />
-          <V label="振込名義人（カナ）" value={cl?.transfer_name_kana} mono />
-          <V label="住所1（都道府県〜番地まで）" value={cl?.address} fullWidth />
-          <V label="住所2（建物名・部屋番号）" value={cl?.address2} fullWidth />
-        </FieldGrid>
-      </Section>
+      <OSSection title="依頼者情報" memo={wc.clientInfo}>
+        <Block title="依頼者一覧">
+          <Table rows={snapshot.caseClients} emptyText="依頼者が登録されていません" cols={[
+            { key: 'priority', label: '優先度', width: '7rem', fmt: v => v === 'main' ? 'メイン依頼人' : v === 'companion' ? '同行者' : S(v) },
+            { key: 'name', label: '氏名' }, { key: 'furigana', label: 'ふりがな' }, { key: 'relationship', label: '続柄', width: '5rem' },
+            { key: 'mobile_phone', label: 'TEL（携帯）', width: '8.5rem', fmt: v => formatPhone(S(v)) || null },
+            { key: 'phone', label: 'TEL（固定）', width: '8.5rem', fmt: v => formatPhone(S(v)) || null },
+            { key: 'email', label: 'メール' },
+            { key: 'preferred_contact', label: '連絡先希望', fmt: v => Array.isArray(v) && v.length ? v.join('・') : null },
+            { key: 'has_special_chars', label: '外字', width: '3.5rem', fmt: yesNo },
+          ]} />
+        </Block>
+        <Block title="メイン依頼者の住所・振込名義">
+          {/* 住所の型（全画面共通）：郵便番号 → 住所1 → 住所2 */}
+          <FieldGrid>
+            <V label="郵便番号" value={zip(cl?.postal_code)} mono />
+            <V label="振込名義人（カナ）" value={cl?.transfer_name_kana} mono />
+            <V label="住所1（都道府県〜番地まで）" value={cl?.address} fullWidth />
+            <V label="住所2（建物名・部屋番号）" value={cl?.address2} fullWidth />
+          </FieldGrid>
+        </Block>
+      </OSSection>
 
-      <Section title="提案内容・手続き内容" memo={wc.order}>
-        <FieldGrid>
-          <V label="受注区分" value={[c.service_category, c.service_category_2].filter(Boolean).join('／')} />
-          <V label="契約形態" value={c.contract_type} />
-          <V label="実施業務" value={gyomus} fullWidth />
-          <V label="提案金額（行政）" value={c.proposal_administrative} mono />
-          <V label="提案金額（司法）" value={c.proposal_judicial} mono />
-          <V label="面談結果" value={status ? getCaseStatusLabel(status) : null} />
-          <V label="受注の獲得区分" value={c.order_win_type} />
-          <V label="検討中・失注理由" value={[c.consideration_decline_reason, c.consideration_decline_reason_detail].filter(Boolean).join('：')} fullWidth />
-          <V label="検討期間" value={c.consideration_period} />
-          <V label="見込み度合い" value={c.prospect_level} />
-          <V label="お客様回答予定日" value={c.client_response_due_date} mono />
-          <V label="完了予定日" value={c.expected_completion_date} mono />
-          <V label="難易度" value={c.difficulty} />
-          <V label="依頼者の特徴" value={[c.client_trait, c.client_trait_detail].filter(Boolean).join('／')} />
-        </FieldGrid>
-      </Section>
+      <OSSection title="提案内容・手続き内容" memo={wc.order}>
+        <Block title="受注内容">
+          <FieldGrid>
+            <V label="受注区分" value={[c.service_category, c.service_category_2].filter(Boolean).join('／')} />
+            <V label="契約形態" value={c.contract_type} />
+            <V label="実施業務" value={gyomus} fullWidth />
+            <V label="提案金額（行政）" value={c.proposal_administrative} mono />
+            <V label="提案金額（司法）" value={c.proposal_judicial} mono />
+          </FieldGrid>
+        </Block>
+        <Block title="面談結果">
+          <FieldGrid>
+            <V label="面談結果" value={status ? getCaseStatusLabel(status) : null} />
+            <V label="受注の獲得区分" value={c.order_win_type} />
+            <V label="検討中・失注理由" value={[c.consideration_decline_reason, c.consideration_decline_reason_detail].filter(Boolean).join('：')} fullWidth />
+            <V label="検討期間" value={c.consideration_period} />
+            <V label="見込み度合い" value={c.prospect_level} />
+            <V label="お客様回答予定日" value={c.client_response_due_date} mono />
+            <V label="完了予定日" value={c.expected_completion_date} mono />
+            <V label="難易度" value={c.difficulty} />
+            <V label="依頼者の特徴" value={[c.client_trait, c.client_trait_detail].filter(Boolean).join('／')} />
+          </FieldGrid>
+        </Block>
+      </OSSection>
 
-      <Section title="相続人調査" memo={wc.deceased}>
-        <FieldGrid>
-          <V label="被相続人氏名" value={c.deceased_name} />
-          <V label="被相続人ふりがな" value={c.deceased_furigana} />
-          <V label="被相続人生年月日" value={c.deceased_birth_date} mono />
-          <V label="相続開始日（死亡日）" value={c.date_of_death} mono />
-          <V label="住所1（都道府県〜番地まで）" value={c.deceased_address} fullWidth />
-          <V label="住所2（建物名・部屋番号）" value={c.deceased_address2} fullWidth />
-          <V label="被相続人本籍" value={c.deceased_registered_address} fullWidth />
-        </FieldGrid>
-        <div className="space-y-1">
-          <div className={SUB}>相続人一覧</div>
+      <OSSection title="相続人調査" memo={wc.deceased}>
+        <Block title="被相続人情報">
+          <FieldGrid>
+            <V label="被相続人氏名" value={c.deceased_name} />
+            <V label="被相続人ふりがな" value={c.deceased_furigana} />
+            <V label="被相続人生年月日" value={c.deceased_birth_date} mono />
+            <V label="相続開始日（死亡日）" value={c.date_of_death} mono />
+            <V label="住所1（都道府県〜番地まで）" value={c.deceased_address} fullWidth />
+            <V label="住所2（建物名・部屋番号）" value={c.deceased_address2} fullWidth />
+            <V label="被相続人本籍" value={c.deceased_registered_address} fullWidth />
+          </FieldGrid>
+        </Block>
+        <Block title="相続人一覧">
           <Table rows={snapshot.heirs} emptyText="相続人が登録されていません" cols={[
             { key: 'name', label: '氏名' }, { key: 'relationship_type', label: '続柄', width: '6rem', fmt: (v, r) => S(v) ?? S(r.relationship) },
             { key: 'address', label: '住所1（都道府県〜番地）' }, { key: 'address2', label: '住所2（建物名・部屋番号）' },
             { key: 'is_client', label: '依頼者', width: '4rem', fmt: yesNo }, { key: 'is_deceased', label: '死亡', width: '4rem', fmt: yesNo },
           ]} />
-        </div>
-      </Section>
+        </Block>
+      </OSSection>
 
       {estimates.length > 0 && (
-        <Section title="資産概算（調査開始前）" badge={typeof c.total_asset_estimate === 'number' ? `合計 ${yen(c.total_asset_estimate)}` : null}>
-          <Table rows={estimates} cols={[{ key: 'kind', label: '区分', width: '9rem' }, { key: 'amount', label: '金額', money: true, right: true, width: '10rem' }, { key: 'note', label: 'メモ' }]} />
-        </Section>
+        <OSSection title="資産概算（調査開始前）" badge={typeof c.total_asset_estimate === 'number' ? `合計 ${yen(c.total_asset_estimate)}` : null}>
+          <Block>
+            <Table rows={estimates} cols={[{ key: 'kind', label: '区分', width: '9rem' }, { key: 'amount', label: '金額', money: true, right: true, width: '10rem' }, { key: 'note', label: 'メモ' }]} />
+          </Block>
+        </OSSection>
       )}
 
-      <Section title="財産調査（不動産）" memo={wc.assets_re}>
-        <Table rows={snapshot.properties} emptyText="不動産の登録はありません" cols={[
-          { key: 'property_type', label: '物件種別', width: '6rem' }, { key: 'address', label: '所在地' }, { key: 'lot_number', label: '地番・家屋番号', fmt: (v, r) => S(v) ?? S(r.kaoku_bango) }, { key: 'notes', label: '備考' },
-        ]} />
-      </Section>
+      <OSSection title="財産調査（不動産）" memo={wc.assets_re}>
+        <Block title="不動産一覧">
+          <Table rows={snapshot.properties} emptyText="不動産の登録はありません" cols={[
+            { key: 'property_type', label: '物件種別', width: '6rem' }, { key: 'address', label: '所在地' }, { key: 'lot_number', label: '地番・家屋番号', fmt: (v, r) => S(v) ?? S(r.kaoku_bango) }, { key: 'notes', label: '備考' },
+          ]} />
+        </Block>
+      </OSSection>
 
-      <Section title="財産調査（預金）" memo={wc.assets_deposit}>
-        <Table rows={deposits} emptyText="預金口座の登録はありません" cols={[
-          { key: 'institution_name', label: '金融機関名' }, { key: 'branch_name', label: '支店' }, { key: 'account_type', label: '口座種別', width: '6rem' }, { key: 'account_number', label: '口座番号', width: '9rem' }, { key: 'notes', label: '備考' },
-        ]} />
-      </Section>
+      <OSSection title="財産調査（預金）" memo={wc.assets_deposit}>
+        <Block title="預金口座">
+          <Table rows={deposits} emptyText="預金口座の登録はありません" cols={[
+            { key: 'institution_name', label: '金融機関名' }, { key: 'branch_name', label: '支店' }, { key: 'account_type', label: '口座種別', width: '6rem' }, { key: 'account_number', label: '口座番号', width: '9rem' }, { key: 'notes', label: '備考' },
+          ]} />
+        </Block>
+      </OSSection>
 
       {securities.length > 0 && (
-        <Section title="財産調査（証券・信託）" memo={wc.assets_securities}>
-          <Table rows={securities} cols={[{ key: 'asset_type', label: '種別', width: '6rem' }, { key: 'institution_name', label: '金融機関名' }, { key: 'notes', label: '備考' }]} />
-        </Section>
+        <OSSection title="財産調査（証券・信託）" memo={wc.assets_securities}>
+          <Block>
+            <Table rows={securities} cols={[{ key: 'asset_type', label: '種別', width: '6rem' }, { key: 'institution_name', label: '金融機関名' }, { key: 'notes', label: '備考' }]} />
+          </Block>
+        </OSSection>
       )}
 
       {insurance.length > 0 && (
-        <Section title="財産調査（生命保険）" memo={wc.assets_insurance}>
-          <Table rows={insurance} cols={[{ key: 'institution_name', label: '保険会社名' }, { key: 'notes', label: '備考（受取人・保険金など）' }]} />
-        </Section>
+        <OSSection title="財産調査（生命保険）" memo={wc.assets_insurance}>
+          <Block>
+            <Table rows={insurance} cols={[{ key: 'institution_name', label: '保険会社名' }, { key: 'notes', label: '備考（受取人・保険金など）' }]} />
+          </Block>
+        </OSSection>
       )}
 
       {snapshot.otherAssets.length > 0 && (
-        <Section title="その他財産・相続債務・その他費用">
-          <Table rows={snapshot.otherAssets} cols={[{ key: 'kind', label: '区分', width: '8rem' }, { key: 'name', label: '名称' }, { key: 'amount', label: '金額', money: true, right: true, width: '10rem' }, { key: 'notes', label: '備考' }]} />
-        </Section>
+        <OSSection title="その他財産・相続債務・その他費用">
+          <Block>
+            <Table rows={snapshot.otherAssets} cols={[{ key: 'kind', label: '区分', width: '8rem' }, { key: 'name', label: '名称' }, { key: 'amount', label: '金額', money: true, right: true, width: '10rem' }, { key: 'notes', label: '備考' }]} />
+          </Block>
+        </OSSection>
       )}
 
       {(snapshot.referrals.length > 0 || S(c.tax_filing_required)) && (
-        <Section title="他事業者紹介" memo={wc.referral}>
-          <FieldGrid>
-            <V label="相続税申告要否" value={c.tax_filing_required} />
-          </FieldGrid>
-          <Table rows={snapshot.referrals} emptyText="紹介はありません" cols={[
-            { key: 'partner_type', label: '紹介先の種別', width: '7rem' }, { key: 'firm_name', label: '紹介先' }, { key: 'referral_reason', label: '紹介理由' },
-            { key: 'appraisal_rank', label: '査定ランク', width: '6rem' }, { key: 'content', label: '依頼内容' }, { key: 'content_detail', label: '備考' },
-          ]} />
-        </Section>
+        <OSSection title="他事業者紹介" memo={wc.referral}>
+          <Block title="税理士紹介">
+            <FieldGrid>
+              <V label="相続税申告要否" value={c.tax_filing_required} />
+            </FieldGrid>
+          </Block>
+          <Block title="紹介先">
+            <Table rows={snapshot.referrals} emptyText="紹介はありません" cols={[
+              { key: 'partner_type', label: '紹介先の種別', width: '7rem' }, { key: 'firm_name', label: '紹介先' }, { key: 'referral_reason', label: '紹介理由' },
+              { key: 'appraisal_rank', label: '査定ランク', width: '6rem' }, { key: 'content', label: '依頼内容' }, { key: 'content_detail', label: '備考' },
+            ]} />
+          </Block>
+        </OSSection>
       )}
 
       {(S(c.meeting_hearing_memo) || S(c.meeting_other_notes)) && (
-        <Section title="ヒアリング内容・申し送り">
-          <FieldGrid cols={1}>
-            <V label="ヒアリング内容メモ" value={c.meeting_hearing_memo} fullWidth />
-            <V label="その他申し送り事項" value={c.meeting_other_notes} fullWidth />
-          </FieldGrid>
-        </Section>
+        <OSSection title="ヒアリング内容・申し送り">
+          <Block>
+            <FieldGrid cols={1}>
+              <V label="ヒアリング内容メモ" value={c.meeting_hearing_memo} fullWidth />
+              <V label="その他申し送り事項" value={c.meeting_other_notes} fullWidth />
+            </FieldGrid>
+          </Block>
+        </OSSection>
       )}
     </div>
   )
