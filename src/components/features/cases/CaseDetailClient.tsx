@@ -110,6 +110,8 @@ type Props = {
   whiteboardMemos?: MemoLite[]
   /** 前受金請求書が発行済か（受注→作業着手準備ナビの料金表入力・前受金請求書発行ゲート用） */
   advanceInvoiceIssued?: boolean
+  /** 管理担当の割振り依頼を既に出したか（最新1件）。出していれば開くたびのポップは出さない */
+  assignRequestSent?: { at: string; toName: string | null } | null
 }
 
 // DBトリガーで他カラムが自動更新されるフィールド → 更新後に全体refreshが必要
@@ -121,7 +123,7 @@ const VALID_TABS: TabKey[] = ['orderSheet', 'basicInfo', 'progress', 'ownerSales
 // 管理担当の割振り依頼ポップを出すステータス。依頼確定待ちの段階から割り振っておく運用。
 const ASSIGN_PROMPT_STATUSES = new Set(['受注', '戻り受注', '作業着手準備', '検討中（契約書待ち）'])
 
-export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, acquisitions = [], financialAssets, financialInstitutions = [], financialRequests = [], financialRequestItems = [], securitiesHoldings = [], jasdecResults = [], assetInventory = [], otherAssets = [], divisionDetails, agreementDispatches = [], expenses, documents, clientCommunications, currentMemberId, viewerRole = null, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [], createdDocuments = [], caseFiles = [], reopenCount = 0, advancePaid = false, advanceInvoiceIssued = false, whiteboardMemos = [] }: Props) {
+export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, tasks, allMembers, taskTemplates, heirs, kosekiRequests, properties, acquisitions = [], financialAssets, financialInstitutions = [], financialRequests = [], financialRequestItems = [], securitiesHoldings = [], jasdecResults = [], assetInventory = [], otherAssets = [], divisionDetails, agreementDispatches = [], expenses, documents, clientCommunications, currentMemberId, viewerRole = null, caseAlerts, statusHistory, documentReceipts, caseReferrals, caseClients, contractDocuments = [], sagyoDocuments = [], createdDocuments = [], caseFiles = [], reopenCount = 0, advancePaid = false, advanceInvoiceIssued = false, whiteboardMemos = [], assignRequestSent = null }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tabFromUrl = (() => {
@@ -141,10 +143,13 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
   //   ・割振り担当本人（依頼を出す側ではなく受ける側）
   //   ・担当者タブを直接開いたとき。割振り依頼の通知は /cases/{id}?tab=assignees へ飛ぶので、
   //     ここへ来た人はアサインしに来ている。依頼のポップを出すと閉じる操作から始まってしまう。
+  //   ・既に依頼を出したあと。開くたびに出ると「もう依頼したのに」となるので、代わりに「依頼済み」の帯と再依頼ボタンを出す
+  const [assignSent, setAssignSent] = useState(assignRequestSent)
   const [assignReqOpen, setAssignReqOpen] = useState(() =>
     ASSIGN_PROMPT_STATUSES.has(caseDataProp.status)
     && !caseMembers.some(cm => cm.role === 'manager')
     && !caseDataProp.manager_assign_skipped
+    && !assignRequestSent
     && !allMembers.find(m => m.id === currentMemberId)?.is_dispatcher
     && tabFromUrl !== 'assignees')
   // 案件ステータス→「完了」ゲート：請求パターン別の入金完了条件を満たしていない時に表示するモーダル
@@ -348,7 +353,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
       setNavDismissed(false)
       // 受注系にした瞬間 → 管理担当の割振り依頼ポップ（管理担当が未アサイン かつ 割り振らない指定でない ときだけ）
       // 割振り担当本人には出さない（自分で割り振れるので依頼する相手がいない）
-      if (!managerAssigned && !caseState.manager_assign_skipped && !isDispatcher) setAssignReqOpen(true)
+      if (!managerAssigned && !caseState.manager_assign_skipped && !isDispatcher && !assignSent) setAssignReqOpen(true)
     }
     // （タスク出しは作業着手準備の「タスク出し」ゲートで管理担当が行うため、
     //   対応中化の際の「タスクを設定してください」ポップアップは廃止）
@@ -759,6 +764,15 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         {/* タブ↔ナビの箱を結ぶリードライン（最後に描画して最前面に） */}
         {(jutakuNavVisible || kentouNavVisible || workPrepNavVisible || wipNavVisible) && <NavConnectors wrapRef={navWrapRef} deps={navHighlightTabs.join(',')} />}
 
+        {/* 割振り依頼を出したあと、まだ管理担当が付いていない：ポップの代わりに一行で状態を出す（再依頼はここから） */}
+        {ASSIGN_PROMPT_STATUSES.has(caseState.status) && !managerAssigned && !caseState.manager_assign_skipped && assignSent && !isDispatcher && (
+          <div className="mt-3 flex items-center gap-2 flex-wrap rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-[12.5px] text-gray-700">
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-300 text-white text-[11px] font-bold">!</span>
+            <span>管理担当の割振りを依頼済み（{assignSent.at.slice(0, 10)}{assignSent.toName ? `・${assignSent.toName}さんへ` : ''}）。アサインされるまでお待ちください</span>
+            <button type="button" onClick={() => setAssignReqOpen(true)} className="ml-auto text-[12px] font-semibold text-brand-600 hover:text-brand-700 border border-brand-200 bg-white rounded-md px-2.5 py-1">もう一度依頼する</button>
+          </div>
+        )}
+
         {/* 管理担当ビュー: 引継直後で管理担当が未アサインなら『案件情報→担当者』への誘導バナーを表示 */}
         {managerAssignNav && (
           <div className="mt-3 flex items-center gap-2 rounded-lg border border-brand-200 bg-brand-50 px-4 py-2.5 text-[13px] text-brand-800">
@@ -1070,7 +1084,7 @@ export default function CaseDetailClient({ caseData: caseDataProp, caseMembers, 
         caseNumber={caseState.case_number}
         dealName={caseState.deal_name ?? ''}
         allMembers={allMembers}
-        onDone={handleSaved}
+        onDone={info => { setAssignSent({ at: new Date().toISOString(), toName: info.toName }); handleSaved() }}
         onSkip={() => { setCaseState(c => ({ ...c, manager_assign_skipped: true })); handleSaved() }}
       />
 

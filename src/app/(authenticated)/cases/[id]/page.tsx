@@ -133,6 +133,16 @@ export default async function CaseDetailPage({ params }: Props) {
     notFound()
   }
 
+  // 管理担当の割振り依頼を既に出したか（最新1件）。出していれば案件詳細を開くたびのポップは出さず、依頼済みの帯にする
+  const assignReqRes = await supabase.from('notifications')
+    .select('created_at, members(name)')
+    .eq('case_id', id).eq('type', 'manager_assign_request')
+    .order('created_at', { ascending: false }).limit(1).maybeSingle()
+  const assignReqRow = assignReqRes.data as { created_at: string; members: { name: string } | { name: string }[] | null } | null
+  const assignRequestSent = assignReqRow
+    ? { at: assignReqRow.created_at, toName: (Array.isArray(assignReqRow.members) ? assignReqRow.members[0]?.name : assignReqRow.members?.name) ?? null }
+    : null
+
   // 最終接触日（鮮度フラグ用）を更新。1日1回だけ書き込む。
   try {
     const lastOpened = (caseResult.data as { last_opened_at?: string | null }).last_opened_at
@@ -203,6 +213,7 @@ export default async function CaseDetailPage({ params }: Props) {
       whiteboardMemos={(whiteboardMemosResult.data ?? []) as unknown as MemoLite[]}
       advancePaid={advInvRows.some(r => r.status === '入金済')}
       advanceInvoiceIssued={advInvRows.some(r => !!r.issued_date || r.status === '入金待ち' || r.status === '入金済')}
+      assignRequestSent={assignRequestSent}
       assetInventory={(assetInventoryResult.data ?? []) as AssetInventoryRow[]}
       otherAssets={(otherAssetsResult.data ?? []) as CaseOtherAssetRow[]}
       financialInstitutions={(financialInstitutionsResult.data ?? []) as FinancialInstitutionRow[]}

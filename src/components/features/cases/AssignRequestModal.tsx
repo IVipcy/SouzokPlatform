@@ -22,7 +22,8 @@ export default function AssignRequestModal({ isOpen, onClose, caseId, caseNumber
   caseNumber: string | null
   dealName: string
   allMembers: MemberRow[]
-  onDone?: () => void
+  /** 依頼を送ったあと（誰に送ったかを親へ。親は「依頼済み」の帯を出す） */
+  onDone?: (info: { toName: string | null }) => void
   onSkip?: () => void   // 「割り振らない」確定後に親へ通知（caseState 反映用）
 }) {
   const flagged = allMembers.filter(m => m.is_active && m.is_dispatcher)
@@ -52,7 +53,7 @@ export default function AssignRequestModal({ isOpen, onClose, caseId, caseNumber
     setSaving(false)
     if (error) { showToast(`依頼に失敗しました: ${error.message}`, 'error'); return }
     showToast('割振り担当へ依頼しました', 'success')
-    onDone?.(); onClose()
+    onDone?.({ toName: selectedMember?.name ?? null }); onClose()
   }
 
   // 「割り振らない」を確定：フラグを保存し、依頼は送らずに閉じる。
