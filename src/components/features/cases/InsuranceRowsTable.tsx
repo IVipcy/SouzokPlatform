@@ -4,6 +4,7 @@
 //   面談で分かるのは「保険会社名」まで。複数社あるのが普通なので1行1社。受取人・保険金は備考に。
 //   会社が分からないときの「生命保険協会への契約照会」は案件に1つ（cases.life_insurance_inquiry。呼び出し側で出す）。
 
+import { useMemo } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
@@ -18,7 +19,11 @@ export default function InsuranceRowsTable({ caseId, assets, onRefresh, ensureCa
   ensureCaseId?: () => Promise<string>
 }) {
   const supabase = createClient()
-  const [rows, setRows] = useRowsFrom(assets.filter(a => a.asset_type === '生命保険'))
+  // useRowsFrom に渡す配列は識別子が安定していること。filter をそのまま渡すと描画のたびに新しい配列になり、
+  // 「前回と違う→入れ直す（setState）→再描画→また違う」で無限ループ（Too many re-renders）になっていた。
+  // 受注系の案件でオーダーシートが出た瞬間に案件詳細が落ちていた原因
+  const insurance = useMemo(() => assets.filter(a => a.asset_type === '生命保険'), [assets])
+  const [rows, setRows] = useRowsFrom(insurance)
   const inp = 'input-flat w-full px-2 py-1 text-[13px] text-gray-800 outline-none'
 
   // 入力中はローカルだけ更新し、欄を離れた（blur）ときに1回書く。1文字ごとにDBへ書いていた
