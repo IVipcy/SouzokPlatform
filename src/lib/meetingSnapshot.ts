@@ -26,7 +26,7 @@ const CASE_FIELDS = [
   'procedure_type', 'intake_roles', 'proposal_judicial', 'proposal_administrative', 'proposal_note',
   'contract_type', 'difficulty', 'client_response_due_date', 'consideration_period', 'prospect_level',
   'deceased_name', 'deceased_furigana', 'deceased_birth_date', 'date_of_death',
-  'deceased_address', 'deceased_registered_address',
+  'deceased_address', 'deceased_address2', 'deceased_registered_address',
   'meeting_hearing_memo', 'meeting_other_notes', 'work_content', 'tax_filing_required',
   // 面談で決まるのに記録に入っていなかったもの
   'consideration_decline_reason', 'consideration_decline_reason_detail', 'client_trait', 'client_trait_detail',
