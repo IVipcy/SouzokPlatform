@@ -7,6 +7,7 @@ import { Search, User, X, CheckCircle2, Trash2, ListChecks, Compass, HelpCircle,
 import { HELP_TYPE_LABEL, type HelpType } from '@/lib/managerReviewTask'
 import PageHeader from '@/components/ui/PageHeader'
 import HelpHint from '@/components/ui/HelpHint'
+import { SubTabs } from '@/components/ui/SubTabs'
 import { TaskTabHelp } from '@/components/ui/TaskSeverityHelp'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import EditTaskModal from './EditTaskModal'
@@ -633,14 +634,13 @@ export default function TaskListClient({ tasks, caseMap, allMembers, currentMemb
 
       {/* 金融資産調査タブのサブタブ（事務管理ダッシュボードだけ）。来店予約一覧はタスクではなく来店カレンダーの行 */}
       {financeSubPanel && taskTab === 'finance' && (
-        <div className="flex items-center gap-1 mt-4 -mb-2">
-          {([['tasks', 'タスク'], ['panel', financeSubPanel.label]] as const).map(([k, label]) => (
-            <button key={k} type="button" onClick={() => setFinanceSub(k)}
-              className={`inline-flex items-center gap-1.5 h-8 px-3 text-[12.5px] font-semibold border ${financeSub === k ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>
-              {label}
-              {k === 'panel' && <span className={`font-mono text-[11px] px-1.5 py-0.5 rounded-full ${financeSub === k ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>{financeSubPanel.count}</span>}
-            </button>
-          ))}
+        // 案件詳細と同じ共通のサブタブ部品。以前は独自の四角いボタンを表に食い込ませて置いていて、表の角にかぶさって崩れて見えた
+        <div className="mt-4">
+          <SubTabs
+            tabs={[{ key: 'tasks', label: 'タスク', count: filtered.length }, { key: 'panel', label: financeSubPanel.label, count: financeSubPanel.count }]}
+            active={financeSub}
+            onChange={k => setFinanceSub(k as 'tasks' | 'panel')}
+          />
         </div>
       )}
       {showFinancePanel ? financeSubPanel!.node : (
