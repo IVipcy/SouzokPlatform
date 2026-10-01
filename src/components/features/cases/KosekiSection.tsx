@@ -1000,6 +1000,36 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
   const targetHeir = heirs.find(h => (h.name ?? '').trim() === targetName) ?? null
   const isClientTarget = !!targetHeir?.is_client
 
+  // 人を選ぶ欄に添える情報（続柄・依頼者・被相続人・死亡）。相続人一覧と被相続人から引く
+  const personInfoOf = (n: string | null | undefined) => {
+    const nm = (n ?? '').trim()
+    if (!nm) return null
+    if (nm === (caseData.deceased_name ?? '').trim()) return { rel: '', decedent: true, client: false, dead: false }
+    const h = heirs.find(x => (x.name ?? '').trim() === nm)
+    return h ? { rel: (h.relationship_type || h.relationship || '').trim(), decedent: false, client: !!h.is_client, dead: !!h.is_deceased } : null
+  }
+  /** プルダウンの中の表記。「テスト試験（長男・依頼者）」 */
+  const personLabel = (n: string) => {
+    const i = personInfoOf(n)
+    if (!i) return n
+    const parts = [i.decedent ? '被相続人' : i.rel, i.client ? '依頼者' : '', i.dead ? '死亡' : ''].filter(Boolean)
+    return parts.length > 0 ? `${n}（${parts.join('・')}）` : n
+  }
+  /** 選んだあとの横の印 */
+  const personTags = (n: string | null | undefined) => {
+    const i = personInfoOf(n)
+    if (!i) return null
+    const chip = 'flex-none text-[10.5px] px-1.5 leading-[18px] rounded-sm whitespace-nowrap'
+    return (
+      <span className="flex items-center gap-1 flex-none">
+        {i.decedent && <span className={`${chip} bg-amber-50 text-amber-800`}>被相続人</span>}
+        {!i.decedent && i.rel && <span className="flex-none text-[11.5px] text-gray-500 whitespace-nowrap">{i.rel}</span>}
+        {i.client && <span className={`${chip} bg-brand-50 text-brand-700`}>依頼者</span>}
+        {i.dead && <span className={`${chip} bg-gray-100 text-gray-500`}>死亡</span>}
+      </span>
+    )
+  }
+
   // 既定値は「まだ何も入っていないとき」だけ入れる。
   // 承認待ちで編集させない請求にも同じ順番でフックを通す必要があるので、早期returnより前に置く。
   // 一度でも触ったもの（基礎証明外事項を1つだけ外した／抄本に変えた）を、
@@ -1185,13 +1215,15 @@ function KosekiCard({ r, meId, personNames = [], caseData, heirs = [], saveField
               : '戸籍請求書の「本籍・住所」欄に入ります。戸籍なので本籍です。本籍は転籍のたびに変わるため自動では入れません。手で入れてください。'}>
             <TxtCell value={r.honseki_address} onCommit={v => saveField(r.id, 'honseki_address', v)} />
           </KosekiFieldRow>
+          {/* 人を選ぶ欄は、氏名に続柄・依頼者・被相続人・死亡を添える（同じ苗字が並ぶので名前だけでは判断しづらい）。
+              保存するのは氏名だけ。請求書に印字されるのも氏名だけ。 */}
           <KosekiFieldRow label="筆頭主／世帯主" disabled={isShokumujo} disabledNote={NOT_USED_NOTE}>
-            <SelectOrTextField value={r.head_person} options={personNames} onSave={v => saveField(r.id, 'head_person', v)} placeholder="筆頭主/世帯主" />
+            <SelectOrTextField value={r.head_person} options={personNames} optionLabel={personLabel} suffix={personTags(r.head_person)} onSave={v => saveField(r.id, 'head_person', v)} placeholder="筆頭主/世帯主" />
           </KosekiFieldRow>
           {/* 請求に係る者の氏名＝誰の戸籍か。職務上請求でも左レールの並びを決める大事な値なので、
               ここだけは薄くしない（薄くすると対象者を直せなくなる）。 */}
           <KosekiFieldRow label="氏名（請求に係る者）">
-            <SelectOrTextField value={r.target_person} options={personNames} onSave={v => saveField(r.id, 'target_person', v)} placeholder="誰の戸籍か" />
+            <SelectOrTextField value={r.target_person} options={personNames} optionLabel={personLabel} suffix={personTags(r.target_person)} onSave={v => saveField(r.id, 'target_person', v)} placeholder="誰の戸籍か" />
           </KosekiFieldRow>
           <KosekiFieldRow label="基礎証明外事項" sub="住民票のとき" full disabled={isShokumujo} disabledNote={NOT_USED_NOTE}
             hint="戸籍請求の住基法12条の3第7項による基礎証明事項以外の事項に選択したものを記載してください。">

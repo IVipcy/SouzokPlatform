@@ -9,7 +9,7 @@ import { Pencil, RotateCcw } from 'lucide-react'
  * - 選択モード: select（末尾に「自由入力に切替」）＋鉛筆ボタン
  * - 自由入力モード: テキスト入力（amber背景）＋「選択肢に戻す」ボタン
  */
-export default function SelectOrTextField({ value, options, onSave, placeholder, emptyLabel = '— 選択 —', className }: {
+export default function SelectOrTextField({ value, options, onSave, placeholder, emptyLabel = '— 選択 —', className, optionLabel, suffix }: {
   value: string | null
   options: readonly string[]
   onSave: (v: string) => void
@@ -17,6 +17,10 @@ export default function SelectOrTextField({ value, options, onSave, placeholder,
   emptyLabel?: string
   // 呼び出し側で入力欄のサイズ等を上書き（例：オーダーシートの大きめカード入力に合わせる）
   className?: string
+  /** 選択肢に出す文字（保存するのは options の値のまま）。例：氏名に続柄・依頼者を添える */
+  optionLabel?: (v: string) => string
+  /** 選択欄の右に置く小さな印（選んだ値の補足。選択モードのときだけ出す） */
+  suffix?: React.ReactNode
 }) {
   const inList = !!value && options.includes(value)
   const [mode, setMode] = useState<'select' | 'free'>(!!value && !inList ? 'free' : 'select')
@@ -52,9 +56,10 @@ export default function SelectOrTextField({ value, options, onSave, placeholder,
         className={`flex-1 min-w-0 outline-none bg-white focus:border-brand-500 transition ${ctl}`}
       >
         <option value="">{emptyLabel}</option>
-        {options.map(o => <option key={o} value={o}>{o}</option>)}
+        {options.map(o => <option key={o} value={o}>{optionLabel ? optionLabel(o) : o}</option>)}
         <option value="__free__">— 自由入力に切替 —</option>
       </select>
+      {suffix}
       <button
         type="button"
         onClick={() => setMode('free')}
